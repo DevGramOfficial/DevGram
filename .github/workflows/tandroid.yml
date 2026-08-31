@@ -14,6 +14,7 @@ jobs:
       id-token: write
       attestations: write
     strategy:
+      fail-fast: false
       matrix:
         type: [debug, release]
         include:
@@ -67,8 +68,8 @@ jobs:
 
           echo "DUMMY_CONST=0" >> $vars
           echo "org.gradle.workers.max=1" >> $vars
-          echo "APP_ID=${{ secrets.APP_ID }}" >> $vars
-          echo "APP_HASH=${{ secrets.APP_HASH }}" >> $vars
+          [ -n "${{ secrets.APP_ID }}" ] && echo "APP_ID=${{ secrets.APP_ID }}" >> $vars || true
+          [ -n "${{ secrets.APP_HASH }}" ] && echo "APP_HASH=${{ secrets.APP_HASH }}" >> $vars || true
           echo "RELEASE_KEY_PASSWORD=${{ secrets.ALIAS_PASS }}" >> $vars
           echo "RELEASE_KEY_ALIAS=${{ secrets.ALIAS_NAME }}" >> $vars
           echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASS }}" >> $vars
@@ -76,8 +77,8 @@ jobs:
           echo "ADDITIONAL_BUILD_NUMBER=$ADDITIONAL_BUILD_NUMBER" >> $vars
           echo "USER_REPO=$USER_REPO" >> $vars
           echo "CHECK_UPDATES=${{ matrix.updates }}" >> $vars
-          echo "USER_ID_OWNER=${{ secrets.USER_ID_OWNER }}" >> $vars
-          echo "UPDATE_CHANNEL_USERNAME=${{ secrets.UPDATE_CHANNEL_USERNAME }}" >> $vars
+          [ -n "${{ secrets.USER_ID_OWNER }}" ] && echo "USER_ID_OWNER=${{ secrets.USER_ID_OWNER }}" >> $vars || true
+          [ -n "${{ secrets.UPDATE_CHANNEL_USERNAME }}" ] && echo "UPDATE_CHANNEL_USERNAME=${{ secrets.UPDATE_CHANNEL_USERNAME }}" >> $vars || true
           echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> $vars
           echo "LASTFM_API_SECRET=${{ secrets.LASTFM_API_SECRET }}" >> $vars
           echo "NATIVE_DEPS_NDK_DIR=$ANDROID_HOME/ndk/27.2.12479018" >> $vars
