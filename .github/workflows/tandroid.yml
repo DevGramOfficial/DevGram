@@ -70,9 +70,9 @@ jobs:
           echo "org.gradle.workers.max=1" >> $vars
           [ -n "${{ secrets.APP_ID }}" ] && echo "APP_ID=${{ secrets.APP_ID }}" >> $vars || true
           [ -n "${{ secrets.APP_HASH }}" ] && echo "APP_HASH=${{ secrets.APP_HASH }}" >> $vars || true
-          echo "RELEASE_KEY_PASSWORD=${{ secrets.ALIAS_PASS }}" >> $vars
-          echo "RELEASE_KEY_ALIAS=${{ secrets.ALIAS_NAME }}" >> $vars
-          echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASS }}" >> $vars
+          [ -n "${{ secrets.ALIAS_PASS }}" ] && echo "RELEASE_KEY_PASSWORD=${{ secrets.ALIAS_PASS }}" >> $vars || true
+          [ -n "${{ secrets.ALIAS_NAME }}" ] && echo "RELEASE_KEY_ALIAS=${{ secrets.ALIAS_NAME }}" >> $vars || true
+          [ -n "${{ secrets.KEYSTORE_PASS }}" ] && echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASS }}" >> $vars || true
           echo "RELEASE_KEYSTORE_FILE=$PWD/TMessagesProj/config/release.keystore" >> $vars
           echo "ADDITIONAL_BUILD_NUMBER=$ADDITIONAL_BUILD_NUMBER" >> $vars
           echo "USER_REPO=$USER_REPO" >> $vars
