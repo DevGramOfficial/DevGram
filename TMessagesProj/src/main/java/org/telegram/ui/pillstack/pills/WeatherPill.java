@@ -93,12 +93,10 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
         return true;
     }
 
-    // DevGram: экран поиска города — ввод названия → список найденных → выбор.
+    // DevGram: экран поиска города (полноэкранный фрагмент — клавиатура в ActionBar работает
+    // стабильно на всех прошивках, в отличие от BottomSheet).
     private void showCitySearch(BaseFragment fragment) {
-        if (fragment.getParentActivity() == null) return;
-        org.telegram.ui.DevGramWeatherCitySheet sheet =
-                new org.telegram.ui.DevGramWeatherCitySheet(fragment.getParentActivity(), this::onUpdateData0);
-        sheet.show();
+        fragment.presentFragment(new org.telegram.ui.DevGramWeatherCityActivity().setOnChosen(this::onUpdateData0));
     }
 
     private void onUpdateData0() {
