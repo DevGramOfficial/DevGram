@@ -322,6 +322,33 @@ public class DevGramPlugins {
     }
 
     // Список плагинов для менеджера: строки id␟name␟version␟author␟enabled.
+    // DevGram: общий лог плагинов (буфер в Python-загрузчике) — экран «Логи плагинов».
+    public static void logLine(String msg) {
+        if (msg == null || msg.isEmpty()) {
+            return;
+        }
+        try {
+            loader().callAttr("dg_log", msg);
+        } catch (Throwable ignore) {
+        }
+    }
+
+    public static String pluginLogs() {
+        try {
+            String s = loader().callAttr("get_logs").toString();
+            return s == null ? "" : s;
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
+    public static void clearPluginLogs() {
+        try {
+            loader().callAttr("clear_logs");
+        } catch (Throwable ignore) {
+        }
+    }
+
     public static List<String> listPlugins() {
         List<String> res = new ArrayList<>();
         if (!loaded) {
@@ -344,6 +371,7 @@ public class DevGramPlugins {
             loader().callAttr("set_enabled", id, enabled);
             refreshWantsUpdates();
             refreshRequestHooks();
+            logLine((enabled ? "включён плагин: " : "выключен плагин: ") + id);
         } catch (Throwable ignore) {
         }
     }
@@ -1222,6 +1250,7 @@ public class DevGramPlugins {
             }
         } catch (Throwable ignore) {
         }
+        final boolean crashNoticeNow = pendingCrashNotice;
         if (pendingCrashNotice) {
             pendingCrashNotice = false;
             // сбор отчёта тяжёлый (logcat) — в фоне, затем показ на UI
@@ -1236,6 +1265,12 @@ public class DevGramPlugins {
                     showCrashDialog(report);
                 });
             });
+        }
+        // DevGram: если включён безопасный режим — уведомить (один раз за запуск).
+        // При свежем сбое отдельный notice не дублируем: краш-диалог уже всё объясняет.
+        if (isSafeMode() && !safeModeNoticeShown && !crashNoticeNow) {
+            safeModeNoticeShown = true;
+            AndroidUtilities.runOnUIThread(DevGramPlugins::showSafeModeNotice, 1500);
         }
         // даём приложению 8 секунд «пожить»; если за это время упадёт — boot_pending останется
         AndroidUtilities.runOnUIThread(() -> {
@@ -1331,6 +1366,48 @@ public class DevGramPlugins {
     }
 
     // Показать отчёт целиком в прокручиваемом выделяемом диалоге.
+    // DevGram: показывали ли уже уведомление о безопасном режиме в этом запуске.
+    private static volatile boolean safeModeNoticeShown = false;
+
+    // DevGram: уведомить пользователя, что включён безопасный режим (плагины отключены),
+    // с быстрым действием «Выключить режим». Показывается один раз за запуск.
+    public static void showSafeModeNotice() {
+        try {
+            if (!isSafeMode()) {
+                return;
+            }
+            org.telegram.ui.ActionBar.BaseFragment fr = org.telegram.ui.LaunchActivity.getSafeLastFragment();
+            android.app.Activity a = fr != null ? fr.getParentActivity() : null;
+            if (a == null) {
+                safeModeNoticeShown = false; // покажем позже, когда появится активность
+                return;
+            }
+            org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
+            b.setTitle("Безопасный режим включён");
+            b.setMessage("Плагины сейчас отключены. Обычно режим включается автоматически после сбоя, чтобы приложение точно запустилось.\n\nНайдите и отключите проблемный плагин, затем выключите безопасный режим.");
+            b.setPositiveButton("Выключить режим", (d, w) -> {
+                setFlag("safe_mode", false);
+                int n = reload();
+                if (flag("dev_mode", false)) {
+                    setDevServerEnabled(true);
+                }
+                try {
+                    org.telegram.ui.ActionBar.BaseFragment f2 = org.telegram.ui.LaunchActivity.getSafeLastFragment();
+                    if (f2 != null) {
+                        org.telegram.ui.Components.BulletinFactory.of(f2)
+                                .createSimpleBulletin(R.raw.contact_check,
+                                        "Безопасный режим выключен. Загружено плагинов: " + n).show();
+                    }
+                } catch (Throwable ignore) {
+                }
+            });
+            b.setNegativeButton("Оставить", null);
+            b.show();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
     public static void showCrashDialog(String report) {
         try {
             org.telegram.ui.ActionBar.BaseFragment fr = org.telegram.ui.LaunchActivity.getSafeLastFragment();
@@ -1358,6 +1435,46 @@ public class DevGramPlugins {
                 } catch (Throwable ignore) {
                 }
             });
+            b.show();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
+    // DevGram: показать общий лог плагинов (кнопка «Логи плагинов» в «Системе плагинов»).
+    public static void showPluginLogs() {
+        try {
+            org.telegram.ui.ActionBar.BaseFragment fr = org.telegram.ui.LaunchActivity.getSafeLastFragment();
+            android.app.Activity a = fr != null ? fr.getParentActivity() : null;
+            if (a == null) {
+                return;
+            }
+            String logs = pluginLogs();
+            if (logs == null || logs.trim().isEmpty()) {
+                logs = "Логи пусты. Здесь появятся события загрузки и включения плагинов, а также ошибки хуков.";
+            }
+            final String shown = logs;
+            android.widget.TextView tv = new android.widget.TextView(a);
+            tv.setText(shown);
+            tv.setTextIsSelectable(true);
+            tv.setTypeface(android.graphics.Typeface.MONOSPACE);
+            tv.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 11);
+            tv.setTextColor(org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_dialogTextBlack));
+            int pad = AndroidUtilities.dp(16);
+            tv.setPadding(pad, pad, pad, pad);
+            android.widget.ScrollView sv = new android.widget.ScrollView(a);
+            sv.addView(tv);
+            org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
+            b.setTitle("Логи плагинов");
+            b.setView(sv);
+            b.setPositiveButton("Закрыть", null);
+            b.setNeutralButton("Копировать", (d, w) -> {
+                try {
+                    copyToClipboard(shown);
+                } catch (Throwable ignore) {
+                }
+            });
+            b.setNegativeButton("Очистить", (d, w) -> clearPluginLogs());
             b.show();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -3352,6 +3469,23 @@ public class DevGramPlugins {
         NET_QUEUE.execute(() ->
                 httpVerified("DELETE", RTDB + "/plugins_filters/" + key + ".json?auth=" + token, null));
         return true;
+    }
+
+    // DevGram: файл установленного плагина (.dgplugin приоритетно, затем .py/.plugin) или null.
+    // Нужен для «Обновить в каталоге»: берём локально обновлённый автором файл.
+    public static File pluginInstalledFile(String pluginId) {
+        if (pluginId == null || pluginId.isEmpty()) {
+            return null;
+        }
+        String safe = pluginId.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+        File dir = pluginsDir();
+        File pkg = new File(dir, safe + ".dgplugin");
+        if (pkg.isFile()) return pkg;
+        File py = new File(dir, safe + ".py");
+        if (py.isFile()) return py;
+        File pl = new File(dir, safe + ".plugin");
+        if (pl.isFile()) return pl;
+        return null;
     }
 
     // Установлен ли уже плагин с таким id (обычный исходник или пакет .dgplugin).

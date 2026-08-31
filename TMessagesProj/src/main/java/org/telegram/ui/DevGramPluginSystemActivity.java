@@ -33,6 +33,7 @@ public class DevGramPluginSystemActivity extends BaseFragment {
     private static final int ID_DEV_MODE = 3;
     private static final int ID_RELOAD = 10;
     private static final int ID_CRASH = 11;
+    private static final int ID_LOGS = 12;
     private static final int ID_DOCS = 20;
     private static final int ID_VERIFIED = 21;
     private static final int ID_DEV_TOKEN = 22;
@@ -78,6 +79,8 @@ public class DevGramPluginSystemActivity extends BaseFragment {
         items.add(UItem.asButton(ID_DEV_TOKEN, R.drawable.msg_info, "Токен dev server", "Нужен утилите загрузки .dgplugin"));
 
         items.add(UItem.asHeader("Диагностика"));
+        items.add(UItem.asButton(ID_LOGS, R.drawable.msg_info, "Логи плагинов"));
+        items.add(UItem.asShadow("Общий журнал: загрузка и включение плагинов, ошибки хуков."));
         items.add(UItem.asButton(ID_CRASH, R.drawable.msg_info, "Показать отчёт о сбое"));
         items.add(UItem.asShadow("Полный лог последнего падения (устройство, стек, logcat). Сохранён в файле devgram_crash.txt."));
 
@@ -91,6 +94,7 @@ public class DevGramPluginSystemActivity extends BaseFragment {
         if (item.id == ID_SAFE_MODE) {
             boolean safeMode = !DevGramPlugins.isSafeMode();
             DevGramPlugins.setFlag("safe_mode", safeMode);
+            DevGramPlugins.logLine(safeMode ? "включён безопасный режим" : "выключен безопасный режим");
             if (safeMode) {
                 DevGramPlugins.setDevServerEnabled(false);
             } else {
@@ -108,6 +112,7 @@ public class DevGramPluginSystemActivity extends BaseFragment {
         } else if (item.id == ID_DEV_MODE) {
             boolean enabled = !DevGramPlugins.flag("dev_mode", false);
             DevGramPlugins.setFlag("dev_mode", enabled);
+            DevGramPlugins.logLine(enabled ? "включён режим разработчика" : "выключен режим разработчика");
             if (enabled) {
                 DevGramPlugins.setDevServerEnabled(true);
             } else {
@@ -119,6 +124,9 @@ public class DevGramPluginSystemActivity extends BaseFragment {
         } else if (item.id == ID_RELOAD) {
             int n = DevGramPlugins.reload();
             BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Перезагружено плагинов: " + n).show();
+            return;
+        } else if (item.id == ID_LOGS) {
+            DevGramPlugins.showPluginLogs();
             return;
         } else if (item.id == ID_CRASH) {
             DevGramPlugins.showLastCrashReport();

@@ -64,8 +64,44 @@ def _validate_package_manifest(manifest, names):
     return plugin_id, main
 
 
+_LOG_BUF = []  # общий кольцевой буфер логов плагинов (для экрана «Логи плагинов»)
+
+
 def _log(msg):
-    _FileLog.d("[DevGramPlugins] " + str(msg))
+    line = str(msg)
+    try:
+        import time as _t
+        entry = "[%s] %s" % (_t.strftime("%H:%M:%S"), line)
+    except Exception:
+        entry = line
+    try:
+        _LOG_BUF.append(entry)
+        extra = len(_LOG_BUF) - 400
+        if extra > 0:
+            del _LOG_BUF[:extra]
+    except Exception:
+        pass
+    _FileLog.d("[DevGramPlugins] " + line)
+
+
+def get_logs():
+    """Весь буфер логов одной строкой (для показа в приложении)."""
+    try:
+        return "\n".join(_LOG_BUF)
+    except Exception:
+        return ""
+
+
+def clear_logs():
+    try:
+        del _LOG_BUF[:]
+    except Exception:
+        pass
+
+
+def dg_log(msg):
+    """Записать строку в общий лог плагинов (вызывается из Java для системных событий)."""
+    _log(msg)
 
 
 def _remove_package_paths(plugin_id, evict_modules=False):
@@ -116,7 +152,10 @@ def reload_all(dir_path):
                     sys.path.remove(wheel_path)
     _package_roots.clear()
     _package_manifests.clear()
-    return load_dir(dir_path)
+    _log("── перезагрузка плагинов ──")
+    n = load_dir(dir_path)
+    _log("перезагрузка завершена: активно %d плагинов" % n)
+    return n
 
 
 def reload_plugin(plugin_id):

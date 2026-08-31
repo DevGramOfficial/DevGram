@@ -77,6 +77,16 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         });
         content.addView(install, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 16, 0, 18));
 
+        // DevGram: автор опубликованного плагина может обновить файл в каталоге БЕЗ модерации —
+        // статистика (рейтинг/отзывы) сохраняется, меняется только файл и версия.
+        if (entry.submitterId != 0 && entry.submitterId == DevGramPlugins.myId()) {
+            TextView updateBtn = button(context, "Обновить в каталоге");
+            updateBtn.setOnClickListener(v -> publishCatalogUpdate(context));
+            content.addView(updateBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
+            addText("Заменит файл в каталоге без модерации, сохранив рейтинг и отзывы. Сначала установите обновлённую версию плагина.",
+                    13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        }
+
         addSectionTitle("Отзывы");
         ratingView = addText("Загрузка рейтинга…", 14, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         DevGramPlugins.fetchReviews(entry.id, reviews -> {
@@ -137,6 +147,71 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         title.setLetterSpacing(0.08f);
         title.setPadding(0, AndroidUtilities.dp(10), 0, AndroidUtilities.dp(5));
         return title;
+    }
+
+    // DevGram: опубликовать ОБНОВЛЕНИЕ своего плагина (update=true). Модбот применит без
+    // модерации (тот же автор), заменив только файл + версию; статистика сохранится.
+    private void publishCatalogUpdate(Context context) {
+        java.io.File f = DevGramPlugins.pluginInstalledFile(entry.id);
+        if (f == null) {
+            BulletinFactory.of(this).createErrorBulletin(
+                    "Сначала установите обновлённую версию плагина, затем нажмите «Обновить в каталоге»").show();
+            return;
+        }
+        final String path = f.getAbsolutePath();
+        DevGramPlugins.CatalogEntry ce = new DevGramPlugins.CatalogEntry();
+        ce.id = entry.id;
+        ce.name = entry.name;
+        ce.author = entry.author;
+        ce.desc = entry.desc;
+        ce.icon = entry.icon;
+        ce.channel = entry.channel;
+        ce.filter = entry.filter;
+        ce.version = entry.version;
+        ce.update = true;
+        final DevGramPlugins.SubmissionCallback cb = r -> {
+            String msg = r == 1
+                    ? "Обновление отправлено — файл заменится в каталоге без модерации, статистика сохранится"
+                    : (r == -1 ? "Плагин заблокирован — обновление запрещено"
+                    : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
+            BulletinFactory.of(this).createSimpleBulletin(r == 1 ? R.raw.contact_check : R.raw.error, msg).show();
+        };
+        if (path.endsWith(".dgplugin")) {
+            String verr = DevGramPlugins.packageValidationError(path);
+            if (!verr.isEmpty()) { BulletinFactory.of(this).createErrorBulletin(verr).show(); return; }
+            String[] m = DevGramPlugins.packageMeta(path).split("\u001f", -1);
+            if (m.length > 2 && !m[2].isEmpty()) ce.version = m[2]; // новая версия из файла
+            org.telegram.messenger.DevGramPackages.publishPackage(path, ce, cb);
+        } else {
+            String src = readFileText(f);
+            if (src == null || src.isEmpty()) {
+                BulletinFactory.of(this).createErrorBulletin("Не удалось прочитать файл плагина").show();
+                return;
+            }
+            String meta = DevGramPlugins.parseMeta(src);
+            if (meta == null || meta.isEmpty()) {
+                BulletinFactory.of(this).createErrorBulletin("Это не похоже на плагин DevGram").show();
+                return;
+            }
+            String[] m = meta.split("\u001f", -1);
+            if (m.length > 2 && !m[2].isEmpty()) ce.version = m[2];
+            ce.isPackage = false;
+            ce.source = src;
+            DevGramPlugins.publishToCatalog(ce, cb);
+        }
+    }
+
+    private static String readFileText(java.io.File f) {
+        try (java.io.BufferedReader r = new java.io.BufferedReader(
+                new java.io.InputStreamReader(new java.io.FileInputStream(f), "UTF-8"))) {
+            StringBuilder sb = new StringBuilder();
+            char[] buf = new char[8192];
+            int n;
+            while ((n = r.read(buf)) != -1) sb.append(buf, 0, n);
+            return sb.toString();
+        } catch (Throwable e) {
+            return null;
+        }
     }
 
     private LinearLayout section(Context context, int radius) { LinearLayout box = new LinearLayout(context); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(16), AndroidUtilities.dp(18), AndroidUtilities.dp(16)); box.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider))); box.setElevation(AndroidUtilities.dp(2)); return box; }
