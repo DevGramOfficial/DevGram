@@ -1507,16 +1507,46 @@ public class DevGramPlugins {
         }
     }
 
-    // ===== Xposed-хуки Java-методов (Pine) =====
+    // ===== Xposed-хуки Java-методов (AliuHook / LSPlant) =====
+    // Мигрировали с Pine на AliuHook (Java Xposed API поверх LSPlant + Dobby, как у exteraGram):
+    // надёжная установка хуков на всех Android, хук инлайненных методов, method-replacement.
     private static volatile boolean hooksReady;
+
+    // Снятие хуков по плагину (аналог XposedHookRecord у exteraGram): на reload/выгрузку снимаем.
+    private static final java.util.Map<String, java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook>>
+            pluginUnhooks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static void trackUnhook(String pluginId, de.robv.android.xposed.XC_MethodHook.Unhook unhook) {
+        if (unhook == null || pluginId == null) {
+            return;
+        }
+        pluginUnhooks.computeIfAbsent(pluginId, k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(unhook);
+    }
+
+    // Снять все хуки плагина (перед reload/выгрузкой), чтобы старые колбэки не висели.
+    public static void unhookPlugin(String pluginId) {
+        java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook> list = pluginUnhooks.remove(pluginId);
+        if (list == null) {
+            return;
+        }
+        for (de.robv.android.xposed.XC_MethodHook.Unhook u : list) {
+            try {
+                u.unhook();
+            } catch (Throwable ignore) {
+            }
+        }
+    }
 
     public static synchronized boolean initHooks() {
         if (hooksReady) {
             return true;
         }
         try {
-            top.canyie.pine.Pine.ensureInitialized();
-            hooksReady = top.canyie.pine.Pine.isInitialized();
+            // AliuHook: нативка (libaliuhook/liblsplant) грузится в static-блоке XposedBridge при
+            // первом обращении. Снимаем hidden-API ограничения и profile saver (стабильные хуки).
+            de.robv.android.xposed.XposedBridge.disableHiddenApiRestrictions();
+            de.robv.android.xposed.XposedBridge.disableProfileSaver();
+            hooksReady = true;
         } catch (Throwable e) {
             FileLog.e(e); // несовместимое устройство — хуки просто не работают, приложение живёт
             hooksReady = false;
@@ -1549,21 +1579,203 @@ public class DevGramPlugins {
                 member = m;
             }
             final String pid = pluginId;
-            top.canyie.pine.Pine.hook(member, new top.canyie.pine.callback.MethodHook() {
-                @Override
-                public void beforeCall(top.canyie.pine.Pine.CallFrame frame) {
-                    dispatchHook(pid, "before", frame);
-                }
+            // Деоптимизируем метод перед хуком — иначе инлайненные/оптимизированные методы ART
+            // могут не поймать хук. Это даёт возможность хукать то, что Pine не мог (как exteraGram).
+            try {
+                de.robv.android.xposed.XposedBridge.deoptimizeMethod(member);
+            } catch (Throwable ignore) {
+            }
+            de.robv.android.xposed.XC_MethodHook.Unhook unhook = de.robv.android.xposed.XposedBridge.hookMethod(
+                    member, new de.robv.android.xposed.XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            dispatchHook(pid, "before", param);
+                        }
 
-                @Override
-                public void afterCall(top.canyie.pine.Pine.CallFrame frame) {
-                    dispatchHook(pid, "after", frame);
-                }
-            });
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) {
+                            dispatchHook(pid, "after", param);
+                        }
+                    });
+            trackUnhook(pid, unhook);
             FileLog.d("[DevGramPlugins] hook: " + className + "." + methodName);
             return true;
         } catch (Throwable e) {
             FileLog.e(e);
+            return false;
+        }
+    }
+
+    // Резолв метода/конструктора по имени класса/метода/типов параметров.
+    private static java.lang.reflect.Member resolveMember(
+            String className, String methodName, List<String> paramTypeNames) throws Exception {
+        Class<?> clazz = ApplicationLoader.applicationContext.getClassLoader().loadClass(className);
+        Class<?>[] pts = new Class<?>[paramTypeNames == null ? 0 : paramTypeNames.size()];
+        for (int i = 0; i < pts.length; i++) {
+            pts[i] = resolveType(paramTypeNames.get(i));
+        }
+        if ("<init>".equals(methodName)) {
+            java.lang.reflect.Constructor<?> c = clazz.getDeclaredConstructor(pts);
+            c.setAccessible(true);
+            return c;
+        }
+        java.lang.reflect.Method m = clazz.getDeclaredMethod(methodName, pts);
+        m.setAccessible(true);
+        return m;
+    }
+
+    // ===== Полный хук-API как у exteraGram: per-hook колбэки before/after/replace =====
+    // DGMethodHook держит python-колбэки конкретного хука (аналог exteraGram PyMethodHook):
+    // своя before/after функция на каждый хук + полная подмена метода (replace).
+    static final class DGMethodHook extends de.robv.android.xposed.XC_MethodHook {
+        private final com.chaquo.python.PyObject before;
+        private final com.chaquo.python.PyObject after;
+        private final com.chaquo.python.PyObject replace;
+
+        DGMethodHook(int priority, com.chaquo.python.PyObject before,
+                com.chaquo.python.PyObject after, com.chaquo.python.PyObject replace) {
+            super(priority);
+            this.before = before;
+            this.after = after;
+            this.replace = replace;
+        }
+
+        @Override
+        protected void beforeHookedMethod(MethodHookParam param) {
+            if (isSafeMode()) {
+                return;
+            }
+            try {
+                if (replace != null) {
+                    // Полная подмена: результат из python, оригинал не вызывается.
+                    com.chaquo.python.PyObject r = replace.call(param);
+                    param.setResult(r == null ? null : r.toJava(Object.class));
+                    coerceResult(param);
+                    return;
+                }
+                if (before != null) {
+                    before.call(param);
+                    coerceArgs(param);
+                }
+            } catch (Throwable t) {
+                FileLog.e(t);
+            }
+        }
+
+        @Override
+        protected void afterHookedMethod(MethodHookParam param) {
+            if (isSafeMode() || replace != null || after == null) {
+                return;
+            }
+            try {
+                after.call(param);
+                coerceResult(param);
+            } catch (Throwable t) {
+                FileLog.e(t);
+            }
+        }
+    }
+
+    // Хук ОДНОГО метода/конструктора со своими python-колбэками (before/after/replace).
+    public static boolean hookCb(String pluginId, String className, String methodName,
+            List<String> paramTypeNames, com.chaquo.python.PyObject before,
+            com.chaquo.python.PyObject after, com.chaquo.python.PyObject replace, int priority) {
+        if (isSafeMode() || !initHooks()) {
+            return false;
+        }
+        try {
+            java.lang.reflect.Member member = resolveMember(className, methodName, paramTypeNames);
+            try {
+                de.robv.android.xposed.XposedBridge.deoptimizeMethod(member);
+            } catch (Throwable ignore) {
+            }
+            de.robv.android.xposed.XC_MethodHook.Unhook unhook = de.robv.android.xposed.XposedBridge.hookMethod(
+                    member, new DGMethodHook(priority, before, after, replace));
+            trackUnhook(pluginId, unhook);
+            FileLog.d("[DevGramPlugins] hookCb: " + className + "." + methodName);
+            return true;
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return false;
+        }
+    }
+
+    // Хук ВСЕХ перегрузок метода (или всех конструкторов, methodName="<init>") со своими колбэками.
+    public static int hookAllCb(String pluginId, String className, String methodName,
+            com.chaquo.python.PyObject before, com.chaquo.python.PyObject after,
+            com.chaquo.python.PyObject replace, int priority) {
+        if (isSafeMode() || !initHooks()) {
+            return 0;
+        }
+        try {
+            Class<?> clazz = ApplicationLoader.applicationContext.getClassLoader().loadClass(className);
+            DGMethodHook cb = new DGMethodHook(priority, before, after, replace);
+            java.util.Set<de.robv.android.xposed.XC_MethodHook.Unhook> unhooks;
+            if ("<init>".equals(methodName)) {
+                unhooks = de.robv.android.xposed.XposedBridge.hookAllConstructors(clazz, cb);
+            } else {
+                unhooks = de.robv.android.xposed.XposedBridge.hookAllMethods(clazz, methodName, cb);
+            }
+            for (de.robv.android.xposed.XC_MethodHook.Unhook u : unhooks) {
+                trackUnhook(pluginId, u);
+            }
+            return unhooks.size();
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return 0;
+        }
+    }
+
+    // Деоптимизировать метод вручную (чтобы инлайненные call-сайты пошли через него) — для плагинов.
+    public static boolean deoptimize(String className, String methodName, List<String> paramTypeNames) {
+        if (!initHooks()) {
+            return false;
+        }
+        try {
+            return de.robv.android.xposed.XposedBridge.deoptimizeMethod(
+                    resolveMember(className, methodName, paramTypeNames));
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return false;
+        }
+    }
+
+    // ===== Утилиты AliuHook для плагинов (паритет с exteraGram) =====
+    // Вызвать ОРИГИНАЛ метода в обход хуков — типично внутри before/replace-колбэка,
+    // чтобы условно выполнить оригинал и/или доработать его результат.
+    public static Object invokeOriginal(de.robv.android.xposed.XC_MethodHook.MethodHookParam param) throws Throwable {
+        return de.robv.android.xposed.XposedBridge.invokeOriginalMethod(
+                param.method, param.thisObject, param.args);
+    }
+
+    // Сделать final-класс наследуемым (для dynamic_proxy/подклассов из плагина).
+    public static boolean makeClassInheritable(String className) {
+        try {
+            return de.robv.android.xposed.XposedBridge.makeClassInheritable(
+                    ApplicationLoader.applicationContext.getClassLoader().loadClass(className));
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return false;
+        }
+    }
+
+    // Создать экземпляр класса БЕЗ вызова конструктора.
+    public static Object allocateInstance(String className) {
+        try {
+            return de.robv.android.xposed.XposedBridge.allocateInstance(
+                    ApplicationLoader.applicationContext.getClassLoader().loadClass(className));
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return null;
+        }
+    }
+
+    // Захукан ли метод сейчас.
+    public static boolean isMethodHooked(String className, String methodName, List<String> paramTypeNames) {
+        try {
+            return de.robv.android.xposed.XposedBridge.isHooked(
+                    resolveMember(className, methodName, paramTypeNames));
+        } catch (Throwable e) {
             return false;
         }
     }
@@ -1596,9 +1808,9 @@ public class DevGramPlugins {
             final Class<?> reqDelegate = Class.forName("org.telegram.tgnet.RequestDelegate");
             java.lang.reflect.Method m = cm.getDeclaredMethod("sendRequest", tlObject, reqDelegate);
             m.setAccessible(true);
-            top.canyie.pine.Pine.hook(m, new top.canyie.pine.callback.MethodHook() {
+            de.robv.android.xposed.XposedBridge.hookMethod(m, new de.robv.android.xposed.XC_MethodHook() {
                 @Override
-                public void beforeCall(top.canyie.pine.Pine.CallFrame frame) {
+                protected void beforeHookedMethod(MethodHookParam frame) {
                     if (!wantsRequestHooksFlag) return;
                     try {
                         final Object req = frame.args != null && frame.args.length > 0 ? frame.args[0] : null;
@@ -1930,9 +2142,10 @@ public class DevGramPlugins {
             loader().callAttr("dispatch_hook", pluginId, phase, frame);
             // Chaquopy боксит python-int как Long, а метод может ждать int/short/float и т.п.
             // Приводим аргументы (после before) и результат (после after) к нужным типам —
-            // иначе Pine падает на invokeOriginalMethod: "argument has type int, got java.lang.Long".
-            if (frame instanceof top.canyie.pine.Pine.CallFrame) {
-                top.canyie.pine.Pine.CallFrame cf = (top.canyie.pine.Pine.CallFrame) frame;
+            // иначе падает на вызове оригинала: "argument has type int, got java.lang.Long".
+            if (frame instanceof de.robv.android.xposed.XC_MethodHook.MethodHookParam) {
+                de.robv.android.xposed.XC_MethodHook.MethodHookParam cf =
+                        (de.robv.android.xposed.XC_MethodHook.MethodHookParam) frame;
                 if ("before".equals(phase)) {
                     coerceArgs(cf);
                 } else {
@@ -1944,7 +2157,7 @@ public class DevGramPlugins {
     }
 
     // Привести элементы frame.args к типам параметров хукнутого метода.
-    private static void coerceArgs(top.canyie.pine.Pine.CallFrame cf) {
+    private static void coerceArgs(de.robv.android.xposed.XC_MethodHook.MethodHookParam cf) {
         try {
             Class<?>[] pts = paramTypesOf(cf.method);
             Object[] args = cf.args;
@@ -1959,7 +2172,7 @@ public class DevGramPlugins {
     }
 
     // Привести результат к типу возврата метода (если плагин подменил его числом «не того» бокса).
-    private static void coerceResult(top.canyie.pine.Pine.CallFrame cf) {
+    private static void coerceResult(de.robv.android.xposed.XC_MethodHook.MethodHookParam cf) {
         try {
             if (!(cf.method instanceof java.lang.reflect.Method)) {
                 return;
@@ -2006,6 +2219,11 @@ public class DevGramPlugins {
             for (String row : listPlugins()) {
                 String[] parts = row.split("\u001f", -1);
                 if (parts.length > 0) DevGramPillStack.unregisterPluginPills(parts[0]);
+            }
+            // Снять все хуки плагинов перед перезагрузкой — AliuHook требует явного unhook
+            // (иначе останутся висеть старые колбэки от предыдущей версии плагина).
+            for (String pid : new java.util.ArrayList<>(pluginUnhooks.keySet())) {
+                unhookPlugin(pid);
             }
             loaded = true;
             int n = loader().callAttr("reload_all", pluginsDir().getAbsolutePath()).toInt();

@@ -1,0 +1,11 @@
+{
+  "id": "extera.badges",
+  "name": "Экстеро-значки",
+  "version": "1.0.4",
+  "author": "@DevGram",
+  "main": "main.py",
+  "description": "Значок exteraGram отдельным рядом в профиле (как телефон/юзернейм/ID). Тап по ряду — буллетин с прем-эмодзи значка и полным текстом, как у exteraGram.",
+  "icon": "https://robohash.org/extera.badges.png?set=set4&size=128x128",
+  "min_app_version": "12.9",
+  "min_devgram": "3"
+}

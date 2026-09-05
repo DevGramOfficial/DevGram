@@ -22,6 +22,7 @@ repositories {
     mavenCentral()
     google()
     maven { url "https://chaquo.com/maven" } // DevGram: рантайм Chaquopy (Python)
+    maven { url "https://maven.aliucord.com/releases" } // DevGram: AliuHook (Xposed API поверх LSPlant)
 }
 
 configurations {
@@ -35,7 +36,11 @@ configurations.all {
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
 
-    // DevGram: Xposed-style хуки Java-методов для плагинов (Pine — чистый Java-API)
+    // DevGram: движок хуков Java-методов для плагинов.
+    // AliuHook = Java Xposed API поверх LSPlant + Dobby (как у exteraGram) — надёжная установка
+    // хуков на всех Android, хук инлайненных методов (деоптимизация), method-replacement.
+    implementation 'com.aliucord:Aliuhook:1.1.4'
+    // Pine оставлен временно на время миграции (флаг отката), после проверки плагинов — убрать.
     implementation 'top.canyie.pine:core:0.3.0'
 
     // DevGram: DexMaker — рантайм-генерация Java-подклассов для Class Proxy плагинов (ProxyBuilder)

@@ -5,6 +5,7 @@ apply from: '../utils.gradle'
 repositories {
     mavenCentral()
     google()
+    maven { url 'https://maven.aliucord.com/releases' } // DevGram: AliuHook (Xposed API поверх LSPlant)
     maven {
         url 'https://www.jitpack.io'
         content {

@@ -557,18 +557,66 @@ class BasePlugin:
         """Клик по кнопке-настройке (type='button')."""
         pass
 
-    # ---- Xposed-хуки Java-методов (hook_utils) ----
-    def hook(self, class_name, method_name, *param_types):
-        """Хукнуть Java-метод/конструктор. Реализуй before_hook / after_hook.
+    # ---- Xposed-хуки Java-методов (AliuHook/LSPlant) ----
+    def hook(self, class_name, method_name, *param_types, before=None, after=None, replace=None, priority=0):
+        """Хукнуть Java-метод/конструктор ЛЮБОГО класса (профиль, чаты, настройки — везде).
         param_types — типы аргументов: 'int','long','boolean','java.lang.String' и т.п.
-        method_name='<init>' — конструктор. Возвращает True при успехе."""
-        # Chaquopy не конвертирует python-list в java.util.List — собираем ArrayList явно
+        method_name='<init>' — конструктор.
+
+        Два режима (как у exteraGram):
+        • Per-hook колбэки: hook(cls, m, ...types, before=fn, after=fn, replace=fn, priority=0)
+          — своя функция на ЭТОТ хук. fn(frame): frame.args/thisObject/getResult/setResult/method.
+          replace=fn — ПОЛНАЯ подмена метода (оригинал не вызывается, вернёшь результат из fn).
+        • Глобальный: hook(cls, m, ...types) без колбэков — сработают self.before_hook/after_hook.
+        Возвращает True при успехе."""
         pts = jclass("java.util.ArrayList")()
         for t in param_types:
             pts.add(str(t))
+        if before is not None or after is not None or replace is not None:
+            return _Plugins.hookCb(self.id, str(class_name), str(method_name), pts,
+                                   before, after, replace, int(priority))
         return _Plugins.hook(self.id, str(class_name), str(method_name), pts)
 
     add_hook = hook
+
+    def hook_all(self, class_name, method_name, before=None, after=None, replace=None, priority=0):
+        """Хукнуть ВСЕ перегрузки метода (или все конструкторы, method_name='<init>')
+        со своими колбэками. Возвращает число установленных хуков."""
+        return _Plugins.hookAllCb(self.id, str(class_name), str(method_name),
+                                  before, after, replace, int(priority))
+
+    def deoptimize(self, class_name, method_name, *param_types):
+        """Деоптимизировать метод — чтобы инлайненные call-сайты пошли через него
+        (полезно перед хуком «неуловимого» метода). Возвращает True при успехе."""
+        pts = jclass("java.util.ArrayList")()
+        for t in param_types:
+            pts.add(str(t))
+        return _Plugins.deoptimize(str(class_name), str(method_name), pts)
+
+    def invoke_original(self, frame):
+        """Вызвать ОРИГИНАЛ метода в обход хуков — обычно внутри before/replace-колбэка,
+        чтобы условно выполнить оригинал или доработать его результат. Возвращает результат."""
+        return _Plugins.invokeOriginal(frame)
+
+    def unhook_all(self):
+        """Снять ВСЕ хуки, установленные этим плагином."""
+        _Plugins.unhookPlugin(self.id)
+        return True
+
+    def make_class_inheritable(self, class_name):
+        """Сделать final-класс наследуемым (для подклассов/dynamic_proxy из плагина)."""
+        return _Plugins.makeClassInheritable(str(class_name))
+
+    def allocate_instance(self, class_name):
+        """Создать экземпляр класса БЕЗ вызова конструктора."""
+        return _Plugins.allocateInstance(str(class_name))
+
+    def is_hooked(self, class_name, method_name, *param_types):
+        """Захукан ли сейчас этот метод."""
+        pts = jclass("java.util.ArrayList")()
+        for t in param_types:
+            pts.add(str(t))
+        return _Plugins.isMethodHooked(str(class_name), str(method_name), pts)
 
     def add_on_send_message_hook(self):
         return True
