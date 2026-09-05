@@ -1753,7 +1753,7 @@ public class FilterTabsView extends FrameLayout {
                 invalidated = true;
                 requestLayout();
                 allTabsWidth = 0;
-                Tab defaultTab = findDefaultTab();
+                final FilterTabsView.Tab defaultTab = findDefaultTab();
                 if (defaultTab != null) {
                     defaultTab.setTitle(LocaleController.getString(R.string.FilterAllChats), null, false);
                 }
@@ -1785,9 +1785,11 @@ public class FilterTabsView extends FrameLayout {
             invalidated = true;
             requestLayout();
             listView.setItemAnimator(itemAnimator);
-            adapter.notifyDataSetChanged();
+            if (adapter != null) {
+                adapter.notifyDataSetChanged();
+            }
             allTabsWidth = 0;
-            Tab defaultTab = findDefaultTab();
+            final FilterTabsView.Tab defaultTab = findDefaultTab();
             if (defaultTab != null) {
                 defaultTab.setTitle(LocaleController.getString(R.string.FilterAllChats), null, false);
             }
