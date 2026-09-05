@@ -49,8 +49,8 @@ def readBuildProp = { String key, Object fallback ->
 }
 
 android {
-    compileSdkVersion 35
-    buildToolsVersion '35.0.0'
+    compileSdkVersion 36
+    buildToolsVersion '36.0.0'
 
     defaultConfig.applicationId = "org.devgram.messenger"
 
@@ -302,7 +302,7 @@ android {
 
     defaultConfig {
         minSdkVersion 24 // DevGram: поднято с 21 ради Chaquopy (Python-плагины)
-        targetSdkVersion 35
+        targetSdkVersion 36
         versionName Utils['getVersionName']()
         ndkVersion "27.2.12479018"
 
