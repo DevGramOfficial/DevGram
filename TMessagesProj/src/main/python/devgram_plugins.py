@@ -24,6 +24,65 @@ _package_roots = {}
 _package_manifests = {}
 _package_archives = {}  # plugin_id -> путь к установленному .dgplugin (для единой карточки: _filename)
 
+# Уровень API плагинов DevGram. Бампать при добавлении нового plugin-facing API
+# (сейчас: полный хук-API AliuHook, java_class/implement, эффекты/canvas).
+DEVGRAM_PLUGIN_API = 3
+
+
+def _app_version():
+    """Версия приложения ('12.10.1.0') через PackageManager — надёжно."""
+    try:
+        ctx = jclass("org.telegram.messenger.ApplicationLoader").applicationContext
+        info = ctx.getPackageManager().getPackageInfo(ctx.getPackageName(), 0)
+        return str(info.versionName or "")
+    except Exception:
+        try:
+            return str(jclass("org.telegram.messenger.BuildConfig").BUILD_VERSION_STRING or "")
+        except Exception:
+            return ""
+
+
+def _ver_tuple(s):
+    """'12.10.1' -> (12, 10, 1). Нечисловые хвосты компонент игнорируются."""
+    out = []
+    for part in str(s or "").strip().split("."):
+        num = ""
+        for ch in part:
+            if ch.isdigit():
+                num += ch
+            else:
+                break
+        if num == "" and not out:
+            continue  # пропустить ведущий мусор
+        out.append(int(num) if num else 0)
+    return tuple(out)
+
+
+def _ver_ge(app, need):
+    """app >= need покомпонентно (с добивкой нулями до одинаковой длины)."""
+    a, b = _ver_tuple(app), _ver_tuple(need)
+    n = max(len(a), len(b))
+    a += (0,) * (n - len(a))
+    b += (0,) * (n - len(b))
+    return a >= b
+
+
+def _compat_error(min_app, min_devgram):
+    """'' если плагин совместим с этой сборкой, иначе — сообщение для пользователя."""
+    min_app = str(min_app or "").strip()
+    if min_app:
+        cur = _app_version()
+        if cur and not _ver_ge(cur, min_app):
+            return "Плагину нужна версия DevGram %s или новее (у вас %s)" % (min_app, cur)
+    try:
+        need = int(str(min_devgram or "0").strip() or "0")
+    except Exception:
+        need = 0
+    if need > DEVGRAM_PLUGIN_API:
+        return ("Плагину нужен уровень API плагинов %d, в этой сборке — %d. Обновите DevGram."
+                % (need, DEVGRAM_PLUGIN_API))
+    return ""
+
 
 def _normalized_requirement_name(value):
     """Return distribution name from a simple requirement without accepting pip options/URLs."""
@@ -64,30 +123,67 @@ def _validate_package_manifest(manifest, names):
     return plugin_id, main
 
 
-_LOG_BUF = []  # общий кольцевой буфер логов плагинов (для экрана «Логи плагинов»)
+import time as _time
+
+_LOG_BUF = []      # кольцевой буфер полных логов плагинов (экран «Логи плагинов»)
+_LOG_MAX = 2000    # сколько строк держим
 
 
-def _log(msg):
+def _log(msg, level="INFO", plugin=None):
+    """Записать строку в общий лог плагинов.
+    level: INFO/LIFE/EVENT/REQUEST/HOOK/API/ERROR/NET (для фильтра и наглядности).
+    plugin: id плагина (тег), если известен."""
     line = str(msg)
     try:
-        import time as _t
-        entry = "[%s] %s" % (_t.strftime("%H:%M:%S"), line)
+        ts = _time.strftime("%H:%M:%S")
     except Exception:
-        entry = line
+        ts = ""
+    tag = ("[%s] " % plugin) if plugin else ""
+    entry = "[%s] %-7s %s%s" % (ts, str(level), tag, line)
     try:
         _LOG_BUF.append(entry)
-        extra = len(_LOG_BUF) - 400
+        extra = len(_LOG_BUF) - _LOG_MAX
         if extra > 0:
             del _LOG_BUF[:extra]
     except Exception:
         pass
-    _FileLog.d("[DevGramPlugins] " + line)
-
-
-def get_logs():
-    """Весь буфер логов одной строкой (для показа в приложении)."""
     try:
-        return "\n".join(_LOG_BUF)
+        _FileLog.d("[DevGramPlugins] " + entry)
+    except Exception:
+        pass
+
+
+def _err(where, plugin=None):
+    """Записать текущее исключение (с трейсбеком) в лог как ERROR."""
+    _log("%s\n%s" % (where, traceback.format_exc().rstrip()), level="ERROR", plugin=plugin)
+
+
+def get_logs(level=None, plugin=None):
+    """Весь буфер логов одной строкой. Опц. фильтр по level и/или plugin."""
+    try:
+        lines = _LOG_BUF
+        if level:
+            key = " %-7s " % str(level)
+            lines = [x for x in lines if key in x]
+        if plugin:
+            key = "[%s] " % plugin
+            lines = [x for x in lines if key in x]
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def log_stats():
+    """Сводка по уровням для шапки экрана логов: 'ERROR:3 REQUEST:120 …'."""
+    try:
+        from collections import Counter
+        c = Counter()
+        for x in _LOG_BUF:
+            parts = x.split("] ", 1)
+            lvl = parts[1].split(" ", 1)[0].strip() if len(parts) > 1 else "?"
+            c[lvl] += 1
+        return "  ".join("%s:%d" % (k, c[k]) for k in
+                         ("ERROR", "REQUEST", "HOOK", "EVENT", "API", "NET", "LIFE", "INFO") if c.get(k))
     except Exception:
         return ""
 
@@ -99,9 +195,9 @@ def clear_logs():
         pass
 
 
-def dg_log(msg):
-    """Записать строку в общий лог плагинов (вызывается из Java для системных событий)."""
-    _log(msg)
+def dg_log(msg, level="INFO", plugin=None):
+    """Записать строку в общий лог плагинов (вызывается из Java и из BasePlugin)."""
+    _log(msg, level, plugin)
 
 
 def _remove_package_paths(plugin_id, evict_modules=False):
@@ -255,6 +351,14 @@ def load_from_file(path):
                     if archive:
                         inst._filename = os.path.basename(archive)
                         inst._archive_path = archive
+                _mf = _package_manifests.get(package_id, {}) if package_id else {}
+                _cerr = _compat_error(
+                    _mf.get('min_app_version') or getattr(inst, 'min_app_version', ''),
+                    _mf.get('min_devgram') or _mf.get('min_sdk')
+                        or getattr(inst, 'min_devgram', '') or getattr(inst, 'min_sdk', ''))
+                if _cerr:
+                    _log("несовместимый плагин пропущен %s: %s" % (getattr(inst, 'id', '?'), _cerr))
+                    continue
                 _unload_id(inst.id)  # если уже загружен такой id — заменяем (переустановка)
                 _plugins.append(inst)
                 try:
@@ -264,11 +368,11 @@ def load_from_file(path):
                     else:
                         inst.on_load()
                 except Exception:
-                    _log("on_load error: " + traceback.format_exc())
+                    _err("on_load " + str(getattr(inst, "id", "?")), plugin=getattr(inst, "id", None))
                 found += 1
-                _log("loaded plugin: %s (%s)" % (inst.name, inst.id))
+                _log("загружен: %s" % inst.name, level="LIFE", plugin=inst.id)
     except Exception:
-        _log("load error %s: %s" % (path, traceback.format_exc()))
+        _err("load " + str(path))
     return found
 
 def load_package(path):
@@ -309,7 +413,7 @@ def load_package(path):
         _package_archives[plugin_id] = path  # запомнить путь архива → load_from_file проставит _filename
         return load_from_file(os.path.join(root, main))
     except Exception:
-        _log('package load error: ' + traceback.format_exc()); return 0
+        _err('package load ' + str(path)); return 0
 
 
 def delete_package_files(plugin_id):
@@ -325,7 +429,7 @@ def delete_package_files(plugin_id):
             shutil.rmtree(root, ignore_errors=True)
         return True
     except Exception:
-        _log("delete_package_files error: " + traceback.format_exc()); return False
+        _err('delete_package_files ' + str(plugin_id), plugin=plugin_id); return False
 
 def package_meta(path):
     try:
@@ -363,6 +467,10 @@ def validate_package(path):
                 return 'В пакете отсутствует manifest.json'
             manifest = json.loads(archive.read('manifest.json').decode('utf-8'))
             _validate_package_manifest(manifest, names)
+            compat = _compat_error(manifest.get('min_app_version'),
+                                   manifest.get('min_devgram') or manifest.get('min_sdk'))
+            if compat:
+                return compat
         return ''
     except Exception as error:
         return str(error) or 'Пакет повреждён'
@@ -400,11 +508,13 @@ def dispatch_send(account, text):
             else:
                 r = p.on_send_message(text)
             if r is False:
+                _log("on_send_message → отменил отправку", level="EVENT", plugin=p.id)
                 return CANCEL
-            if r is not None:
+            if r is not None and r != text:
+                _log("on_send_message изменил текст", level="EVENT", plugin=p.id)
                 text = r
         except Exception:
-            _log("on_send_message error: " + traceback.format_exc())
+            _err("on_send_message", plugin=getattr(p, "id", None))
     return text
 
 
@@ -416,7 +526,7 @@ def dispatch_receive(text):
         try:
             p.on_receive_message(text)
         except Exception:
-            _log("on_receive_message error: " + traceback.format_exc())
+            _err("on_receive_message", plugin=getattr(p, "id", None))
 
 
 def dispatch_hook(plugin_id, phase, frame):
@@ -431,7 +541,7 @@ def dispatch_hook(plugin_id, phase, frame):
                 else:
                     p.after_hook(frame)
             except Exception:
-                _log("hook dispatch error: " + traceback.format_exc())
+                _err("hook %s" % phase, plugin=plugin_id)
             return
 
 
@@ -469,11 +579,13 @@ def dispatch_request(account, name, request):
         try:
             from devgram import BasePlugin
             if type(p).on_send_request_hook is not BasePlugin.on_send_request_hook:
+                _log("→ %s (acc %s)" % (name, account), level="REQUEST", plugin=p.id)
                 p.on_send_request_hook(account, name, request)
-            else:
+            elif type(p).on_send_request is not BasePlugin.on_send_request:
+                _log("→ %s" % name, level="REQUEST", plugin=p.id)
                 p.on_send_request(name, request)
         except Exception:
-            _log("on_send_request error: " + traceback.format_exc())
+            _err("on_send_request %s" % name, plugin=getattr(p, "id", None))
 
 
 def dispatch_response(account, name, response, error):
@@ -483,16 +595,21 @@ def dispatch_response(account, name, response, error):
             continue
         try:
             from devgram import BasePlugin
-            if type(p).on_receive_response_hook is not BasePlugin.on_receive_response_hook:
+            has_hook = type(p).on_receive_response_hook is not BasePlugin.on_receive_response_hook
+            has_plain = type(p).on_receive_response is not BasePlugin.on_receive_response
+            if has_hook or has_plain:
+                err = "" if error is None else (" ERR:" + str(error))
+                _log("← %s%s" % (name, err), level="REQUEST", plugin=p.id)
+            if has_hook:
                 p.on_receive_response_hook(account, name, response, error)
-            else:
+            elif has_plain:
                 p.on_receive_response(name, response, error)
         except Exception:
-            _log("on_receive_response error: " + traceback.format_exc())
+            _err("on_receive_response %s" % name, plugin=getattr(p, "id", None))
 
 
 def dispatch_update(account, update):
-    """Хук сырых TL-апдейтов."""
+    """Хук сырых TL-апдейтов (частые — в лог пишем только ошибки)."""
     for p in _plugins:
         if not getattr(p, "enabled", True):
             continue
@@ -500,10 +617,10 @@ def dispatch_update(account, update):
             from devgram import BasePlugin
             if type(p).on_update_hook is not BasePlugin.on_update_hook:
                 p.on_update_hook(update.getClass().getSimpleName(), account, update)
-            else:
+            elif type(p).on_update is not BasePlugin.on_update:
                 p.on_update(update)
         except Exception:
-            _log("on_update error: " + traceback.format_exc())
+            _err("on_update", plugin=getattr(p, "id", None))
 
 
 def menu_items():
@@ -516,7 +633,7 @@ def menu_items():
             for label in (p.menu_items() or []):
                 res.append(_SEP.join([str(p.id), str(label)]))
         except Exception:
-            _log("menu_items error: " + traceback.format_exc())
+            _err("menu_items", plugin=getattr(p, "id", None))
     return res
 
 
@@ -524,9 +641,10 @@ def menu_click(plugin_id, label, message_text, dialog_id):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
             try:
+                _log("меню сообщения: %s" % label, level="EVENT", plugin=plugin_id)
                 p.on_menu_click(label, message_text, dialog_id)
             except Exception:
-                _log("on_menu_click error: " + traceback.format_exc())
+                _err("on_menu_click", plugin=plugin_id)
             return
 
 
@@ -540,7 +658,7 @@ def link_menu_items(url):
             for label in (p.link_menu_items(url) or []):
                 res.append(_SEP.join([str(p.id), str(label)]))
         except Exception:
-            _log("link_menu_items error: " + traceback.format_exc())
+            _err("link_menu_items", plugin=getattr(p, "id", None))
     return res
 
 
@@ -548,9 +666,10 @@ def link_menu_click(plugin_id, label, url, dialog_id):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
             try:
+                _log("меню ссылки: %s" % label, level="EVENT", plugin=plugin_id)
                 p.on_link_menu_click(label, url, dialog_id)
             except Exception:
-                _log("on_link_menu_click error: " + traceback.format_exc())
+                _err("on_link_menu_click", plugin=plugin_id)
             return
 
 
@@ -577,7 +696,7 @@ def plugin_settings(plugin_id):
                 _last_settings_objects[str(plugin_id)] = raw
                 return res
             except Exception:
-                _log("settings error: " + traceback.format_exc())
+                _err("settings", plugin=getattr(p, "id", None))
             return []
     return []
 
@@ -593,15 +712,17 @@ def plugin_settings_custom_view(plugin_id, index):
 def plugin_setting_click(plugin_id, key):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
+            _log("настройка-кнопка: %s" % key, level="EVENT", plugin=plugin_id)
             try:
                 p.on_setting_click(key)
             except Exception:
-                _log("on_setting_click error: " + traceback.format_exc())
+                _err("on_setting_click", plugin=plugin_id)
             return
 
 def plugin_setting_changed(plugin_id, key, value):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
+            _log("настройка изменена: %s = %s" % (key, value), level="EVENT", plugin=plugin_id)
             try:
                 source = p.create_settings() if "create_settings" in type(p).__dict__ else p.settings()
                 for item in (source or []):
@@ -610,7 +731,7 @@ def plugin_setting_changed(plugin_id, key, value):
                 callback = getattr(p, "on_setting_changed", None)
                 if callback: callback(key, value)
             except Exception:
-                _log("on_setting_changed error: " + traceback.format_exc())
+                _err("on_setting_changed", plugin=plugin_id)
             return
 
 
@@ -631,6 +752,7 @@ def set_enabled(plugin_id, enabled):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
             p.enabled = bool(enabled)
+            _log("включён" if enabled else "выключен", level="LIFE", plugin=plugin_id)
             return True
     return False
 

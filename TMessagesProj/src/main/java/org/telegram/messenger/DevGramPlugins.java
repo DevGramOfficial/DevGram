@@ -1465,8 +1465,14 @@ public class DevGramPlugins {
             android.widget.ScrollView sv = new android.widget.ScrollView(a);
             sv.addView(tv);
             org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
-            b.setTitle("Логи плагинов");
+            String stats = "";
+            try {
+                stats = loader().callAttr("log_stats").toString();
+            } catch (Throwable ignore) {
+            }
+            b.setTitle(stats == null || stats.isEmpty() ? "Логи плагинов" : "Логи плагинов · " + stats);
             b.setView(sv);
+            sv.post(() -> sv.fullScroll(android.view.View.FOCUS_DOWN));
             b.setPositiveButton("Закрыть", null);
             b.setNeutralButton("Копировать", (d, w) -> {
                 try {
@@ -1628,16 +1634,28 @@ public class DevGramPlugins {
     // DGMethodHook держит python-колбэки конкретного хука (аналог exteraGram PyMethodHook):
     // своя before/after функция на каждый хук + полная подмена метода (replace).
     static final class DGMethodHook extends de.robv.android.xposed.XC_MethodHook {
+        private final String pluginId;
         private final com.chaquo.python.PyObject before;
         private final com.chaquo.python.PyObject after;
         private final com.chaquo.python.PyObject replace;
 
-        DGMethodHook(int priority, com.chaquo.python.PyObject before,
+        DGMethodHook(String pluginId, int priority, com.chaquo.python.PyObject before,
                 com.chaquo.python.PyObject after, com.chaquo.python.PyObject replace) {
             super(priority);
+            this.pluginId = pluginId;
             this.before = before;
             this.after = after;
             this.replace = replace;
+        }
+
+        // Ошибка внутри хука → в «Логи плагинов» (уровень ERROR, тег плагина) + FileLog.
+        private void hookError(MethodHookParam param, Throwable t) {
+            FileLog.e(t);
+            try {
+                String where = (param != null && param.method != null) ? param.method.getName() : "?";
+                loader().callAttr("dg_log", "hook " + where + ": " + t, "ERROR", pluginId);
+            } catch (Throwable ignore) {
+            }
         }
 
         @Override
@@ -1658,7 +1676,7 @@ public class DevGramPlugins {
                     coerceArgs(param);
                 }
             } catch (Throwable t) {
-                FileLog.e(t);
+                hookError(param, t);
             }
         }
 
@@ -1671,7 +1689,7 @@ public class DevGramPlugins {
                 after.call(param);
                 coerceResult(param);
             } catch (Throwable t) {
-                FileLog.e(t);
+                hookError(param, t);
             }
         }
     }
@@ -1690,7 +1708,7 @@ public class DevGramPlugins {
             } catch (Throwable ignore) {
             }
             de.robv.android.xposed.XC_MethodHook.Unhook unhook = de.robv.android.xposed.XposedBridge.hookMethod(
-                    member, new DGMethodHook(priority, before, after, replace));
+                    member, new DGMethodHook(pluginId, priority, before, after, replace));
             trackUnhook(pluginId, unhook);
             FileLog.d("[DevGramPlugins] hookCb: " + className + "." + methodName);
             return true;
@@ -1709,7 +1727,7 @@ public class DevGramPlugins {
         }
         try {
             Class<?> clazz = ApplicationLoader.applicationContext.getClassLoader().loadClass(className);
-            DGMethodHook cb = new DGMethodHook(priority, before, after, replace);
+            DGMethodHook cb = new DGMethodHook(pluginId, priority, before, after, replace);
             java.util.Set<de.robv.android.xposed.XC_MethodHook.Unhook> unhooks;
             if ("<init>".equals(methodName)) {
                 unhooks = de.robv.android.xposed.XposedBridge.hookAllConstructors(clazz, cb);

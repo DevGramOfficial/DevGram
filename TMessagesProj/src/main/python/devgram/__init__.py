@@ -58,9 +58,10 @@ class BasePlugin:
     author = ""
     description = ""
     icon = ""  # URL картинки-аватарки плагина (png/jpg) — показывается в списке плагинов
-    # совместимость (информационно; загрузчик может предупредить при несоответствии)
-    min_app_version = ""   # минимальная версия приложения (напр. "12.9")
-    min_sdk = ""           # минимальная версия API плагинов DevGram (напр. "2")
+    # совместимость (загрузчик ОТКАЗЫВАЕТ в установке/загрузке при несоответствии)
+    min_app_version = ""   # минимальная версия приложения (напр. "12.10")
+    min_devgram = ""       # минимальный уровень API плагинов DevGram (напр. "3")
+    min_sdk = ""           # алиас min_devgram (для обратной совместимости)
     requirements = []      # список pip-зависимостей (если движок их поддерживает)
     sdk_version = "1"
 
@@ -157,6 +158,7 @@ class BasePlugin:
         """Отправить текст в диалог. reply_to — id сообщения для ответа (0 = без ответа).
         entities — java.util.ArrayList<TLRPC.MessageEntity> (жирный текст/текстовые ссылки),
         построенный самим плагином через jclass; см. BasePlugin.text_link_entity/bold_entity."""
+        self._plog("send_message → %s (%d симв.)" % (dialog_id, len(str(text))), "API")
         if entities is not None:
             _Plugins.sendMessageEntities(int(dialog_id), str(text), entities)
         elif reply_to:
@@ -195,11 +197,13 @@ class BasePlugin:
         """Обновить био/"о себе" ТЕКУЩЕГО аккаунта (тот же запрос, что штатный экран
         изменения био). Не создаёт отдельного экрана выбора аккаунта — работает с тем,
         что сейчас выбран в приложении (UserConfig.selectedAccount)."""
+        self._plog("update_profile_about", "API")
         _Plugins.updateProfileAbout(str(about))
 
     # ---- богатая отправка (client_utils) ----
     def send_photo(self, dialog_id, path, caption="", entities=None):
         """Отправить фото из файла (path — абсолютный путь). entities — см. send_message."""
+        self._plog("send_photo → %s" % dialog_id, "API")
         if entities is not None:
             _Plugins.sendPhotoEntities(int(dialog_id), str(path), str(caption), entities)
         else:
@@ -207,6 +211,7 @@ class BasePlugin:
 
     def send_file(self, dialog_id, path, caption=""):
         """Отправить файл (видео/аудио/документ — тип определяется автоматически)."""
+        self._plog("send_file → %s" % dialog_id, "API")
         _Plugins.sendFile(int(dialog_id), str(path), str(caption))
 
     # алиасы под привычные имена
@@ -221,11 +226,16 @@ class BasePlugin:
 
     def edit_message(self, dialog_id, message_id, text):
         """Отредактировать текст своего сообщения."""
+        self._plog("edit_message → %s/%s" % (dialog_id, message_id), "API")
         _Plugins.editMessageText(int(dialog_id), int(message_id), str(text))
 
     def send_request(self, request, callback=None):
         """Отправить сырой TL-запрос (request — Java-объект TLObject, строится через tl()).
         callback(response, error_text) зовётся при ответе. Возвращает токен запроса."""
+        try:
+            self._plog("send_request %s" % request.getClass().getSimpleName(), "REQUEST")
+        except Exception:
+            self._plog("send_request", "REQUEST")
         return _Plugins.sendRequest(request, callback)
 
     @staticmethod
@@ -572,6 +582,7 @@ class BasePlugin:
         pts = jclass("java.util.ArrayList")()
         for t in param_types:
             pts.add(str(t))
+        self._plog("hook %s.%s" % (class_name, method_name), "HOOK")
         if before is not None or after is not None or replace is not None:
             return _Plugins.hookCb(self.id, str(class_name), str(method_name), pts,
                                    before, after, replace, int(priority))
@@ -582,6 +593,7 @@ class BasePlugin:
     def hook_all(self, class_name, method_name, before=None, after=None, replace=None, priority=0):
         """Хукнуть ВСЕ перегрузки метода (или все конструкторы, method_name='<init>')
         со своими колбэками. Возвращает число установленных хуков."""
+        self._plog("hook_all %s.%s" % (class_name, method_name), "HOOK")
         return _Plugins.hookAllCb(self.id, str(class_name), str(method_name),
                                   before, after, replace, int(priority))
 
@@ -751,4 +763,14 @@ class BasePlugin:
 
     # ---- утилиты ----
     def log(self, msg):
+        """Записать в системный лог И в «Логи плагинов» (виден в приложении)."""
         _FileLog.d("[DevGramPlugin:%s] %s" % (self.id, msg))
+        self._plog(msg, "INFO")
+
+    def _plog(self, msg, level="API"):
+        """Строка в общий журнал плагинов с тегом этого плагина (экран «Логи плагинов»)."""
+        try:
+            import devgram_plugins as _dp
+            _dp._log(str(msg), level, self.id)
+        except Exception:
+            pass
