@@ -400,27 +400,54 @@ public class DevGramPluginInstallSheet {
                 upd.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                         Theme.getColor(Theme.key_featuredStickers_addButton),
                         Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
+                final TextView updRef = upd;
+                // Кнопка меняет состояние прямо в карточке — без перезахода в меню.
+                final Runnable makeButton = () -> {
+                    updRef.setText("🔄 Обновить в каталоге");
+                    updRef.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
+                    updRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
+                            Theme.getColor(Theme.key_featuredStickers_addButton),
+                            Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
+                };
+                final Runnable makeDone = () -> {
+                    updRef.setText("✓ Обновлено в каталоге");
+                    updRef.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                    updRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14),
+                            Theme.getColor(Theme.key_windowBackgroundGray)));
+                    updRef.setOnClickListener(null);
+                };
+                final String[] pubVer = { uVer };
                 upd.setOnClickListener(v -> {
+                    updRef.setText("⏳ Отправляется…");
+                    updRef.setOnClickListener(null);
                     DevGramPlugins.CatalogEntry ce = new DevGramPlugins.CatalogEntry();
                     ce.id = uId; ce.name = uName; ce.author = uAuthor; ce.desc = uDesc;
                     ce.icon = uIcon; ce.channel = cat.channel; ce.filter = cat.filter;
                     ce.version = uVer; ce.update = true;
                     DevGramPlugins.SubmissionCallback cb = r -> {
-                        String msg = r == 1
-                                ? "Обновление отправлено — файл в каталоге заменится без модерации, статистика сохранится"
-                                : (r == -1 ? "Плагин заблокирован — обновление запрещено"
-                                : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
-                        org.telegram.ui.Components.BulletinFactory.of(fragment)
-                                .createSimpleBulletin(r == 1 ? R.raw.contact_check : R.raw.error, msg).show();
+                        if (r == 1) {
+                            updRef.setText("⏳ Применяется…");
+                            org.telegram.ui.Components.BulletinFactory.of(fragment)
+                                    .createSimpleBulletin(R.raw.contact_check,
+                                            "Обновление отправлено — применяется, статистика сохранится").show();
+                            waitCatalogApplied(uId, pubVer[0], 0, makeDone, makeButton);
+                        } else {
+                            makeButton.run();
+                            String msg = (r == -1 ? "Плагин заблокирован — обновление запрещено"
+                                    : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
+                            org.telegram.ui.Components.BulletinFactory.of(fragment)
+                                    .createSimpleBulletin(R.raw.error, msg).show();
+                        }
                     };
                     if (uPackage != null && uPackage.endsWith(".dgplugin")) {
                         String verr = DevGramPlugins.packageValidationError(uPackage);
                         if (!verr.isEmpty()) {
+                            makeButton.run();
                             org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(verr).show();
                             return;
                         }
                         String[] mm = DevGramPlugins.packageMeta(uPackage).split("", -1);
-                        if (mm.length > 2 && !mm[2].isEmpty()) ce.version = mm[2];
+                        if (mm.length > 2 && !mm[2].isEmpty()) { ce.version = mm[2]; pubVer[0] = mm[2]; }
                         ce.isPackage = true;
                         org.telegram.messenger.DevGramPackages.publishPackage(uPackage, ce, cb);
                     } else {
@@ -692,5 +719,24 @@ public class DevGramPluginInstallSheet {
         et.setHintColor(Theme.getColor(Theme.key_dialogTextHint));
         et.setCursorColor(Theme.getColor(Theme.key_dialogTextBlack));
         return et;
+    }
+
+    // Ждём, пока сервер (modbot, опрос ~20с) применит обновление автора в каталог, и
+    // переключаем кнопку на «✓ Обновлено» БЕЗ перезахода в меню. Признак применения:
+    // заявка ушла из plugins_pending (статус != 1) — надёжно даже если версия не менялась.
+    // Поллим до ~60с, иначе возвращаем кнопку (обновление всё равно применится позже).
+    private static void waitCatalogApplied(String pluginId, String targetVersion, int attempt,
+                                           Runnable onDone, Runnable onTimeout) {
+        if (attempt >= 8) {           // 8 × 8с ≈ 64с
+            if (onTimeout != null) onTimeout.run();
+            return;
+        }
+        AndroidUtilities.runOnUIThread(() -> DevGramPlugins.getPluginSubmissionStatus(pluginId, "", status -> {
+            if (status == 2) {                 // применено и видно в каталоге
+                if (onDone != null) onDone.run();
+            } else {                            // 1 = ещё в pending; ждём дальше
+                waitCatalogApplied(pluginId, targetVersion, attempt + 1, onDone, onTimeout);
+            }
+        }), attempt == 0 ? 6000 : 8000);
     }
 }

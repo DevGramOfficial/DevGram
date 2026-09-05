@@ -81,7 +81,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         // статистика (рейтинг/отзывы) сохраняется, меняется только файл и версия.
         if (entry.submitterId != 0 && entry.submitterId == DevGramPlugins.myId()) {
             TextView updateBtn = button(context, "Обновить в каталоге");
-            updateBtn.setOnClickListener(v -> publishCatalogUpdate(context));
+            updateBtn.setOnClickListener(v -> publishCatalogUpdate(context, updateBtn));
             content.addView(updateBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
             addText("Заменит файл в каталоге без модерации, сохранив рейтинг и отзывы. Сначала установите обновлённую версию плагина.",
                     13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
@@ -151,7 +151,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
 
     // DevGram: опубликовать ОБНОВЛЕНИЕ своего плагина (update=true). Модбот применит без
     // модерации (тот же автор), заменив только файл + версию; статистика сохранится.
-    private void publishCatalogUpdate(Context context) {
+    private void publishCatalogUpdate(Context context, final TextView btn) {
         java.io.File f = DevGramPlugins.pluginInstalledFile(entry.id);
         if (f == null) {
             BulletinFactory.of(this).createErrorBulletin(
@@ -169,12 +169,33 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         ce.filter = entry.filter;
         ce.version = entry.version;
         ce.update = true;
+        // Кнопка меняет состояние прямо на экране — без перезахода в меню.
+        if (btn != null) { btn.setText("⏳ Отправляется…"); btn.setOnClickListener(null); }
         final DevGramPlugins.SubmissionCallback cb = r -> {
-            String msg = r == 1
-                    ? "Обновление отправлено — файл заменится в каталоге без модерации, статистика сохранится"
-                    : (r == -1 ? "Плагин заблокирован — обновление запрещено"
-                    : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
-            BulletinFactory.of(this).createSimpleBulletin(r == 1 ? R.raw.contact_check : R.raw.error, msg).show();
+            if (r == 1) {
+                if (btn != null) btn.setText("⏳ Применяется…");
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
+                        "Обновление отправлено — применяется, статистика сохранится").show();
+                waitCatalogApplied(entry.id, 0, () -> {
+                    if (btn != null) {
+                        btn.setText("✓ Обновлено в каталоге");
+                        btn.setOnClickListener(null);
+                    }
+                }, () -> {
+                    if (btn != null) {
+                        btn.setText("Обновить в каталоге");
+                        btn.setOnClickListener(v -> publishCatalogUpdate(context, btn));
+                    }
+                });
+            } else {
+                if (btn != null) {
+                    btn.setText("Обновить в каталоге");
+                    btn.setOnClickListener(v -> publishCatalogUpdate(context, btn));
+                }
+                String msg = (r == -1 ? "Плагин заблокирован — обновление запрещено"
+                        : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.error, msg).show();
+            }
         };
         if (path.endsWith(".dgplugin")) {
             String verr = DevGramPlugins.packageValidationError(path);
@@ -199,6 +220,18 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             ce.source = src;
             DevGramPlugins.publishToCatalog(ce, cb);
         }
+    }
+
+    // Ждём, пока сервер применит обновление автора (заявка уйдёт из pending) → «✓ Обновлено».
+    private void waitCatalogApplied(String pluginId, int attempt, Runnable onDone, Runnable onTimeout) {
+        if (attempt >= 8) { if (onTimeout != null) onTimeout.run(); return; }
+        AndroidUtilities.runOnUIThread(() -> DevGramPlugins.getPluginSubmissionStatus(pluginId, "", status -> {
+            if (status == 2) {
+                if (onDone != null) onDone.run();
+            } else {
+                waitCatalogApplied(pluginId, attempt + 1, onDone, onTimeout);
+            }
+        }), attempt == 0 ? 6000 : 8000);
     }
 
     private static String readFileText(java.io.File f) {
