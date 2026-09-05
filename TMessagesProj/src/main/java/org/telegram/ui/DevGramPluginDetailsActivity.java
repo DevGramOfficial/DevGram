@@ -80,11 +80,23 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         // DevGram: автор опубликованного плагина может обновить файл в каталоге БЕЗ модерации —
         // статистика (рейтинг/отзывы) сохраняется, меняется только файл и версия.
         if (entry.submitterId != 0 && entry.submitterId == DevGramPlugins.myId()) {
-            TextView updateBtn = button(context, "Обновить в каталоге");
-            updateBtn.setOnClickListener(v -> publishCatalogUpdate(context, updateBtn));
-            content.addView(updateBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
-            addText("Заменит файл в каталоге без модерации, сохранив рейтинг и отзывы. Сначала установите обновлённую версию плагина.",
-                    13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            // Кнопку показываем только если установленный файл НОВЕЕ/отличается от каталога —
+            // иначе обновлять нечего (после апдейта версии совпадают → «✓ Актуально»).
+            String installedVer = installedPluginVersion(entry.id);
+            boolean sameVersion = installedVer != null && !installedVer.isEmpty()
+                    && installedVer.equals(entry.version);
+            if (sameVersion) {
+                TextView okBtn = button(context, "✓ Актуально в каталоге");
+                okBtn.setEnabled(false);
+                okBtn.setAlpha(0.6f);
+                content.addView(okBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
+            } else {
+                TextView updateBtn = button(context, "Обновить в каталоге");
+                updateBtn.setOnClickListener(v -> publishCatalogUpdate(context, updateBtn));
+                content.addView(updateBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
+                addText("Заменит файл в каталоге без модерации, сохранив рейтинг и отзывы. Сначала установите обновлённую версию плагина.",
+                        13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+            }
         }
 
         addSectionTitle("Отзывы");
@@ -219,6 +231,23 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             ce.isPackage = false;
             ce.source = src;
             DevGramPlugins.publishToCatalog(ce, cb);
+        }
+    }
+
+    // Версия установленного файла плагина (.py или .dgplugin) или "" если не установлен.
+    private static String installedPluginVersion(String pluginId) {
+        try {
+            java.io.File f = DevGramPlugins.pluginInstalledFile(pluginId);
+            if (f == null) return "";
+            String path = f.getAbsolutePath();
+            String meta = path.endsWith(".dgplugin")
+                    ? DevGramPlugins.packageMeta(path)
+                    : DevGramPlugins.parseMeta(readFileText(f));
+            if (meta == null || meta.isEmpty()) return "";
+            String[] m = meta.split("", -1);
+            return m.length > 2 ? m[2] : "";
+        } catch (Throwable e) {
+            return "";
         }
     }
 

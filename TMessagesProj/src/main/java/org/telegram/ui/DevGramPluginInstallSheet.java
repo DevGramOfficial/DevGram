@@ -390,13 +390,24 @@ public class DevGramPluginInstallSheet {
                 final DevGramPlugins.CatalogEntry cat = entries.get(0);
                 if (cat.submitterId == 0 || cat.submitterId != DevGramPlugins.myId()) return;
                 if (uSource.isEmpty() && uPackage == null) return; // нечем обновлять
+                // Версия этого файла vs версия в каталоге. Если совпали — обновлять нечего:
+                // показываем «✓ Актуально» (иначе кнопка «Обновить» висела бы после апдейта).
+                final boolean sameVersion = uVer != null && !uVer.isEmpty() && uVer.equals(cat.version);
                 TextView upd = new TextView(context);
-                upd.setText("🔄 Обновить в каталоге");
                 upd.setGravity(Gravity.CENTER);
                 upd.setTypeface(AndroidUtilities.bold());
                 upd.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-                upd.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
                 upd.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
+                if (sameVersion) {
+                    upd.setText("✓ Актуально в каталоге");
+                    upd.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+                    upd.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14),
+                            Theme.getColor(Theme.key_windowBackgroundGray)));
+                    rootRef.addView(upd, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 4));
+                    return;
+                }
+                upd.setText("🔄 Обновить в каталоге");
+                upd.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
                 upd.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                         Theme.getColor(Theme.key_featuredStickers_addButton),
                         Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
