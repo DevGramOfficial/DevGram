@@ -1690,6 +1690,67 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         cancelVideoConvert(null);
     }
 
+    // DevGram: удалить трек из активного saved-music плейлиста профиля и, если он сейчас играет,
+    // переключиться на следующий (или остановиться, если список опустел). Фикс: удалённый трек
+    // продолжал играть и нельзя было выбрать другой, пока не закроешь и заново откроешь плейлист.
+    // Удаляем по document.id (а не по identity) — объект из меню плеера может быть другим
+    // экземпляром того же трека, и ArrayList.remove(Object) по equals его не находил.
+    public void removeFromSavedMusic(MessageObject removed) {
+        if (removed == null || currentSavedMusicList == null) {
+            return;
+        }
+        final long docId = removed.getDocument() != null ? removed.getDocument().id : 0;
+        final boolean wasPlaying = isPlayingMessage(removed);
+        int removedIdx = indexInPlaylistByDoc(playlist, removed, docId);
+        removeFromMusicList(currentSavedMusicList.list, removed, docId);
+        removeFromMusicList(playlist, removed, docId);
+        removeFromMusicList(shuffledPlaylist, removed, docId);
+        if (playlistMap != null) {
+            java.util.Iterator<java.util.Map.Entry<Integer, MessageObject>> it = playlistMap.entrySet().iterator();
+            while (it.hasNext()) {
+                MessageObject m = it.next().getValue();
+                if (m == removed || (docId != 0 && m != null && m.getDocument() != null && m.getDocument().id == docId)) {
+                    it.remove();
+                }
+            }
+        }
+        if (playlist.isEmpty()) {
+            cleanup();
+            return;
+        }
+        if (wasPlaying) {
+            int next = removedIdx;
+            if (next < 0 || next >= playlist.size()) {
+                next = 0;
+            }
+            playMessage(playlist.get(next));
+        } else if (playingMessageObject != null) {
+            int idx = playlist.indexOf(playingMessageObject);
+            if (idx >= 0) {
+                currentPlaylistNum = idx;
+            }
+        }
+    }
+
+    private static int indexInPlaylistByDoc(ArrayList<MessageObject> list, MessageObject obj, long docId) {
+        for (int i = 0; i < list.size(); i++) {
+            MessageObject m = list.get(i);
+            if (m == obj || (docId != 0 && m != null && m.getDocument() != null && m.getDocument().id == docId)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static void removeFromMusicList(ArrayList<MessageObject> list, MessageObject obj, long docId) {
+        for (int i = list.size() - 1; i >= 0; i--) {
+            MessageObject m = list.get(i);
+            if (m == obj || (docId != 0 && m != null && m.getDocument() != null && m.getDocument().id == docId)) {
+                list.remove(i);
+            }
+        }
+    }
+
     private void clearPlaylist() {
         currentSavedMusicList = null;
         playlist.clear();

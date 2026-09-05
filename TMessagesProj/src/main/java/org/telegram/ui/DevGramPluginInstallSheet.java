@@ -377,6 +377,61 @@ public class DevGramPluginInstallSheet {
             });
         }
 
+        // «Обновить в каталоге» — для АВТОРА уже опубликованного плагина прямо при тапе на
+        // файл в посте/чате: заменяет файл в каталоге БЕЗ модерации (статистика сохраняется).
+        // Работает и для .py (исходник), и для .dgplugin (пакет). Не требует экрана каталога.
+        {
+            final String uId = id, uName = name, uAuthor = author, uDesc = desc, uIcon = iconUrl, uVer = ver;
+            final String uSource = verifySource == null ? "" : verifySource;
+            final String uPackage = packagePath;
+            final LinearLayout rootRef = root;
+            DevGramPlugins.fetchCatalogEntry(id, entries -> {
+                if (entries == null || entries.isEmpty()) return;
+                final DevGramPlugins.CatalogEntry cat = entries.get(0);
+                if (cat.submitterId == 0 || cat.submitterId != DevGramPlugins.myId()) return;
+                if (uSource.isEmpty() && uPackage == null) return; // нечем обновлять
+                TextView upd = new TextView(context);
+                upd.setText("🔄 Обновить в каталоге");
+                upd.setGravity(Gravity.CENTER);
+                upd.setTypeface(AndroidUtilities.bold());
+                upd.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                upd.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
+                upd.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
+                upd.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
+                        Theme.getColor(Theme.key_featuredStickers_addButton),
+                        Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
+                upd.setOnClickListener(v -> {
+                    DevGramPlugins.CatalogEntry ce = new DevGramPlugins.CatalogEntry();
+                    ce.id = uId; ce.name = uName; ce.author = uAuthor; ce.desc = uDesc;
+                    ce.icon = uIcon; ce.channel = cat.channel; ce.filter = cat.filter;
+                    ce.version = uVer; ce.update = true;
+                    DevGramPlugins.SubmissionCallback cb = r -> {
+                        String msg = r == 1
+                                ? "Обновление отправлено — файл в каталоге заменится без модерации, статистика сохранится"
+                                : (r == -1 ? "Плагин заблокирован — обновление запрещено"
+                                : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
+                        org.telegram.ui.Components.BulletinFactory.of(fragment)
+                                .createSimpleBulletin(r == 1 ? R.raw.contact_check : R.raw.error, msg).show();
+                    };
+                    if (uPackage != null && uPackage.endsWith(".dgplugin")) {
+                        String verr = DevGramPlugins.packageValidationError(uPackage);
+                        if (!verr.isEmpty()) {
+                            org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(verr).show();
+                            return;
+                        }
+                        String[] mm = DevGramPlugins.packageMeta(uPackage).split("", -1);
+                        if (mm.length > 2 && !mm[2].isEmpty()) ce.version = mm[2];
+                        ce.isPackage = true;
+                        org.telegram.messenger.DevGramPackages.publishPackage(uPackage, ce, cb);
+                    } else {
+                        ce.isPackage = false; ce.source = uSource;
+                        DevGramPlugins.publishToCatalog(ce, cb);
+                    }
+                });
+                rootRef.addView(upd, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 4));
+            });
+        }
+
         ScrollView scroll = new ScrollView(context);
         scroll.addView(root);
 

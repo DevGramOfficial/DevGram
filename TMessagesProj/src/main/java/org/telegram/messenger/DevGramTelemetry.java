@@ -29,6 +29,7 @@ public class DevGramTelemetry {
     // Вызвать один раз на старте приложения (ApplicationLoader).
     public static void init() {
         installCrashHandler(); // ставим всегда (чтобы работало и после включения тумблера без перезапуска)
+        startMemoryWatchdog();  // ловим утечки/раздувание памяти ДО OOM (снапшот в краш-отчёт)
         Utilities.globalQueue.postRunnable(() -> {
             try {
                 if (crashesActive()) {
@@ -138,7 +139,10 @@ public class DevGramTelemetry {
             // Разбивка памяти в начало трейса — для OOM это решающая улика (где сидит память:
             // java-куча, графика/битмапы или нативная), а стек OOM показывает лишь место
             // неудачной аллокации-жертвы, а не причину.
-            String trace = "[mem] " + memorySummary() + "\n\n" + sw.toString();
+            String peak = readHighMem();
+            String trace = "[mem] " + memorySummary()
+                    + (peak.isEmpty() ? "" : "\n[mem-peak] " + peak)
+                    + "\n\n" + sw.toString();
             if (trace.length() > 8000) {
                 trace = trace.substring(0, 8000);
             }
@@ -187,6 +191,74 @@ public class DevGramTelemetry {
             return (Long.parseLong(mi.getMemoryStat(key)) / 1024L) + "MB";
         } catch (Throwable e) {
             return "?";
+        }
+    }
+
+    // ---- memory-watchdog: снимок при высокой памяти → в лог и в следующий краш-отчёт ----
+    // OOM-стек показывает лишь место неудачной аллокации, а не что забило память. Watchdog
+    // раз в 30с проверяет кучу/нативку и при высоком уровне сохраняет разбивку — она попадёт
+    // в след. краш-отчёт как [mem-peak], и по ней видно, что растёт (java/native/graphics).
+    private static volatile android.os.Handler memHandler;
+
+    private static synchronized void startMemoryWatchdog() {
+        if (memHandler != null) {
+            return;
+        }
+        try {
+            android.os.HandlerThread ht = new android.os.HandlerThread("dg-memwatch");
+            ht.start();
+            memHandler = new android.os.Handler(ht.getLooper());
+            memHandler.postDelayed(memTick, 30000);
+        } catch (Throwable ignore) {
+        }
+    }
+
+    private static final Runnable memTick = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                Runtime rt = Runtime.getRuntime();
+                long max = rt.maxMemory();
+                long used = rt.totalMemory() - rt.freeMemory();
+                long nativeMb = android.os.Debug.getNativeHeapAllocatedSize() / 1048576L;
+                boolean high = (max > 0 && used * 100L / max >= 85L) || nativeMb >= 1200L;
+                if (high) {
+                    String snap = memorySummary();
+                    persistHighMem(snap);
+                    FileLog.d("[DevGram-memwatch] ВЫСОКАЯ ПАМЯТЬ: " + snap);
+                }
+            } catch (Throwable ignore) {
+            }
+            android.os.Handler h = memHandler;
+            if (h != null) {
+                h.postDelayed(this, 30000);
+            }
+        }
+    };
+
+    private static java.io.File highMemFile() {
+        return new java.io.File(crashesDir(), "lastmem.txt");
+    }
+
+    private static void persistHighMem(String snap) {
+        try {
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(highMemFile());
+            fos.write((System.currentTimeMillis() + " " + snap).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            fos.close();
+        } catch (Throwable ignore) {
+        }
+    }
+
+    private static String readHighMem() {
+        try {
+            java.io.File f = highMemFile();
+            if (!f.exists()) {
+                return "";
+            }
+            String s = readFile(f);
+            return s == null ? "" : s.trim();
+        } catch (Throwable e) {
+            return "";
         }
     }
 

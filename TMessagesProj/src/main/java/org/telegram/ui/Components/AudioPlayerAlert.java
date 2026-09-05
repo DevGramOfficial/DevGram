@@ -1768,11 +1768,16 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         } else if (id == 7) {
             saveToProfile(messageObject, false, () -> {
                 if (savedMusicList != null) {
-                    savedMusicList.remove(messageObject);
+                    // DevGram: удаляем через MediaController — он вычистит трек из активного
+                    // плейлиста по document.id и, если он играл, переключит на следующий
+                    // (раньше удалённый трек продолжал играть и другой выбрать было нельзя).
+                    MediaController.getInstance().removeFromSavedMusic(messageObject);
                     if (savedMusicList.list.isEmpty()) {
-                        MediaController.getInstance().cleanup();
                         dismiss();
                     } else {
+                        // removeFromSavedMusic уже вычистил внутренний playlist MediaController
+                        // (playlist здесь — та же ссылка) и переключил трек — только обновляем UI.
+                        listAdapter.notifyDataSetChanged();
                         NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.musicListLoaded, savedMusicList);
                     }
                 }
