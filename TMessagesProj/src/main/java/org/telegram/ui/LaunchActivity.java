@@ -6083,7 +6083,23 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     private boolean firstAppUpdateCheck = true;
     public void checkAppUpdate(boolean force, Browser.Progress progress) {
-        // Проверка обновлений отключена.
+        // DevGram: проверяем обновления через GitHub-релизы firedragoq/DevGram
+        // (AppUpdater). force=true — ручная кнопка «Проверить обновления»;
+        // force=false — авто-проверка при запуске (гейт BuildVars.CHECK_UPDATES).
+        if (!force && !BuildVars.CHECK_UPDATES) {
+            if (progress != null) {
+                progress.end();
+            }
+            return;
+        }
+        try {
+            AppUpdater.checkForDevGram(this, this, force);
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        if (progress != null) {
+            progress.end();
+        }
     }
 
     // Never be called.

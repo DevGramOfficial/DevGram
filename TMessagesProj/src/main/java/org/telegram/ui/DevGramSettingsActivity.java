@@ -1,6 +1,8 @@
 package org.telegram.ui;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -13,11 +15,16 @@ import android.widget.TextView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
+import org.telegram.messenger.Utilities;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.ui.ActionBar.ActionBar;
+import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Cells.RadioColorCell;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
@@ -45,6 +52,8 @@ public class DevGramSettingsActivity extends BaseFragment {
     private static final int ID_LINK_CHAT = 11;
     private static final int ID_LINK_DOCS = 12;
     private static final int ID_LINK_SITE = 13;
+    private static final int ID_CHECK_UPDATE = 20;   // проверить обновления сейчас
+    private static final int ID_UPDATE_INTERVAL = 21; // интервал авто-проверки
 
     private static final String LINK_CHANNEL = "https://t.me/devgramnews";
     private static final String LINK_CHAT = "https://t.me/DevGramForum";
@@ -132,6 +141,12 @@ public class DevGramSettingsActivity extends BaseFragment {
         items.add(UItem.asButton(ID_OTHER, R.drawable.msg_settings, "Другое"));
         items.add(UItem.asShadow(null));
 
+        // Обновления DevGram (GitHub-релизы firedragoq/DevGram)
+        items.add(UItem.asHeader("Обновления"));
+        items.add(UItem.asButton(ID_CHECK_UPDATE, R.drawable.msg_download, "Проверить обновления"));
+        items.add(UItem.asButton(ID_UPDATE_INTERVAL, R.drawable.msg_autodelete, "Интервал проверки", getUpdateIntervalText()));
+        items.add(UItem.asShadow(null));
+
         // Ссылки на официальный канал и форум
         items.add(UItem.asHeader("Ссылки"));
         items.add(UItem.asButton(ID_LINK_CHANNEL, R.drawable.devgram_channel, "Канал", "@DevGramNews"));
@@ -186,6 +201,107 @@ public class DevGramSettingsActivity extends BaseFragment {
             Browser.openUrl(getContext(), LINK_DOCS);
         } else if (item.id == ID_LINK_SITE) {
             Browser.openUrl(getContext(), LINK_SITE);
+        } else if (item.id == ID_CHECK_UPDATE) {
+            org.telegram.messenger.forkgram.AppUpdater.checkForDevGram(getParentActivity(), getParentActivity(), true);
+        } else if (item.id == ID_UPDATE_INTERVAL) {
+            showUpdateIntervalDialog();
         }
+    }
+
+    // ---------------------------------------------------------------- Обновления
+
+    private static SharedPreferences prefs() {
+        return MessagesController.getGlobalMainSettings();
+    }
+
+    private String getUpdateIntervalText() {
+        long interval = prefs().getLong("updateForkCheckInterval", 30 * 60 * 1000);
+        if (interval == 0) {
+            return LocaleController.getString(R.string.Disable);
+        } else if (interval < 60 * 1000) {
+            return LocaleController.formatPluralString("Seconds", (int) (interval / 1000));
+        } else if (interval < 60 * 60 * 1000) {
+            return LocaleController.formatPluralString("Minutes", (int) (interval / (60 * 1000)));
+        } else if (interval < 24 * 60 * 60 * 1000) {
+            return LocaleController.formatPluralString("Hours", (int) (interval / (60 * 60 * 1000)));
+        } else {
+            return LocaleController.formatPluralString("Days", (int) (interval / (24 * 60 * 60 * 1000)));
+        }
+    }
+
+    private void showUpdateIntervalDialog() {
+        final long[] intervals = {
+            0,
+            5 * 60 * 1000L,
+            15 * 60 * 1000L,
+            30 * 60 * 1000L,
+            60 * 60 * 1000L,
+            2 * 60 * 60 * 1000L,
+            6 * 60 * 60 * 1000L,
+            12 * 60 * 60 * 1000L,
+            24 * 60 * 60 * 1000L,
+            2 * 24 * 60 * 60 * 1000L,
+            7 * 24 * 60 * 60 * 1000L
+        };
+        final String[] options = new String[intervals.length];
+        options[0] = LocaleController.getString(R.string.Disable);
+        for (int i = 1; i < intervals.length; i++) {
+            long interval = intervals[i];
+            if (interval < 60 * 60 * 1000L) {
+                options[i] = LocaleController.formatPluralString("Minutes", (int) (interval / (60 * 1000L)));
+            } else if (interval < 24 * 60 * 60 * 1000L) {
+                options[i] = LocaleController.formatPluralString("Hours", (int) (interval / (60 * 60 * 1000L)));
+            } else {
+                options[i] = LocaleController.formatPluralString("Days", (int) (interval / (24 * 60 * 60 * 1000L)));
+            }
+        }
+
+        long currentInterval = prefs().getLong("updateForkCheckInterval", 30 * 60 * 1000);
+        int selectedIndex = 3;
+        for (int i = 0; i < intervals.length; i++) {
+            if (intervals[i] == currentInterval) {
+                selectedIndex = i;
+                break;
+            }
+        }
+
+        showRadioDialog(LocaleController.getString(R.string.UpdateCheckInterval), options, selectedIndex, index -> {
+            SharedPreferences.Editor editor = prefs().edit();
+            editor.putLong("updateForkCheckInterval", intervals[index]);
+            editor.commit();
+            if (listView != null && listView.adapter != null) {
+                listView.adapter.update(false);
+            }
+        });
+    }
+
+    private void showRadioDialog(CharSequence title, String[] options, int selectedIndex, Utilities.Callback<Integer> onSelected) {
+        Activity activity = getParentActivity();
+        if (activity == null) {
+            return;
+        }
+        LinearLayout linearLayout = new LinearLayout(activity);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+        builder.setTitle(title);
+
+        for (int i = 0; i < options.length; i++) {
+            RadioColorCell cell = new RadioColorCell(activity);
+            cell.setPadding(AndroidUtilities.dp(4), 0, AndroidUtilities.dp(4), 0);
+            cell.setTag(i);
+            cell.setCheckColor(Theme.getColor(Theme.key_radioBackground), Theme.getColor(Theme.key_dialogRadioBackgroundChecked));
+            cell.setTextAndValue(options[i], selectedIndex == i);
+            cell.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ALL));
+            linearLayout.addView(cell);
+
+            cell.setOnClickListener(v -> {
+                onSelected.run((Integer) v.getTag());
+                builder.getDismissRunnable().run();
+            });
+        }
+
+        builder.setView(linearLayout);
+        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        builder.show();
     }
 }

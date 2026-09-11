@@ -382,10 +382,10 @@ def load_package(path):
     try:
         with zipfile.ZipFile(path) as archive:
             infos = archive.infolist()
-            if (len(infos) > 512 or len(archive.namelist()) != len(set(archive.namelist())) or
-                    sum(info.file_size for info in infos) > 32 * 1024 * 1024 or
-                    any(info.file_size > 8 * 1024 * 1024 for info in infos)):
-                raise ValueError('package is too large')
+            # DevGram: лимиты на размер пакета/файлов сняты по требованию (нужны большие
+            # нативные плагины, напр. VPN-ядро). Оставляем только структурные проверки.
+            if (len(infos) > 4096 or len(archive.namelist()) != len(set(archive.namelist()))):
+                raise ValueError('package structure invalid')
             names = set(archive.namelist())
             if 'manifest.json' not in names:
                 _log('missing manifest.json'); return 0
@@ -436,9 +436,7 @@ def package_meta(path):
         with zipfile.ZipFile(path) as archive:
             infos = archive.infolist()
             names_list = archive.namelist()
-            if (len(infos) > 512 or len(names_list) != len(set(names_list)) or
-                    sum(info.file_size for info in infos) > 32 * 1024 * 1024 or
-                    any(info.file_size > 8 * 1024 * 1024 for info in infos)):
+            if (len(infos) > 4096 or len(names_list) != len(set(names_list))):
                 return ''
             data = json.loads(archive.read('manifest.json').decode('utf-8'))
             _validate_package_manifest(data, set(names_list))
@@ -454,14 +452,11 @@ def validate_package(path):
         with zipfile.ZipFile(path) as archive:
             infos = archive.infolist()
             names_list = archive.namelist()
-            if len(infos) > 512:
+            if len(infos) > 4096:
                 return 'В пакете слишком много файлов'
             if len(names_list) != len(set(names_list)):
                 return 'В пакете есть файлы с повторяющимися именами'
-            if sum(info.file_size for info in infos) > 32 * 1024 * 1024:
-                return 'Размер распакованного пакета превышает 32 МБ'
-            if any(info.file_size > 8 * 1024 * 1024 for info in infos):
-                return 'Один из файлов пакета превышает 8 МБ'
+            # DevGram: ограничения на размер пакета/файлов сняты (нужны большие нативные плагины).
             names = set(names_list)
             if 'manifest.json' not in names:
                 return 'В пакете отсутствует manifest.json'

@@ -17,13 +17,14 @@ import org.telegram.messenger.UserConfig
 import org.telegram.tgnet.ConnectionsManager
 import org.telegram.tgnet.TLRPC
 import org.telegram.ui.ActionBar.AlertDialog
+import org.telegram.ui.ActionBar.Theme
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
 object AppUpdater {
 
-    private const val TITLE = "The latest DevGram version"
+    private const val TITLE = "DevGram — обновление"
     private const val DESC = ""
     private const val PREFS_NAME = "AppUpdaterPrefs"
     private const val KEY_LAST_APK_PATH = "lastApkPath"
@@ -67,6 +68,29 @@ object AppUpdater {
         saveApkPath(context, path)
     }
 
+    /**
+     * Java-дружелюбная точка входа: проверяет обновления DevGram (GitHub-релизы
+     * firedragoq/DevGram) и сама показывает диалог установки. Зовётся из
+     * LaunchActivity.checkAppUpdate — и по кнопке (manual=true), и авто при запуске.
+     */
+    @JvmStatic
+    fun checkForDevGram(parentActivity: Activity, context: Context, manual: Boolean) {
+        checkNewVersion(
+            parentActivity,
+            context,
+            legacyCallback = { builder ->
+                if (builder != null) {
+                    AndroidUtilities.runOnUIThread {
+                        try { builder.show() } catch (_: Exception) {}
+                    }
+                }
+                0
+            },
+            modernCallback = { _ -> 0 },
+            manual = manual
+        )
+    }
+
     @JvmStatic
     fun checkNewVersion(
         parentActivity: Activity,
@@ -87,17 +111,21 @@ object AppUpdater {
             lastTimestampOfCheck = System.currentTimeMillis()
             val currentVersion = BuildVars.BUILD_VERSION_STRING
 
-            // Try Telegram channel first if we have an active session
-            if (UserConfig.getInstance(UserConfig.selectedAccount).isClientActivated()) {
+            // DevGram: релизы лежат на GitHub (firedragoq/DevGram), поэтому основной путь —
+            // GitHub API. Telegram-канал используем ТОЛЬКО если задан реальный
+            // UPDATE_CHANNEL_USERNAME (не заглушка "a"/пусто) и есть активная сессия.
+            val updateChannel = BuildVars.UPDATE_CHANNEL_USERNAME ?: ""
+            if (updateChannel.length > 1 &&
+                UserConfig.getInstance(UserConfig.selectedAccount).isClientActivated()
+            ) {
                 checkUpdateFromTelegramChannel(parentActivity, context, legacyCallback, modernCallback, manual, currentVersion)
             } else {
-                // Fallback to GitHub API
                 checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
             }
         } catch (e: Exception) {
             android.util.Log.e("Fork Client", "Error in checkNewVersion", e)
             if (manual) {
-                Toast.makeText(context, "Update check error", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -202,7 +230,7 @@ object AppUpdater {
                     if (compareVersions(newVersion, currentVersion) <= 0) {
                         if (manual) {
                             AndroidUtilities.runOnUIThread {
-                                Toast.makeText(context, "No updates", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Обновлений нет", Toast.LENGTH_SHORT).show()
                             }
                         }
                         return@sendRequest
@@ -291,6 +319,51 @@ object AppUpdater {
         }
     }
 
+    /**
+     * Превращает markdown-текст релиза GitHub в опрятный текст для диалога:
+     *  - заголовки "## ..."/"# ..." убираются (или становятся жирными строками),
+     *    строку-дубликат версии не показываем;
+     *  - маркеры списков "- "/"* " → "•  ";
+     *  - "**жирный**" оставляем — их превратит в bold AndroidUtilities.replaceTags.
+     */
+    private fun formatChangelog(raw: String?, version: String): CharSequence {
+        val src = (raw ?: "").replace("\r\n", "\n").replace("\r", "\n")
+        if (src.isBlank()) {
+            return "Доступна новая версия DevGram."
+        }
+        val out = StringBuilder()
+        for (lineRaw in src.split("\n")) {
+            val trimmed = lineRaw.trim()
+            if (trimmed.isEmpty()) {
+                out.append("\n")
+                continue
+            }
+            if (trimmed.startsWith("#")) {
+                val header = trimmed.trimStart('#', ' ').trim()
+                // не дублируем «DevGram X.Y.Z» — это уже в заголовке диалога
+                if (header.isEmpty() ||
+                    header.contains("DevGram", ignoreCase = true) ||
+                    header.contains(version)
+                ) {
+                    continue
+                }
+                out.append("**").append(header).append("**").append("\n")
+                continue
+            }
+            val bullet = Regex("^[-*+]\\s+").find(trimmed)
+            if (bullet != null) {
+                out.append("•  ").append(trimmed.substring(bullet.value.length).trim()).append("\n")
+            } else {
+                out.append(trimmed).append("\n")
+            }
+        }
+        var result = out.toString().trim().replace(Regex("\n{3,}"), "\n\n")
+        if (result.isBlank()) {
+            result = "Доступна новая версия DevGram."
+        }
+        return AndroidUtilities.replaceTags(result)
+    }
+
     private fun compareVersions(left: String, right: String): Int {
         val leftParts = left.split(".")
         val rightParts = right.split(".")
@@ -327,11 +400,13 @@ object AppUpdater {
                     lastTimestampOfCheck = System.currentTimeMillis()
 
                     val root = JSONObject(response)
-                    val tag = root.optString("tag_name")
+                    // Теги релизов у нас вида "v12.10.2" — убираем ведущий v/V,
+                    // иначе compareVersions распарсит "v12" как 0 и сломает сравнение.
+                    val tag = root.optString("tag_name").trim().removePrefix("v").removePrefix("V")
 
-                    if (compareVersions(tag, currentVersion) <= 0) {
+                    if (tag.isEmpty() || compareVersions(tag, currentVersion) <= 0) {
                         if (manual) {
-                            Toast.makeText(context, "No updates", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Обновлений нет", Toast.LENGTH_SHORT).show()
                         }
                         return@httpRequest
                     }
@@ -352,7 +427,7 @@ object AppUpdater {
                         ?: run {
                             android.util.Log.w("Fork Client", "No apk asset in release")
                             if (manual) {
-                                Toast.makeText(context, "No installable asset in release", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "В релизе нет APK", Toast.LENGTH_SHORT).show()
                             }
                             return@httpRequest
                         }
@@ -360,17 +435,24 @@ object AppUpdater {
                     val url = asset.optString("browser_download_url").takeIf { it.isNotEmpty() } ?: run {
                         android.util.Log.w("Fork Client", "Empty download URL")
                         if (manual) {
-                            Toast.makeText(context, "Empty download URL", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Пустая ссылка на загрузку", Toast.LENGTH_SHORT).show()
                         }
                         return@httpRequest
                     }
 
                     val builder = AlertDialog.Builder(parentActivity)
-                    builder.setTitle("New version $tag")
-                    builder.setMessage("Release notes:\n$body")
+                    // Красивая шапка: анимированная иконка загрузки на акцентной подложке
+                    builder.setTopAnimation(
+                        R.raw.ic_download,
+                        56,
+                        false,
+                        Theme.getColor(Theme.key_dialogTopBackground)
+                    )
+                    builder.setTitle("Обновление $tag")
+                    builder.setMessage(formatChangelog(body, tag))
                     builder.setMessageTextViewClickable(false)
-                    builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null)
-                    builder.setPositiveButton("Install") { _, _ ->
+                    builder.setNegativeButton("Позже", null)
+                    builder.setPositiveButton("Установить") { _, _ ->
                         try {
                             if (downloadBroadcastReceiver == null) {
                                 downloadBroadcastReceiver = DownloadReceiver()
@@ -392,13 +474,13 @@ object AppUpdater {
                                 }
                                 downloadId = dm.download(url, TITLE, DESC)
                                 android.util.Log.d("Fork Client", "Download started with ID: $downloadId")
-                                Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Please open Download Manager", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Откройте «Загрузки»", Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("Fork Client", "Error starting download", e)
-                            Toast.makeText(context, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
 
@@ -406,14 +488,14 @@ object AppUpdater {
                 } catch (e: Exception) {
                     android.util.Log.e("Fork Client", "Error processing update check", e)
                     if (manual) {
-                        Toast.makeText(context, "Update check failed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Не удалось проверить обновления", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         } catch (e: Exception) {
             android.util.Log.e("Fork Client", "Error in checkUpdateFromGitHub", e)
             if (manual) {
-                Toast.makeText(context, "Update check error", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
             }
         }
     }

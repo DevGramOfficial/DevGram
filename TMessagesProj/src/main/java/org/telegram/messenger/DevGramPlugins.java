@@ -912,7 +912,8 @@ public class DevGramPlugins {
     public static String readData(String pluginId, String name) {
         try {
             File f = new File(pluginDataDir(pluginId), name.replaceAll("[^a-zA-Z0-9_.\\-]", "_"));
-            if (!f.exists() || f.length() > 8 * 1024 * 1024) {
+            // DevGram: лимит размера хранилища плагина снят (оставлен разумный потолок от OOM).
+            if (!f.exists() || f.length() > 256L * 1024 * 1024) {
                 return "";
             }
             byte[] data = new byte[(int) f.length()];
@@ -3159,13 +3160,13 @@ public class DevGramPlugins {
         if (e.version == null || e.version.trim().isEmpty()) return "Укажите версию плагина";
         if (e.author == null || e.author.trim().isEmpty()) return "Укажите автора плагина";
         if (e.isPackage) {
-            // .dgplugin-пакет: исходника нет, бинарь хостится в архиве. Проверяем размер (лимит валидатора 32 МБ).
+            // .dgplugin-пакет: исходника нет, бинарь хостится в архиве.
+            // DevGram: лимит размера пакета снят (нужны большие нативные плагины, напр. VPN-ядро).
             if (e.packageSize <= 0) return "Пустой пакет";
-            if (e.packageSize > 32L * 1024 * 1024) return "Пакет больше 32 МБ";
             return "";
         }
         if (e.source == null || e.source.trim().isEmpty()) return "Исходник плагина пуст";
-        if (e.source.length() > 1024 * 1024) return "Плагин больше 1 МБ";
+        // DevGram: лимит размера исходника плагина снят.
         if (parseMeta(e.source).isEmpty()) return "Не удалось разобрать метаданные или синтаксис плагина";
         String lower = e.source.toLowerCase(java.util.Locale.US);
         if (lower.contains("import subprocess") || lower.contains("from subprocess") || lower.contains("os.system(")) {
