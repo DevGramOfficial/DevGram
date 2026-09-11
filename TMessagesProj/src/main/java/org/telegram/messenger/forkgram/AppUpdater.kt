@@ -106,7 +106,21 @@ object AppUpdater {
                 return
             }
             if (downloadId != 0L) {
-                return
+                // Загрузка уже была запущена. Если она реально идёт — сообщаем и выходим,
+                // иначе (завершена/упала/удалена) сбрасываем id, чтобы проверка снова работала.
+                val status = queryDownloadStatus(context, downloadId)
+                if (status == DownloadManager.STATUS_RUNNING ||
+                    status == DownloadManager.STATUS_PENDING ||
+                    status == DownloadManager.STATUS_PAUSED
+                ) {
+                    if (manual) {
+                        AndroidUtilities.runOnUIThread {
+                            Toast.makeText(context, "Обновление уже скачивается…", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    return
+                }
+                downloadId = 0L
             }
             lastTimestampOfCheck = System.currentTimeMillis()
             val currentVersion = BuildVars.BUILD_VERSION_STRING
@@ -497,6 +511,22 @@ object AppUpdater {
             if (manual) {
                 Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    /** Статус загрузки по id (DownloadManager.STATUS_*), либо -1 если её уже нет. */
+    private fun queryDownloadStatus(context: Context, id: Long): Int {
+        return try {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.query(DownloadManager.Query().setFilterById(id)).use { c ->
+                if (c != null && c.moveToFirst()) {
+                    c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                } else {
+                    -1
+                }
+            }
+        } catch (e: Exception) {
+            -1
         }
     }
 

@@ -746,7 +746,18 @@ def list_plugins():
 def set_enabled(plugin_id, enabled):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
+            was = bool(getattr(p, "enabled", True))
             p.enabled = bool(enabled)
+            # ВАЖНО: при выключении вызываем on_unload (плагин должен снять хуки, остановить
+            # фоновые сервисы/ядро/прокси), при включении — on_load. Иначе disabled-плагин
+            # продолжает работать (потоки/нативка/хуки не гейтятся флагом enabled).
+            try:
+                if was and not enabled and "on_unload" in type(p).__dict__:
+                    p.on_unload()
+                elif not was and enabled and "on_load" in type(p).__dict__:
+                    p.on_load()
+            except Exception:
+                _err("set_enabled lifecycle", plugin=plugin_id)
             _log("включён" if enabled else "выключен", level="LIFE", plugin=plugin_id)
             return True
     return False
