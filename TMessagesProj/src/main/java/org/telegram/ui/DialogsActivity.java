@@ -2429,40 +2429,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                                 } else {
                                     TLRPC.Dialog dialog = getMessagesController().dialogs_dict.get(dialogId);
                                     if (dialog != null) {
-                                        TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
-                                        if (ChatObject.isCommunity(chat)) {
-                                            ArrayList<Long> selectedDialogs = new ArrayList<>();
-                                            selectedDialogs.add(dialogId);
-                                            performSelectedDialogsAction(selectedDialogs, community_ungroup, true, false);
-                                        } else if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_READ) {
-                                            ArrayList<Long> selectedDialogs = new ArrayList<>();
-                                            selectedDialogs.add(dialogId);
-                                            canReadCount = dialog.unread_count > 0 || dialog.unread_mark ? 1 : 0;
-                                            performSelectedDialogsAction(selectedDialogs, read, true, false);
-                                        } else if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_MUTE) {
-                                            if (!getMessagesController().isDialogMuted(dialogId, 0)) {
-                                                NotificationsController.getInstance(UserConfig.selectedAccount).setDialogNotificationsSettings(dialogId, 0, NotificationsController.SETTING_MUTE_FOREVER);
-                                                if (BulletinFactory.canShowBulletin(DialogsActivity.this)) {
-                                                    BulletinFactory.createMuteBulletin(DialogsActivity.this, NotificationsController.SETTING_MUTE_FOREVER).show();
-                                                }
-                                            } else {
-                                                ArrayList<Long> selectedDialogs = new ArrayList<>();
-                                                selectedDialogs.add(dialogId);
-                                                canMuteCount = MessagesController.getInstance(currentAccount).isDialogMuted(dialogId, 0) ? 0 : 1;
-                                                canUnmuteCount = canMuteCount > 0 ? 0 : 1;
-                                                performSelectedDialogsAction(selectedDialogs, mute, true, false);
-                                            }
-                                        } else if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_PIN) {
-                                            ArrayList<Long> selectedDialogs = new ArrayList<>();
-                                            selectedDialogs.add(dialogId);
-                                            boolean pinned = isDialogPinned(dialog);
-                                            canPinCount = pinned ? 0 : 1;
-                                            performSelectedDialogsAction(selectedDialogs, pin, true, false);
-                                        } else if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_DELETE) {
-                                            ArrayList<Long> selectedDialogs = new ArrayList<>();
-                                            selectedDialogs.add(dialogId);
-                                            performSelectedDialogsAction(selectedDialogs, delete, true, false);
-                                        }
+                                        performSwipeAction(dialogId, dialog);
                                     }
                                 }
                             }
@@ -2690,7 +2657,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     if ((filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE && SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_FOLDERS) || !allowSwipeDuringCurrentTouch || ((dialogId == getUserConfig().clientUserId || dialogId == 777000 || currentDialogsType == 7 || currentDialogsType == 8) && SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_ARCHIVE) || getMessagesController().isPromoDialog(dialogId, false) && getMessagesController().promoDialogType != MessagesController.PROMO_TYPE_PSA) {
                         return 0;
                     }
-                    boolean canSwipeBack = folderId == 0 && (ChatObject.isCommunity(currentAccount, dialogId) || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_MUTE || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_READ || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_PIN || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_DELETE) && !rightSlidingDialogContainer.hasFragment();
+                    boolean canSwipeBack = (ChatObject.isCommunity(currentAccount, dialogId) || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_MUTE || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_READ || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_PIN || SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_DELETE) && !rightSlidingDialogContainer.hasFragment();
                     if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_READ) {
                         MessagesController.DialogFilter filter = null;
                         if (viewPages[0].dialogsType == 7 || viewPages[0].dialogsType == 8) {
@@ -2763,19 +2730,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     return;
                 }
 
-                if (!getMessagesController().isPromoDialog(dialogId, false) && folderId == 0 && SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_READ) {
-                    ArrayList<Long> selectedDialogs = new ArrayList<>();
-                    selectedDialogs.add(dialogId);
-                    canReadCount = dialog.unread_count > 0 || dialog.unread_mark ? 1 : 0;
-                    performSelectedDialogsAction(selectedDialogs, read, true, false);
-                    return;
-                }
-
-                TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
-                if (ChatObject.isCommunity(chat)) {
-                    ArrayList<Long> selectedDialogs = new ArrayList<>();
-                    selectedDialogs.add(dialogId);
-                    performSelectedDialogsAction(selectedDialogs, community_ungroup, true, false);
+                if (ChatObject.isCommunity(currentAccount, dialogId)
+                    || !getMessagesController().isPromoDialog(dialogId, false)
+                    && SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_READ) {
+                    performSwipeAction(dialogId, dialog);
                     return;
                 }
 
@@ -10036,6 +9994,96 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             scrollToTop(true, false);
         }
         hideActionMode(action != pin2 && action != pin && action != delete);
+    }
+
+    private void performSwipeAction(long dialogId, TLRPC.Dialog dialog) {
+        if (ChatObject.isCommunity(currentAccount, dialogId)) {
+            performCommunitySwipeAction(dialogId, dialog);
+            return;
+        }
+        final ArrayList<Long> selectedDialogs = new ArrayList<>();
+        selectedDialogs.add(dialogId);
+        switch (SharedConfig.getChatSwipeAction(currentAccount)) {
+            case SwipeGestureSettingsView.SWIPE_GESTURE_READ:
+                canReadCount = dialog.unread_count > 0 || dialog.unread_mark ? 1 : 0;
+                performSelectedDialogsAction(selectedDialogs, read, true, false);
+                break;
+            case SwipeGestureSettingsView.SWIPE_GESTURE_MUTE:
+                if (getMessagesController().isDialogMuted(dialogId, 0)) {
+                    canMuteCount = 0;
+                    canUnmuteCount = 1;
+                    performSelectedDialogsAction(selectedDialogs, mute, true, false);
+                } else {
+                    getNotificationsController().setDialogNotificationsSettings(dialogId, 0, NotificationsController.SETTING_MUTE_FOREVER);
+                    if (BulletinFactory.canShowBulletin(this)) {
+                        BulletinFactory.createMuteBulletin(this, NotificationsController.SETTING_MUTE_FOREVER).show();
+                    }
+                }
+                break;
+            case SwipeGestureSettingsView.SWIPE_GESTURE_PIN:
+                canPinCount = isDialogPinned(dialog) ? 0 : 1;
+                performSelectedDialogsAction(selectedDialogs, pin, true, false);
+                break;
+            case SwipeGestureSettingsView.SWIPE_GESTURE_DELETE:
+                performSelectedDialogsAction(selectedDialogs, delete, true, false);
+                break;
+        }
+    }
+
+    private void performCommunitySwipeAction(long dialogId, TLRPC.Dialog dialog) {
+        final ArrayList<TLRPC.Dialog> peers = getMessagesController().getDialogsByCommunity(-dialogId);
+        if (peers.isEmpty()) {
+            return;
+        }
+        final ArrayList<Long> peerIds = new ArrayList<>();
+        for (int a = 0, N = peers.size(); a < N; a++) {
+            peerIds.add(peers.get(a).id);
+        }
+        switch (SharedConfig.getChatSwipeAction(currentAccount)) {
+            case SwipeGestureSettingsView.SWIPE_GESTURE_READ: {
+                canReadCount = 0;
+                for (int a = 0, N = peers.size(); a < N; a++) {
+                    if (peers.get(a).unread_count > 0 || peers.get(a).unread_mark) {
+                        canReadCount++;
+                    }
+                }
+                performSelectedDialogsAction(peerIds, read, true, false);
+                break;
+            }
+            case SwipeGestureSettingsView.SWIPE_GESTURE_MUTE: {
+                final boolean mute = !getMessagesController().isCommunityMuted(-dialogId);
+                for (int a = 0, N = peerIds.size(); a < N; a++) {
+                    getNotificationsController().setDialogNotificationsSettings(peerIds.get(a), 0,
+                        mute ? NotificationsController.SETTING_MUTE_FOREVER : NotificationsController.SETTING_MUTE_UNMUTE);
+                }
+                if (BulletinFactory.canShowBulletin(this)) {
+                    BulletinFactory.createMuteBulletin(this, mute, peerIds.size(), null).show();
+                }
+                break;
+            }
+            case SwipeGestureSettingsView.SWIPE_GESTURE_PIN: {
+                final ArrayList<Long> selectedDialogs = new ArrayList<>();
+                selectedDialogs.add(dialogId);
+                canPinCount = isDialogPinned(dialog) ? 0 : 1;
+                performSelectedDialogsAction(selectedDialogs, pin, true, false);
+                break;
+            }
+            case SwipeGestureSettingsView.SWIPE_GESTURE_DELETE: {
+                performSelectedDialogsAction(peerIds, delete, true, false);
+                break;
+            }
+            default: {
+                int archivedCount = 0;
+                for (int a = 0, N = peers.size(); a < N; a++) {
+                    if (peers.get(a).folder_id != 0) {
+                        archivedCount++;
+                    }
+                }
+                canUnarchiveCount = archivedCount == peers.size() ? archivedCount : 0;
+                performSelectedDialogsAction(peerIds, archive, true, false);
+                break;
+            }
+        }
     }
 
     private void markAsRead(long did) {

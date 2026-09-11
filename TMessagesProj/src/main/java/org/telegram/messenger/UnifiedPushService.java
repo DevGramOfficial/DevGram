@@ -20,10 +20,13 @@ public class UnifiedPushService extends PushService {
     private static final long MAX_REGISTRATION_RETRY_DELAY = 15 * 60 * 1000L;
     private static final long REGISTRATION_ANSWER_TIMEOUT = 30 * 1000L;
     private static final long REGISTRATION_FRESHNESS = 24 * 60 * 60 * 1000L;
+    private static final long REGISTRATION_REFRESH = 60 * 60 * 1000L;
+    private static final long MIN_REGISTRATION_ATTEMPT_INTERVAL = 5 * 60 * 1000L;
     private static final String LAST_ENDPOINT_KEY = "unifiedPushLastEndpointTime";
 
     private static long lastReceivedNotification = 0;
     private static long numOfReceivedNotifications = 0;
+    private static long lastRegistrationAttempt = 0;
 
     private static int registrationRetries = 0;
     private static Runnable registrationRetryRunnable;
@@ -58,6 +61,17 @@ public class UnifiedPushService extends PushService {
         }
     }
 
+    private static void markRegistrationLost() {
+        try {
+            ApplicationLoader.applicationContext
+                    .getSharedPreferences("mainconfig", Context.MODE_PRIVATE)
+                    .edit()
+                    .remove(LAST_ENDPOINT_KEY)
+                    .apply();
+        } catch (Throwable ignore) {
+        }
+    }
+
     private static boolean isEndpointYoungerThan(long age) {
         final long last = getLastEndpointTime();
         if (last <= 0) {
@@ -69,6 +83,31 @@ public class UnifiedPushService extends PushService {
 
     public static boolean isRegistrationFresh() {
         return isEndpointYoungerThan(REGISTRATION_FRESHNESS);
+    }
+
+    public static void refreshRegistration() {
+        if (SharedConfig.disableUnifiedPush) {
+            return;
+        }
+        if (registrationRetryRunnable != null || registrationTimeoutRunnable != null) {
+            return;
+        }
+        if (isEndpointYoungerThan(REGISTRATION_REFRESH)) {
+            return;
+        }
+        final long now = SystemClock.elapsedRealtime();
+        if (lastRegistrationAttempt != 0 && now - lastRegistrationAttempt < MIN_REGISTRATION_ATTEMPT_INTERVAL) {
+            return;
+        }
+        final PushListenerController.IPushListenerServiceProvider provider = ApplicationLoader.getPushProvider();
+        if (!(provider instanceof PushListenerController.UnifiedPushListenerServiceProvider) || !provider.hasServices()) {
+            return;
+        }
+        lastRegistrationAttempt = now;
+        if (BuildVars.LOGS_ENABLED) {
+            FileLog.d("UnifiedPush registration refresh");
+        }
+        provider.onRequestPushToken();
     }
 
     public static void awaitRegistrationAnswer() {
@@ -86,6 +125,7 @@ public class UnifiedPushService extends PushService {
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d("UnifiedPush distributor did not answer the registration");
                 }
+                markRegistrationLost();
                 scheduleRegistrationRetry();
                 ApplicationLoader.startPushService();
             };
@@ -206,6 +246,7 @@ public class UnifiedPushService extends PushService {
             FileLog.d("Failed to get endpoint: " + reason);
         }
         AndroidUtilities.runOnUIThread(UnifiedPushService::cancelRegistrationTimeout);
+        markRegistrationLost();
         SharedConfig.pushStringStatus = "__UNIFIEDPUSH_FAILED__";
         Utilities.globalQueue.postRunnable(() -> {
             SharedConfig.pushStringGetTimeEnd = SystemClock.elapsedRealtime();
@@ -221,6 +262,7 @@ public class UnifiedPushService extends PushService {
     @Override
     public void onUnregistered(String instance){
         AndroidUtilities.runOnUIThread(UnifiedPushService::cancelRegistrationTimeout);
+        markRegistrationLost();
         SharedConfig.pushStringStatus = "__UNIFIEDPUSH_FAILED__";
         Utilities.globalQueue.postRunnable(() -> {
             SharedConfig.pushStringGetTimeEnd = SystemClock.elapsedRealtime();

@@ -32,6 +32,8 @@ public class AppStartReceiver extends BroadcastReceiver {
             PushListenerController.IPushListenerServiceProvider provider = ApplicationLoader.getPushProvider();
             if (provider.hasServices() && provider.needsPushToken()) {
                 provider.onRequestPushToken();
+            } else {
+                UnifiedPushService.refreshRegistration();
             }
         });
     }

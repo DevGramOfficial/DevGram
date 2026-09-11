@@ -60,6 +60,9 @@ public class PushListenerController {
             if (token == null) {
                 return;
             }
+            if (pushType == SharedConfig.pushType && token.equals(SharedConfig.pushString) && !hasUnregisteredAccount()) {
+                return;
+            }
             boolean sendStat = false;
             if (SharedConfig.pushStringGetTimeStart != 0 && SharedConfig.pushStringGetTimeEnd != 0 && (!SharedConfig.pushStatSent || !TextUtils.equals(SharedConfig.pushString, token))) {
                 sendStat = true;

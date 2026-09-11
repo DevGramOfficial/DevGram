@@ -5065,7 +5065,8 @@ public class ChatActivity extends BaseFragment implements
                 && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_title", false);
         actionBar.setDrawGlassMiddlePill(!md3ChatHeader);
         actionBar.setGlassShadowAlpha(md3ChatHeader ? 0f : 1f);
-        actionBar.setGlassAvatarSquare(AndroidUtilities.avatarCornersType() == AndroidUtilities.AVATAR_CORNERS_SQUARE);
+        // 12.10.3: апстрим заменил setGlassAvatarSquare(boolean) на setGlassAvatarCorners(int)
+        actionBar.setGlassAvatarCorners(AndroidUtilities.avatarCornersType());
         // DevGram: без блюра (режим «Старый») три стеклянные «пилюли» шапки сливаем
         // в одну сплошную линию на всю ширину — как в AyuGram, вместо 3 секций с зазорами.
         actionBar.setGlassFlatDivider(!SharedConfig.chatBlurEnabled());

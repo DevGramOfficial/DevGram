@@ -4014,16 +4014,12 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                     revealBackgroundColor = Theme.getColor(Theme.key_chats_archivePinBackground, resourcesProvider);
                     swipeMessage = getString(swipeMessageStringId = R.string.PsaHide);
                     translationDrawable = Theme.dialogs_hidePsaDrawable;
-                } else if (folderId == 0) {
+                } else {
                     backgroundColor = Theme.getColor(Theme.key_chats_archiveBackground, resourcesProvider);
                     revealBackgroundColor = Theme.getColor(Theme.key_chats_archivePinBackground, resourcesProvider);
 
-                    if (ChatObject.isCommunity(chat)) {
-                        swipeMessage = getString(swipeMessageStringId = R.string.SwipeUngroupCommunity);
-                        backgroundColor = revealBackgroundColor = Theme.getColor(Theme.key_dialogSwipeRemove, resourcesProvider);
-                        translationDrawable = Theme.dialogs_swipeCommunityUngroup;
-                    } else if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_MUTE) {
-                        if (dialogMuted) {
+                    if (SharedConfig.getChatSwipeAction(currentAccount) == SwipeGestureSettingsView.SWIPE_GESTURE_MUTE) {
+                        if (isDialogCommunity() ? MessagesController.getInstance(currentAccount).isCommunityMuted(currentDialogCommunityId) : dialogMuted) {
                             swipeMessage = getString(swipeMessageStringId = R.string.SwipeUnmute);
                             translationDrawable = Theme.dialogs_swipeUnmuteDrawable;
                         } else {
@@ -4050,15 +4046,15 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                             swipeMessage = getString(swipeMessageStringId = R.string.SwipePin);
                             translationDrawable = Theme.dialogs_swipePinDrawable;
                         }
-                    } else {
+                    } else if (folderId == 0) {
                         swipeMessage = getString(swipeMessageStringId = R.string.Archive);
                         translationDrawable = Theme.dialogs_archiveDrawable;
+                    } else {
+                        backgroundColor = Theme.getColor(Theme.key_chats_archivePinBackground, resourcesProvider);
+                        revealBackgroundColor = Theme.getColor(Theme.key_chats_archiveBackground, resourcesProvider);
+                        swipeMessage = getString(swipeMessageStringId = R.string.Unarchive);
+                        translationDrawable = Theme.dialogs_unarchiveDrawable;
                     }
-                } else {
-                    backgroundColor = Theme.getColor(Theme.key_chats_archivePinBackground, resourcesProvider);
-                    revealBackgroundColor = Theme.getColor(Theme.key_chats_archiveBackground, resourcesProvider);
-                    swipeMessage = getString(swipeMessageStringId = R.string.Unarchive);
-                    translationDrawable = Theme.dialogs_unarchiveDrawable;
                 }
             }
             // DevGram: в iOS-режиме фон свайп-действия — точные цвета из исходников

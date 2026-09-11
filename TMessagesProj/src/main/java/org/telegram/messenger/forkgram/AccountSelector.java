@@ -96,7 +96,7 @@ public class AccountSelector {
             });
         }
 
-        final ShapeDrawable background = Theme.createRoundRectDrawable(dp(24), fragment.getThemedColor(Theme.key_windowBackgroundWhite));
+        final ShapeDrawable background = Theme.createRoundRectDrawable((int) AndroidUtilities.avatarCornerRadius(dp(48)), fragment.getThemedColor(Theme.key_windowBackgroundWhite));
         background.getPaint().setShadowLayer(dp(6), 0, dp(1), Theme.multAlpha(0xFF000000, 0.15f));
         options.setViewAdditionalOffsets(-dp(4), -dp(4), -dp(4), -dp(4));
         options.setScrimViewBackground(background);
