@@ -227,6 +227,10 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public TLRPC.InputReplyTo createReplyInput(TLRPC.TL_messageReplyHeader replyHeader) {
+        // DevGram: локальный reply на удалёнку — серверу не отправляем (иначе MESSAGE_ID_INVALID).
+        if (replyHeader != null && replyHeader.devgramLocalOnly) {
+            return null;
+        }
         TLRPC.TL_inputReplyToMessage replyTo = new TLRPC.TL_inputReplyToMessage();
         replyTo.reply_to_msg_id = replyHeader.reply_to_msg_id;
         if ((replyHeader.flags & 2) != 0) {
@@ -4978,11 +4982,18 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 newMsg.replyStory = replyToStoryItem;
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
             } else if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
-                // DevGram (как AyuGram): ответ на удалёнку — серверный reply_to НЕ отправляем
-                // (оригинала на сервере нет → MESSAGE_ID_INVALID / восклицательный знак).
-                // Цитата (ник + содержимое) привязывается ЛОКАЛЬНО ниже через конструктор
-                // MessageObject(reply=replyToMsg), поэтому у отправителя reply-плашка видна,
-                // а сообщение уходит обычным (у получателя без reply). newMsg.reply_to не ставим.
+                // DevGram (как AyuGram): ответ на удалёнку. Серверу reply_to НЕ отправляем
+                // (оригинала на сервере нет → MESSAGE_ID_INVALID / восклицательный знак), но
+                // локально сохраняем reply_to + replyMessage — чтобы цитата (ник + содержимое)
+                // показывалась и ПЕРЕЖИВАЛА перезаход в чат. Флаг devgramLocalOnly не даёт
+                // createReplyInput отправить этот reply на сервер.
+                TLRPC.TL_messageReplyHeader localReply = new TLRPC.TL_messageReplyHeader();
+                localReply.devgramLocalOnly = true;
+                localReply.flags |= 16;
+                localReply.reply_to_msg_id = replyToMsg.getId();
+                newMsg.reply_to = localReply;
+                newMsg.replyMessage = replyToMsg.messageOwner;
+                newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
             } else if (replyToMsg != null && (replyToTopMsg == null || replyToMsg != replyToTopMsg || replyToTopMsg.getId() != 1)) {
                 newMsg.reply_to = new TLRPC.TL_messageReplyHeader();
                 if (encryptedChat != null && replyToMsg.messageOwner.random_id != 0) {
@@ -5319,7 +5330,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             reqSend.flags |= 1;
                         } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
                             reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
-                            reqSend.flags |= 1;
+                            if (reqSend.reply_to != null) reqSend.flags |= 1;
                         }
                         if (updateStickersOrder && SharedConfig.updateStickersOrderOnSend) {
                             reqSend.update_stickersets_order = true;
@@ -5378,7 +5389,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             reqSend.flags |= 1;
                         } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
                             reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
-                            reqSend.flags |= 1;
+                            if (reqSend.reply_to != null) reqSend.flags |= 1;
                         }
 
                         if (newMsg.quick_reply_shortcut != null) {
@@ -5475,7 +5486,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     reqSend.flags |= 1;
                 } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
                     reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
-                    reqSend.flags |= 1;
+                    if (reqSend.reply_to != null) reqSend.flags |= 1;
                 }
                 if (newMsg.quick_reply_shortcut != null) {
                     reqSend.flags |= 131072;
@@ -5822,8 +5833,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 req.flags |= 1;
                                 req.reply_to = createReplyInput(replyToStoryItem);
                             } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                                if (req.reply_to != null) req.flags |= 1;
                             }
                             if (scheduleDate != 0) {
                                 req.schedule_date = scheduleDate;
@@ -5873,8 +5884,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 req.flags |= 1;
                                 req.reply_to = createReplyInput(replyToStoryItem);
                             } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                                if (req.reply_to != null) req.flags |= 1;
                             }
                             if (scheduleDate != 0) {
                                 req.schedule_date = scheduleDate;
@@ -5917,8 +5928,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 req.flags |= 1;
                                 req.reply_to = createReplyInput(replyToStoryItem);
                             } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                                req.flags |= 1;
                                 req.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                                if (req.reply_to != null) req.flags |= 1;
                             }
                             if (scheduleDate != 0) {
                                 req.schedule_date = scheduleDate;
@@ -6005,8 +6016,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             request.reply_to = createReplyInput(replyToStoryItem);
                             request.flags |= 1;
                         } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                            request.flags |= 1;
                             request.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                            if (request.reply_to != null) request.flags |= 1;
                         }
                         if (payStars > 0) {
                             request.flags |= 2097152;
@@ -6453,8 +6464,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     reqSend.reply_to = createReplyInput(replyToStoryItem);
                     reqSend.flags |= 1;
                 } else if (newMsg.reply_to instanceof TLRPC.TL_messageReplyHeader) {
-                    reqSend.flags |= 1;
                     reqSend.reply_to = createReplyInput((TLRPC.TL_messageReplyHeader) newMsg.reply_to);
+                    if (reqSend.reply_to != null) reqSend.flags |= 1;
                 }
                 reqSend.silent = newMsg.silent;
                 if (scheduleDate != 0) {

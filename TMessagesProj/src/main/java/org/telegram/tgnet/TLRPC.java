@@ -27638,6 +27638,9 @@ public class TLRPC {
 
     public static class TL_messageReplyHeader extends MessageReplyHeader {
         public static final int constructor = 0x1B97DD66;
+        // DevGram: локальный reply на удалёнку — хранится в БД для показа цитаты, но НЕ
+        // отправляется серверу (иначе MESSAGE_ID_INVALID). Рантайм-флаг (не сериализуется в TL).
+        public boolean devgramLocalOnly;
         public void readParams(InputSerializedData stream, boolean exception) {
             flags = stream.readInt32(exception);
             reply_to_scheduled = hasFlag(flags, FLAG_2);
