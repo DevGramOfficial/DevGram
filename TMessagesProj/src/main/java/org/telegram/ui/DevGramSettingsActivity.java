@@ -25,6 +25,7 @@ import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.RadioColorCell;
+import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
@@ -54,6 +55,7 @@ public class DevGramSettingsActivity extends BaseFragment {
     private static final int ID_LINK_SITE = 13;
     private static final int ID_CHECK_UPDATE = 20;   // проверить обновления сейчас
     private static final int ID_UPDATE_INTERVAL = 21; // интервал авто-проверки
+    private static final int ID_UPDATE_CHANNEL = 22;  // канал обновлений (основной/бета)
 
     private static final String LINK_CHANNEL = "https://t.me/devgramnews";
     private static final String LINK_CHAT = "https://t.me/DevGramForum";
@@ -145,6 +147,12 @@ public class DevGramSettingsActivity extends BaseFragment {
         items.add(UItem.asHeader("Обновления"));
         items.add(UItem.asButton(ID_CHECK_UPDATE, R.drawable.msg_download, "Проверить обновления"));
         items.add(UItem.asButton(ID_UPDATE_INTERVAL, R.drawable.msg_autodelete, "Интервал проверки", getUpdateIntervalText()));
+        // Канал обновлений (основной/бета) — виден ТОЛЬКО поддержавшим (значок ✈️)
+        if (org.telegram.messenger.DevGramBeta.hasAccess(currentAccount)) {
+            items.add(UItem.asButton(ID_UPDATE_CHANNEL, R.drawable.msg_channel,
+                    "Канал обновлений",
+                    org.telegram.messenger.DevGramConfig.updateChannel == 1 ? "Бета" : "Основной"));
+        }
         items.add(UItem.asShadow(null));
 
         // Ссылки на официальный канал и форум
@@ -205,7 +213,33 @@ public class DevGramSettingsActivity extends BaseFragment {
             org.telegram.messenger.forkgram.AppUpdater.checkForDevGram(getParentActivity(), getParentActivity(), true);
         } else if (item.id == ID_UPDATE_INTERVAL) {
             showUpdateIntervalDialog();
+        } else if (item.id == ID_UPDATE_CHANNEL) {
+            toggleUpdateChannel();
         }
+    }
+
+    // Переключение основной/бета. Бета включается только после успешной активации токена
+    // (клиент сам, в фоне, получает его от бота по значку поддержавшего).
+    private void toggleUpdateChannel() {
+        if (org.telegram.messenger.DevGramConfig.updateChannel == 1) {
+            org.telegram.messenger.DevGramConfig.setUpdateChannel(0);
+            if (listView != null && listView.adapter != null) listView.adapter.update(true);
+            return;
+        }
+        if (!org.telegram.messenger.DevGramBeta.hasAccess(currentAccount)) {
+            BulletinFactory.of(this).createErrorBulletin("Бета — только для поддержавших (значок ✈️)").show();
+            return;
+        }
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Активирую бета-канал…").show();
+        org.telegram.messenger.DevGramBeta.activate(currentAccount, (ok, error) -> {
+            if (ok) {
+                org.telegram.messenger.DevGramConfig.setUpdateChannel(1);
+                if (listView != null && listView.adapter != null) listView.adapter.update(true);
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Бета-канал включён").show();
+            } else {
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось активировать бету").show();
+            }
+        });
     }
 
     // ---------------------------------------------------------------- Обновления

@@ -81,6 +81,7 @@ public class DevGramConfig {
     public static boolean hideShareButton = false;
     public static boolean hideStickerTime = false; // скрыть время на стикерах (как exteraGram)
     public static boolean inlineCalc = true;       // инлайн-калькулятор: «2+2=» → дописать «4»
+    public static int updateChannel = 0;           // канал обновлений: 0 = основной, 1 = бета (нужен значок поддержавшего)
 
     // --- гейт для разрешённых пакетов чтения (например, ручная отметка «прочитано») ---
     private static final Object readSync = new Object();
@@ -123,6 +124,7 @@ public class DevGramConfig {
             disableMarkdown = preferences.getBoolean("disableMarkdown", false);
             hideKeyboardOnScroll = preferences.getBoolean("hideKeyboardOnScroll", true);
             inlineCalc = preferences.getBoolean("inlineCalc", true);
+            updateChannel = preferences.getInt("updateChannel", 0);
             disableGreetingSticker = preferences.getBoolean("disableGreetingSticker", false);
             addCommaAfterMention = preferences.getBoolean("addCommaAfterMention", true);
             removeMessageTail = preferences.getBoolean("removeMessageTail", false);
@@ -400,6 +402,30 @@ public class DevGramConfig {
         inlineCalc = v;
         if (preferences != null) {
             preferences.edit().putBoolean("inlineCalc", v).apply();
+        }
+    }
+
+    public static void setUpdateChannel(int v) {
+        updateChannel = v;
+        if (preferences != null) {
+            preferences.edit().putInt("updateChannel", v).apply();
+        }
+    }
+
+    // Персональный токен доступа к бете (выдаёт @officialdevgram_bot по значку поддержавшего).
+    public static String betaToken = "";
+
+    public static String getBetaToken() {
+        if ((betaToken == null || betaToken.isEmpty()) && preferences != null) {
+            betaToken = preferences.getString("betaToken", "");
+        }
+        return betaToken == null ? "" : betaToken;
+    }
+
+    public static void setBetaToken(String v) {
+        betaToken = v == null ? "" : v;
+        if (preferences != null) {
+            preferences.edit().putString("betaToken", betaToken).apply();
         }
     }
 

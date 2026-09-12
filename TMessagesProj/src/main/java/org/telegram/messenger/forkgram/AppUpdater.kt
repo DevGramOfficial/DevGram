@@ -43,12 +43,12 @@ object AppUpdater {
                 val apkFile = File(lastApkPath)
                 if (apkFile.exists()) {
                     apkFile.delete()
-                    android.util.Log.i("Fork Client", "Deleted saved APK: $lastApkPath")
+                    android.util.Log.i("DevGram", "Deleted saved APK: $lastApkPath")
                 }
                 prefs.edit().remove(KEY_LAST_APK_PATH).apply()
             }
         } catch (e: Exception) {
-            android.util.Log.e("Fork Client", "Error in clearCachedInstallers", e)
+            android.util.Log.e("DevGram", "Error in clearCachedInstallers", e)
         }
     }
 
@@ -59,7 +59,7 @@ object AppUpdater {
                 .putString(KEY_LAST_APK_PATH, path)
                 .apply()
         } catch (e: Exception) {
-            android.util.Log.e("Fork Client", "Error saving APK path", e)
+            android.util.Log.e("DevGram", "Error saving APK path", e)
         }
     }
 
@@ -125,9 +125,18 @@ object AppUpdater {
             lastTimestampOfCheck = System.currentTimeMillis()
             val currentVersion = BuildVars.BUILD_VERSION_STRING
 
-            // DevGram: релизы лежат на GitHub (firedragoq/DevGram), поэтому основной путь —
-            // GitHub API. Telegram-канал используем ТОЛЬКО если задан реальный
-            // UPDATE_CHANNEL_USERNAME (не заглушка "a"/пусто) и есть активная сессия.
+            // DevGram: бета-канal (только для поддержавших) — отдельный путь через api.devgram.space.
+            // Проверяем доступ (значок) и наличие токена; иначе тихо откатываемся на основной канал.
+            if (org.telegram.messenger.DevGramConfig.updateChannel == 1 &&
+                org.telegram.messenger.DevGramBeta.hasAccess(UserConfig.selectedAccount) &&
+                org.telegram.messenger.DevGramBeta.hasToken()
+            ) {
+                checkUpdateFromBeta(parentActivity, context, legacyCallback, manual)
+                return
+            }
+
+            // Основной канал: релизы на GitHub (firedragoq/DevGram). Telegram-канал —
+            // ТОЛЬКО если задан реальный UPDATE_CHANNEL_USERNAME и есть активная сессия.
             val updateChannel = BuildVars.UPDATE_CHANNEL_USERNAME ?: ""
             if (updateChannel.length > 1 &&
                 UserConfig.getInstance(UserConfig.selectedAccount).isClientActivated()
@@ -137,9 +146,90 @@ object AppUpdater {
                 checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
             }
         } catch (e: Exception) {
-            android.util.Log.e("Fork Client", "Error in checkNewVersion", e)
+            android.util.Log.e("DevGram", "Error in checkNewVersion", e)
             if (manual) {
                 Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Общий запуск скачивания APK через DownloadManager (переиспользуется main/beta).
+    private fun startApkDownload(context: Context, url: String) {
+        if (downloadBroadcastReceiver == null) {
+            downloadBroadcastReceiver = DownloadReceiver()
+            val intentFilter = IntentFilter()
+            intentFilter.addAction(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+            intentFilter.addAction(DownloadManager.ACTION_NOTIFICATION_CLICKED)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.applicationContext.registerReceiver(downloadBroadcastReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                context.applicationContext.registerReceiver(downloadBroadcastReceiver, intentFilter)
+            }
+        }
+        val dm = DownloadManagerUtil(context)
+        if (dm.checkDownloadManagerEnable()) {
+            if (downloadId != 0L) dm.clearCurrentTask(downloadId)
+            downloadId = dm.download(url, TITLE, DESC)
+            Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Откройте «Загрузки»", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Бета-канал: манифест и APK с api.devgram.space (доступ по токену+значку — проверка на сервере).
+    private fun checkUpdateFromBeta(
+        parentActivity: Activity,
+        context: Context,
+        callback: (AlertDialog.Builder?) -> Int,
+        manual: Boolean
+    ) {
+        val curCode: Long = try {
+            val pi = context.packageManager.getPackageInfo(context.packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pi.longVersionCode else pi.versionCode.toLong()
+        } catch (e: Exception) { 0L }
+
+        httpRequest("GET", "https://api.devgram.space/api/beta/latest") { response ->
+            try {
+                if (response == null) {
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Ошибка сети", Toast.LENGTH_SHORT).show() }
+                    return@httpRequest
+                }
+                lastTimestampOfCheck = System.currentTimeMillis()
+                val root = JSONObject(response)
+                if (!root.optBoolean("available")) {
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Беты пока нет", Toast.LENGTH_SHORT).show() }
+                    return@httpRequest
+                }
+                val betaCode = root.optLong("versionCode", 0)
+                if (betaCode <= curCode) {
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "У вас последняя бета", Toast.LENGTH_SHORT).show() }
+                    return@httpRequest
+                }
+                val vn = root.optString("versionName")
+                val log = root.optString("changelog")
+                val uid = UserConfig.getInstance(UserConfig.selectedAccount).clientUserId
+                val token = org.telegram.messenger.DevGramConfig.getBetaToken()
+                if (token.isEmpty()) {
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Активируйте бету в настройках", Toast.LENGTH_SHORT).show() }
+                    return@httpRequest
+                }
+                val url = "https://api.devgram.space/api/beta/download?uid=$uid&token=" +
+                        java.net.URLEncoder.encode(token, "UTF-8")
+
+                val builder = AlertDialog.Builder(parentActivity)
+                builder.setTopAnimation(R.raw.ic_download, 56, false, Theme.getColor(Theme.key_dialogTopBackground))
+                builder.setTitle("Бета $vn")
+                builder.setMessage(formatChangelog(log, vn))
+                builder.setMessageTextViewClickable(false)
+                builder.setNegativeButton("Позже", null)
+                builder.setPositiveButton("Установить") { _, _ ->
+                    try { startApkDownload(context, url) }
+                    catch (e: Exception) { Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show() }
+                }
+                callback(builder)
+            } catch (e: Exception) {
+                android.util.Log.e("DevGram", "Beta check error", e)
+                if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Не удалось проверить бету", Toast.LENGTH_SHORT).show() }
             }
         }
     }
@@ -158,14 +248,14 @@ object AppUpdater {
 
         ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req) { response, error ->
             if (error != null || response !is TLRPC.TL_contacts_resolvedPeer) {
-                android.util.Log.w("Fork Client", "Failed to resolve update channel, falling back to GitHub")
+                android.util.Log.w("DevGram", "Failed to resolve update channel, falling back to GitHub")
                 checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                 return@sendRequest
             }
 
             val chat = response.chats.firstOrNull()
             if (chat == null) {
-                android.util.Log.w("Fork Client", "Update channel not found, falling back to GitHub")
+                android.util.Log.w("DevGram", "Update channel not found, falling back to GitHub")
                 checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                 return@sendRequest
             }
@@ -179,14 +269,14 @@ object AppUpdater {
 
             ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(messagesReq) { historyResponse, historyError ->
                 if (historyError != null || historyResponse !is TLRPC.messages_Messages) {
-                    android.util.Log.w("Fork Client", "Failed to get channel history, falling back to GitHub")
+                    android.util.Log.w("DevGram", "Failed to get channel history, falling back to GitHub")
                     checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                     return@sendRequest
                 }
 
                 val message = historyResponse.messages.firstOrNull()
                 if (message?.message == null) {
-                    android.util.Log.w("Fork Client", "No messages in update channel, falling back to GitHub")
+                    android.util.Log.w("DevGram", "No messages in update channel, falling back to GitHub")
                     checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                     return@sendRequest
                 }
@@ -196,7 +286,7 @@ object AppUpdater {
 
                     val androidInfo = updateInfo.optJSONObject("android")
                     if (androidInfo == null) {
-                        android.util.Log.w("Fork Client", "Invalid update JSON format, falling back to GitHub")
+                        android.util.Log.w("DevGram", "Invalid update JSON format, falling back to GitHub")
                         checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                         return@sendRequest
                     }
@@ -209,14 +299,14 @@ object AppUpdater {
                     }
 
                     if (releaseInfo.isEmpty()) {
-                        android.util.Log.w("Fork Client", "No version info found, falling back to GitHub")
+                        android.util.Log.w("DevGram", "No version info found, falling back to GitHub")
                         checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                         return@sendRequest
                     }
 
                     val parts = releaseInfo.split(":")
                     if (parts.size != 2) {
-                        android.util.Log.w("Fork Client", "Invalid version format, falling back to GitHub")
+                        android.util.Log.w("DevGram", "Invalid version format, falling back to GitHub")
                         checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                         return@sendRequest
                     }
@@ -225,7 +315,7 @@ object AppUpdater {
                     val fileInfo = parts[1].split("#")
 
                     if (fileInfo.size != 2) {
-                        android.util.Log.w("Fork Client", "Invalid file info format, falling back to GitHub")
+                        android.util.Log.w("DevGram", "Invalid file info format, falling back to GitHub")
                         checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                         return@sendRequest
                     }
@@ -234,7 +324,7 @@ object AppUpdater {
                     val messageId = fileInfo[1].toIntOrNull()
 
                     if (messageId == null) {
-                        android.util.Log.w("Fork Client", "Invalid message ID, falling back to GitHub")
+                        android.util.Log.w("DevGram", "Invalid message ID, falling back to GitHub")
                         checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                         return@sendRequest
                     }
@@ -254,7 +344,7 @@ object AppUpdater {
                     getDownloadUrlFromFilesChannel(parentActivity, context, modernCallback, newVersion, filesChannelUsername, messageId)
 
                 } catch (e: Exception) {
-                    android.util.Log.e("Fork Client", "Error parsing update info from Telegram, falling back to GitHub", e)
+                    android.util.Log.e("DevGram", "Error parsing update info from Telegram, falling back to GitHub", e)
                     checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
                 }
             }
@@ -275,13 +365,13 @@ object AppUpdater {
 
         ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req) { response, error ->
             if (error != null || response !is TLRPC.TL_contacts_resolvedPeer) {
-                android.util.Log.w("Fork Client", "Failed to resolve files channel")
+                android.util.Log.w("DevGram", "Failed to resolve files channel")
                 return@sendRequest
             }
 
             val chat = response.chats.firstOrNull()
             if (chat == null) {
-                android.util.Log.w("Fork Client", "Files channel not found")
+                android.util.Log.w("DevGram", "Files channel not found")
                 return@sendRequest
             }
 
@@ -294,7 +384,7 @@ object AppUpdater {
 
             ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(messagesReq) { messagesResponse, messagesError ->
                 if (messagesError != null || messagesResponse !is TLRPC.messages_Messages) {
-                    android.util.Log.w("Fork Client", "Failed to get file message")
+                    android.util.Log.w("DevGram", "Failed to get file message")
                     return@sendRequest
                 }
 
@@ -302,7 +392,7 @@ object AppUpdater {
 
                 val document = fileMessage?.media?.document
                 if (document == null) {
-                    android.util.Log.w("Fork Client", "No document found in file message")
+                    android.util.Log.w("DevGram", "No document found in file message")
                     return@sendRequest
                 }
 
@@ -408,7 +498,7 @@ object AppUpdater {
             httpRequest("GET", "https://api.github.com/repos/$userRepo/releases/latest") { response ->
                 try {
                     if (response == null) {
-                        android.util.Log.w("Fork Client", "Connection error.")
+                        android.util.Log.w("DevGram", "Connection error.")
                         return@httpRequest
                     }
                     lastTimestampOfCheck = System.currentTimeMillis()
@@ -428,7 +518,7 @@ object AppUpdater {
                     // New version!
                     val body = root.optString("body")
                     val assets: JSONArray = root.optJSONArray("assets") ?: run {
-                        android.util.Log.w("Fork Client", "No assets in release")
+                        android.util.Log.w("DevGram", "No assets in release")
                         return@httpRequest
                     }
 
@@ -439,7 +529,7 @@ object AppUpdater {
                     val asset = apks.firstOrNull { it.optString("name").contains("compressed", ignoreCase = true) }
                         ?: apks.lastOrNull()
                         ?: run {
-                            android.util.Log.w("Fork Client", "No apk asset in release")
+                            android.util.Log.w("DevGram", "No apk asset in release")
                             if (manual) {
                                 Toast.makeText(context, "В релизе нет APK", Toast.LENGTH_SHORT).show()
                             }
@@ -447,7 +537,7 @@ object AppUpdater {
                         }
 
                     val url = asset.optString("browser_download_url").takeIf { it.isNotEmpty() } ?: run {
-                        android.util.Log.w("Fork Client", "Empty download URL")
+                        android.util.Log.w("DevGram", "Empty download URL")
                         if (manual) {
                             Toast.makeText(context, "Пустая ссылка на загрузку", Toast.LENGTH_SHORT).show()
                         }
@@ -478,7 +568,7 @@ object AppUpdater {
                                 } else {
                                     context.applicationContext.registerReceiver(downloadBroadcastReceiver, intentFilter)
                                 }
-                                android.util.Log.d("Fork Client", "DownloadReceiver registered")
+                                android.util.Log.d("DevGram", "DownloadReceiver registered")
                             }
 
                             val dm = DownloadManagerUtil(context)
@@ -487,27 +577,27 @@ object AppUpdater {
                                     dm.clearCurrentTask(downloadId)
                                 }
                                 downloadId = dm.download(url, TITLE, DESC)
-                                android.util.Log.d("Fork Client", "Download started with ID: $downloadId")
+                                android.util.Log.d("DevGram", "Download started with ID: $downloadId")
                                 Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, "Откройте «Загрузки»", Toast.LENGTH_SHORT).show()
                             }
                         } catch (e: Exception) {
-                            android.util.Log.e("Fork Client", "Error starting download", e)
+                            android.util.Log.e("DevGram", "Error starting download", e)
                             Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
 
                     callback(builder)
                 } catch (e: Exception) {
-                    android.util.Log.e("Fork Client", "Error processing update check", e)
+                    android.util.Log.e("DevGram", "Error processing update check", e)
                     if (manual) {
                         Toast.makeText(context, "Не удалось проверить обновления", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("Fork Client", "Error in checkUpdateFromGitHub", e)
+            android.util.Log.e("DevGram", "Error in checkUpdateFromGitHub", e)
             if (manual) {
                 Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
             }
@@ -543,14 +633,14 @@ object AppUpdater {
                     if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                         connection.inputStream.bufferedReader().use { it.readText() }
                     } else {
-                        android.util.Log.w("Fork Client", "HTTP error ${connection.responseCode}")
+                        android.util.Log.w("DevGram", "HTTP error ${connection.responseCode}")
                         null
                     }
                 } finally {
                     connection.disconnect()
                 }
             } catch (e: Exception) {
-                android.util.Log.e("Fork Client", "Network error", e)
+                android.util.Log.e("DevGram", "Network error", e)
                 null
             }
             AndroidUtilities.runOnUIThread { callback(result) }
