@@ -4977,6 +4977,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 newMsg.reply_to.peer = getMessagesController().getPeer(replyToStoryItem.dialogId);
                 newMsg.replyStory = replyToStoryItem;
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
+            } else if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
+                // DevGram (как AyuGram): ответ на удалёнку — серверный reply_to НЕ отправляем
+                // (оригинала на сервере нет → MESSAGE_ID_INVALID / восклицательный знак).
+                // Цитата (ник + содержимое) привязывается ЛОКАЛЬНО ниже через конструктор
+                // MessageObject(reply=replyToMsg), поэтому у отправителя reply-плашка видна,
+                // а сообщение уходит обычным (у получателя без reply). newMsg.reply_to не ставим.
             } else if (replyToMsg != null && (replyToTopMsg == null || replyToMsg != replyToTopMsg || replyToTopMsg.getId() != 1)) {
                 newMsg.reply_to = new TLRPC.TL_messageReplyHeader();
                 if (encryptedChat != null && replyToMsg.messageOwner.random_id != 0) {
@@ -5015,28 +5021,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         newMsg.reply_to.quote_entities = replyQuote.getEntities();
                         if (newMsg.reply_to.quote_entities != null && !newMsg.reply_to.quote_entities.isEmpty()) {
                             newMsg.reply_to.quote_entities = new ArrayList<>(newMsg.reply_to.quote_entities);
-                            newMsg.reply_to.flags |= 128;
-                        }
-                    }
-                } else if (replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
-                    // DevGram (как AyuGram): ответ на удалёнку — оригинала на сервере уже нет,
-                    // поэтому содержимое прикрепляем как quote_text. Тогда reply-плашка (ник
-                    // отправителя + текст/метка медиа) сохраняется и показывается как обычный
-                    // ответ, хотя серверный оригинал недоступен. Панель ввода при этом обычная.
-                    CharSequence qt = replyToMsg.messageOwner.message;
-                    if (TextUtils.isEmpty(qt)) {
-                        qt = devgramDeletedLabel(replyToMsg);
-                    }
-                    if (!TextUtils.isEmpty(qt)) {
-                        String qs = qt.toString();
-                        if (qs.length() > 512) qs = qs.substring(0, 512);
-                        newMsg.reply_to.quote_text = qs;
-                        newMsg.reply_to.quote = true;
-                        newMsg.reply_to.flags |= 64;
-                        newMsg.reply_to.flags |= 1024;
-                        newMsg.reply_to.quote_offset = 0;
-                        if (replyToMsg.messageOwner.entities != null && !replyToMsg.messageOwner.entities.isEmpty()) {
-                            newMsg.reply_to.quote_entities = new ArrayList<>(replyToMsg.messageOwner.entities);
                             newMsg.reply_to.flags |= 128;
                         }
                     }
