@@ -71,6 +71,24 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
 
         TextView install = button(context, DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин");
         install.setOnClickListener(v -> {
+            if (entry.isPackage) {
+                // .dgplugin-пакет: исходника нет — качаем бинарь из архивного канала.
+                // Раньше тут звался install(entry.source), а у пакета source пустой → «Не удалось».
+                if (entry.packageMsg == 0) {
+                    BulletinFactory.of(this).createErrorBulletin("Пакет ещё не размещён в архиве").show();
+                    return;
+                }
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Скачиваю пакет «" + entry.name + "»…").show();
+                org.telegram.messenger.DevGramPackages.installCatalogPackage(entry, ok ->
+                        BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
+                                ok ? "Плагин установлен: " + entry.name : "Не удалось установить пакет").show());
+                return;
+            }
+            if (entry.source == null || entry.source.isEmpty()) {
+                BulletinFactory.of(this).createErrorBulletin("У плагина нет исходника в каталоге").show();
+                return;
+            }
+            DevGramPlugins.trustFromChannel(entry.source);
             if (DevGramPlugins.install(entry.source, entry.id, true))
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Плагин установлен").show();
             else BulletinFactory.of(this).createErrorBulletin("Не удалось установить плагин").show();
