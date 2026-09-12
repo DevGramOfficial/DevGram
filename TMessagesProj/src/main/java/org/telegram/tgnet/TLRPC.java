@@ -27638,13 +27638,6 @@ public class TLRPC {
 
     public static class TL_messageReplyHeader extends MessageReplyHeader {
         public static final int constructor = 0x1B97DD66;
-        // DevGram: локальный reply на удалёнку — хранится в БД для показа цитаты, но НЕ
-        // отправляется серверу (иначе MESSAGE_ID_INVALID). Рантайм-флаг (не сериализуется в TL).
-        public boolean devgramLocalOnly;
-        // DevGram: это ответ на удалёнку, отправляемый как НАСТОЯЩИЙ reply (пробуем — вдруг
-        // оригинал ещё жив на сервере). При MESSAGE_ID_INVALID обработчик ошибки ставит
-        // devgramLocalOnly=true и переотправляет без reply. Рантайм-флаг (не сериализуется).
-        public boolean devgramReplyToDeleted;
         public void readParams(InputSerializedData stream, boolean exception) {
             flags = stream.readInt32(exception);
             reply_to_scheduled = hasFlag(flags, FLAG_2);

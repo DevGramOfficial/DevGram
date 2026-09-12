@@ -119,8 +119,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -149,6 +151,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     private final HashMap<String, ImportingHistory> importingHistoryFiles = new HashMap<>();
     private final LongSparseArray<ImportingHistory> importingHistoryMap = new LongSparseArray<>();
 
+    // AyuGram-style pseudo replies are inserted only once for a media group.
+    private static final LinkedHashMap<String, Boolean> devgramPseudoReplyGroupIds = new LinkedHashMap<String, Boolean>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+            return size() > 16;
+        }
+    };
+
     private final HashMap<String, ImportingStickers> importingStickersFiles = new HashMap<>();
     private final HashMap<String, ImportingStickers> importingStickersMap = new HashMap<>();
 
@@ -173,20 +183,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
 
     public TLRPC.InputReplyTo createReplyInput(int replyToMsgId) {
         return createReplyInput(null, replyToMsgId, 0, null);
-    }
-
-    // DevGram: метка содержимого удалёнки без текста (для quote_text при ответе на удалёнку).
-    private static String devgramDeletedLabel(MessageObject m) {
-        if (m == null) return "";
-        if (m.isVoice()) return "🎤 Голосовое сообщение";
-        if (m.isRoundVideo()) return "📹 Видеосообщение";
-        if (m.isGif()) return "GIF";
-        if (m.isVideo()) return "📹 Видео";
-        if (m.isPhoto()) return "🖼 Фотография";
-        if (m.isMusic()) return "🎵 Аудио";
-        if (m.isSticker() || m.isAnimatedSticker()) return "Стикер";
-        if (m.getDocument() != null) return "📎 Файл";
-        return "Медиа";
     }
 
     public TLRPC.InputReplyTo createReplyInput(TLRPC.InputPeer sendToPeer, int replyToMsgId, int topMessageId, ChatActivity.ReplyQuote replyQuote) {
@@ -227,10 +223,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     public TLRPC.InputReplyTo createReplyInput(TLRPC.TL_messageReplyHeader replyHeader) {
-        // DevGram: локальный reply на удалёнку — серверу не отправляем (иначе MESSAGE_ID_INVALID).
-        if (replyHeader != null && replyHeader.devgramLocalOnly) {
-            return null;
-        }
         TLRPC.TL_inputReplyToMessage replyTo = new TLRPC.TL_inputReplyToMessage();
         replyTo.reply_to_msg_id = replyHeader.reply_to_msg_id;
         if ((replyHeader.flags & 2) != 0) {
@@ -265,74 +257,106 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         return replyTo;
     }
 
-    // DevGram: перенос локального reply-на-удалёнку с исходного (локального) сообщения на серверное.
-    // Серверу reply_to мы НЕ отправляли (иначе MESSAGE_ID_INVALID), поэтому серверное сообщение
-    // приходит без reply_to. Если не перенести — putMessages сохранит серверную версию БЕЗ цитаты,
-    // и после перезахода в чат ответ на удалёнку покажется обычным сообщением. Переносим reply_to +
-    // replyMessage: reply_to_msg_id сохранится в messages_v2, а цитата восстановится по id (удалёнка
-    // остаётся в базе). Вызывать перед putMessages для КАЖДОГО серверного сообщения из ответа.
-    private void devgramTransferLocalReply(TLRPC.Message localMsg, TLRPC.Message serverMsg) {
-        if (localMsg == null || serverMsg == null || serverMsg == localMsg) {
-            return;
+    private static boolean devgramCanHoldPseudoReplyCaption(TLRPC.TL_document document) {
+        if (document == null) {
+            return false;
         }
-        if (localMsg.reply_to instanceof TLRPC.TL_messageReplyHeader
-                && ((TLRPC.TL_messageReplyHeader) localMsg.reply_to).devgramLocalOnly
-                && serverMsg.reply_to == null) {
-            serverMsg.reply_to = localMsg.reply_to;
-            serverMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
-            if (localMsg.replyMessage != null) {
-                serverMsg.replyMessage = localMsg.replyMessage;
-            }
-            if (BuildVars.LOGS_ENABLED) {
-                FileLog.d("DGREPLY transfer: перенёс reply на серверное сообщение serverMid=" + serverMsg.id
-                        + " replyToMsgId=" + localMsg.reply_to.reply_to_msg_id);
+        for (TLRPC.DocumentAttribute attribute : document.attributes) {
+            if (attribute instanceof TLRPC.TL_documentAttributeSticker
+                    || attribute instanceof TLRPC.TL_documentAttributeCustomEmoji
+                    || attribute instanceof TLRPC.TL_documentAttributeVideo && attribute.round_message) {
+                return false;
             }
         }
-        // Надёжная связь в нашей БД по финальному серверному id — не зависит от reply_to Telegram.
-        devgramPersistReplyLink(serverMsg);
+        return !MessageObject.isAnimatedStickerDocument(document, true);
     }
 
-    // Пишет связь «наше сообщение → удалёнка» в devgram-БД по финальному серверному id.
-    // Вызывать, когда id уже серверный (после ответа сервера).
-    private void devgramPersistReplyLink(TLRPC.Message msg) {
-        if (msg == null || msg.id <= 0 || !(msg.reply_to instanceof TLRPC.TL_messageReplyHeader)) {
+    private static void devgramShiftEntities(ArrayList<TLRPC.MessageEntity> entities, int offset) {
+        if (entities == null || entities.isEmpty() || offset == 0) {
             return;
         }
-        TLRPC.TL_messageReplyHeader h = (TLRPC.TL_messageReplyHeader) msg.reply_to;
-        if (h.devgramLocalOnly && h.reply_to_msg_id != 0) {
-            DevGramMessagesController.getInstance().saveReplyToDeleted(
-                    getUserConfig().getClientUserId(), MessageObject.getDialogId(msg), msg.id, h.reply_to_msg_id);
-            if (BuildVars.LOGS_ENABLED) {
-                FileLog.d("DGREPLY link: сохранил связь ownerMid=" + msg.id + " → replyToMsgId=" + h.reply_to_msg_id);
-            }
+        for (TLRPC.MessageEntity entity : entities) {
+            entity.offset += offset;
         }
     }
 
-    // DevGram: откат ответа на удалёнку. Если реальный reply отклонён сервером
-    // (MESSAGE_ID_INVALID — оригинал удалён у всех), переотправляем сообщение БЕЗ reply_to
-    // (devgramLocalOnly), чтобы цитата осталась локальной, а пользователь не увидел «!».
-    // Возвращает true, если откат запущен (тогда стандартную ошибку показывать не нужно).
-    private boolean devgramReplyFallback(MessageObject msgObj, TLRPC.TL_error error) {
-        if (msgObj == null || error == null || error.text == null) {
-            return false;
+    private static CharSequence devgramShortify(CharSequence text, int limit) {
+        if (TextUtils.isEmpty(text) || text.length() <= limit) {
+            return text;
         }
-        if (!error.text.contains("MESSAGE_ID_INVALID") && !error.text.contains("REPLY_MESSAGE")) {
-            return false;
+        return text.subSequence(0, limit - 1) + "…";
+    }
+
+    /**
+     * AyuGram-style reply to a locally preserved deleted message. Telegram cannot accept
+     * reply_to for a message which no longer exists on the server, so the visible reply is
+     * encoded as a block quote at the beginning of the outgoing text/caption.
+     */
+    private Pair<String, String> devgramPrependDeletedPseudoReply(
+            String message, String caption, TLRPC.TL_photo photo, TLRPC.TL_document document,
+            String groupId, long peer, ChatActivity.ReplyQuote replyQuote,
+            MessageObject replyMessage, ArrayList<TLRPC.MessageEntity> entities) {
+        if (!TextUtils.isEmpty(groupId) && devgramPseudoReplyGroupIds.containsKey(groupId)) {
+            return new Pair<>(message, caption);
         }
-        TLRPC.Message m = msgObj.messageOwner;
-        if (m == null || !(m.reply_to instanceof TLRPC.TL_messageReplyHeader)) {
-            return false;
+        boolean canUseCaption = photo != null || devgramCanHoldPseudoReplyCaption(document);
+        if (TextUtils.isEmpty(message) && TextUtils.isEmpty(caption) && !canUseCaption) {
+            return new Pair<>(message, caption);
         }
-        TLRPC.TL_messageReplyHeader h = (TLRPC.TL_messageReplyHeader) m.reply_to;
-        if (!h.devgramReplyToDeleted || h.devgramLocalOnly) {
-            return false; // не наш случай либо уже пробовали локально — защита от цикла
+        if (TextUtils.isEmpty(replyMessage.messageText) || "null".contentEquals(replyMessage.messageText)) {
+            try {
+                replyMessage.updateMessageText();
+            } catch (Throwable ignore) {
+            }
+            if (TextUtils.isEmpty(replyMessage.messageText) || "null".contentEquals(replyMessage.messageText)) {
+                return new Pair<>(message, caption);
+            }
         }
-        h.devgramLocalOnly = true; // теперь createReplyInput вернёт null → уйдёт без reply
-        if (BuildVars.LOGS_ENABLED) {
-            FileLog.d("DGREPLY fallback: сервер отклонил reply (" + error.text + ") → переотправка локально mid=" + m.id);
+
+        String author = "";
+        if (!DialogObject.isUserDialog(peer)
+                || Math.abs(replyMessage.getDialogId()) != Math.abs(peer)) {
+            TLObject from = replyMessage.getFromPeerObject();
+            if (from instanceof TLRPC.Chat) {
+                author = ((TLRPC.Chat) from).title;
+            } else if (from instanceof TLRPC.User) {
+                TLRPC.User user = (TLRPC.User) from;
+                author = ContactsController.formatName(user.first_name, user.last_name);
+            }
+            if (!TextUtils.isEmpty(author)) {
+                author += "\n";
+            }
         }
-        AndroidUtilities.runOnUIThread(() -> retrySendMessage(msgObj, true, 0));
-        return true;
+        if (!TextUtils.isEmpty(groupId)) {
+            devgramPseudoReplyGroupIds.put(groupId, true);
+        }
+
+        long senderId = replyQuote != null ? replyQuote.peerId : replyMessage.getSenderId();
+        CharSequence quoteText = replyQuote != null ? replyQuote.getText() : replyMessage.messageText;
+        String pseudoReply = author + devgramShortify(quoteText, 100);
+        int shift = 0;
+        if (!TextUtils.isEmpty(message)) {
+            message = pseudoReply + "\n" + message;
+            shift = pseudoReply.length() + 1;
+        } else if (!TextUtils.isEmpty(caption)) {
+            caption = pseudoReply + "\n" + caption;
+            shift = pseudoReply.length() + 1;
+        } else if (canUseCaption) {
+            caption = pseudoReply;
+        }
+
+        devgramShiftEntities(entities, shift);
+        TLRPC.MessageEntity bold = new TLRPC.TL_messageEntityBold();
+        bold.length = author.length();
+        entities.add(bold);
+        TLRPC.TL_inputMessageEntityMentionName mention = new TLRPC.TL_inputMessageEntityMentionName();
+        mention.user_id = getMessagesController().getInputUser(senderId);
+        mention.length = author.length();
+        entities.add(mention);
+        TLRPC.MessageEntity blockquote = new TLRPC.TL_messageEntityBlockquote();
+        blockquote.length = pseudoReply.length();
+        entities.add(blockquote);
+        return new Pair<>(message, caption);
     }
 
     public class ImportingHistory {
@@ -4509,6 +4533,22 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             replyToMsg = replyQuote.message;
         }
 
+        // AyuGram behavior: keep the normal reply panel in the composer, but never send an
+        // invalid server reply_to for a deleted message. Put the deleted message into the
+        // outgoing text/caption as a block quote, then retain only the valid topic reply.
+        if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
+            if (entities == null) {
+                entities = new ArrayList<>();
+            }
+            String groupId = isGroup && params != null ? params.get("groupId") : null;
+            Pair<String, String> pseudoReply = devgramPrependDeletedPseudoReply(
+                    message, caption, photo, document, groupId, peer, replyQuote, replyToMsg, entities);
+            message = pseudoReply.first;
+            caption = pseudoReply.second;
+            replyToMsg = replyToTopMsg;
+            replyQuote = null;
+        }
+
         String originalPath = null;
         if (params != null && params.containsKey("originalPath")) {
             originalPath = params.get("originalPath");
@@ -5051,22 +5091,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 newMsg.reply_to.peer = getMessagesController().getPeer(replyToStoryItem.dialogId);
                 newMsg.replyStory = replyToStoryItem;
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
-            } else if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
-                // DevGram (как AyuGram): ответ на удалёнку. Пробуем отправить НАСТОЯЩИЙ reply —
-                // если оригинал ещё жив на сервере (удалён «только у меня»), ответ будет виден
-                // везде, как у аюга. Если сервер отклонит (MESSAGE_ID_INVALID — удалён у всех),
-                // обработчик ошибки поставит devgramLocalOnly=true и тихо переотправит без reply
-                // (локальная цитата останется, без «!»). replyMessage ставим сразу для показа цитаты.
-                TLRPC.TL_messageReplyHeader h = new TLRPC.TL_messageReplyHeader();
-                h.devgramReplyToDeleted = true;
-                h.flags |= 16;
-                h.reply_to_msg_id = replyToMsg.getId();
-                newMsg.reply_to = h;
-                newMsg.replyMessage = replyToMsg.messageOwner;
-                newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
-                if (BuildVars.LOGS_ENABLED) {
-                    FileLog.d("DGREPLY send: пробую реальный ответ на удалёнку replyToMsgId=" + replyToMsg.getId());
-                }
             } else if (replyToMsg != null && (replyToTopMsg == null || replyToMsg != replyToTopMsg || replyToTopMsg.getId() != 1)) {
                 newMsg.reply_to = new TLRPC.TL_messageReplyHeader();
                 if (encryptedChat != null && replyToMsg.messageOwner.random_id != 0) {
@@ -5307,13 +5331,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 reply = null;
             }
             newMsgObj = new MessageObject(currentAccount, newMsg, reply, true, true);
-            // DevGram: ответ на удалёнку — привязываем оригинал локально, чтобы reply-плашка
-            // (ник + содержимое) показалась сразу у отправителя, даже если серверный оригинал недоступен.
-            if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted
-                    && newMsgObj.replyMessageObject == null) {
-                newMsgObj.replyMessageObject = replyToMsg;
-                newMsg.replyMessage = replyToMsg.messageOwner;
-            }
             newMsgObj.sendAnimationData = sendAnimationData;
             newMsgObj.wasJustSent = true;
             newMsgObj.sentHighQuality = sendMessageParams.sendingHighQuality;
@@ -7906,7 +7923,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             if (message != null) {
                                 MessageObject.getDialogId(message);
                                 sentMessages.add(message);
-                                devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                 if ((message.flags & 33554432) != 0) {
                                     msgObj.messageOwner.ttl_period = message.ttl_period;
                                     msgObj.messageOwner.flags |= 33554432;
@@ -7986,8 +8002,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         }
                     }
                     Utilities.stageQueue.postRunnable(() -> getMessagesController().processUpdates(updates, false));
-                } else if (msgObjs.size() == 1 && devgramReplyFallback(msgObjs.get(0), error)) {
-                    // DevGram: одиночный ответ на удалёнку отклонён сервером — переотправляем без reply, «!» не показываем
                 } else {
                     AlertsCreator.processError(currentAccount, error, null, request);
                     isSentError = true;
@@ -8325,7 +8339,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             }
                             Utilities.stageQueue.postRunnable(() -> getMessagesController().processNewDifferenceParams(-1, res.pts, res.date, res.pts_count));
                             sentMessages.add(newMsgObj);
-                            devgramPersistReplyLink(newMsgObj); // DevGram: короткий путь — id уже серверный, пишем связь ответа на удалёнку
                         } else if (response instanceof TLRPC.Updates) {
                             final TLRPC.Updates updates = (TLRPC.Updates) response;
                             ArrayList<TLRPC.Update> updatesArr = ((TLRPC.Updates) response).updates;
@@ -8340,7 +8353,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                         continue;
                                     } else {
                                         sentMessages.add(message = newMessage.message);
-                                        devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     }
                                     Utilities.stageQueue.postRunnable(() -> getMessagesController().processNewDifferenceParams(-1, newMessage.pts, -1, newMessage.pts_count));
                                     updatesArr.remove(a);
@@ -8349,7 +8361,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     final TL_update.TL_updateNewEphemeralMessage updateNewEphemeralMessage = (TL_update.TL_updateNewEphemeralMessage) update;
                                     final TLRPC.TL_message convertedMessage = EphemeralMessagesHelper.convertEphemeralToFakeDefault(updateNewEphemeralMessage.message);
                                     sentMessages.add(message = convertedMessage);
-                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     ephemeralMessages.add(updateNewEphemeralMessage.message);
                                     updatesArr.remove(a);
                                     a--;
@@ -8380,7 +8391,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     }
 
                                     sentMessages.add(message = newMessage.message);
-                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     Utilities.stageQueue.postRunnable(() -> getMessagesController().processNewChannelDifferenceParams(newMessage.pts, newMessage.pts_count, newMessage.message.peer_id.channel_id));
                                     updatesArr.remove(a);
                                     currentSchedule = false;
@@ -8401,7 +8411,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                         }
                                     }
                                     sentMessages.add(message = newMessage.message);
-                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     updatesArr.remove(a);
                                     a--;
                                     currentSchedule = true;
@@ -8409,7 +8418,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     QuickRepliesController.getInstance(currentAccount).processUpdate(update, msgObj.getQuickReplyName(), msgObj.getQuickReplyId());
                                     final TL_update.TL_updateQuickReplyMessage newMessage = (TL_update.TL_updateQuickReplyMessage) update;
                                     sentMessages.add(message = newMessage.message);
-                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     updatesArr.remove(a);
                                     a--;
                                 } else if (update instanceof TL_update.TL_updateDeleteScheduledMessages) {
@@ -8536,8 +8544,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 });
                             }
                         }
-                    } else if (devgramReplyFallback(msgObj, error)) {
-                        // DevGram: сервер отклонил reply на удалёнку — тихо переотправляем без reply, «!» не показываем
                     } else {
                         AlertsCreator.processError(currentAccount, error, null, req);
                         isSentError = true;

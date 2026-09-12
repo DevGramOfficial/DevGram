@@ -15361,55 +15361,9 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public void showFieldPanelForReply(MessageObject messageObjectToReply) {
-        // DevGram: ответ на удалёнку — обычный reply, как в AyuGram (панель «В ответ [имя]» +
-        // содержимое, reply-цитата в отправленном сообщении). Сообщение сохранено в кэше с
-        // оригинальным id, поэтому reply_to валиден и цитата показывается у отправителя.
+        // Deleted messages use this same standard composer panel. SendMessagesHelper turns
+        // the reply into AyuGram's visible block quote immediately before it is sent.
         showFieldPanel(true, messageObjectToReply, null, null, null, true, 0, null, false, 0, true);
-    }
-
-    // Собирает и вставляет блок-цитату по удалённому сообщению: в группах первой строкой —
-    // ник отправителя кликабельным упоминанием (ведёт в профиль), затем текст либо метка медиа.
-    private void devgramInsertDeletedQuote(MessageObject message) {
-        if (chatActivityEnterView == null) {
-            return;
-        }
-        CharSequence body;
-        if (!TextUtils.isEmpty(message.messageOwner.message)) {
-            body = message.messageOwner.message;
-        } else {
-            body = devgramMediaLabel(message);
-        }
-        SpannableStringBuilder sb = new SpannableStringBuilder();
-        if (dialog_id < 0) {
-            long fromId = message.getFromChatId();
-            if (fromId > 0) {
-                TLRPC.User u = getMessagesController().getUser(fromId);
-                if (u != null) {
-                    String name = ContactsController.formatName(u.first_name, u.last_name);
-                    if (!TextUtils.isEmpty(name)) {
-                        sb.append(name);
-                        sb.setSpan(new org.telegram.ui.Components.URLSpanUserMention("" + fromId, 3), 0, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        sb.append("\n");
-                    }
-                }
-            }
-        }
-        sb.append(body);
-        org.telegram.ui.Components.QuoteSpan.putQuoteToEditable(sb, 0, sb.length(), false);
-        chatActivityEnterView.setFieldText(sb);
-        chatActivityEnterView.openKeyboard();
-    }
-
-    private String devgramMediaLabel(MessageObject m) {
-        if (m.isVoice()) return "Голосовое сообщение";
-        if (m.isRoundVideo()) return "Видеосообщение";
-        if (m.isGif()) return "GIF";
-        if (m.isVideo()) return "Видео";
-        if (m.isPhoto()) return "Фотография";
-        if (m.isMusic()) return "Аудио";
-        if (m.isSticker() || m.isAnimatedSticker()) return "Стикер";
-        if (m.getDocument() != null) return "Файл";
-        return "Медиа";
     }
 
     // DevGram: ответ на удалённое сообщение из экрана «История удалёнок».
@@ -21625,17 +21579,11 @@ public class ChatActivity extends BaseFragment implements
             try {
                 java.util.List<TLRPC.Message> devgramSaved =
                         DevGramMessagesController.getInstance().getDeletedMessages(currentUserId, dialog_id, 0);
-                // Связи «наше сообщение → удалёнка» (независимый источник, по серверному id).
-                android.util.SparseIntArray replyLinks =
-                        DevGramMessagesController.getInstance().getReplyToDeletedLinks(currentUserId, dialog_id);
                 if (!devgramSaved.isEmpty()) {
                     java.util.HashSet<Integer> devDeletedIds = new java.util.HashSet<>();
-                    // Карта id → удалёнка: нужна для восстановления цитаты ответа на удалёнку.
-                    android.util.SparseArray<TLRPC.Message> devDeletedById = new android.util.SparseArray<>();
                     for (TLRPC.Message dm : devgramSaved) {
                         if (dm != null) {
                             devDeletedIds.add(dm.id);
-                            devDeletedById.put(dm.id, dm);
                         }
                     }
                     for (MessageObject mo : messArr) {
@@ -21644,38 +21592,6 @@ public class ChatActivity extends BaseFragment implements
                         }
                         if (devDeletedIds.contains(mo.getId())) {
                             mo.messageOwner.devgramDeleted = true;
-                        }
-                        // Ответ на удалёнку: reply_to указывает на удалённое сообщение. Стандартная
-                        // привязка (messagesDict / reply_to Telegram) ненадёжна. Берём id удалёнки из
-                        // НАШЕЙ связи (по серверному id сообщения) — и явно строим replyMessageObject
-                        // из хранилища удалёнок, чтобы цитата показывалась и переживала перезаход.
-                        int replyId = replyLinks.get(mo.getId(), 0);
-                        if (replyId == 0) {
-                            replyId = mo.getReplyMsgId(); // запасной путь — из reply_to Telegram
-                        }
-                        if (replyId != 0 && mo.replyMessageObject == null) {
-                            TLRPC.Message dm = devDeletedById.get(replyId);
-                            if (dm != null) {
-                                MessageObject rmo = new MessageObject(currentAccount, dm, false, false);
-                                rmo.messageOwner.devgramDeleted = true;
-                                mo.replyMessageObject = rmo;
-                                // reply_to Telegram мог не сохраниться — восстановим, чтобы UI знал,
-                                // что это ответ (стрелка/клик по цитате).
-                                if (mo.messageOwner.reply_to == null) {
-                                    TLRPC.TL_messageReplyHeader h = new TLRPC.TL_messageReplyHeader();
-                                    h.flags |= 16;
-                                    h.reply_to_msg_id = replyId;
-                                    mo.messageOwner.reply_to = h;
-                                    mo.messageOwner.flags |= TLRPC.MESSAGE_FLAG_REPLY;
-                                }
-                                mo.applyTimestampsHighlightForReplyMsg();
-                            }
-                        }
-                        if (BuildVars.LOGS_ENABLED && replyId != 0) {
-                            FileLog.d("DGREPLY load mid=" + mo.getId() + " replyId=" + replyId
-                                    + " fromLink=" + (replyLinks.get(mo.getId(), 0) != 0)
-                                    + " replyObj=" + (mo.replyMessageObject != null)
-                                    + " inStore=" + (devDeletedById.get(replyId) != null));
                         }
                     }
                 }
