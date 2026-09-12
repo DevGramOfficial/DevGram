@@ -24,12 +24,14 @@ from devgram import BasePlugin
 _AnimatedEmoji = jclass("org.telegram.ui.Components.AnimatedEmojiDrawable")
 _BulletinFactory = jclass("org.telegram.ui.Components.BulletinFactory")
 _Long = jclass("java.lang.Long")
+_Integer = jclass("java.lang.Integer")
 
 _API = "https://api.exteragram.app/api/v1/profiles/"
 _ADAPTER = "org.telegram.ui.ProfileActivity$ListAdapter"
 _PROFILE = "org.telegram.ui.ProfileActivity"
 _VH = "androidx.recyclerview.widget.RecyclerView$ViewHolder"
-_VIEW_TYPE_TEXT_DETAIL = 2  # ряд как телефон/ID (TextDetailCell)
+_VIEW_TYPE_TEXT_DETAIL = 19  # TextDetailCell МНОГОСТРОЧНЫЙ (MULTILINE) — текст значка не обрезается
+_CACHE_TYPE_EMOJI_STATUS = 7  # анимированный прем-эмодзи (как emoji-статус)
 
 _field_cache = {}
 
@@ -37,15 +39,17 @@ _field_cache = {}
 class ExteraBadges(BasePlugin):
     id = "extera.badges"
     name = "Экстеро-значки"
-    version = "1.0.4"
-    author = "@DevGram"
+    version = "1.1.5"
+    author = "@DevGramPlugins"
     description = "Значок exteraGram отдельным рядом в профиле (как телефон/юзернейм), тап — полный текст."
-    min_app_version = "12.9"
+    min_app_version = "12.10.3"
 
     # ----------------------------------------------------------------- lifecycle
     def on_load(self):
         self._cache = {}    # peer_id -> data(dict с badge) | None (пишется из фона)
         self._active = {}   # peer_id -> True (СТАВИТСЯ ТОЛЬКО НА UI-ПОТОКЕ)
+        self._pos = {}      # peer_id -> позиция нашего ряда (перед bioRow «о себе»)
+        self._row_fields = None  # кэш int-полей *Row (для сдвига при mid-insert)
         self.hook(_PROFILE, "onResume", after=self._on_resume)
         # КЛЮЧЕВОЕ: rowCount включает наш ряд → getItemCount и DiffUtil согласованы
         self.hook(_PROFILE, "updateRowsIds", after=self._on_update_rows)
@@ -155,11 +159,14 @@ class ExteraBadges(BasePlugin):
             return False
 
     def _insert_pos(self, profile):
-        """Позиция нашего ряда = последняя (rowCount-1). -1 если не активны."""
+        """Позиция нашего ряда (перед bioRow «о себе»), выставленная в _on_update_rows.
+        -1 если не активны."""
         if not self._is_active(profile):
             return -1
-        rc = self._int(profile, "rowCount", -1)
-        return rc - 1 if rc > 0 else -1
+        try:
+            return self._pos.get(self._peer(profile), -1)
+        except Exception:
+            return -1
 
     def _profile_of_adapter(self, adapter):
         return self._obj(adapter, "this$0")
@@ -253,30 +260,73 @@ class ExteraBadges(BasePlugin):
         except Exception as e:
             self.log("activate_now: " + str(e))
 
+    def _row_field_list(self, profile):
+        """int-поля ProfileActivity с именем *Row (позиции рядов) — для сдвига. Кэш."""
+        if self._row_fields is not None:
+            return self._row_fields
+        fields = []
+        try:
+            cls = profile.getClass()
+            for f in cls.getDeclaredFields():
+                name = f.getName()
+                if name.endswith("Row") and f.getType().getName() == "int":
+                    f.setAccessible(True)
+                    fields.append(f)
+        except Exception as e:
+            self.log("row_field_list: " + str(e))
+        self._row_fields = fields
+        return fields
+
     def _on_update_rows(self, frame):
-        # after: когда активны — включаем наш ряд в счётчик (rowCount += 1).
-        # Так getItemCount и DiffUtil (updateListAnimated) остаются согласованными.
+        # after: вставляем наш ряд ПЕРЕД bioRow («о себе»). Сдвигаем все ряды на позиции
+        # >= точки вставки на +1, бампаем rowCount. Так ряд оказывается над «о себе»,
+        # а getItemCount/DiffUtil остаются согласованными.
         try:
             profile = frame.thisObject
-            if self._is_active(profile):
-                rc = self._int(profile, "rowCount", -1)
-                if rc >= 0:
-                    self._set_int(profile, "rowCount", rc + 1)
-        except Exception:
-            pass
+            peer = self._peer(profile)
+            if not self._active.get(peer):
+                self._pos.pop(peer, None)
+                return
+            rc = self._int(profile, "rowCount", -1)
+            if rc < 0:
+                return
+            # Якорь «о себе»: bioRow / userInfoRow / channelInfoRow. Если нет —
+            # ставим перед разделителем инфо-секции (не в самый низ), иначе в конец.
+            bio = self._int(profile, "bioRow", -1)
+            uinfo = self._int(profile, "userInfoRow", -1)
+            cinfo = self._int(profile, "channelInfoRow", -1)
+            sect = self._int(profile, "infoSectionRow", -1)
+            anchor = -1
+            for cand in (bio, uinfo, cinfo, sect):
+                if cand >= 0:
+                    anchor = cand
+                    break
+            insert = anchor if anchor >= 0 else rc
+            self.log("update_rows: bio=%d uinfo=%d cinfo=%d sect=%d rc=%d → insert=%d"
+                     % (bio, uinfo, cinfo, sect, rc, insert))
+            if insert < rc:  # mid-insert: сдвигаем ряды на позиции >= insert
+                for f in self._row_field_list(profile):
+                    try:
+                        val = f.getInt(profile)
+                        if val >= insert:      # (-1 не сдвинется: insert >= 0)
+                            f.setInt(profile, val + 1)
+                    except Exception:
+                        pass
+            self._set_int(profile, "rowCount", rc + 1)
+            self._pos[peer] = insert
+        except Exception as e:
+            self.log("on_update_rows: " + str(e))
 
     _ROW_ID = 900001  # уникальный id нашего ряда для DiffUtil (не пересекается с pointer'ами)
 
     def _h_fill(self, frame):
-        # after: добавить наш ряд (позиция rowCount-1) в карту позиций DiffUtil,
-        # чтобы он считался стабильным существующим элементом (без add/remove-анимации).
+        # after: регистрируем наш ряд в карте позиций DiffUtil (по нашей позиции перед
+        # bioRow), чтобы он считался стабильным элементом — без фантомной add/remove-анимации.
         try:
             profile = self._obj(frame.thisObject, "this$0")
-            if not self._is_active(profile):
-                return
-            rc = self._int(profile, "rowCount", -1)
-            if rc > 0:
-                frame.args[0].put(rc - 1, self._ROW_ID)
+            pos = self._insert_pos(profile)
+            if pos >= 0:
+                frame.args[0].put(pos, self._ROW_ID)
         except Exception:
             pass
 
@@ -285,7 +335,9 @@ class ExteraBadges(BasePlugin):
             profile = self._profile_of_adapter(frame.thisObject)
             ins = self._insert_pos(profile)
             if ins >= 0 and self._ii(frame.args[0]) == ins:
-                frame.setResult(_VIEW_TYPE_TEXT_DETAIL)
+                # ВАЖНО: getItemViewType возвращает int — ставим ЯВНЫЙ java Integer,
+                # иначе Chaquopy боксит python-int как Long → ClassCastException при скролле.
+                frame.setResult(_Integer(_VIEW_TYPE_TEXT_DETAIL))
         except Exception:
             pass
 
@@ -328,9 +380,74 @@ class ExteraBadges(BasePlugin):
             return "Спонсор"
         return "Значок"
 
+    _EMOJI_TAG = "dg_extera_badge_emoji"
+
+    def _build_emoji_view(self, ctx, emoji, size_px):
+        """View, который сам рисует анимированный прем-эмодзи значка (надёжно, в отличие
+        от setImage в ImageView — тот AnimatedEmojiDrawable не грузит/не анимирует)."""
+        class _EmojiLogic:
+            def onAttachedToWindow(self, this):
+                BasePlugin.java_super()
+                try:
+                    emoji.addView(this)   # перерисовка при загрузке/анимации
+                except Exception:
+                    pass
+
+            def onDetachedFromWindow(self, this):
+                try:
+                    emoji.removeView(this)
+                except Exception:
+                    pass
+                BasePlugin.java_super()
+
+            def onDraw(self, this, canvas):
+                try:
+                    emoji.setBounds(0, 0, int(this.getWidth()), int(this.getHeight()))
+                    emoji.draw(canvas)
+                except Exception:
+                    pass
+
+        view = self.java_class("android.view.View", _EmojiLogic(),
+                               arg_types=["android.content.Context"], args=[ctx])
+        if view is not None:
+            try:
+                view.setWillNotDraw(False)
+            except Exception:
+                pass
+        return view
+
     def _bind_row(self, profile, cell):
         try:
-            cell.setTextAndValue("exteraGram", self._status_short(self._data(profile)), False)
+            data = self._data(profile) or {}
+            # В ряду сразу выводим ТОТ ЖЕ текст, что exteraGram показывает по нажатию на значок.
+            cell.setTextAndValue("exteraGram", self._full_text(profile, data), False)
+            # убрать значок от прошлой привязки этой же ячейки (RecyclerView переиспользует cell)
+            try:
+                old = cell.findViewWithTag(self._EMOJI_TAG)
+                if old is not None:
+                    cell.removeView(old)
+            except Exception:
+                pass
+            # Иконка значка (прем-эмодзи badge.documentId) справа в ряду.
+            doc_id = int((data.get("badge") or {}).get("documentId") or 0)
+            if doc_id:
+                account = int(profile.getCurrentAccount())
+                emoji = _AnimatedEmoji.make(account, _CACHE_TYPE_EMOJI_STATUS, doc_id)
+                # КРАСИМ в акцентный цвет темы: монохромные прем-эмодзи по умолчанию чёрные
+                # и не видны в тёмной теме (как emoji-статусы в клиенте — setColorFilter).
+                try:
+                    Theme = jclass("org.telegram.ui.ActionBar.Theme")
+                    PorterDuff = jclass("android.graphics.PorterDuff")
+                    PDCF = jclass("android.graphics.PorterDuffColorFilter")
+                    color = int(Theme.getColor(Theme.key_windowBackgroundWhiteBlueIcon))
+                    emoji.setColorFilter(PDCF(color, PorterDuff.Mode.SRC_IN))
+                except Exception as e:
+                    self.log("emoji color: " + str(e))
+                ev = self._build_emoji_view(cell.getContext(), emoji, self.dp(24))
+                if ev is not None:
+                    ev.setTag(self._EMOJI_TAG)
+                    # 21 = Gravity.RIGHT | CENTER_VERTICAL
+                    self.add_view(cell, ev, width=24, height=24, right=16, gravity=21)
         except Exception as e:
             self.log("bind_row: " + str(e))
 
@@ -350,17 +467,20 @@ class ExteraBadges(BasePlugin):
         return ""
 
     def _full_text(self, profile, data):
+        # Тот же текст, что выводит exteraGram: если у значка есть свой текст (badge.text)
+        # — он; иначе точные их формулировки (строки Supporter/Developer из их ресурсов,
+        # английские — у exteraGram нет русской локали, показывают английский).
         badge = (data or {}).get("badge") or {}
         t = badge.get("text")
         if t:
             return str(t).replace("**", "").strip()
-        name = self._peer_name(profile)
+        name = self._peer_name(profile) or "Пользователь"
         s = (data or {}).get("status")
-        role = "разработчик exteraGram" if s == "DEVELOPER" else \
-               "спонсор exteraGram" if s == "SUPPORTER" else "значок exteraGram"
-        if name:
-            return "%s — %s" % (name, role)
-        return role[0].upper() + role[1:]
+        if s == "DEVELOPER":
+            return "%s — участник команды разработки exteraGram." % name
+        if s == "SUPPORTER":
+            return "%s поддержал(а) разработку exteraGram и получил(а) уникальный значок." % name
+        return "У %s есть значок exteraGram." % name
 
     def _show_bulletin(self, profile):
         try:

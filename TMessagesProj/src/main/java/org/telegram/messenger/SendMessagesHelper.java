@@ -265,6 +265,27 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         return replyTo;
     }
 
+    // DevGram: перенос локального reply-на-удалёнку с исходного (локального) сообщения на серверное.
+    // Серверу reply_to мы НЕ отправляли (иначе MESSAGE_ID_INVALID), поэтому серверное сообщение
+    // приходит без reply_to. Если не перенести — putMessages сохранит серверную версию БЕЗ цитаты,
+    // и после перезахода в чат ответ на удалёнку покажется обычным сообщением. Переносим reply_to +
+    // replyMessage: reply_to_msg_id сохранится в messages_v2, а цитата восстановится по id (удалёнка
+    // остаётся в базе). Вызывать перед putMessages для КАЖДОГО серверного сообщения из ответа.
+    private static void devgramTransferLocalReply(TLRPC.Message localMsg, TLRPC.Message serverMsg) {
+        if (localMsg == null || serverMsg == null || serverMsg == localMsg) {
+            return;
+        }
+        if (localMsg.reply_to instanceof TLRPC.TL_messageReplyHeader
+                && ((TLRPC.TL_messageReplyHeader) localMsg.reply_to).devgramLocalOnly
+                && serverMsg.reply_to == null) {
+            serverMsg.reply_to = localMsg.reply_to;
+            serverMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
+            if (localMsg.replyMessage != null) {
+                serverMsg.replyMessage = localMsg.replyMessage;
+            }
+        }
+    }
+
     public class ImportingHistory {
         public String historyPath;
         public ArrayList<Uri> mediaPaths = new ArrayList<>();
@@ -7833,6 +7854,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             if (message != null) {
                                 MessageObject.getDialogId(message);
                                 sentMessages.add(message);
+                                devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                 if ((message.flags & 33554432) != 0) {
                                     msgObj.messageOwner.ttl_period = message.ttl_period;
                                     msgObj.messageOwner.flags |= 33554432;
@@ -8263,6 +8285,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                         continue;
                                     } else {
                                         sentMessages.add(message = newMessage.message);
+                                        devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     }
                                     Utilities.stageQueue.postRunnable(() -> getMessagesController().processNewDifferenceParams(-1, newMessage.pts, -1, newMessage.pts_count));
                                     updatesArr.remove(a);
@@ -8271,6 +8294,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     final TL_update.TL_updateNewEphemeralMessage updateNewEphemeralMessage = (TL_update.TL_updateNewEphemeralMessage) update;
                                     final TLRPC.TL_message convertedMessage = EphemeralMessagesHelper.convertEphemeralToFakeDefault(updateNewEphemeralMessage.message);
                                     sentMessages.add(message = convertedMessage);
+                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     ephemeralMessages.add(updateNewEphemeralMessage.message);
                                     updatesArr.remove(a);
                                     a--;
@@ -8301,6 +8325,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     }
 
                                     sentMessages.add(message = newMessage.message);
+                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     Utilities.stageQueue.postRunnable(() -> getMessagesController().processNewChannelDifferenceParams(newMessage.pts, newMessage.pts_count, newMessage.message.peer_id.channel_id));
                                     updatesArr.remove(a);
                                     currentSchedule = false;
@@ -8321,6 +8346,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                         }
                                     }
                                     sentMessages.add(message = newMessage.message);
+                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     updatesArr.remove(a);
                                     a--;
                                     currentSchedule = true;
@@ -8328,6 +8354,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                     QuickRepliesController.getInstance(currentAccount).processUpdate(update, msgObj.getQuickReplyName(), msgObj.getQuickReplyId());
                                     final TL_update.TL_updateQuickReplyMessage newMessage = (TL_update.TL_updateQuickReplyMessage) update;
                                     sentMessages.add(message = newMessage.message);
+                                    devgramTransferLocalReply(newMsgObj, message); // DevGram: сохранить цитату ответа на удалёнку
                                     updatesArr.remove(a);
                                     a--;
                                 } else if (update instanceof TL_update.TL_updateDeleteScheduledMessages) {
