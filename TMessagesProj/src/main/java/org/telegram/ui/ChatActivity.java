@@ -21627,14 +21627,39 @@ public class ChatActivity extends BaseFragment implements
                         DevGramMessagesController.getInstance().getDeletedMessages(currentUserId, dialog_id, 0);
                 if (!devgramSaved.isEmpty()) {
                     java.util.HashSet<Integer> devDeletedIds = new java.util.HashSet<>();
+                    // Карта id → удалёнка: нужна для восстановления цитаты ответа на удалёнку.
+                    android.util.SparseArray<TLRPC.Message> devDeletedById = new android.util.SparseArray<>();
                     for (TLRPC.Message dm : devgramSaved) {
                         if (dm != null) {
                             devDeletedIds.add(dm.id);
+                            devDeletedById.put(dm.id, dm);
                         }
                     }
                     for (MessageObject mo : messArr) {
-                        if (mo != null && mo.messageOwner != null && devDeletedIds.contains(mo.getId())) {
+                        if (mo == null || mo.messageOwner == null) {
+                            continue;
+                        }
+                        if (devDeletedIds.contains(mo.getId())) {
                             mo.messageOwner.devgramDeleted = true;
+                        }
+                        // Ответ на удалёнку: reply_to указывает на удалённое сообщение. Стандартная
+                        // привязка (messagesDict) ненадёжна — удалёнка может быть ещё не в словаре,
+                        // либо reply не поднялся. Явно строим replyMessageObject из devgram-хранилища,
+                        // чтобы цитата (ник + содержимое) показывалась и переживала перезаход.
+                        int replyId = mo.getReplyMsgId();
+                        if (replyId != 0 && mo.replyMessageObject == null) {
+                            TLRPC.Message dm = devDeletedById.get(replyId);
+                            if (dm != null) {
+                                MessageObject rmo = new MessageObject(currentAccount, dm, false, false);
+                                rmo.messageOwner.devgramDeleted = true;
+                                mo.replyMessageObject = rmo;
+                                mo.applyTimestampsHighlightForReplyMsg();
+                            }
+                        }
+                        if (BuildVars.LOGS_ENABLED && mo.getReplyMsgId() != 0) {
+                            FileLog.d("DGREPLY load mid=" + mo.getId() + " replyId=" + mo.getReplyMsgId()
+                                    + " replyObj=" + (mo.replyMessageObject != null)
+                                    + " inStore=" + (devDeletedById.get(mo.getReplyMsgId()) != null));
                         }
                     }
                 }

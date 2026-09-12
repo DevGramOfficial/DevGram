@@ -283,6 +283,10 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             if (localMsg.replyMessage != null) {
                 serverMsg.replyMessage = localMsg.replyMessage;
             }
+            if (BuildVars.LOGS_ENABLED) {
+                FileLog.d("DGREPLY transfer: перенёс reply на серверное сообщение serverMid=" + serverMsg.id
+                        + " replyToMsgId=" + localMsg.reply_to.reply_to_msg_id);
+            }
         }
     }
 
@@ -5015,6 +5019,9 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 newMsg.reply_to = localReply;
                 newMsg.replyMessage = replyToMsg.messageOwner;
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
+                if (BuildVars.LOGS_ENABLED) {
+                    FileLog.d("DGREPLY send: локальный ответ на удалёнку replyToMsgId=" + replyToMsg.getId());
+                }
             } else if (replyToMsg != null && (replyToTopMsg == null || replyToMsg != replyToTopMsg || replyToTopMsg.getId() != 1)) {
                 newMsg.reply_to = new TLRPC.TL_messageReplyHeader();
                 if (encryptedChat != null && replyToMsg.messageOwner.random_id != 0) {
