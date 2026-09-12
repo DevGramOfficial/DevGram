@@ -15361,14 +15361,9 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public void showFieldPanelForReply(MessageObject messageObjectToReply) {
-        // DevGram: ответ на удалёнку прямо в чате (свайп/меню) — серверный reply к удалённому
-        // сообщению сервер отклоняет (восклицательный знак). Как в AyuGram, вместо этого
-        // копируем текст удалёнки в поле ввода блок-цитатой (обычный текст, всегда отправляется).
-        if (messageObjectToReply != null && messageObjectToReply.messageOwner != null
-                && messageObjectToReply.messageOwner.devgramDeleted) {
-            devgramInsertDeletedQuote(messageObjectToReply);
-            return;
-        }
+        // DevGram: ответ на удалёнку — обычный reply, как в AyuGram (панель «В ответ [имя]» +
+        // содержимое, reply-цитата в отправленном сообщении). Сообщение сохранено в кэше с
+        // оригинальным id, поэтому reply_to валиден и цитата показывается у отправителя.
         showFieldPanel(true, messageObjectToReply, null, null, null, true, 0, null, false, 0, true);
     }
 
