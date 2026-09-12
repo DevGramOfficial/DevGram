@@ -333,11 +333,54 @@ public class DevGramMessagesController {
         }
     }
 
+    // ================= ответ на удалёнку =================
+    // Связь «наше_отправленное_сообщение → удалёнка, на которую отвечаем».
+    // Ключ — ФИНАЛЬНЫЙ серверный id нашего сообщения (стабилен при перезаходе).
+    // Нужно, потому что серверу reply_to мы не шлём (иначе MESSAGE_ID_INVALID), а
+    // локальный reply_to Telegram может затираться серверным ответом. Эта связь —
+    // независимый источник правды: по ней на входе в чат восстанавливаем цитату.
+
+    public void saveReplyToDeleted(long userId, long dialogId, int ownerMsgId, int replyToMsgId) {
+        if (ownerMsgId == 0 || replyToMsgId == 0) {
+            return;
+        }
+        try {
+            SQLiteDatabase db = helper.getWritableDatabase();
+            ContentValues cv = new ContentValues();
+            cv.put("userId", userId);
+            cv.put("dialogId", dialogId);
+            cv.put("ownerMsgId", ownerMsgId);
+            cv.put("replyToMsgId", replyToMsgId);
+            db.insertWithOnConflict("reply_to_deleted", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
+    // Карта ownerMsgId → replyToMsgId для диалога (для восстановления цитат при загрузке).
+    public android.util.SparseIntArray getReplyToDeletedLinks(long userId, long dialogId) {
+        android.util.SparseIntArray res = new android.util.SparseIntArray();
+        try {
+            SQLiteDatabase db = helper.getReadableDatabase();
+            try (Cursor c = db.rawQuery(
+                    "SELECT ownerMsgId, replyToMsgId FROM reply_to_deleted WHERE userId=? AND dialogId=?",
+                    new String[]{Long.toString(userId), Long.toString(dialogId)})) {
+                while (c.moveToNext()) {
+                    res.put(c.getInt(0), c.getInt(1));
+                }
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        return res;
+    }
+
     public void clean() {
         try {
             SQLiteDatabase db = helper.getWritableDatabase();
             db.execSQL("DELETE FROM deleted_messages");
             db.execSQL("DELETE FROM edited_messages");
+            db.execSQL("DELETE FROM reply_to_deleted");
             DevGramMediaSaver.clear();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -348,7 +391,7 @@ public class DevGramMessagesController {
 
     private static class DbHelper extends SQLiteOpenHelper {
         DbHelper(Context context) {
-            super(context, "devgram_messages.db", null, 2);
+            super(context, "devgram_messages.db", null, 3);
         }
 
         @Override
@@ -361,12 +404,21 @@ public class DevGramMessagesController {
                     "fakeId INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, dialogId INTEGER, topicId INTEGER, " +
                     "messageId INTEGER, date INTEGER, catchTime INTEGER, data BLOB)");
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_edited ON edited_messages (userId, dialogId, messageId)");
+            createReplyTable(db);
+        }
+
+        private void createReplyTable(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS reply_to_deleted (" +
+                    "userId INTEGER, dialogId INTEGER, ownerMsgId INTEGER, replyToMsgId INTEGER, " +
+                    "PRIMARY KEY(userId, dialogId, ownerMsgId))");
         }
 
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-            // Версия 2 заводила таблицы под функции, которые мы убрали. Номер не понижаем:
-            // SQLiteOpenHelper падает на понижении версии, а лишние таблицы вреда не несут.
+            // Номер не понижаем: SQLiteOpenHelper падает на понижении версии.
+            if (oldVersion < 3) {
+                createReplyTable(db);
+            }
         }
     }
 }

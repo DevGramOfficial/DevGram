@@ -271,7 +271,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     // и после перезахода в чат ответ на удалёнку покажется обычным сообщением. Переносим reply_to +
     // replyMessage: reply_to_msg_id сохранится в messages_v2, а цитата восстановится по id (удалёнка
     // остаётся в базе). Вызывать перед putMessages для КАЖДОГО серверного сообщения из ответа.
-    private static void devgramTransferLocalReply(TLRPC.Message localMsg, TLRPC.Message serverMsg) {
+    private void devgramTransferLocalReply(TLRPC.Message localMsg, TLRPC.Message serverMsg) {
         if (localMsg == null || serverMsg == null || serverMsg == localMsg) {
             return;
         }
@@ -286,6 +286,24 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("DGREPLY transfer: перенёс reply на серверное сообщение serverMid=" + serverMsg.id
                         + " replyToMsgId=" + localMsg.reply_to.reply_to_msg_id);
+            }
+        }
+        // Надёжная связь в нашей БД по финальному серверному id — не зависит от reply_to Telegram.
+        devgramPersistReplyLink(serverMsg);
+    }
+
+    // Пишет связь «наше сообщение → удалёнка» в devgram-БД по финальному серверному id.
+    // Вызывать, когда id уже серверный (после ответа сервера).
+    private void devgramPersistReplyLink(TLRPC.Message msg) {
+        if (msg == null || msg.id <= 0 || !(msg.reply_to instanceof TLRPC.TL_messageReplyHeader)) {
+            return;
+        }
+        TLRPC.TL_messageReplyHeader h = (TLRPC.TL_messageReplyHeader) msg.reply_to;
+        if (h.devgramLocalOnly && h.reply_to_msg_id != 0) {
+            DevGramMessagesController.getInstance().saveReplyToDeleted(
+                    getUserConfig().getClientUserId(), MessageObject.getDialogId(msg), msg.id, h.reply_to_msg_id);
+            if (BuildVars.LOGS_ENABLED) {
+                FileLog.d("DGREPLY link: сохранил связь ownerMid=" + msg.id + " → replyToMsgId=" + h.reply_to_msg_id);
             }
         }
     }
@@ -8278,6 +8296,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             }
                             Utilities.stageQueue.postRunnable(() -> getMessagesController().processNewDifferenceParams(-1, res.pts, res.date, res.pts_count));
                             sentMessages.add(newMsgObj);
+                            devgramPersistReplyLink(newMsgObj); // DevGram: короткий путь — id уже серверный, пишем связь ответа на удалёнку
                         } else if (response instanceof TLRPC.Updates) {
                             final TLRPC.Updates updates = (TLRPC.Updates) response;
                             ArrayList<TLRPC.Update> updatesArr = ((TLRPC.Updates) response).updates;

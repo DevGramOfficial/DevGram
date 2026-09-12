@@ -21625,6 +21625,9 @@ public class ChatActivity extends BaseFragment implements
             try {
                 java.util.List<TLRPC.Message> devgramSaved =
                         DevGramMessagesController.getInstance().getDeletedMessages(currentUserId, dialog_id, 0);
+                // Связи «наше сообщение → удалёнка» (независимый источник, по серверному id).
+                android.util.SparseIntArray replyLinks =
+                        DevGramMessagesController.getInstance().getReplyToDeletedLinks(currentUserId, dialog_id);
                 if (!devgramSaved.isEmpty()) {
                     java.util.HashSet<Integer> devDeletedIds = new java.util.HashSet<>();
                     // Карта id → удалёнка: нужна для восстановления цитаты ответа на удалёнку.
@@ -21643,23 +21646,36 @@ public class ChatActivity extends BaseFragment implements
                             mo.messageOwner.devgramDeleted = true;
                         }
                         // Ответ на удалёнку: reply_to указывает на удалённое сообщение. Стандартная
-                        // привязка (messagesDict) ненадёжна — удалёнка может быть ещё не в словаре,
-                        // либо reply не поднялся. Явно строим replyMessageObject из devgram-хранилища,
-                        // чтобы цитата (ник + содержимое) показывалась и переживала перезаход.
-                        int replyId = mo.getReplyMsgId();
+                        // привязка (messagesDict / reply_to Telegram) ненадёжна. Берём id удалёнки из
+                        // НАШЕЙ связи (по серверному id сообщения) — и явно строим replyMessageObject
+                        // из хранилища удалёнок, чтобы цитата показывалась и переживала перезаход.
+                        int replyId = replyLinks.get(mo.getId(), 0);
+                        if (replyId == 0) {
+                            replyId = mo.getReplyMsgId(); // запасной путь — из reply_to Telegram
+                        }
                         if (replyId != 0 && mo.replyMessageObject == null) {
                             TLRPC.Message dm = devDeletedById.get(replyId);
                             if (dm != null) {
                                 MessageObject rmo = new MessageObject(currentAccount, dm, false, false);
                                 rmo.messageOwner.devgramDeleted = true;
                                 mo.replyMessageObject = rmo;
+                                // reply_to Telegram мог не сохраниться — восстановим, чтобы UI знал,
+                                // что это ответ (стрелка/клик по цитате).
+                                if (mo.messageOwner.reply_to == null) {
+                                    TLRPC.TL_messageReplyHeader h = new TLRPC.TL_messageReplyHeader();
+                                    h.flags |= 16;
+                                    h.reply_to_msg_id = replyId;
+                                    mo.messageOwner.reply_to = h;
+                                    mo.messageOwner.flags |= TLRPC.MESSAGE_FLAG_REPLY;
+                                }
                                 mo.applyTimestampsHighlightForReplyMsg();
                             }
                         }
-                        if (BuildVars.LOGS_ENABLED && mo.getReplyMsgId() != 0) {
-                            FileLog.d("DGREPLY load mid=" + mo.getId() + " replyId=" + mo.getReplyMsgId()
+                        if (BuildVars.LOGS_ENABLED && replyId != 0) {
+                            FileLog.d("DGREPLY load mid=" + mo.getId() + " replyId=" + replyId
+                                    + " fromLink=" + (replyLinks.get(mo.getId(), 0) != 0)
                                     + " replyObj=" + (mo.replyMessageObject != null)
-                                    + " inStore=" + (devDeletedById.get(mo.getReplyMsgId()) != null));
+                                    + " inStore=" + (devDeletedById.get(replyId) != null));
                         }
                     }
                 }
