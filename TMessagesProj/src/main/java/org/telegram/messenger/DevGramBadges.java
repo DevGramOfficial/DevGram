@@ -121,6 +121,8 @@ public class DevGramBadges {
 
     private static volatile String adminIdToken; // токен админа после входа (нужен для записи)
     private static volatile String adminUid;     // UID вошедшего (главный админ или модератор)
+    private static volatile String adminRefreshToken; // refresh-токен: idToken живёт 1ч, обновляем им
+    private static volatile long adminTokenAt;   // когда получен idToken (мс), для проактивного refresh
 
     // Главный admin-UID (владелец). Только он управляет модераторами и значками.
     public static final String MAIN_ADMIN_UID = "cZUBpCEJWVNAZEuChkG52gdgs0K2";
@@ -341,12 +343,15 @@ public class DevGramBadges {
                     if (r.has("idToken")) {
                         adminIdToken = r.getString("idToken");
                         adminUid = r.optString("localId", null);
+                        adminRefreshToken = r.optString("refreshToken", null);
+                        adminTokenAt = System.currentTimeMillis();
                         AndroidUtilities.runOnUIThread(() -> cb.onResult(true, null));
                         return;
                     }
                 }
                 adminIdToken = null;
                 adminUid = null;
+                adminRefreshToken = null;
                 AndroidUtilities.runOnUIThread(() -> cb.onResult(false, "неверный email или пароль"));
             } catch (Throwable e) {
                 adminIdToken = null;
@@ -394,6 +399,10 @@ public class DevGramBadges {
 
     // Простой HTTP: GET/PUT/DELETE/POST. Возвращает тело ответа (2xx) или null.
     private static String httpSend(String method, String urlStr, String body) {
+        return httpSend(method, urlStr, body, false);
+    }
+
+    private static String httpSend(String method, String urlStr, String body, boolean formEncoded) {
         HttpURLConnection conn = null;
         try {
             URL url = new URL(urlStr);
@@ -403,7 +412,9 @@ public class DevGramBadges {
             conn.setReadTimeout(15000);
             if (body != null) {
                 conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                conn.setRequestProperty("Content-Type", formEncoded
+                        ? "application/x-www-form-urlencoded"
+                        : "application/json; charset=utf-8");
                 try (OutputStream os = conn.getOutputStream()) {
                     os.write(body.getBytes(StandardCharsets.UTF_8));
                 }
@@ -579,6 +590,38 @@ public class DevGramBadges {
     }
 
     // p — битовая маска доступа к пользовательским функциям. Она не даёт административных прав.
+    // Firebase idToken живёт ~1 час. Обновляем его refresh-токеном ДО истечения, иначе
+    // запись значка в облако молча падает с 401 → «иногда не выдаётся». Вызывать в globalQueue.
+    // Возвращает актуальный idToken (или текущий, если refresh невозможен/не нужен).
+    private static String ensureFreshToken() {
+        String rt = adminRefreshToken;
+        if (rt == null || rt.isEmpty()) {
+            return adminIdToken; // legacy-сессия без refresh — вернём что есть
+        }
+        // обновляем, если токену >50 мин или его нет
+        if (adminIdToken != null && System.currentTimeMillis() - adminTokenAt < 50 * 60 * 1000L) {
+            return adminIdToken;
+        }
+        try {
+            String form = "grant_type=refresh_token&refresh_token="
+                    + java.net.URLEncoder.encode(rt, "UTF-8");
+            String resp = httpSend("POST",
+                    "https://securetoken.googleapis.com/v1/token?key=" + API_KEY, form, true);
+            if (resp != null) {
+                JSONObject r = new JSONObject(resp);
+                String fresh = r.optString("id_token", null);
+                if (fresh != null && !fresh.isEmpty()) {
+                    adminIdToken = fresh;
+                    adminRefreshToken = r.optString("refresh_token", rt);
+                    adminTokenAt = System.currentTimeMillis();
+                }
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        return adminIdToken;
+    }
+
     public static void grantBadge(long dialogId, long emojiId, String textTemplate, int access) {
         if (dialogId == 0) {
             return;
@@ -601,8 +644,21 @@ public class DevGramBadges {
         }
         if (adminIdToken != null) {
             Utilities.globalQueue.postRunnable(() -> {
-                httpSend("PUT", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + adminIdToken, json);
-                syncFromCloud();
+                // свежий токен (idToken живёт 1ч) + ретрай с принудительным refresh при 401,
+                // иначе запись молча падает и значок «иногда не выдаётся».
+                String tok = ensureFreshToken();
+                String res = httpSend("PUT", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + tok, json);
+                if (res == null) {
+                    adminTokenAt = 0; // форсируем refresh
+                    tok = ensureFreshToken();
+                    res = httpSend("PUT", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + tok, json);
+                }
+                // syncFromCloud только если запись прошла — иначе затрём локальный значок пустотой
+                if (res != null) {
+                    syncFromCloud();
+                } else {
+                    FileLog.e("DevGramBadges: не удалось выдать значок " + dialogId + " (запись в облако провалилась)");
+                }
             });
         }
         notifyBadgesChanged();
@@ -615,7 +671,13 @@ public class DevGramBadges {
         }
         if (adminIdToken != null) {
             Utilities.globalQueue.postRunnable(() -> {
-                httpSend("DELETE", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + adminIdToken, null);
+                String tok = ensureFreshToken();
+                String res = httpSend("DELETE", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + tok, null);
+                if (res == null) {
+                    adminTokenAt = 0;
+                    tok = ensureFreshToken();
+                    httpSend("DELETE", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + tok, null);
+                }
                 syncFromCloud();
             });
         }
