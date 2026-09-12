@@ -308,6 +308,33 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         }
     }
 
+    // DevGram: откат ответа на удалёнку. Если реальный reply отклонён сервером
+    // (MESSAGE_ID_INVALID — оригинал удалён у всех), переотправляем сообщение БЕЗ reply_to
+    // (devgramLocalOnly), чтобы цитата осталась локальной, а пользователь не увидел «!».
+    // Возвращает true, если откат запущен (тогда стандартную ошибку показывать не нужно).
+    private boolean devgramReplyFallback(MessageObject msgObj, TLRPC.TL_error error) {
+        if (msgObj == null || error == null || error.text == null) {
+            return false;
+        }
+        if (!error.text.contains("MESSAGE_ID_INVALID") && !error.text.contains("REPLY_MESSAGE")) {
+            return false;
+        }
+        TLRPC.Message m = msgObj.messageOwner;
+        if (m == null || !(m.reply_to instanceof TLRPC.TL_messageReplyHeader)) {
+            return false;
+        }
+        TLRPC.TL_messageReplyHeader h = (TLRPC.TL_messageReplyHeader) m.reply_to;
+        if (!h.devgramReplyToDeleted || h.devgramLocalOnly) {
+            return false; // не наш случай либо уже пробовали локально — защита от цикла
+        }
+        h.devgramLocalOnly = true; // теперь createReplyInput вернёт null → уйдёт без reply
+        if (BuildVars.LOGS_ENABLED) {
+            FileLog.d("DGREPLY fallback: сервер отклонил reply (" + error.text + ") → переотправка локально mid=" + m.id);
+        }
+        AndroidUtilities.runOnUIThread(() -> retrySendMessage(msgObj, true, 0));
+        return true;
+    }
+
     public class ImportingHistory {
         public String historyPath;
         public ArrayList<Uri> mediaPaths = new ArrayList<>();
@@ -5025,20 +5052,20 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 newMsg.replyStory = replyToStoryItem;
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
             } else if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
-                // DevGram (как AyuGram): ответ на удалёнку. Серверу reply_to НЕ отправляем
-                // (оригинала на сервере нет → MESSAGE_ID_INVALID / восклицательный знак), но
-                // локально сохраняем reply_to + replyMessage — чтобы цитата (ник + содержимое)
-                // показывалась и ПЕРЕЖИВАЛА перезаход в чат. Флаг devgramLocalOnly не даёт
-                // createReplyInput отправить этот reply на сервер.
-                TLRPC.TL_messageReplyHeader localReply = new TLRPC.TL_messageReplyHeader();
-                localReply.devgramLocalOnly = true;
-                localReply.flags |= 16;
-                localReply.reply_to_msg_id = replyToMsg.getId();
-                newMsg.reply_to = localReply;
+                // DevGram (как AyuGram): ответ на удалёнку. Пробуем отправить НАСТОЯЩИЙ reply —
+                // если оригинал ещё жив на сервере (удалён «только у меня»), ответ будет виден
+                // везде, как у аюга. Если сервер отклонит (MESSAGE_ID_INVALID — удалён у всех),
+                // обработчик ошибки поставит devgramLocalOnly=true и тихо переотправит без reply
+                // (локальная цитата останется, без «!»). replyMessage ставим сразу для показа цитаты.
+                TLRPC.TL_messageReplyHeader h = new TLRPC.TL_messageReplyHeader();
+                h.devgramReplyToDeleted = true;
+                h.flags |= 16;
+                h.reply_to_msg_id = replyToMsg.getId();
+                newMsg.reply_to = h;
                 newMsg.replyMessage = replyToMsg.messageOwner;
                 newMsg.flags |= TLRPC.MESSAGE_FLAG_REPLY;
                 if (BuildVars.LOGS_ENABLED) {
-                    FileLog.d("DGREPLY send: локальный ответ на удалёнку replyToMsgId=" + replyToMsg.getId());
+                    FileLog.d("DGREPLY send: пробую реальный ответ на удалёнку replyToMsgId=" + replyToMsg.getId());
                 }
             } else if (replyToMsg != null && (replyToTopMsg == null || replyToMsg != replyToTopMsg || replyToTopMsg.getId() != 1)) {
                 newMsg.reply_to = new TLRPC.TL_messageReplyHeader();
@@ -7959,6 +7986,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         }
                     }
                     Utilities.stageQueue.postRunnable(() -> getMessagesController().processUpdates(updates, false));
+                } else if (msgObjs.size() == 1 && devgramReplyFallback(msgObjs.get(0), error)) {
+                    // DevGram: одиночный ответ на удалёнку отклонён сервером — переотправляем без reply, «!» не показываем
                 } else {
                     AlertsCreator.processError(currentAccount, error, null, request);
                     isSentError = true;
@@ -8507,6 +8536,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                                 });
                             }
                         }
+                    } else if (devgramReplyFallback(msgObj, error)) {
+                        // DevGram: сервер отклонил reply на удалёнку — тихо переотправляем без reply, «!» не показываем
                     } else {
                         AlertsCreator.processError(currentAccount, error, null, req);
                         isSentError = true;
