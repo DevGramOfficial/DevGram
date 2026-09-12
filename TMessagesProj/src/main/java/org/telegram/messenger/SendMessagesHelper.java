@@ -175,6 +175,20 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         return createReplyInput(null, replyToMsgId, 0, null);
     }
 
+    // DevGram: метка содержимого удалёнки без текста (для quote_text при ответе на удалёнку).
+    private static String devgramDeletedLabel(MessageObject m) {
+        if (m == null) return "";
+        if (m.isVoice()) return "🎤 Голосовое сообщение";
+        if (m.isRoundVideo()) return "📹 Видеосообщение";
+        if (m.isGif()) return "GIF";
+        if (m.isVideo()) return "📹 Видео";
+        if (m.isPhoto()) return "🖼 Фотография";
+        if (m.isMusic()) return "🎵 Аудио";
+        if (m.isSticker() || m.isAnimatedSticker()) return "Стикер";
+        if (m.getDocument() != null) return "📎 Файл";
+        return "Медиа";
+    }
+
     public TLRPC.InputReplyTo createReplyInput(TLRPC.InputPeer sendToPeer, int replyToMsgId, int topMessageId, ChatActivity.ReplyQuote replyQuote) {
         TLRPC.TL_inputReplyToMessage replyTo = new TLRPC.TL_inputReplyToMessage();
         replyTo.reply_to_msg_id = replyToMsgId;
@@ -5004,6 +5018,28 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             newMsg.reply_to.flags |= 128;
                         }
                     }
+                } else if (replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted) {
+                    // DevGram (как AyuGram): ответ на удалёнку — оригинала на сервере уже нет,
+                    // поэтому содержимое прикрепляем как quote_text. Тогда reply-плашка (ник
+                    // отправителя + текст/метка медиа) сохраняется и показывается как обычный
+                    // ответ, хотя серверный оригинал недоступен. Панель ввода при этом обычная.
+                    CharSequence qt = replyToMsg.messageOwner.message;
+                    if (TextUtils.isEmpty(qt)) {
+                        qt = devgramDeletedLabel(replyToMsg);
+                    }
+                    if (!TextUtils.isEmpty(qt)) {
+                        String qs = qt.toString();
+                        if (qs.length() > 512) qs = qs.substring(0, 512);
+                        newMsg.reply_to.quote_text = qs;
+                        newMsg.reply_to.quote = true;
+                        newMsg.reply_to.flags |= 64;
+                        newMsg.reply_to.flags |= 1024;
+                        newMsg.reply_to.quote_offset = 0;
+                        if (replyToMsg.messageOwner.entities != null && !replyToMsg.messageOwner.entities.isEmpty()) {
+                            newMsg.reply_to.quote_entities = new ArrayList<>(replyToMsg.messageOwner.entities);
+                            newMsg.reply_to.flags |= 128;
+                        }
+                    }
                 }
             }
             if (linkedToGroup != 0) {
@@ -5203,6 +5239,13 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 reply = null;
             }
             newMsgObj = new MessageObject(currentAccount, newMsg, reply, true, true);
+            // DevGram: ответ на удалёнку — привязываем оригинал локально, чтобы reply-плашка
+            // (ник + содержимое) показалась сразу у отправителя, даже если серверный оригинал недоступен.
+            if (replyToMsg != null && replyToMsg.messageOwner != null && replyToMsg.messageOwner.devgramDeleted
+                    && newMsgObj.replyMessageObject == null) {
+                newMsgObj.replyMessageObject = replyToMsg;
+                newMsg.replyMessage = replyToMsg.messageOwner;
+            }
             newMsgObj.sendAnimationData = sendAnimationData;
             newMsgObj.wasJustSent = true;
             newMsgObj.sentHighQuality = sendMessageParams.sendingHighQuality;
