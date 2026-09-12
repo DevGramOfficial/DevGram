@@ -233,6 +233,12 @@ public class ViewPagerFixed extends FrameLayout {
         updateViewForIndex(1);
 
         onTabPageSelected(page, forward);
+        // страница могла не создаться (позиция вне диапазона / адаптер не готов) —
+        // не дёргаем setTranslationX на null (иначе NPE при клике по вкладке)
+        if (viewPages[1] == null) {
+            nextPosition = -1;
+            return false;
+        }
         final int tX = viewPages[0] != null ? viewPages[0].getMeasuredWidth() : 0;
         if (forward) {
             setTranslationX(viewPages[1], tX);

@@ -1895,11 +1895,19 @@ public class InstantCameraView extends FrameLayout implements NotificationCenter
                     return;
                 }
             }
-            if (updateTexImage1) {
-                cameraSurface[0].updateTexImage();
-            }
-            if (updateTexImage2) {
-                cameraSurface[1].updateTexImage();
+            // updateTexImage может кинуть RuntimeException на кривых драйверах камеры
+            // (OPPO/некоторые SDK 36) или при уничтоженной поверхности — пропускаем битый
+            // кадр вместо падения всего CameraGLThread.
+            try {
+                if (updateTexImage1) {
+                    cameraSurface[0].updateTexImage();
+                }
+                if (updateTexImage2) {
+                    cameraSurface[1].updateTexImage();
+                }
+            } catch (Throwable e) {
+                FileLog.e(e);
+                return;
             }
 
             boolean captureFirstFrameThumb = false;
