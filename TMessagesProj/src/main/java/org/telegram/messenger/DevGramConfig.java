@@ -80,6 +80,7 @@ public class DevGramConfig {
     public static boolean replaceEditedWithIcon = false;
     public static boolean hideShareButton = false;
     public static boolean hideStickerTime = false; // скрыть время на стикерах (как exteraGram)
+    public static boolean inlineCalc = true;       // инлайн-калькулятор: «2+2=» → дописать «4»
 
     // --- гейт для разрешённых пакетов чтения (например, ручная отметка «прочитано») ---
     private static final Object readSync = new Object();
@@ -121,6 +122,7 @@ public class DevGramConfig {
             centerTitle = preferences.getBoolean("centerTitle", false);
             disableMarkdown = preferences.getBoolean("disableMarkdown", false);
             hideKeyboardOnScroll = preferences.getBoolean("hideKeyboardOnScroll", true);
+            inlineCalc = preferences.getBoolean("inlineCalc", true);
             disableGreetingSticker = preferences.getBoolean("disableGreetingSticker", false);
             addCommaAfterMention = preferences.getBoolean("addCommaAfterMention", true);
             removeMessageTail = preferences.getBoolean("removeMessageTail", false);
@@ -391,6 +393,13 @@ public class DevGramConfig {
         hideKeyboardOnScroll = v;
         if (preferences != null) {
             preferences.edit().putBoolean("hideKeyboardOnScroll", v).apply();
+        }
+    }
+
+    public static void setInlineCalc(boolean v) {
+        inlineCalc = v;
+        if (preferences != null) {
+            preferences.edit().putBoolean("inlineCalc", v).apply();
         }
     }
 

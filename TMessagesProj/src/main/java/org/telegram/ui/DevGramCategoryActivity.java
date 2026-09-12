@@ -305,6 +305,7 @@ public class DevGramCategoryActivity extends BaseFragment {
     // Чаты
     private static final int ID_DISABLE_MARKDOWN = 22;
     private static final int ID_HIDE_KEYBOARD_ON_SCROLL = 23;
+    private static final int ID_INLINE_CALC = 704;
     private static final int ID_DISABLE_GREETING = 24;
     private static final int ID_COMMA_AFTER_MENTION = 28;
     private static final int ID_TIME_WITH_SECONDS = 29;
@@ -724,6 +725,8 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(DevGramConfig.addCommaAfterMention));
             items.add(UItem.asCheck(ID_DISABLE_MARKDOWN, "Отключить Markdown")
                     .setChecked(DevGramConfig.disableMarkdown));
+            items.add(UItem.asCheck(ID_INLINE_CALC, "Калькулятор в поле ввода")
+                    .setChecked(DevGramConfig.inlineCalc));
             items.add(UItem.asCheck(ID_REPLACE_FORWARD, "Заменять пересылку")
                     .setChecked(gPref("replaceForward", true)));
             items.add(UItem.asCheck(ID_MENTION_BY_NAME, "Упоминать по имени")
@@ -1246,6 +1249,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             DevGramConfig.setDisableMarkdown(!DevGramConfig.disableMarkdown);
         } else if (item.id == ID_HIDE_KEYBOARD_ON_SCROLL) {
             DevGramConfig.setHideKeyboardOnScroll(!DevGramConfig.hideKeyboardOnScroll);
+        } else if (item.id == ID_INLINE_CALC) {
+            DevGramConfig.setInlineCalc(!DevGramConfig.inlineCalc);
         } else if (item.id == ID_DISABLE_GREETING) {
             DevGramConfig.setDisableGreetingSticker(!DevGramConfig.disableGreetingSticker);
         } else if (item.id == ID_COMMA_AFTER_MENTION) {

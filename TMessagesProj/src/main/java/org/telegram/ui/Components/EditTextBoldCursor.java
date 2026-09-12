@@ -51,6 +51,7 @@ import android.view.ActionMode;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -76,6 +77,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class EditTextBoldCursor extends EditTextEffects {
+
+    // Инлайн-калькулятор поля ввода (порт exteraGram). Создаётся лениво только когда реально
+    // нужен (перед кареткой '=' и настройка вкл) — в остальных полях = null, нулевой оверхед.
+    private org.telegram.messenger.DevGramInlineMath inlineMath;
+
+    private org.telegram.messenger.DevGramInlineMath getInlineMath() {
+        if (!org.telegram.messenger.DevGramConfig.inlineCalc) {
+            return inlineMath;   // если выключено — не создаём, но существующий отдаём (для отрисовки/скрытия)
+        }
+        if (inlineMath == null) {
+            inlineMath = new org.telegram.messenger.DevGramInlineMath(this);
+        }
+        return inlineMath;
+    }
 
     private static Field mEditor;
     private static Field mShowCursorField;
@@ -599,6 +614,14 @@ public class EditTextBoldCursor extends EditTextEffects {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        if (inlineMath != null) {
+            inlineMath.updateOnMeasure();
+            int extra = inlineMath.getExtraBottom();
+            if (extra > 0) {
+                // растим поле, чтобы «призрак»-результат (перенос/detached) поместился
+                setMeasuredDimension(getMeasuredWidth(), getMeasuredHeight() + extra);
+            }
+        }
         int currentSize = getMeasuredHeight() + (getMeasuredWidth() << 16);
         if (hintAnimatedDrawable != null) {
             hintAnimatedDrawable.setBounds(getPaddingLeft(), getPaddingTop(), getMeasuredWidth() - getPaddingRight(), getMeasuredHeight() - getPaddingBottom());
@@ -673,6 +696,9 @@ public class EditTextBoldCursor extends EditTextEffects {
             FileLog.e(e);
         }
         checkHeaderVisibility(true);
+        if (inlineMath != null) {
+            inlineMath.onFocusChanged(focused);
+        }
     }
 
     private void checkHeaderVisibility(boolean animated) {
@@ -702,6 +728,18 @@ public class EditTextBoldCursor extends EditTextEffects {
         super.onTextChanged(text, start, lengthBefore, lengthAfter);
         if (transformHintToHeader && !transformHintToHeaderOnFocus) {
             checkHeaderVisibility(true);
+        }
+        org.telegram.messenger.DevGramInlineMath m = getInlineMath();
+        if (m != null) {
+            m.onTextChanged();
+        }
+    }
+
+    @Override
+    protected void onSelectionChanged(int selStart, int selEnd) {
+        super.onSelectionChanged(selStart, selEnd);
+        if (inlineMath != null) {
+            inlineMath.invalidateState();
         }
     }
 
@@ -745,8 +783,26 @@ public class EditTextBoldCursor extends EditTextEffects {
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             lastTouchX = (int) event.getX();
+            if (inlineMath != null) {
+                inlineMath.onTouchDown();
+            }
         }
         return super.onTouchEvent(event);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (inlineMath != null && inlineMath.onKeyEvent(event)) {
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    public android.view.inputmethod.InputConnection onCreateInputConnection(android.view.inputmethod.EditorInfo outAttrs) {
+        android.view.inputmethod.InputConnection ic = super.onCreateInputConnection(outAttrs);
+        org.telegram.messenger.DevGramInlineMath m = getInlineMath();
+        return (m != null && ic != null) ? m.wrap(ic) : ic;
     }
 
     public void invalidateForce() {
@@ -1063,6 +1119,11 @@ public class EditTextBoldCursor extends EditTextEffects {
             errorLayout.draw(canvas);
             canvas.restore();
         }*/
+        if (inlineMath != null) {
+            // «призрак»-результат калькулятора рисуем в тех же координатах, что и текст
+            inlineMath.draw(canvas, getPaddingLeft() - getScrollX(),
+                    getExtendedPaddingTop() - getScrollY(), 0, getHeight());
+        }
     }
 
     public void setWindowView(View view) {
