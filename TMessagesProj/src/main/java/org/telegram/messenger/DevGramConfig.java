@@ -50,6 +50,9 @@ public class DevGramConfig {
     public static boolean saveMessagesHistory = false; // сохранять историю правок
     public static boolean saveMedia = false;           // сохранять вложения удалённых
     public static boolean saveInBotChats = false;      // сохранять и в диалогах с ботами
+    public static boolean saveReadDate = false;
+    public static boolean saveLocalOnline = false;
+    public static boolean probeUsingOtherAccounts = false;
 
     // --- раздел «Сбор данных» ---
     // analytics — ВЫКЛ по умолчанию; crashes — ВКЛ по умолчанию, но реальный сбор пока заглушён
@@ -70,6 +73,7 @@ public class DevGramConfig {
     public static boolean forceSnow = false;
     // Заголовок по центру шапки (exteraGram centerTitle).
     public static boolean centerTitle = false;
+    public static boolean displayGhostStatus = false;
 
     // --- раздел «Чаты» (порт из exteraGram) ---
     public static boolean disableMarkdown = false;       // не преобразовывать **/`code` в форматирование
@@ -113,6 +117,9 @@ public class DevGramConfig {
             saveMessagesHistory = preferences.getBoolean("saveMessagesHistory", false);
             saveMedia = preferences.getBoolean("saveMedia", false);
             saveInBotChats = preferences.getBoolean("saveInBotChats", false);
+            saveReadDate = preferences.getBoolean("saveReadDate", false);
+            saveLocalOnline = preferences.getBoolean("saveLocalOnline", false);
+            probeUsingOtherAccounts = preferences.getBoolean("probeUsingOtherAccounts", false);
             analyticsEnabled = preferences.getBoolean("analyticsEnabled", false);
             crashlyticsEnabled = preferences.getBoolean("crashlyticsEnabled", true);
             disableNumberRounding = preferences.getBoolean("disableNumberRounding", false);
@@ -121,6 +128,7 @@ public class DevGramConfig {
             hideEmojiCategories = preferences.getBoolean("hideEmojiCategories", true);
             forceSnow = preferences.getBoolean("forceSnow", false);
             centerTitle = preferences.getBoolean("centerTitle", false);
+            displayGhostStatus = preferences.getBoolean("displayGhostStatus", false);
             disableMarkdown = preferences.getBoolean("disableMarkdown", false);
             hideKeyboardOnScroll = preferences.getBoolean("hideKeyboardOnScroll", true);
             inlineCalc = preferences.getBoolean("inlineCalc", true);
@@ -192,6 +200,11 @@ public class DevGramConfig {
         if (preferences != null) {
             preferences.edit().putBoolean("centerTitle", v).apply();
         }
+    }
+
+    public static void setDisplayGhostStatus(boolean v) {
+        displayGhostStatus = v;
+        if (preferences != null) preferences.edit().putBoolean("displayGhostStatus", v).apply();
     }
 
     // Системные эмодзи (флаг живёт в SharedConfig — обёртка для нашего меню).
@@ -551,6 +564,9 @@ public class DevGramConfig {
             saveMessagesHistory = false;
             saveMedia = false;
             saveInBotChats = false;
+            saveReadDate = false;
+            saveLocalOnline = false;
+            probeUsingOtherAccounts = false;
             analyticsEnabled = false;
             crashlyticsEnabled = true;
             disableNumberRounding = false;
@@ -559,6 +575,7 @@ public class DevGramConfig {
             hideEmojiCategories = true;
             forceSnow = false;
             centerTitle = false;
+            displayGhostStatus = false;
             disableMarkdown = false;
             hideKeyboardOnScroll = true;
             disableGreetingSticker = false;
@@ -567,6 +584,7 @@ public class DevGramConfig {
                 preferences.edit().clear().apply();
             }
         }
+        DevGramGhostSettings.clearCache();
         applyFirebaseCollection();
     }
 
@@ -574,9 +592,17 @@ public class DevGramConfig {
     public static String exportToJson() {
         org.json.JSONObject o = new org.json.JSONObject();
         try {
-            o.put("sendReadPackets", sendReadPackets);
-            o.put("sendOnlinePackets", sendOnlinePackets);
-            o.put("sendUploadTyping", sendUploadTyping);
+            DevGramGhostSettings.Settings ghost = DevGramGhostSettings.get(UserConfig.selectedAccount);
+            o.put("sendReadPackets", ghost.sendReadMessages);
+            o.put("sendReadStoryPackets", ghost.sendReadStories);
+            o.put("sendOnlinePackets", ghost.sendOnline);
+            o.put("sendUploadTyping", ghost.sendTyping);
+            o.put("sendOfflineAfterOnline", ghost.sendOfflineAfterOnline);
+            o.put("markReadAfterAction", ghost.markReadAfterAction);
+            o.put("useScheduledMessages", ghost.useScheduledMessages);
+            o.put("sendWithoutSound", ghost.sendWithoutSound);
+            o.put("suggestGhostBeforeStory", ghost.suggestBeforeStory);
+            o.put("useGlobalGhostConfig", DevGramGhostSettings.useGlobal());
             o.put("disableAds", disableAds);
             o.put("localPremium", localPremium);
             o.put("streaksEnabled", streaksEnabled);
@@ -586,6 +612,9 @@ public class DevGramConfig {
             o.put("saveMessagesHistory", saveMessagesHistory);
             o.put("saveMedia", saveMedia);
             o.put("saveInBotChats", saveInBotChats);
+            o.put("saveReadDate", saveReadDate);
+            o.put("saveLocalOnline", saveLocalOnline);
+            o.put("probeUsingOtherAccounts", probeUsingOtherAccounts);
             o.put("analyticsEnabled", analyticsEnabled);
             o.put("crashlyticsEnabled", crashlyticsEnabled);
             o.put("disableNumberRounding", disableNumberRounding);
@@ -594,6 +623,7 @@ public class DevGramConfig {
             o.put("hideEmojiCategories", hideEmojiCategories);
             o.put("forceSnow", forceSnow);
             o.put("centerTitle", centerTitle);
+            o.put("displayGhostStatus", displayGhostStatus);
             o.put("disableMarkdown", disableMarkdown);
             o.put("hideKeyboardOnScroll", hideKeyboardOnScroll);
             o.put("disableGreetingSticker", disableGreetingSticker);
@@ -610,9 +640,19 @@ public class DevGramConfig {
         }
         try {
             org.json.JSONObject o = new org.json.JSONObject(json.trim());
+            DevGramGhostSettings.setUseGlobal(o.optBoolean("useGlobalGhostConfig", DevGramGhostSettings.useGlobal()));
             setSendReadPackets(o.optBoolean("sendReadPackets", sendReadPackets));
             setSendOnlinePackets(o.optBoolean("sendOnlinePackets", sendOnlinePackets));
             setSendUploadTyping(o.optBoolean("sendUploadTyping", sendUploadTyping));
+            DevGramGhostSettings.Settings ghost = DevGramGhostSettings.get(UserConfig.selectedAccount);
+            ghost.sendReadStories = o.optBoolean("sendReadStoryPackets", ghost.sendReadStories);
+            ghost.sendOfflineAfterOnline = o.optBoolean("sendOfflineAfterOnline", ghost.sendOfflineAfterOnline);
+            ghost.markReadAfterAction = o.optBoolean("markReadAfterAction", ghost.markReadAfterAction);
+            ghost.useScheduledMessages = o.optBoolean("useScheduledMessages", ghost.useScheduledMessages);
+            ghost.sendWithoutSound = Math.max(0, Math.min(2, o.optInt("sendWithoutSound", ghost.sendWithoutSound)));
+            ghost.suggestBeforeStory = o.optBoolean("suggestGhostBeforeStory", ghost.suggestBeforeStory);
+            if (ghost.markReadAfterAction && ghost.useScheduledMessages) ghost.useScheduledMessages = false;
+            ghost.save();
             setDisableAds(o.optBoolean("disableAds", disableAds));
             setLocalPremium(o.optBoolean("localPremium", localPremium));
             setStreaksEnabled(o.optBoolean("streaksEnabled", streaksEnabled));
@@ -622,6 +662,9 @@ public class DevGramConfig {
             setSaveMessagesHistory(o.optBoolean("saveMessagesHistory", saveMessagesHistory));
             setSaveMedia(o.optBoolean("saveMedia", saveMedia));
             setSaveInBotChats(o.optBoolean("saveInBotChats", saveInBotChats));
+            setSaveReadDate(o.optBoolean("saveReadDate", saveReadDate));
+            setSaveLocalOnline(o.optBoolean("saveLocalOnline", saveLocalOnline));
+            setProbeUsingOtherAccounts(o.optBoolean("probeUsingOtherAccounts", probeUsingOtherAccounts));
             setAnalyticsEnabled(o.optBoolean("analyticsEnabled", analyticsEnabled));
             setCrashlyticsEnabled(o.optBoolean("crashlyticsEnabled", crashlyticsEnabled));
             setDisableNumberRounding(o.optBoolean("disableNumberRounding", disableNumberRounding));
@@ -630,6 +673,7 @@ public class DevGramConfig {
             setHideEmojiCategories(o.optBoolean("hideEmojiCategories", hideEmojiCategories));
             setForceSnow(o.optBoolean("forceSnow", forceSnow));
             setCenterTitle(o.optBoolean("centerTitle", centerTitle));
+            setDisplayGhostStatus(o.optBoolean("displayGhostStatus", displayGhostStatus));
             setDisableMarkdown(o.optBoolean("disableMarkdown", disableMarkdown));
             setHideKeyboardOnScroll(o.optBoolean("hideKeyboardOnScroll", hideKeyboardOnScroll));
             setDisableGreetingSticker(o.optBoolean("disableGreetingSticker", disableGreetingSticker));
@@ -642,18 +686,11 @@ public class DevGramConfig {
 
     // Режим призрака активен, когда скрыты все три индикатора активности.
     public static boolean isGhostModeActive() {
-        return !sendReadPackets && !sendOnlinePackets && !sendUploadTyping;
+        return DevGramGhostSettings.isActive(UserConfig.selectedAccount);
     }
 
     public static void setGhostMode(boolean enabled) {
-        sendReadPackets = !enabled;
-        sendOnlinePackets = !enabled;
-        sendUploadTyping = !enabled;
-        preferences.edit()
-                .putBoolean("sendReadPackets", sendReadPackets)
-                .putBoolean("sendOnlinePackets", sendOnlinePackets)
-                .putBoolean("sendUploadTyping", sendUploadTyping)
-                .apply();
+        DevGramGhostSettings.setActive(UserConfig.selectedAccount, enabled);
     }
 
     public static void toggleGhostMode() {
@@ -662,17 +699,23 @@ public class DevGramConfig {
 
     public static void setSendReadPackets(boolean v) {
         sendReadPackets = v;
-        preferences.edit().putBoolean("sendReadPackets", v).apply();
+        DevGramGhostSettings.Settings s = DevGramGhostSettings.get(UserConfig.selectedAccount);
+        s.sendReadMessages = v;
+        s.save();
     }
 
     public static void setSendOnlinePackets(boolean v) {
         sendOnlinePackets = v;
-        preferences.edit().putBoolean("sendOnlinePackets", v).apply();
+        DevGramGhostSettings.Settings s = DevGramGhostSettings.get(UserConfig.selectedAccount);
+        s.sendOnline = v;
+        s.save();
     }
 
     public static void setSendUploadTyping(boolean v) {
         sendUploadTyping = v;
-        preferences.edit().putBoolean("sendUploadTyping", v).apply();
+        DevGramGhostSettings.Settings s = DevGramGhostSettings.get(UserConfig.selectedAccount);
+        s.sendTyping = v;
+        s.save();
     }
 
     public static void setDisableAds(boolean v) {
@@ -734,6 +777,32 @@ public class DevGramConfig {
         saveInBotChats = v;
         preferences.edit().putBoolean("saveInBotChats", v).apply();
     }
+
+    public static void setSaveReadDate(boolean v) {
+        saveReadDate = v; preferences.edit().putBoolean("saveReadDate", v).apply();
+    }
+
+    public static void setSaveLocalOnline(boolean v) {
+        saveLocalOnline = v; preferences.edit().putBoolean("saveLocalOnline", v).apply();
+    }
+
+    public static void setProbeUsingOtherAccounts(boolean v) {
+        probeUsingOtherAccounts = v; preferences.edit().putBoolean("probeUsingOtherAccounts", v).apply();
+    }
+
+    public static boolean saveMediaPrivateChats() { return preferences.getBoolean("saveMediaPrivateChats", true); }
+    public static boolean saveMediaPublicChannels() { return preferences.getBoolean("saveMediaPublicChannels", false); }
+    public static boolean saveMediaPrivateChannels() { return preferences.getBoolean("saveMediaPrivateChannels", true); }
+    public static boolean saveMediaPublicGroups() { return preferences.getBoolean("saveMediaPublicGroups", false); }
+    public static boolean saveMediaPrivateGroups() { return preferences.getBoolean("saveMediaPrivateGroups", true); }
+    public static void setMediaCategory(String key, boolean value) { preferences.edit().putBoolean(key, value).apply(); }
+    public static long mediaCellularLimit() { return preferences.getLong("mediaCellularLimit", 16L * 1024 * 1024); }
+    public static long mediaWifiLimit() { return preferences.getLong("mediaWifiLimit", 64L * 1024 * 1024); }
+    public static void setMediaCellularLimit(long value) { preferences.edit().putLong("mediaCellularLimit", value).apply(); }
+    public static void setMediaWifiLimit(long value) { preferences.edit().putLong("mediaWifiLimit", value).apply(); }
+    /** Bytes; Long.MAX_VALUE means unlimited. */
+    public static long mediaCacheLimit() { return preferences.getLong("mediaCacheLimit", Long.MAX_VALUE); }
+    public static void setMediaCacheLimit(long value) { preferences.edit().putLong("mediaCacheLimit", value).apply(); }
 
     // Пометка удалённого/изменённого сообщения в строке времени.
     public static String getDeletedMark() {

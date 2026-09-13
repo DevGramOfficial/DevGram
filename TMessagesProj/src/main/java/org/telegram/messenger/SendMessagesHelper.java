@@ -2245,6 +2245,22 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         if (messages == null || messages.isEmpty()) {
             return 0;
         }
+        DevGramGhostSettings.Settings ghostSettings = DevGramGhostSettings.get(currentAccount);
+        boolean effectiveNotify = notify && !DevGramGhostSettings.sendSilently(currentAccount);
+        int effectiveScheduleDate = scheduleDate;
+        if (ghostSettings.useScheduledMessages && DevGramGhostSettings.isActive(currentAccount)
+                && scheduleDate == 0 && !DialogObject.isEncryptedDialog(peer)) {
+            effectiveScheduleDate = ConnectionsManager.getInstance(currentAccount).getCurrentTime() + 12;
+        }
+        if (effectiveNotify != notify || effectiveScheduleDate != scheduleDate) {
+            return sendMessage(messages, peer, forwardFromMyName, hideCaption, effectiveNotify,
+                    effectiveScheduleDate, scheduleRepeatPeriod, replyToTopMsg, video_timestamp,
+                    payStars, monoForumPeerId, suggestionParams);
+        }
+        if (DevGramSmartForward.needs(currentAccount, messages)) {
+            DevGramSmartForward.resend(currentAccount, messages, peer, hideCaption, notify, scheduleDate);
+            return 0;
+        }
         int sendResult = 0;
         long myId = getUserConfig().getClientUserId();
         boolean isChannel = false;
@@ -4457,8 +4473,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         ArrayList<TLRPC.MessageEntity> entities = sendMessageParams.entities;
         TLRPC.ReplyMarkup replyMarkup = sendMessageParams.replyMarkup;
         HashMap<String, String> params = sendMessageParams.params;
-        boolean notify = sendMessageParams.notify;
-        int scheduleDate = sendMessageParams.scheduleDate;
+        DevGramGhostSettings.Settings ghostSettings = DevGramGhostSettings.get(currentAccount);
+        boolean notify = sendMessageParams.notify && !DevGramGhostSettings.sendSilently(currentAccount);
+        int scheduleDate = ghostSettings.useScheduledMessages && DevGramGhostSettings.isActive(currentAccount)
+                && sendMessageParams.scheduleDate == 0 && !DialogObject.isEncryptedDialog(peer)
+                ? ConnectionsManager.getInstance(currentAccount).getCurrentTime() + 12
+                : sendMessageParams.scheduleDate;
         int scheduleRepeatPeriod = sendMessageParams.scheduleRepeatPeriod;
         int ttl = sendMessageParams.ttl;
         Object parentObject = sendMessageParams.parentObject;

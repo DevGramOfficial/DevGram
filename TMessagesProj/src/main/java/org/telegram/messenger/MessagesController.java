@@ -18801,6 +18801,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 stakeDiceInfo = ((TL_update.TL_updateEmojiGameInfo) baseUpdate).info;
             } else if (baseUpdate instanceof TL_update.TL_updateReadMessagesContents) {
                 TL_update.TL_updateReadMessagesContents update = (TL_update.TL_updateReadMessagesContents) baseUpdate;
+                DevGramMessagesController.getInstance().saveContentRead(currentAccount, 0, update.messages, update.date);
                 markContentAsReadMessagesDate = update.date;
                 if (markContentAsReadMessages == null) {
                     markContentAsReadMessages = new LongSparseArray<>();
@@ -18813,6 +18814,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 ids.addAll(update.messages);
             } else if (baseUpdate instanceof TL_update.TL_updateChannelReadMessagesContents) {
                 TL_update.TL_updateChannelReadMessagesContents update = (TL_update.TL_updateChannelReadMessagesContents) baseUpdate;
+                DevGramMessagesController.getInstance().saveContentRead(currentAccount, -update.channel_id, update.messages, date);
                 if (markContentAsReadMessages == null) {
                     markContentAsReadMessages = new LongSparseArray<>();
                 }
@@ -18891,6 +18893,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     value = getMessagesStorage().getDialogReadMax(true, dialogId);
                 }
                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
+                DevGramMessagesController.getInstance().saveMessageRead(currentAccount, dialogId, update.max_id, date);
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                 TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
                 if (deletedMessages == null) {
@@ -19081,6 +19084,11 @@ public class MessagesController extends BaseController implements NotificationCe
             } else if (baseUpdate instanceof TL_stories.TL_updateStory) {
                 getStoriesController().processUpdate((TL_stories.TL_updateStory) baseUpdate);
             } else if (baseUpdate instanceof TL_update.TL_updateUserStatus) {
+                TL_update.TL_updateUserStatus statusUpdate = (TL_update.TL_updateUserStatus) baseUpdate;
+                int observed = statusUpdate.status != null && statusUpdate.status.expires > 0
+                        ? Math.min(statusUpdate.status.expires, getConnectionsManager().getCurrentTime())
+                        : getConnectionsManager().getCurrentTime();
+                DevGramMessagesController.getInstance().saveLastSeen(currentAccount, statusUpdate.user_id, observed);
                 interfaceUpdateMask |= UPDATE_MASK_STATUS;
                 if (updatesOnMainThread == null) {
                     updatesOnMainThread = new ArrayList<>();
@@ -19413,6 +19421,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     value = getMessagesStorage().getDialogReadMax(true, dialogId);
                 }
                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
+                DevGramMessagesController.getInstance().saveMessageRead(currentAccount, dialogId, update.max_id, date);
             } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                 TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
                 if (BuildVars.LOGS_ENABLED) {

@@ -12893,53 +12893,8 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private void openForward(boolean fromActionBar) {
-        if (isPeerNoForwards() || hasSelectedNoforwardsMessage()) {
-            // We should update text if user changed locale without re-opening chat activity
-            String str;
-            if (isPeerNoForwards()) {
-                if (getDialogId() > 0) {
-                    str = LocaleController.getString(R.string.ForwardsRestrictedInfoUser);
-                } else if (ChatObject.isChannel(currentChat) && !currentChat.megagroup) {
-                    str = LocaleController.getString(R.string.ForwardsRestrictedInfoChannel);
-                } else {
-                    str = LocaleController.getString(R.string.ForwardsRestrictedInfoGroup);
-                }
-            } else {
-                str = LocaleController.getString(R.string.ForwardsRestrictedInfoBot);
-            }
-            if (fromActionBar) {
-                if (fwdRestrictedTopHint == null) {
-                    SizeNotifierFrameLayout frameLayout = contentView;
-                    int index = frameLayout.indexOfChild(chatInputViewsContainer);
-                    if (index == -1) {
-                        return;
-                    }
-                    fwdRestrictedTopHint = new HintView(getParentActivity(), 7, true);
-                    frameLayout.addView(fwdRestrictedTopHint, index + 1, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 12, 0, 12, 0));
-                    fwdRestrictedTopHint.setAlpha(0.0f);
-                    fwdRestrictedTopHint.setVisibility(View.INVISIBLE);
-                }
-
-                fwdRestrictedTopHint.setText(str);
-                fwdRestrictedTopHint.showForView(actionBar.getActionMode().getItem(forward), true);
-            } else {
-                if (fwdRestrictedBottomHint == null) {
-                    SizeNotifierFrameLayout frameLayout = contentView;
-                    int index = frameLayout.indexOfChild(chatInputViewsContainer);
-                    if (index == -1) {
-                        return;
-                    }
-                    fwdRestrictedBottomHint = new HintView(getParentActivity(), 9);
-                    frameLayout.addView(fwdRestrictedBottomHint, index + 1, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 12, 0, 12, 0));
-                    fwdRestrictedBottomHint.setAlpha(0.0f);
-                    fwdRestrictedBottomHint.setVisibility(View.INVISIBLE);
-                }
-
-                fwdRestrictedBottomHint.setText(str);
-                fwdRestrictedBottomHint.showForView(actionsButtonsLayout.getForwardButton(), true);
-            }
-            return;
-        }
+        // DevGram re-uploads protected messages as new ones in SendMessagesHelper,
+        // therefore the regular target picker remains available here.
         int hasPoll = 0;
         boolean hasInvoice = false;
         for (int a = 0; a < 2; a++) {
@@ -16288,7 +16243,8 @@ public class ChatActivity extends BaseFragment implements
         // нельзя — иначе просмотр = безвозвратная потеря. При выключенных read-пакетах просто
         // оставляем медиа как есть (без forceExpired и без doDeleteShowOnceTask) — его можно
         // пересмотреть. Завязано на sendReadPackets, как и вся ghost-логика.
-        if (!DevGramConfig.sendReadPackets) {
+        if (!org.telegram.messenger.DevGramGhostSettings.get(currentAccount).sendReadMessages
+                || DevGramConfig.saveDeletedMessages || DevGramConfig.saveMedia) {
             return null;
         }
         final long taskId = getMessagesController().createDeleteShowOnceTask(dialog_id, messageObject.getId());
@@ -38377,7 +38333,13 @@ public class ChatActivity extends BaseFragment implements
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             View view = null;
-            if (viewType == 0) {
+            if (viewType == -1000) {
+                view = new View(mContext) {
+                    @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                        setMeasuredDimension(0, 0);
+                    }
+                };
+            } else if (viewType == 0) {
                 view = new ChatMessageCell(mContext, currentAccount, true, sharedResources, themeDelegate);
                 ChatMessageCell chatMessageCell = (ChatMessageCell) view;
                 chatMessageCell.setResourcesProvider(themeDelegate);
@@ -39392,7 +39354,11 @@ public class ChatActivity extends BaseFragment implements
                 } else {
                     messages = ChatActivity.this.messages;
                 }
-                return messages.get(position - messagesStartRow).contentType;
+                MessageObject message = messages.get(position - messagesStartRow);
+                if (org.telegram.messenger.DevGramFilterController.isFiltered(currentAccount, message)) {
+                    return -1000;
+                }
+                return message.contentType;
             } else if (position == botInfoRow) {
                 return 3;
             } else if (position == userInfoRow) {

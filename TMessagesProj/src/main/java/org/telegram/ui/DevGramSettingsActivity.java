@@ -46,6 +46,7 @@ public class DevGramSettingsActivity extends BaseFragment {
     private static final int ID_CAT_SPY = 3;
     private static final int ID_CAT_APPEARANCE = 7;
     private static final int ID_CAT_CHATS = 8;
+    private static final int ID_CAT_FILTERS = 9;
     private static final int ID_BADGES = 4; // выдача значков — только для команды
     private static final int ID_PLUGINS = 5; // менеджер плагинов
     private static final int ID_OTHER = 6;   // раздел «Другое» (поддержка/сбор данных/сервис)
@@ -137,6 +138,7 @@ public class DevGramSettingsActivity extends BaseFragment {
         items.add(UItem.asButton(ID_CAT_GENERAL, R.drawable.devgram_cat_general, "Основные"));
         items.add(UItem.asButton(ID_CAT_GHOST, R.drawable.devgram_cat_ghost, "Режим призрака"));
         items.add(UItem.asButton(ID_CAT_SPY, R.drawable.devgram_cat_spy, "Слежка"));
+        items.add(UItem.asButton(ID_CAT_FILTERS, R.drawable.msg_search, "Фильтры сообщений"));
         items.add(UItem.asButton(ID_CAT_APPEARANCE, R.drawable.msg_photo_settings, "Внешний вид"));
         items.add(UItem.asButton(ID_CAT_CHATS, R.drawable.msg_discussion, "Чаты"));
         items.add(UItem.asButton(ID_PLUGINS, R.drawable.devgram_cat_general, "Плагины"));
@@ -177,6 +179,7 @@ public class DevGramSettingsActivity extends BaseFragment {
         if (item.id == ID_CAT_GENERAL) code = "general";
         else if (item.id == ID_CAT_GHOST) code = "ghost";
         else if (item.id == ID_CAT_SPY) code = "spy";
+        else if (item.id == ID_CAT_FILTERS) code = "filters";
         else if (item.id == ID_CAT_APPEARANCE) code = "appearance";
         else if (item.id == ID_CAT_CHATS) code = "chats";
         else if (item.id == ID_OTHER) code = "other";
@@ -191,6 +194,8 @@ public class DevGramSettingsActivity extends BaseFragment {
             presentFragment(new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_GHOST));
         } else if (item.id == ID_CAT_SPY) {
             presentFragment(new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_SPY));
+        } else if (item.id == ID_CAT_FILTERS) {
+            presentFragment(new DevGramFiltersActivity());
         } else if (item.id == ID_CAT_APPEARANCE) {
             presentFragment(new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_APPEARANCE));
         } else if (item.id == ID_CAT_CHATS) {

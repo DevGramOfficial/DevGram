@@ -1086,6 +1086,9 @@ public class NotificationsController extends BaseController implements Notificat
 
             for (int a = 0; a < messageObjects.size(); a++) {
                 MessageObject messageObject = messageObjects.get(a);
+                if (DevGramFilterController.isFiltered(currentAccount, messageObject)) {
+                    continue;
+                }
                 // DevGram: не показывать уведомления от скрытых (заблокированных) чатов
                 if (DevGramLockedChats.hideNotifications() && !DevGramLockedChats.isRevealed()
                         && DevGramLockedChats.isLocked(currentAccount, messageObject.getDialogId())) {

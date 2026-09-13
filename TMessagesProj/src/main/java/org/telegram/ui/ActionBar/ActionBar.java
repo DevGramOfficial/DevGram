@@ -79,7 +79,7 @@ import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.animator.ReplaceAnimator;
 
-public class ActionBar extends FrameLayout implements FactorAnimator.Target, Theme.Colorable {
+public class ActionBar extends FrameLayout implements FactorAnimator.Target, Theme.Colorable, NotificationCenter.NotificationCenterDelegate {
 
     public static class ActionBarMenuOnItemClick {
         public void onItemClick(int id) {
@@ -136,6 +136,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     private boolean allowOverlayTitle;
     private CharSequence lastTitle;
     private Drawable lastRightDrawable;
+    private int ghostStatusObservedAccount = -1;
     private OnClickListener rightDrawableOnClickListener;
     private CharSequence lastOverlayTitle;
     private Object[] overlayTitleToSet = new Object[3];
@@ -643,12 +644,24 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     public void setTitle(CharSequence value, Drawable rightDrawable) {
+        CharSequence originalValue = value;
+        if (originalValue != null && originalValue.toString().startsWith("👻 ")) {
+            originalValue = originalValue.subSequence(3, originalValue.length());
+        }
+        if (originalValue != null && org.telegram.messenger.DevGramConfig.displayGhostStatus
+                && org.telegram.messenger.DevGramGhostSettings.isActive(org.telegram.messenger.UserConfig.selectedAccount)
+                && !originalValue.toString().startsWith("👻 ")) {
+            value = "👻 " + originalValue;
+        } else {
+            value = originalValue;
+        }
         if (value != null && titleTextView[0] == null) {
             createTitleTextView(0);
         }
         if (titleTextView[0] != null) {
             titleTextView[0].setVisibility(value != null && !isSearchFieldVisible ? VISIBLE : INVISIBLE);
-            titleTextView[0].setText(lastTitle = value);
+            lastTitle = originalValue;
+            titleTextView[0].setText(value);
             if (attached && lastRightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
                 ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) lastRightDrawable).setParentView(null);
             }
@@ -2079,6 +2092,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         attached = true;
+        ghostStatusObservedAccount = org.telegram.messenger.UserConfig.selectedAccount;
+        NotificationCenter.getInstance(ghostStatusObservedAccount)
+                .addObserver(this, NotificationCenter.mainUserInfoChanged);
         updateAttachState();
         if (actionModeVisible) {
             final int color = actionModeColor == 0 ? actionBarColor : actionModeColor;
@@ -2098,6 +2114,11 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        if (ghostStatusObservedAccount >= 0) {
+            NotificationCenter.getInstance(ghostStatusObservedAccount)
+                    .removeObserver(this, NotificationCenter.mainUserInfoChanged);
+            ghostStatusObservedAccount = -1;
+        }
         attached = false;
         updateAttachState();
         if (actionModeVisible) {
@@ -2113,6 +2134,13 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
         if (lastRightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) {
             ((AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) lastRightDrawable).setParentView(null);
+        }
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == NotificationCenter.mainUserInfoChanged && lastTitle != null) {
+            setTitle(lastTitle, lastRightDrawable);
         }
     }
 

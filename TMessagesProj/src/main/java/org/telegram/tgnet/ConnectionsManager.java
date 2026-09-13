@@ -24,6 +24,8 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.BaseController;
 import org.telegram.messenger.DevGramConfig;
+import org.telegram.messenger.DevGramGhostSettings;
+import org.telegram.messenger.DevGramRequestUtils;
 import org.telegram.tgnet.tl.TL_account;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.CaptchaController;
@@ -389,35 +391,41 @@ public class ConnectionsManager extends BaseController {
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("send request " + object + " with token = " + requestToken);
         }
+        RequestDelegate effectiveOnComplete = onComplete;
 
         // --- DevGram: перехват «режима призрака» (логика портирована из AyuGram, GPL) ---
         {
-            // не отправлять «печатает…» / «загружает…»
-            if (!DevGramConfig.sendUploadTyping &&
+            DevGramGhostSettings.Settings ghost = DevGramGhostSettings.get(currentAccount);
+            long requestDialogId = DevGramRequestUtils.getDialogId(object);
+
+            // не отправлять «печатает…» / «загружает…», учитывая исключение чата
+            if (!DevGramGhostSettings.shouldSendTyping(currentAccount, requestDialogId) &&
                     (object instanceof TLRPC.TL_messages_setTyping || object instanceof TLRPC.TL_messages_setEncryptedTyping)) {
                 return;
             }
 
             // не показывать «в сети» — принудительно ставим offline
-            if (!DevGramConfig.sendOnlinePackets && object instanceof TL_account.updateStatus) {
+            if (!ghost.sendOnline && object instanceof TL_account.updateStatus) {
                 ((TL_account.updateStatus) object).offline = true;
             }
 
             // не отправлять статусы прочтения — подделываем успешный ответ, ничего не шлём
-            if (!DevGramConfig.sendReadPackets && (
-                    object instanceof TLRPC.TL_messages_readHistory ||
-                    object instanceof TLRPC.TL_messages_readEncryptedHistory ||
-                    object instanceof TLRPC.TL_messages_readDiscussion ||
-                    object instanceof TLRPC.TL_messages_readMessageContents ||
-                    object instanceof TLRPC.TL_channels_readHistory ||
-                    object instanceof TLRPC.TL_channels_readMessageContents)) {
+            if (!DevGramGhostSettings.shouldSendRead(currentAccount, requestDialogId)
+                    && DevGramRequestUtils.isReadMessage(object)) {
                 if (!DevGramConfig.getAllowReadPacket()) {
-                    TLRPC.TL_messages_affectedMessages fakeRes = new TLRPC.TL_messages_affectedMessages();
-                    fakeRes.pts = -1;
-                    fakeRes.pts_count = 0;
+                    TLObject fakeRes;
+                    if (object instanceof TLRPC.TL_messages_readHistory
+                            || object instanceof TLRPC.TL_messages_readMessageContents) {
+                        TLRPC.TL_messages_affectedMessages affected = new TLRPC.TL_messages_affectedMessages();
+                        affected.pts = -1;
+                        affected.pts_count = 0;
+                        fakeRes = affected;
+                    } else {
+                        fakeRes = new TLRPC.TL_boolTrue();
+                    }
                     try {
-                        if (onComplete != null) {
-                            onComplete.run(fakeRes, null);
+                        if (effectiveOnComplete != null) {
+                            effectiveOnComplete.run(fakeRes, null);
                         }
                     } catch (Exception e) {
                         FileLog.e(e);
@@ -425,8 +433,56 @@ public class ConnectionsManager extends BaseController {
                     return;
                 }
             }
+
+            // Просмотры историй — отдельный пакет и отдельная настройка, как в AyuGram.
+            if (!ghost.sendReadStories && DevGramRequestUtils.isReadStory(object)) {
+                try {
+                    if (effectiveOnComplete != null) effectiveOnComplete.run(null, null);
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                return;
+            }
+
+            // После отправки сообщения/реакции разрешаем ровно один отложенный пакет
+            // прочтения и отмечаем текущий диалог после успешного ответа сервера.
+            if (!ghost.sendReadMessages && ghost.markReadAfterAction
+                    && DevGramRequestUtils.isOutgoingAction(object)) {
+                final RequestDelegate originalComplete = effectiveOnComplete;
+                final long dialogId = requestDialogId;
+                final int actionMessageId = DevGramRequestUtils.getMessageId(object);
+                effectiveOnComplete = (response, error) -> {
+                    if (originalComplete != null) originalComplete.run(response, error);
+                    if (error == null && dialogId != 0) {
+                        if (actionMessageId != 0) {
+                            DevGramConfig.setAllowReadPacket(true, 1);
+                            getMessagesController().markDialogAsRead(dialogId, actionMessageId, actionMessageId,
+                                    0, false, 0, 0, true, 0);
+                        } else {
+                            getMessagesStorage().getDialogMaxMessageId(dialogId, maxId -> {
+                                if (maxId == 0) return;
+                                DevGramConfig.setAllowReadPacket(true, 1);
+                                getMessagesController().markDialogAsRead(dialogId, maxId, maxId,
+                                        0, false, 0, 0, true, 0);
+                            });
+                        }
+                    }
+                };
+            }
+
+            // После сетевой активности сразу возвращаем серверный статус в offline.
+            if (ghost.sendOfflineAfterOnline && DevGramRequestUtils.isOutgoingAction(object)) {
+                final RequestDelegate originalComplete = effectiveOnComplete;
+                effectiveOnComplete = (response, error) -> {
+                    if (originalComplete != null) originalComplete.run(response, error);
+                    TL_account.updateStatus offline = new TL_account.updateStatus();
+                    offline.offline = true;
+                    sendRequest(offline, null);
+                };
+            }
         }
         // --- DevGram end ---
+        final RequestDelegate finalOnComplete = effectiveOnComplete;
 
         try {
             NativeByteBuffer buffer = new NativeByteBuffer(object.getObjectSize());
@@ -490,8 +546,8 @@ public class ConnectionsManager extends BaseController {
                     final TLObject finalResponse = resp;
                     final TLRPC.TL_error finalError = error;
                     Utilities.stageQueue.postRunnable(() -> {
-                        if (onComplete != null) {
-                            onComplete.run(finalResponse, finalError);
+                        if (finalOnComplete != null) {
+                            finalOnComplete.run(finalResponse, finalError);
                         } else if (onCompleteTimestamp != null) {
                             onCompleteTimestamp.run(finalResponse, finalError, timestamp);
                         } else if (finalResponse instanceof TLRPC.Updates) {

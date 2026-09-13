@@ -15,6 +15,7 @@ import org.telegram.ui.pillstack.pills.GramPill;
 import org.telegram.ui.pillstack.pills.ProxyPill;
 import org.telegram.ui.pillstack.pills.UsdPill;
 import org.telegram.ui.pillstack.pills.WeatherPill;
+import org.telegram.ui.pillstack.pills.LastSeenPill;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,6 +39,7 @@ public final class PillStackConfig {
     public static final int USD = 4;
     public static final int CACHE = 5;
     public static final int PROXY = 6;
+    public static final int LAST_SEEN = 100;
 
     public interface PillCreator {
         BasePill create(Context context, Theme.ResourcesProvider resourcesProvider);
@@ -84,6 +86,8 @@ public final class PillStackConfig {
         register(new PillInfo(USD, "USD", R_usd, IconBackgroundColors.GREEN_DEEP.top, IconBackgroundColors.GREEN_DEEP.bottom, UsdPill::new));
         register(new PillInfo(CACHE, "Использование памяти", R_cache, IconBackgroundColors.BLUE_DEEP.top, IconBackgroundColors.BLUE_DEEP.bottom, CachePill::new));
         register(new PillInfo(PROXY, "Прокси", R_proxy, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, ProxyPill::new));
+        register(new PillInfo(LAST_SEEN, "Последний онлайн", org.telegram.messenger.R.drawable.msg_recent,
+                IconBackgroundColors.BLUE_ALT.top, IconBackgroundColors.BLUE_ALT.bottom, LastSeenPill::new));
         endTransaction();
     }
 

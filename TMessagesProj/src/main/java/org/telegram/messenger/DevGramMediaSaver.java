@@ -75,7 +75,7 @@ public class DevGramMediaSaver {
 
     // Закрепить все файлы сообщения. Вызывать с фонового потока — здесь дисковые операции.
     public static void saveMessage(int account, TLRPC.Message message) {
-        if (!DevGramConfig.saveMedia || message == null) {
+        if (!DevGramConfig.saveMedia || message == null || !allowedForDialog(account, message)) {
             return;
         }
         try {
@@ -87,6 +87,18 @@ public class DevGramMediaSaver {
         } catch (Throwable e) {
             FileLog.e(e);
         }
+    }
+
+    private static boolean allowedForDialog(int account, TLRPC.Message message) {
+        long did = message.dialog_id != 0 ? message.dialog_id : MessageObject.getDialogId(message);
+        if (did > 0) return DevGramConfig.saveMediaPrivateChats();
+        TLRPC.Chat chat = MessagesController.getInstance(account).getChat(-did);
+        if (chat == null) return true;
+        boolean publicChat = !TextUtils.isEmpty(chat.username) || chat.usernames != null && !chat.usernames.isEmpty();
+        if (chat.megagroup || !ChatObject.isChannel(chat)) {
+            return publicChat ? DevGramConfig.saveMediaPublicGroups() : DevGramConfig.saveMediaPrivateGroups();
+        }
+        return publicChat ? DevGramConfig.saveMediaPublicChannels() : DevGramConfig.saveMediaPrivateChannels();
     }
 
     // ================= сбор вложений =================
@@ -191,9 +203,13 @@ public class DevGramMediaSaver {
             requestDownload(account, attachment, parent, attempt);
             return;
         }
+        long networkLimit = ApplicationLoader.isConnectedToWiFi()
+                ? DevGramConfig.mediaWifiLimit() : DevGramConfig.mediaCellularLimit();
+        if (networkLimit > 0 && src.length() > networkLimit) return;
         if (src.equals(dst)) {
             return;
         }
+        trimFor(src.length());
         if (!hardLink(src, dst)) {
             copy(src, dst);
         }
@@ -279,6 +295,22 @@ public class DevGramMediaSaver {
             }
         } catch (Throwable e) {
             FileLog.e(e);
+        }
+    }
+
+    private static void trimFor(long incoming) {
+        long limit = DevGramConfig.mediaCacheLimit();
+        if (limit == Long.MAX_VALUE || limit <= 0) return;
+        File[] files = getDir().listFiles();
+        if (files == null) return;
+        java.util.Arrays.sort(files, java.util.Comparator.comparingLong(File::lastModified));
+        long size = getSize();
+        for (File f : files) {
+            if (size + incoming <= limit) break;
+            if (!".nomedia".equals(f.getName())) {
+                long length = f.length();
+                if (f.delete()) size -= length;
+            }
         }
     }
 }

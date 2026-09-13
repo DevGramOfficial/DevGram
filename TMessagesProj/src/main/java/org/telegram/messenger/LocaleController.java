@@ -3078,6 +3078,14 @@ public class LocaleController {
                 return getString("Online", R.string.Online);
             }
         }
+        if (DevGramConfig.saveLocalOnline && user != null && !UserObject.isDeleted(user)) {
+            int localLastSeen = DevGramMessagesController.getInstance().getLastSeen(currentAccount, user.id);
+            int known = user.status == null ? 0 : user.status.expires;
+            if (known <= 0 && DevGramConfig.probeUsingOtherAccounts) DevGramSpyProbe.probe(currentAccount, user.id);
+            if (localLastSeen > 0 && known <= 0) {
+                return "Замечен " + formatDateOnline(localLastSeen, madeShorter);
+            }
+        }
         if (user == null || user.status == null || user.status.expires == 0 || UserObject.isDeleted(user) || user instanceof TLRPC.TL_userEmpty) {
             return getString("ALongTimeAgo", R.string.ALongTimeAgo);
         } else {

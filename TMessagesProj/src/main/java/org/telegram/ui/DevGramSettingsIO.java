@@ -19,8 +19,14 @@ public class DevGramSettingsIO {
     // ключ настройки -> человекочитаемое название (для показа отличий)
     private static final String[][] LABELS = {
             {"sendReadPackets", "Статусы прочтения"},
+            {"sendReadStoryPackets", "Просмотры историй"},
             {"sendOnlinePackets", "Статус «в сети»"},
             {"sendUploadTyping", "«Печатает…»"},
+            {"sendOfflineAfterOnline", "Офлайн после активности"},
+            {"markReadAfterAction", "Прочитать после действия"},
+            {"useScheduledMessages", "Отложенная отправка в режиме призрака"},
+            {"suggestGhostBeforeStory", "Предлагать режим перед историей"},
+            {"useGlobalGhostConfig", "Общие настройки режима призрака"},
             {"disableAds", "Скрывать рекламу"},
             {"localPremium", "Локальный премиум"},
             {"streaksEnabled", "Огоньки (серии)"},
@@ -30,6 +36,9 @@ public class DevGramSettingsIO {
             {"saveMessagesHistory", "Сохранять историю изменений"},
             {"saveMedia", "Сохранять вложения"},
             {"saveInBotChats", "Сохранять в чатах с ботами"},
+            {"saveReadDate", "Сохранять время прочтения"},
+            {"saveLocalOnline", "Запоминать замеченный онлайн"},
+            {"probeUsingOtherAccounts", "Проверять онлайн через другие аккаунты"},
             {"analyticsEnabled", "Google Analytics"},
             {"crashlyticsEnabled", "Google Crashlytics"},
             {"disableNumberRounding", "Отключить округление чисел"},
@@ -38,6 +47,7 @@ public class DevGramSettingsIO {
             {"hideEmojiCategories", "Скрыть категории в поиске эмодзи"},
             {"forceSnow", "Снег в шапке"},
             {"centerTitle", "Заголовок по центру"},
+            {"displayGhostStatus", "Значок режима призрака"},
             {"disableMarkdown", "Отключить Markdown"},
             {"hideKeyboardOnScroll", "Скрывать клавиатуру при прокрутке"},
             {"disableGreetingSticker", "Скрыть приветственный стикер"},
@@ -162,9 +172,15 @@ public class DevGramSettingsIO {
 
     private static boolean currentValue(String key) {
         switch (key) {
-            case "sendReadPackets": return DevGramConfig.sendReadPackets;
-            case "sendOnlinePackets": return DevGramConfig.sendOnlinePackets;
-            case "sendUploadTyping": return DevGramConfig.sendUploadTyping;
+            case "sendReadPackets": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendReadMessages;
+            case "sendReadStoryPackets": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendReadStories;
+            case "sendOnlinePackets": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendOnline;
+            case "sendUploadTyping": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendTyping;
+            case "sendOfflineAfterOnline": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendOfflineAfterOnline;
+            case "markReadAfterAction": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).markReadAfterAction;
+            case "useScheduledMessages": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).useScheduledMessages;
+            case "suggestGhostBeforeStory": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).suggestBeforeStory;
+            case "useGlobalGhostConfig": return org.telegram.messenger.DevGramGhostSettings.useGlobal();
             case "disableAds": return DevGramConfig.disableAds;
             case "localPremium": return DevGramConfig.localPremium;
             case "streaksEnabled": return DevGramConfig.streaksEnabled;
@@ -174,6 +190,9 @@ public class DevGramSettingsIO {
             case "saveMessagesHistory": return DevGramConfig.saveMessagesHistory;
             case "saveMedia": return DevGramConfig.saveMedia;
             case "saveInBotChats": return DevGramConfig.saveInBotChats;
+            case "saveReadDate": return DevGramConfig.saveReadDate;
+            case "saveLocalOnline": return DevGramConfig.saveLocalOnline;
+            case "probeUsingOtherAccounts": return DevGramConfig.probeUsingOtherAccounts;
             case "analyticsEnabled": return DevGramConfig.analyticsEnabled;
             case "crashlyticsEnabled": return DevGramConfig.crashlyticsEnabled;
             case "disableNumberRounding": return DevGramConfig.disableNumberRounding;
@@ -182,6 +201,7 @@ public class DevGramSettingsIO {
             case "hideEmojiCategories": return DevGramConfig.hideEmojiCategories;
             case "forceSnow": return DevGramConfig.forceSnow;
             case "centerTitle": return DevGramConfig.centerTitle;
+            case "displayGhostStatus": return DevGramConfig.displayGhostStatus;
             case "disableMarkdown": return DevGramConfig.disableMarkdown;
             case "hideKeyboardOnScroll": return DevGramConfig.hideKeyboardOnScroll;
             case "disableGreetingSticker": return DevGramConfig.disableGreetingSticker;

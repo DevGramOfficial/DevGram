@@ -66,6 +66,7 @@ public final class DevGramSettingsLink {
             case "general":    return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_GENERAL);
             case "ghost":      return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_GHOST);
             case "spy":        return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_SPY);
+            case "filters":    return new DevGramFiltersActivity();
             case "appearance": return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_APPEARANCE);
             case "chats":      return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_CHATS);
             case "ai":         return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_AI);

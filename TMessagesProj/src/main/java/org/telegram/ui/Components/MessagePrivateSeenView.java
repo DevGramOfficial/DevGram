@@ -68,6 +68,7 @@ public class MessagePrivateSeenView extends FrameLayout {
     private final Runnable dismiss;
 
     private final int messageDiff;
+    private final boolean contentRead;
 
     public MessagePrivateSeenView(Context context, int type, @NonNull MessageObject messageObject, Runnable dismiss, Theme.ResourcesProvider resourcesProvider) {
         super(context);
@@ -83,6 +84,7 @@ public class MessagePrivateSeenView extends FrameLayout {
         sent_date = messageObject.messageOwner == null ? 0 : messageObject.messageOwner.date;
         edit_date = messageObject.messageOwner == null ? 0 : messageObject.messageOwner.edit_date;
         fwd_date = messageObject.messageOwner == null || messageObject.messageOwner.fwd_from == null ? 0 : messageObject.messageOwner.fwd_from.date;
+        contentRead = messageObject.isVoice() || messageObject.isRoundVideo() || messageObject.isVideo();
 
         ImageView iconView = new ImageView(context);
         addView(iconView, LayoutHelper.createFrame(24, 24, Gravity.LEFT | Gravity.CENTER_VERTICAL, 11, 0, 0, 0));
@@ -144,6 +146,18 @@ public class MessagePrivateSeenView extends FrameLayout {
             loadingView.setAlpha(0f);
             premiumTextView.setVisibility(View.GONE);
             valueTextView.setText(LocaleController.formatPmFwdDate(fwd_date));
+            return;
+        }
+        int localReadDate = contentRead
+                ? org.telegram.messenger.DevGramMessagesController.getInstance().getContentReadDate(
+                        org.telegram.messenger.UserConfig.getInstance(currentAccount).getClientUserId(), dialogId, messageId)
+                : org.telegram.messenger.DevGramMessagesController.getInstance().getMessageReadDate(
+                        org.telegram.messenger.UserConfig.getInstance(currentAccount).getClientUserId(), dialogId, messageId);
+        if (localReadDate > 0) {
+            valueLayout.setAlpha(1f);
+            loadingView.setAlpha(0f);
+            premiumTextView.setVisibility(View.GONE);
+            valueTextView.setText(LocaleController.formatPmSeenDate(localReadDate) + " · сохранено DevGram");
             return;
         }
         setOnClickListener(null);

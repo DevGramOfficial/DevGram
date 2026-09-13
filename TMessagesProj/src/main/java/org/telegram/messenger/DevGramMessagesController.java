@@ -14,13 +14,17 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.LongSparseArray;
+import android.util.Base64;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import org.telegram.tgnet.SerializedData;
 import org.telegram.tgnet.TLRPC;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DevGramMessagesController {
 
@@ -38,6 +42,7 @@ public class DevGramMessagesController {
     }
 
     private final DbHelper helper;
+    private final ConcurrentHashMap<String, Integer> lastSeenCache = new ConcurrentHashMap<>();
 
     private DevGramMessagesController() {
         helper = new DbHelper(ApplicationLoader.applicationContext);
@@ -98,19 +103,7 @@ public class DevGramMessagesController {
                     return;
                 }
             }
-            // сохраняем сам файл вложения на диск, пока он ещё в кеше — иначе после
-            // очистки кеша останется битый превью. Путь пишем в attachPath, чтобы медиа
-            // грузилось из локальной копии (как в AyuGram).
-            try {
-                if (msg.dialog_id == 0) {
-                    msg.dialog_id = dialogId;
-                }
-                String mediaPath = saveMediaFile(accountId, msg);
-                if (mediaPath != null) {
-                    msg.attachPath = mediaPath;
-                }
-            } catch (Throwable ignore) {
-            }
+            if (msg.dialog_id == 0) msg.dialog_id = dialogId;
             byte[] data = serialize(msg);
             if (data == null) {
                 return;
@@ -127,34 +120,6 @@ public class DevGramMessagesController {
             db.insert("deleted_messages", null, cv);
         } catch (Throwable e) {
             FileLog.e(e);
-        }
-    }
-
-    // Копирует файл вложения из кеша в постоянную папку DevGram. Возвращает путь копии
-    // или null, если сохранять нечего/файла нет на диске.
-    private static String saveMediaFile(int accountId, TLRPC.Message msg) {
-        try {
-            if (!DevGramConfig.saveMedia || msg == null || msg.media == null) {
-                return null;
-            }
-            File src = FileLoader.getInstance(accountId).getPathToMessage(msg);
-            if (src == null || !src.exists() || src.length() == 0) {
-                return null;
-            }
-            File dir = new File(ApplicationLoader.getFilesDirFixed(), "devgram_saved");
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-            File dst = new File(dir, Math.abs(msg.dialog_id) + "_" + msg.id + "_" + src.getName());
-            if (!dst.exists() || dst.length() != src.length()) {
-                if (!AndroidUtilities.copyFileSafe(src, dst)) {
-                    return null;
-                }
-            }
-            return dst.getAbsolutePath();
-        } catch (Throwable e) {
-            FileLog.e(e);
-            return null;
         }
     }
 
@@ -381,17 +346,162 @@ public class DevGramMessagesController {
             db.execSQL("DELETE FROM deleted_messages");
             db.execSQL("DELETE FROM edited_messages");
             db.execSQL("DELETE FROM reply_to_deleted");
+            db.execSQL("DELETE FROM message_read_times");
+            db.execSQL("DELETE FROM content_read_times");
+            db.execSQL("DELETE FROM local_last_seen");
+            lastSeenCache.clear();
             DevGramMediaSaver.clear();
         } catch (Throwable e) {
             FileLog.e(e);
         }
     }
 
+    public String exportData() {
+        JSONObject root = new JSONObject();
+        try {
+            root.put("version", 4);
+            SQLiteDatabase db = helper.getReadableDatabase();
+            root.put("deleted", exportMessages(db, "deleted_messages"));
+            root.put("edited", exportMessages(db, "edited_messages"));
+            root.put("reads", exportRows(db, "SELECT userId,dialogId,maxMessageId,date FROM message_read_times", 4));
+            root.put("contentReads", exportRows(db, "SELECT userId,dialogId,messageId,date FROM content_read_times", 4));
+            root.put("lastSeen", exportRows(db, "SELECT userId,peerId,date FROM local_last_seen", 3));
+            root.put("replies", exportRows(db, "SELECT userId,dialogId,ownerMsgId,replyToMsgId FROM reply_to_deleted", 4));
+        } catch (Throwable e) { FileLog.e(e); }
+        return root.toString();
+    }
+
+    private static JSONArray exportMessages(SQLiteDatabase db, String table) throws Exception {
+        JSONArray out = new JSONArray();
+        try (Cursor c = db.rawQuery("SELECT userId,dialogId,topicId,messageId,date,catchTime,data,groupedId FROM " + table, null)) {
+            while (c.moveToNext()) out.put(new JSONObject().put("u", c.getLong(0)).put("d", c.getLong(1))
+                    .put("t", c.getLong(2)).put("m", c.getInt(3)).put("date", c.getInt(4))
+                    .put("catch", c.getInt(5)).put("data", Base64.encodeToString(c.getBlob(6), Base64.NO_WRAP))
+                    .put("g", c.getLong(7)));
+        }
+        return out;
+    }
+
+    private static JSONArray exportRows(SQLiteDatabase db, String sql, int columns) throws Exception {
+        JSONArray out = new JSONArray();
+        try (Cursor c = db.rawQuery(sql, null)) {
+            while (c.moveToNext()) { JSONArray row = new JSONArray(); for (int i = 0; i < columns; i++) row.put(c.getLong(i)); out.put(row); }
+        }
+        return out;
+    }
+
+    public boolean importData(String json) {
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            JSONObject root = new JSONObject(json);
+            importMessages(db, "deleted_messages", root.optJSONArray("deleted"));
+            importMessages(db, "edited_messages", root.optJSONArray("edited"));
+            importRows(db, "message_read_times", new String[]{"userId","dialogId","maxMessageId","date"}, root.optJSONArray("reads"));
+            importRows(db, "content_read_times", new String[]{"userId","dialogId","messageId","date"}, root.optJSONArray("contentReads"));
+            importRows(db, "local_last_seen", new String[]{"userId","peerId","date"}, root.optJSONArray("lastSeen"));
+            importRows(db, "reply_to_deleted", new String[]{"userId","dialogId","ownerMsgId","replyToMsgId"}, root.optJSONArray("replies"));
+            db.setTransactionSuccessful();
+            lastSeenCache.clear();
+            return true;
+        } catch (Throwable e) { FileLog.e(e); return false; }
+        finally { db.endTransaction(); }
+    }
+
+    private static void importMessages(SQLiteDatabase db, String table, JSONArray rows) throws Exception {
+        if (rows == null) return;
+        for (int i = 0; i < rows.length(); i++) {
+            JSONObject o = rows.getJSONObject(i); ContentValues v = new ContentValues();
+            v.put("userId", o.getLong("u")); v.put("dialogId", o.getLong("d")); v.put("topicId", o.optLong("t"));
+            v.put("messageId", o.getInt("m")); v.put("date", o.optInt("date")); v.put("catchTime", o.optInt("catch"));
+            v.put("groupedId", o.optLong("g"));
+            v.put("data", Base64.decode(o.getString("data"), Base64.DEFAULT));
+            db.insertWithOnConflict(table, null, v, SQLiteDatabase.CONFLICT_IGNORE);
+        }
+    }
+
+    private static void importRows(SQLiteDatabase db, String table, String[] columns, JSONArray rows) throws Exception {
+        if (rows == null) return;
+        for (int i = 0; i < rows.length(); i++) {
+            JSONArray row = rows.getJSONArray(i); ContentValues v = new ContentValues();
+            for (int j = 0; j < columns.length; j++) v.put(columns[j], row.getLong(j));
+            db.insertWithOnConflict(table, null, v, SQLiteDatabase.CONFLICT_REPLACE);
+        }
+    }
+
+    // ================= точное время прочтения / локальный онлайн =================
+
+    public void saveMessageRead(int account, long dialogId, int maxMessageId, int date) {
+        if (!DevGramConfig.saveReadDate || dialogId == 0 || maxMessageId == 0) return;
+        try {
+            ContentValues cv = new ContentValues();
+            cv.put("userId", UserConfig.getInstance(account).getClientUserId());
+            cv.put("dialogId", dialogId); cv.put("maxMessageId", maxMessageId);
+            cv.put("date", date > 0 ? date : ConnectionsManager.getInstance(account).getCurrentTime());
+            helper.getWritableDatabase().insert("message_read_times", null, cv);
+        } catch (Throwable e) { FileLog.e(e); }
+    }
+
+    public void saveContentRead(int account, long dialogId, List<Integer> messageIds, int date) {
+        if (!DevGramConfig.saveReadDate || messageIds == null) return;
+        try {
+            SQLiteDatabase db = helper.getWritableDatabase();
+            long userId = UserConfig.getInstance(account).getClientUserId();
+            int actualDate = date > 0 ? date : ConnectionsManager.getInstance(account).getCurrentTime();
+            for (Integer id : messageIds) {
+                ContentValues cv = new ContentValues(); cv.put("userId", userId); cv.put("dialogId", dialogId);
+                cv.put("messageId", id); cv.put("date", actualDate);
+                db.insertWithOnConflict("content_read_times", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+            }
+        } catch (Throwable e) { FileLog.e(e); }
+    }
+
+    public int getMessageReadDate(long userId, long dialogId, int messageId) {
+        try (Cursor c = helper.getReadableDatabase().rawQuery(
+                "SELECT date FROM message_read_times WHERE userId=? AND dialogId=? AND maxMessageId>=? ORDER BY date ASC LIMIT 1",
+                new String[]{Long.toString(userId), Long.toString(dialogId), Integer.toString(messageId)})) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        } catch (Throwable e) { FileLog.e(e); return 0; }
+    }
+
+    public int getContentReadDate(long userId, long dialogId, int messageId) {
+        try (Cursor c = helper.getReadableDatabase().rawQuery(
+                "SELECT date FROM content_read_times WHERE userId=? AND (dialogId=? OR dialogId=0) AND messageId=? ORDER BY dialogId DESC LIMIT 1",
+                new String[]{Long.toString(userId), Long.toString(dialogId), Integer.toString(messageId)})) {
+            return c.moveToFirst() ? c.getInt(0) : 0;
+        } catch (Throwable e) { FileLog.e(e); return 0; }
+    }
+
+    public void saveLastSeen(int account, long peerId, int date) {
+        if (!DevGramConfig.saveLocalOnline || peerId <= 0 || peerId == UserConfig.getInstance(account).getClientUserId()) return;
+        try {
+            int actualDate = date > 0 ? date : ConnectionsManager.getInstance(account).getCurrentTime();
+            if (getLastSeen(account, peerId) >= actualDate) return;
+            ContentValues cv = new ContentValues(); cv.put("userId", UserConfig.getInstance(account).getClientUserId());
+            cv.put("peerId", peerId); cv.put("date", actualDate);
+            helper.getWritableDatabase().insertWithOnConflict("local_last_seen", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
+            lastSeenCache.put(account + ":" + peerId, cv.getAsInteger("date"));
+        } catch (Throwable e) { FileLog.e(e); }
+    }
+
+    public int getLastSeen(int account, long peerId) {
+        String key = account + ":" + peerId;
+        Integer cached = lastSeenCache.get(key);
+        if (cached != null) return cached;
+        try (Cursor c = helper.getReadableDatabase().rawQuery(
+                "SELECT date FROM local_last_seen WHERE userId=? AND peerId=? LIMIT 1",
+                new String[]{Long.toString(UserConfig.getInstance(account).getClientUserId()), Long.toString(peerId)})) {
+            int value = c.moveToFirst() ? c.getInt(0) : 0;
+            lastSeenCache.put(key, value);
+            return value;
+        } catch (Throwable e) { FileLog.e(e); return 0; }
+    }
+
     // ================= схема =================
 
     private static class DbHelper extends SQLiteOpenHelper {
         DbHelper(Context context) {
-            super(context, "devgram_messages.db", null, 3);
+            super(context, "devgram_messages.db", null, 4);
         }
 
         @Override
@@ -405,6 +515,7 @@ public class DevGramMessagesController {
                     "messageId INTEGER, date INTEGER, catchTime INTEGER, data BLOB)");
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_edited ON edited_messages (userId, dialogId, messageId)");
             createReplyTable(db);
+            createSpyTables(db);
         }
 
         private void createReplyTable(SQLiteDatabase db) {
@@ -413,12 +524,20 @@ public class DevGramMessagesController {
                     "PRIMARY KEY(userId, dialogId, ownerMsgId))");
         }
 
+        private void createSpyTables(SQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS message_read_times (fakeId INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, dialogId INTEGER, maxMessageId INTEGER, date INTEGER)");
+            db.execSQL("CREATE INDEX IF NOT EXISTS idx_message_read ON message_read_times(userId, dialogId, maxMessageId)");
+            db.execSQL("CREATE TABLE IF NOT EXISTS content_read_times (userId INTEGER, dialogId INTEGER, messageId INTEGER, date INTEGER, PRIMARY KEY(userId, dialogId, messageId))");
+            db.execSQL("CREATE TABLE IF NOT EXISTS local_last_seen (userId INTEGER, peerId INTEGER, date INTEGER, PRIMARY KEY(userId, peerId))");
+        }
+
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
             // Номер не понижаем: SQLiteOpenHelper падает на понижении версии.
             if (oldVersion < 3) {
                 createReplyTable(db);
             }
+            if (oldVersion < 4) createSpyTables(db);
         }
     }
 }

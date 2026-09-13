@@ -54,11 +54,35 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_GHOST_READ = 2;
     private static final int ID_GHOST_ONLINE = 3;
     private static final int ID_GHOST_TYPING = 4;
+    private static final int ID_GHOST_STORIES = 705;
+    private static final int ID_GHOST_OFFLINE = 706;
+    private static final int ID_GHOST_MARK_READ = 707;
+    private static final int ID_GHOST_SCHEDULED = 708;
+    private static final int ID_GHOST_SOUND = 709;
+    private static final int ID_GHOST_SUGGEST_STORY = 710;
+    private static final int ID_GHOST_GLOBAL = 711;
+    private static final int ID_GHOST_EXCEPTIONS = 712;
+    private static final int ID_GHOST_STATUS = 713;
     // Слежка
     private static final int ID_SAVE_DELETED = 5;
     private static final int ID_SAVE_HISTORY = 6;
     private static final int ID_SAVE_MEDIA = 10;
     private static final int ID_SAVE_BOTS = 11;
+    private static final int ID_SAVE_READ_DATE = 714;
+    private static final int ID_SAVE_LOCAL_ONLINE = 715;
+    private static final int ID_PROBE_OTHER_ACCOUNTS = 716;
+    private static final int ID_MEDIA_PRIVATE_CHATS = 720;
+    private static final int ID_MEDIA_PUBLIC_CHANNELS = 721;
+    private static final int ID_MEDIA_PRIVATE_CHANNELS = 722;
+    private static final int ID_MEDIA_PUBLIC_GROUPS = 723;
+    private static final int ID_MEDIA_PRIVATE_GROUPS = 724;
+    private static final int ID_MEDIA_CELL_LIMIT = 725;
+    private static final int ID_MEDIA_WIFI_LIMIT = 726;
+    private static final int ID_MEDIA_CACHE_LIMIT = 727;
+    private static final int ID_CLEAR_SAVED_MEDIA = 728;
+    private static final int ID_CLEAR_SPY_DATABASE = 729;
+    private static final int ID_EXPORT_SPY_DATABASE = 730;
+    private static final int ID_IMPORT_SPY_DATABASE = 731;
     private static final int ID_DELETED_ICON = 700;      // значок пометки удалённого
     private static final int ID_DELETED_ICON_COLOR = 701; // цвет пометки удалённого
     private static final int ID_DELETED_TRANSPARENT = 702; // полупрозрачные удалённые
@@ -195,6 +219,71 @@ public class DevGramCategoryActivity extends BaseFragment {
         });
         b.setNegativeButton("Отмена", null);
         showDialog(b.create());
+    }
+
+    private void showGhostSoundChoice() {
+        if (getParentActivity() == null) return;
+        final org.telegram.messenger.DevGramGhostSettings.Settings settings =
+                org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+        final String[] options = {"Никогда", "Только в режиме призрака", "Всегда"};
+        CharSequence[] labels = new CharSequence[options.length];
+        for (int i = 0; i < options.length; i++) {
+            labels[i] = (settings.sendWithoutSound == i ? "• " : "    ") + options[i];
+        }
+        new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
+                .setTitle("Отправлять без звука")
+                .setItems(labels, (dialog, which) -> {
+                    settings.sendWithoutSound = which;
+                    settings.save();
+                    refreshListImmediately();
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    private static String formatMediaLimit(long value) {
+        return value == Long.MAX_VALUE ? "Без ограничений" : org.telegram.messenger.AndroidUtilities.formatFileSize(value);
+    }
+
+    private void showMediaLimitChoice(int id) {
+        final long[] values = {4L << 20, 16L << 20, 64L << 20, 256L << 20, 1024L << 20, Long.MAX_VALUE};
+        CharSequence[] labels = new CharSequence[values.length];
+        for (int i = 0; i < values.length; i++) labels[i] = formatMediaLimit(values[i]);
+        new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
+                .setTitle(id == ID_MEDIA_CACHE_LIMIT ? "Размер хранилища" : "Максимальный размер файла")
+                .setItems(labels, (d, which) -> {
+                    if (id == ID_MEDIA_CELL_LIMIT) DevGramConfig.setMediaCellularLimit(values[which]);
+                    else if (id == ID_MEDIA_WIFI_LIMIT) DevGramConfig.setMediaWifiLimit(values[which]);
+                    else DevGramConfig.setMediaCacheLimit(values[which]);
+                    refreshListImmediately();
+                }).setNegativeButton("Отмена", null).show();
+    }
+
+    private void confirmClearSpy(boolean everything) {
+        new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
+                .setTitle(everything ? "Очистить историю DevGram?" : "Удалить сохранённые вложения?")
+                .setMessage(everything ? "Будут удалены сохранённые удалёнки, редакции, время прочтения и вложения."
+                        : "Сообщения останутся, но локальные копии их файлов будут удалены.")
+                .setPositiveButton("Очистить", (d, w) -> {
+                    if (everything) org.telegram.messenger.DevGramMessagesController.getInstance().clean();
+                    else org.telegram.messenger.DevGramMediaSaver.clear();
+                    refreshListImmediately();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Данные очищены").show();
+                }).setNegativeButton("Отмена", null).show();
+    }
+
+    private void importSpyDatabase() {
+        try {
+            android.content.ClipboardManager manager = (android.content.ClipboardManager)
+                    getParentActivity().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = manager.getPrimaryClip();
+            String data = clip == null || clip.getItemCount() == 0 ? null
+                    : clip.getItemAt(0).coerceToText(getParentActivity()).toString();
+            if (!org.telegram.messenger.DevGramMessagesController.getInstance().importData(data)) throw new IllegalArgumentException();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Резервная копия импортирована").show();
+        } catch (Throwable e) {
+            BulletinFactory.of(this).createErrorBulletin("В буфере нет резервной копии DevGram").show();
+        }
     }
 
     private void rebuildAppearanceScreens() {
@@ -441,24 +530,54 @@ public class DevGramCategoryActivity extends BaseFragment {
     }
 
     private int ghostCount() {
+        org.telegram.messenger.DevGramGhostSettings.Settings s =
+                org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
         int c = 0;
-        if (!DevGramConfig.sendReadPackets) c++;
-        if (!DevGramConfig.sendOnlinePackets) c++;
-        if (!DevGramConfig.sendUploadTyping) c++;
+        if (!s.sendReadMessages) c++;
+        if (!s.sendReadStories) c++;
+        if (!s.sendOnline) c++;
+        if (!s.sendTyping) c++;
+        if (s.sendOfflineAfterOnline) c++;
         return c;
+    }
+
+    private static String ghostLock(boolean locked) {
+        return locked ? "  🔒" : "";
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (category == CATEGORY_GHOST) {
-            items.add(UItem.asCheck(ID_GHOST_MASTER, "Режим призрака  " + ghostCount() + "/3")
+            org.telegram.messenger.DevGramGhostSettings.Settings ghost =
+                    org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            items.add(UItem.asCheck(ID_GHOST_MASTER, "Режим призрака  " + ghostCount() + "/5")
                     .setChecked(DevGramConfig.isGhostModeActive()));
-            items.add(UItem.asRoundCheckbox(ID_GHOST_READ, "Не отправлять прочтение")
-                    .setChecked(!DevGramConfig.sendReadPackets));
-            items.add(UItem.asRoundCheckbox(ID_GHOST_ONLINE, "Не показывать «в сети»")
-                    .setChecked(!DevGramConfig.sendOnlinePackets));
-            items.add(UItem.asRoundCheckbox(ID_GHOST_TYPING, "Не показывать «печатает»")
-                    .setChecked(!DevGramConfig.sendUploadTyping));
-            items.add(UItem.asShadow("Собеседники не видят ваше прочтение, статус «в сети» и «печатает…»."));
+            items.add(UItem.asCheck(ID_GHOST_GLOBAL, "Общие настройки для аккаунтов")
+                    .setChecked(org.telegram.messenger.DevGramGhostSettings.useGlobal()));
+            items.add(UItem.asHeader("Скрывать активность"));
+            items.add(UItem.asRoundCheckbox(ID_GHOST_READ, "Не отправлять прочтение" + ghostLock(ghost.readLocked))
+                    .setChecked(!ghost.sendReadMessages));
+            items.add(UItem.asRoundCheckbox(ID_GHOST_STORIES, "Не отмечать истории просмотренными" + ghostLock(ghost.storiesLocked))
+                    .setChecked(!ghost.sendReadStories));
+            items.add(UItem.asRoundCheckbox(ID_GHOST_ONLINE, "Не показывать «в сети»" + ghostLock(ghost.onlineLocked))
+                    .setChecked(!ghost.sendOnline));
+            items.add(UItem.asRoundCheckbox(ID_GHOST_TYPING, "Не показывать «печатает»" + ghostLock(ghost.typingLocked))
+                    .setChecked(!ghost.sendTyping));
+            items.add(UItem.asRoundCheckbox(ID_GHOST_OFFLINE, "Отправлять офлайн после активности" + ghostLock(ghost.offlineLocked))
+                    .setChecked(ghost.sendOfflineAfterOnline));
+            items.add(UItem.asShadow("Зажмите параметр, чтобы заблокировать его от главного переключателя."));
+            items.add(UItem.asHeader("Поведение"));
+            items.add(UItem.asCheck(ID_GHOST_MARK_READ, "Прочитать после ответа или реакции")
+                    .setChecked(ghost.markReadAfterAction));
+            items.add(UItem.asCheck(ID_GHOST_SCHEDULED, "Использовать отложенную отправку")
+                    .setChecked(ghost.useScheduledMessages));
+            String sound = ghost.sendWithoutSound == 2 ? "Всегда" : ghost.sendWithoutSound == 1 ? "Только в режиме призрака" : "Никогда";
+            items.add(UItem.asButton(ID_GHOST_SOUND, "Отправлять без звука", sound));
+            items.add(UItem.asCheck(ID_GHOST_SUGGEST_STORY, "Предлагать режим перед просмотром истории")
+                    .setChecked(ghost.suggestBeforeStory));
+            items.add(UItem.asCheck(ID_GHOST_STATUS, "Показывать значок режима в заголовке")
+                    .setChecked(DevGramConfig.displayGhostStatus));
+            items.add(UItem.asButton(ID_GHOST_EXCEPTIONS, "Исключения для чатов", "Прочтение и набор текста"));
+            items.add(UItem.asShadow(null));
         } else if (category == CATEGORY_SPY) {
             // Пометка удалённых: живое превью сверху + 3 функции (как у AyuGram), остальное ниже
             items.add(UItem.asHeader("Пометка удалённых"));
@@ -493,8 +612,32 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(DevGramConfig.saveMessagesHistory));
             items.add(UItem.asCheck(ID_SAVE_MEDIA, "Сохранять вложения")
                     .setChecked(DevGramConfig.saveMedia));
+            if (DevGramConfig.saveMedia) {
+                items.add(UItem.asCheck(ID_MEDIA_PRIVATE_CHATS, "Личные чаты").setChecked(DevGramConfig.saveMediaPrivateChats()));
+                items.add(UItem.asCheck(ID_MEDIA_PUBLIC_CHANNELS, "Публичные каналы").setChecked(DevGramConfig.saveMediaPublicChannels()));
+                items.add(UItem.asCheck(ID_MEDIA_PRIVATE_CHANNELS, "Приватные каналы").setChecked(DevGramConfig.saveMediaPrivateChannels()));
+                items.add(UItem.asCheck(ID_MEDIA_PUBLIC_GROUPS, "Публичные группы").setChecked(DevGramConfig.saveMediaPublicGroups()));
+                items.add(UItem.asCheck(ID_MEDIA_PRIVATE_GROUPS, "Приватные группы").setChecked(DevGramConfig.saveMediaPrivateGroups()));
+                items.add(UItem.asButton(ID_MEDIA_CELL_LIMIT, "Лимит по мобильной сети", formatMediaLimit(DevGramConfig.mediaCellularLimit())));
+                items.add(UItem.asButton(ID_MEDIA_WIFI_LIMIT, "Лимит по Wi‑Fi", formatMediaLimit(DevGramConfig.mediaWifiLimit())));
+                items.add(UItem.asButton(ID_MEDIA_CACHE_LIMIT, "Размер хранилища", formatMediaLimit(DevGramConfig.mediaCacheLimit())));
+            }
             items.add(UItem.asCheck(ID_SAVE_BOTS, "Сохранять в чатах с ботами")
                     .setChecked(DevGramConfig.saveInBotChats));
+            items.add(UItem.asHeader("Активность собеседников"));
+            items.add(UItem.asCheck(ID_SAVE_READ_DATE, "Сохранять точное время прочтения")
+                    .setChecked(DevGramConfig.saveReadDate));
+            items.add(UItem.asCheck(ID_SAVE_LOCAL_ONLINE, "Запоминать замеченный онлайн")
+                    .setChecked(DevGramConfig.saveLocalOnline));
+            items.add(UItem.asCheck(ID_PROBE_OTHER_ACCOUNTS, "Проверять через другие аккаунты")
+                    .setChecked(DevGramConfig.probeUsingOtherAccounts));
+            items.add(UItem.asShadow("Локальное время показывается в подробностях сообщения и статусе профиля, если Telegram скрывает точное значение."));
+            items.add(UItem.asHeader("Данные"));
+            items.add(UItem.asButton(ID_CLEAR_SAVED_MEDIA, "Очистить сохранённые вложения",
+                    org.telegram.messenger.AndroidUtilities.formatFileSize(org.telegram.messenger.DevGramMediaSaver.getSize())));
+            items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, "Скопировать резервную копию"));
+            items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, "Импортировать резервную копию"));
+            items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, "Очистить историю DevGram"));
             items.add(UItem.asShadow(null));
         } else if (category == CATEGORY_APPEARANCE) {
             // Секции и порядок — как в exteraGram 12.9.0:
@@ -1033,6 +1176,20 @@ public class DevGramCategoryActivity extends BaseFragment {
     // DevGram: зажатие настройки → «копировать / поделиться ссылкой» на неё
     private boolean onItemLongClick(UItem item, View view, int position, float x, float y) {
         if (item == null || item.id <= 0) return false;
+        if (category == CATEGORY_GHOST) {
+            org.telegram.messenger.DevGramGhostSettings.Settings s =
+                    org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            if (item.id == ID_GHOST_READ) s.readLocked = !s.readLocked;
+            else if (item.id == ID_GHOST_STORIES) s.storiesLocked = !s.storiesLocked;
+            else if (item.id == ID_GHOST_ONLINE) s.onlineLocked = !s.onlineLocked;
+            else if (item.id == ID_GHOST_TYPING) s.typingLocked = !s.typingLocked;
+            else if (item.id == ID_GHOST_OFFLINE) s.offlineLocked = !s.offlineLocked;
+            else return DevGramSettingsLink.showLinkOptions(this, view, DevGramSettingsLink.codeForCategory(category), item.id);
+            s.save();
+            refreshListImmediately();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Блокировка настройки изменена").show();
+            return true;
+        }
         // только у настраиваемых строк (у header/shadow id == 0)
         return DevGramSettingsLink.showLinkOptions(this,
                 view, DevGramSettingsLink.codeForCategory(category), item.id);
@@ -1041,12 +1198,45 @@ public class DevGramCategoryActivity extends BaseFragment {
     private void onItemClick(UItem item, View view, int position, float x, float y) {
         if (item.id == ID_GHOST_MASTER) {
             DevGramConfig.toggleGhostMode();
+        } else if (item.id == ID_GHOST_GLOBAL) {
+            org.telegram.messenger.DevGramGhostSettings.setUseGlobal(
+                    !org.telegram.messenger.DevGramGhostSettings.useGlobal());
         } else if (item.id == ID_GHOST_READ) {
-            DevGramConfig.setSendReadPackets(!DevGramConfig.sendReadPackets);
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.sendReadMessages = !s.sendReadMessages; s.save();
+        } else if (item.id == ID_GHOST_STORIES) {
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.sendReadStories = !s.sendReadStories; s.save();
         } else if (item.id == ID_GHOST_ONLINE) {
-            DevGramConfig.setSendOnlinePackets(!DevGramConfig.sendOnlinePackets);
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.sendOnline = !s.sendOnline; s.save();
         } else if (item.id == ID_GHOST_TYPING) {
-            DevGramConfig.setSendUploadTyping(!DevGramConfig.sendUploadTyping);
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.sendTyping = !s.sendTyping; s.save();
+        } else if (item.id == ID_GHOST_OFFLINE) {
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.sendOfflineAfterOnline = !s.sendOfflineAfterOnline; s.save();
+        } else if (item.id == ID_GHOST_MARK_READ) {
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.markReadAfterAction = !s.markReadAfterAction;
+            if (s.markReadAfterAction) s.useScheduledMessages = false;
+            s.save();
+        } else if (item.id == ID_GHOST_SCHEDULED) {
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.useScheduledMessages = !s.useScheduledMessages;
+            if (s.useScheduledMessages) s.markReadAfterAction = false;
+            s.save();
+        } else if (item.id == ID_GHOST_SUGGEST_STORY) {
+            org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
+            s.suggestBeforeStory = !s.suggestBeforeStory; s.save();
+        } else if (item.id == ID_GHOST_STATUS) {
+            DevGramConfig.setDisplayGhostStatus(!DevGramConfig.displayGhostStatus);
+        } else if (item.id == ID_GHOST_SOUND) {
+            showGhostSoundChoice();
+            return;
+        } else if (item.id == ID_GHOST_EXCEPTIONS) {
+            presentFragment(new DevGramGhostExceptionsActivity());
+            return;
         } else if (item.id == ID_SAVE_DELETED) {
             DevGramConfig.setSaveDeletedMessages(!DevGramConfig.saveDeletedMessages);
         } else if (item.id == ID_SAVE_HISTORY) {
@@ -1055,6 +1245,35 @@ public class DevGramCategoryActivity extends BaseFragment {
             DevGramConfig.setSaveMedia(!DevGramConfig.saveMedia);
         } else if (item.id == ID_SAVE_BOTS) {
             DevGramConfig.setSaveInBotChats(!DevGramConfig.saveInBotChats);
+        } else if (item.id == ID_SAVE_READ_DATE) {
+            DevGramConfig.setSaveReadDate(!DevGramConfig.saveReadDate);
+        } else if (item.id == ID_SAVE_LOCAL_ONLINE) {
+            DevGramConfig.setSaveLocalOnline(!DevGramConfig.saveLocalOnline);
+        } else if (item.id == ID_PROBE_OTHER_ACCOUNTS) {
+            DevGramConfig.setProbeUsingOtherAccounts(!DevGramConfig.probeUsingOtherAccounts);
+        } else if (item.id == ID_MEDIA_PRIVATE_CHATS) {
+            DevGramConfig.setMediaCategory("saveMediaPrivateChats", !DevGramConfig.saveMediaPrivateChats());
+        } else if (item.id == ID_MEDIA_PUBLIC_CHANNELS) {
+            DevGramConfig.setMediaCategory("saveMediaPublicChannels", !DevGramConfig.saveMediaPublicChannels());
+        } else if (item.id == ID_MEDIA_PRIVATE_CHANNELS) {
+            DevGramConfig.setMediaCategory("saveMediaPrivateChannels", !DevGramConfig.saveMediaPrivateChannels());
+        } else if (item.id == ID_MEDIA_PUBLIC_GROUPS) {
+            DevGramConfig.setMediaCategory("saveMediaPublicGroups", !DevGramConfig.saveMediaPublicGroups());
+        } else if (item.id == ID_MEDIA_PRIVATE_GROUPS) {
+            DevGramConfig.setMediaCategory("saveMediaPrivateGroups", !DevGramConfig.saveMediaPrivateGroups());
+        } else if (item.id == ID_MEDIA_CELL_LIMIT || item.id == ID_MEDIA_WIFI_LIMIT || item.id == ID_MEDIA_CACHE_LIMIT) {
+            showMediaLimitChoice(item.id); return;
+        } else if (item.id == ID_CLEAR_SAVED_MEDIA) {
+            confirmClearSpy(false); return;
+        } else if (item.id == ID_CLEAR_SPY_DATABASE) {
+            confirmClearSpy(true); return;
+        } else if (item.id == ID_EXPORT_SPY_DATABASE) {
+            org.telegram.messenger.AndroidUtilities.addToClipboard(
+                    org.telegram.messenger.DevGramMessagesController.getInstance().exportData());
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Резервная копия скопирована").show();
+            return;
+        } else if (item.id == ID_IMPORT_SPY_DATABASE) {
+            importSpyDatabase(); return;
         } else if (item.id == ID_DELETED_TRANSPARENT) {
             DevGramConfig.setSemiTransparentDeleted(!DevGramConfig.getSemiTransparentDeleted());
             if (deletedPreviewCell != null) deletedPreviewCell.refresh();
@@ -1450,6 +1669,9 @@ public class DevGramCategoryActivity extends BaseFragment {
             return;
         } else {
             return;
+        }
+        if (category == CATEGORY_GHOST) {
+            actionBar.setTitle(titleFor(category));
         }
         refreshList();
     }
