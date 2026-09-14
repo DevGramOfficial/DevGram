@@ -371,6 +371,11 @@ public class Weather {
 
     public static void fetch(boolean withProgress, Utilities.Callback<State> whenFetched) {
         if (whenFetched == null) return;
+        // DevGram: погода в историях по умолчанию выключена — не дёргаем гео и попап разрешения.
+        if (!org.telegram.messenger.DevGramConfig.weatherInStories) {
+            whenFetched.run(null);
+            return;
+        }
         final String city = getManualCity();
         if (!TextUtils.isEmpty(city)) {
             // Ручной город: используем сохранённые координаты — гео-разрешения не нужны.
@@ -561,6 +566,16 @@ public class Weather {
     @SuppressLint("MissingPermission")
     public static void getUserLocation(boolean withProgress, Utilities.Callback<Location> whenGot) {
         if (whenGot == null) return;
+
+        // DevGram: тихие (фоновые) запросы погоды не показывают попап разрешения — только если гео
+        // уже выдано. Попап допустим лишь по явному действию (withProgress=true, тап «добавить погоду»),
+        // чтобы не спрашивать каждый раз при открытии редактора/пикера виджетов.
+        if (!withProgress
+                && !PermissionRequest.hasPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                && !PermissionRequest.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            whenGot.run(null);
+            return;
+        }
 
         PermissionRequest.ensureEitherPermission(R.raw.permission_request_location, R.string.PermissionNoLocationStory,
             new String[] { Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION },

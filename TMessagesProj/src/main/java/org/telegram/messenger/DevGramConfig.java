@@ -85,6 +85,7 @@ public class DevGramConfig {
     public static boolean hideShareButton = false;
     public static boolean hideStickerTime = false; // скрыть время на стикерах (как exteraGram)
     public static boolean inlineCalc = true;       // инлайн-калькулятор: «2+2=» → дописать «4»
+    public static boolean weatherInStories = false; // виджет погоды в историях (просит доступ к гео) — по умолчанию ВЫКЛ
     public static int updateChannel = 0;           // канал обновлений: 0 = основной, 1 = бета (нужен значок поддержавшего)
 
     // --- гейт для разрешённых пакетов чтения (например, ручная отметка «прочитано») ---
@@ -132,6 +133,7 @@ public class DevGramConfig {
             disableMarkdown = preferences.getBoolean("disableMarkdown", false);
             hideKeyboardOnScroll = preferences.getBoolean("hideKeyboardOnScroll", true);
             inlineCalc = preferences.getBoolean("inlineCalc", true);
+            weatherInStories = preferences.getBoolean("weatherInStories", false);
             updateChannel = preferences.getInt("updateChannel", 0);
             disableGreetingSticker = preferences.getBoolean("disableGreetingSticker", false);
             addCommaAfterMention = preferences.getBoolean("addCommaAfterMention", true);
@@ -415,6 +417,13 @@ public class DevGramConfig {
         inlineCalc = v;
         if (preferences != null) {
             preferences.edit().putBoolean("inlineCalc", v).apply();
+        }
+    }
+
+    public static void setWeatherInStories(boolean v) {
+        weatherInStories = v;
+        if (preferences != null) {
+            preferences.edit().putBoolean("weatherInStories", v).apply();
         }
     }
 
