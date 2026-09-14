@@ -21,6 +21,7 @@ import org.json.JSONObject;
 
 import org.telegram.tgnet.SerializedData;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.tgnet.ConnectionsManager;
 
 import java.util.ArrayList;
 import java.util.List;

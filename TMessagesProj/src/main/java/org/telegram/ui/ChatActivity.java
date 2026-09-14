@@ -506,6 +506,7 @@ public class ChatActivity extends BaseFragment implements
     private ActionBarMenuItem.Item feeItemGap;
     private ActionBarMenuItem.Item feeItemText;
     private ChatNotificationsPopupWrapper chatNotificationsPopupWrapper;
+    private DevGramChatActionsPopupWrapper devGramChatActionsPopupWrapper;
     // private ChatActivitySideControlsButtonsLayout topButtonsLayout;
     private ChatActivitySideControlsButtonsLayout sideControlsButtonsLayout;
     private boolean pagedownButtonShowedByScroll;
@@ -1941,7 +1942,6 @@ public class ChatActivity extends BaseFragment implements
     private final static int video_call = 33;
     private final static int hideTitle = 34;
     private final static int goToFirstMessage = 35;
-    private final static int devgram_deleted_history = 9091; // DevGram: история удалёнок
     private final static int deleteAllYourMessages = 36;
     private final static int deleteAllUnpinnedMessages = 37;
     private final static int deleteAllYourMessagesInAllTopics = 38;
@@ -4459,8 +4459,6 @@ public class ChatActivity extends BaseFragment implements
                     // This is timestamp of launch date of the Telegram.
                     // August 2013.
                     jumpToDate(1375350800);
-                } else if (id == devgram_deleted_history) {
-                    presentFragment(new DevGramDeletedHistoryActivity(dialog_id, getTopicId()));
                 } else if (id == deleteAllYourMessages) {
                     org.telegram.messenger.forkgram.ForkDialogs.createDeleteAllYourMessagesAlert(
                         currentAccount,
@@ -4815,6 +4813,32 @@ public class ChatActivity extends BaseFragment implements
                 });
                 muteItemGap = headerItem.lazilyAddColoredGap();
             }
+
+            // Per-dialog DevGram actions mirror AyuGram's placement in the
+            // three-dot menu. Read and typing exclusions are configured for
+            // this chat here, not in a separate global settings screen.
+            boolean includeDeletedHistory = DevGramConfig.saveDeletedMessages
+                    && chatMode == MODE_DEFAULT
+                    && !DevGramMessagesController.skipDialog(currentAccount, getDialogId());
+            boolean includeGhostExclusions = chatMode == MODE_DEFAULT
+                    && !ChatObject.isChannelAndNotMegaGroup(currentChat)
+                    && !UserObject.isUserSelf(currentUser);
+            if (includeDeletedHistory || includeGhostExclusions) {
+                devGramChatActionsPopupWrapper = new DevGramChatActionsPopupWrapper(
+                        this,
+                        headerItem.getPopupLayout().getSwipeBack(),
+                        getDialogId(),
+                        includeDeletedHistory,
+                        includeGhostExclusions,
+                        headerItem::toggleSubMenu,
+                        () -> presentFragment(new DevGramDeletedHistoryActivity(dialog_id, getTopicId())),
+                        themeDelegate
+                );
+                ActionBarMenuItem.Item devGramItem = headerItem.lazilyAddSwipeBackItem(
+                        R.drawable.settings_devgram, null, null, devGramChatActionsPopupWrapper.swipeBack);
+                devGramItem.setText("DevGram");
+                headerItem.lazilyAddColoredGap();
+            }
             if (currentChat != null) {
                 headerItem.lazilyAddSubItem(open_direct, R.drawable.msg_markunread, getString(R.string.ChannelOpenDirect));
                 headerItem.setSubItemShown(open_direct, ChatObject.isChannel(currentChat) && !ChatObject.isMonoForum(currentChat) && currentChat.linked_monoforum_id != 0 && ChatObject.canManageMonoForum(currentAccount, -currentChat.linked_monoforum_id));
@@ -4925,11 +4949,6 @@ public class ChatActivity extends BaseFragment implements
 
             headerItem.addSubItem(goToFirstMessage, R.drawable.to_first, LocaleController.getString("GoToFirstMessage", R.string.GoToFirstMessage), themeDelegate);
 
-            // DevGram: история удалёнок этого чата
-            if (DevGramConfig.saveDeletedMessages && chatMode == MODE_DEFAULT
-                    && !DevGramMessagesController.skipDialog(currentAccount, getDialogId())) {
-                headerItem.addSubItem(devgram_deleted_history, R.drawable.msg_delete, "История удалёнок", themeDelegate);
-            }
             if (currentUser != null && chatMode != MODE_SAVED) {
                 headerItem.lazilyAddSubItem(call, R.drawable.msg_callback, LocaleController.getString(R.string.Call));
                 headerItem.lazilyAddSubItem(video_call, R.drawable.msg_videocall, LocaleController.getString(R.string.VideoCall));

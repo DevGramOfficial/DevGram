@@ -800,6 +800,10 @@ public class DevGramConfig {
     public static long mediaWifiLimit() { return preferences.getLong("mediaWifiLimit", 64L * 1024 * 1024); }
     public static void setMediaCellularLimit(long value) { preferences.edit().putLong("mediaCellularLimit", value).apply(); }
     public static void setMediaWifiLimit(long value) { preferences.edit().putLong("mediaWifiLimit", value).apply(); }
+    public static String savedMediaFolder() { return preferences.getString("savedMediaFolder", "devgram_saved"); }
+    public static void setSavedMediaFolder(String value) {
+        preferences.edit().putString("savedMediaFolder", value == null || value.isEmpty() ? "devgram_saved" : value).apply();
+    }
     /** Bytes; Long.MAX_VALUE means unlimited. */
     public static long mediaCacheLimit() { return preferences.getLong("mediaCacheLimit", Long.MAX_VALUE); }
     public static void setMediaCacheLimit(long value) { preferences.edit().putLong("mediaCacheLimit", value).apply(); }

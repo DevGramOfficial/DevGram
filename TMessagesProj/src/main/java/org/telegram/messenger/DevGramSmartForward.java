@@ -53,11 +53,11 @@ public final class DevGramSmartForward {
             ArrayList<SendMessagesHelper.SendingMediaInfo> media = new ArrayList<>(); media.add(info);
             SendMessagesHelper.prepareSendingMedia(instance, media, target, null, null, null, null,
                     false, false, null, notify, scheduleDate, 0, 0, false, null,
-                    SendMessagesHelper.SendMessageChatArguments.EMPTY, 0, false, 0, 0, null);
+                    SendMessageChatArguments.EMPTY, 0, false, 0, 0, null);
         } else {
             SendMessagesHelper.prepareSendingDocument(instance, file.getAbsolutePath(), file.getAbsolutePath(), null,
                     caption, m.getMimeType(), target, null, null, null, null, null, notify, scheduleDate,
-                    null, SendMessagesHelper.SendMessageChatArguments.EMPTY, false);
+                    null, SendMessageChatArguments.EMPTY, false);
         }
     }
 

@@ -46,14 +46,14 @@ public class LastSeenPill extends BasePill implements NotificationCenter.Notific
     @Override public long getRefreshInterval() { return 60000L; }
     @Override public void onPillClicked() { onUpdateData(true); }
     @Override public boolean onPillLongClicked() { onUpdateData(true); return true; }
-    @Override protected void onAttachedToWindow() {
+    @Override public void onAttachedToWindow() {
         super.onAttachedToWindow();
         observedAccount = UserConfig.selectedAccount;
         NotificationCenter.getInstance(observedAccount)
                 .addObserver(this, NotificationCenter.mainUserInfoChanged);
         onUpdateData(false);
     }
-    @Override protected void onDetachedFromWindow() {
+    @Override public void onDetachedFromWindow() {
         if (observedAccount >= 0) {
             NotificationCenter.getInstance(observedAccount)
                     .removeObserver(this, NotificationCenter.mainUserInfoChanged);

@@ -29,7 +29,6 @@ import java.util.ArrayList;
 
 public class DevGramMediaSaver {
 
-    private static final String DIR_NAME = "devgram_saved";
     private static volatile File dir;
 
     public static File getDir() {
@@ -41,7 +40,7 @@ public class DevGramMediaSaver {
                     if (parent == null) {
                         parent = ApplicationLoader.getFilesDirFixed();
                     }
-                    File d = new File(parent, DIR_NAME);
+                    File d = new File(parent, DevGramConfig.savedMediaFolder());
                     try {
                         if (!d.exists() && d.mkdirs()) {
                             new File(d, ".nomedia").createNewFile();
@@ -53,6 +52,30 @@ public class DevGramMediaSaver {
             }
         }
         return dir;
+    }
+
+    public static void resetDirectory() {
+        synchronized (DevGramMediaSaver.class) {
+            dir = null;
+        }
+    }
+
+    public static void changeDirectory(String folderName) {
+        File oldDir = getDir();
+        File[] oldFiles = oldDir != null ? oldDir.listFiles() : null;
+        DevGramConfig.setSavedMediaFolder(folderName);
+        resetDirectory();
+        File newDir = getDir();
+        if (oldDir == null || oldDir.equals(newDir) || oldFiles == null) return;
+        for (File oldFile : oldFiles) {
+            if (".nomedia".equals(oldFile.getName())) continue;
+            File target = new File(newDir, oldFile.getName());
+            if (target.exists() || oldFile.renameTo(target)) continue;
+            copy(oldFile, target);
+            if (target.exists() && target.length() == oldFile.length()) {
+                oldFile.delete();
+            }
+        }
     }
 
     // Сохранённая копия по имени файла из FileLoader.getAttachFileName().
