@@ -666,18 +666,19 @@ public class DevGramCategoryActivity extends BaseFragment {
                         .setChecked(ghost.sendOfflineAfterOnline).pad());
                 items.add(UItem.asShadow("Зажмите параметр, чтобы заблокировать его от главного переключателя."));
             }
-            items.add(UItem.asCheck(ID_GHOST_MARK_READ, "Читать при действиях")
+            items.add(UItem.asIconButtonCheck(ID_GHOST_MARK_READ, R.drawable.msg_view_file,
+                            "Читать при действиях", "После отправки сообщения или реакции")
                     .setChecked(ghost.markReadAfterAction));
-            items.add(UItem.asShadow("Автоматически читает сообщение при отправке нового или при реакции на сообщение."));
-            items.add(UItem.asCheck(ID_GHOST_SCHEDULED, "Использовать отложку")
+            items.add(UItem.asIconButtonCheck(ID_GHOST_SCHEDULED, R.drawable.msg_calendar2,
+                            "Использовать отложку", "Задержка отправки без появления в сети")
                     .setChecked(ghost.useScheduledMessages));
-            items.add(UItem.asShadow("Автоматически ставит задержку примерно 12 секунд при отправке сообщений. При использовании этой функции вы не будете появляться в сети."));
             String sound = ghost.sendWithoutSound == 2 ? "Всегда" : ghost.sendWithoutSound == 1 ? "Только в режиме призрака" : "Никогда";
-            items.add(UItem.asButton(ID_GHOST_SOUND, "Отправлять без звука", sound));
+            items.add(UItem.asButton(ID_GHOST_SOUND, R.drawable.msg_tone_off, "Отправлять без звука", sound));
             items.add(UItem.asShadow("Отправляет сообщения по умолчанию без звука."));
-            items.add(UItem.asCheck(ID_GHOST_SUGGEST_STORY, "Предлагать призрака для сторис")
+            items.add(UItem.asIconButtonCheck(ID_GHOST_SUGGEST_STORY, R.drawable.msg_stories_stealth2,
+                            "Предлагать призрака для сторис", "Предупреждать перед просмотром")
                     .setChecked(ghost.suggestBeforeStory));
-            items.add(UItem.asShadow("Показывает предупреждение перед открытием сторис, предлагая включить режим призрака."));
+            items.add(UItem.asShadow(null));
         } else if (category == CATEGORY_SPY) {
             // Пометка удалённых: живое превью сверху + 3 функции (как у AyuGram), остальное ниже
             items.add(UItem.asHeader("Пометка удалённых"));
@@ -706,7 +707,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             items.add(UItem.asShadow("Значок появляется у удалённых сообщений в строке времени."));
             // Сохранение — ниже
             items.add(UItem.asHeader("Режим шпиона"));
-            items.add(UItem.asCheck(ID_SAVE_DELETED, "Сохранять удалённые")
+            items.add(UItem.asIconButtonCheck(ID_SAVE_DELETED, R.drawable.msg_delete,
+                            "Сохранять удалённые", "Оставлять локальную копию сообщений")
                     .setChecked(DevGramConfig.saveDeletedMessages));
             items.add(UItem.asCheck(ID_SAVE_HISTORY, "Сохранять историю изменений")
                     .setChecked(DevGramConfig.saveMessagesHistory));
@@ -714,13 +716,14 @@ public class DevGramCategoryActivity extends BaseFragment {
             items.add(UItem.asCheck(ID_SAVE_BOTS, "Сохранять в чатах с ботами")
                     .setChecked(DevGramConfig.saveInBotChats));
             items.add(UItem.asShadow(null));
-            items.add(UItem.asCheck(ID_SAVE_READ_DATE, "Сохранять точное время прочтения")
+            items.add(UItem.asIconButtonCheck(ID_SAVE_READ_DATE, R.drawable.msg_view_file,
+                            "Сохранять дату чтения", "Если Telegram не вернул точное время")
                     .setChecked(DevGramConfig.saveReadDate));
-            items.add(UItem.asShadow("Локально сохраняет данные о прочтении сообщений. Используется, если Telegram не предоставит дату прочтения."));
-            items.add(UItem.asCheck(ID_SAVE_LOCAL_ONLINE, "Запоминать замеченный онлайн")
+            items.add(UItem.asIconButtonCheck(ID_SAVE_LOCAL_ONLINE, R.drawable.msg_online,
+                            "Сохранять последний онлайн", "Для пользователей со скрытым статусом")
                     .setChecked(DevGramConfig.saveLocalOnline));
-            items.add(UItem.asShadow("Сохраняет последний известный онлайн для людей со скрытым последним посещением."));
-            items.add(UItem.asButtonCheck(ID_SAVE_MEDIA, "Сохранять вложения", "Настроить чаты и лимиты")
+            items.add(UItem.asIconButtonCheck(ID_SAVE_MEDIA, R.drawable.msg_gallery,
+                            "Сохранять вложения", "Настроить чаты и лимиты")
                     .setChecked(DevGramConfig.saveMedia));
             items.add(UItem.asButton(ID_MEDIA_SAVE_PATH, "Папка вложений", DevGramConfig.savedMediaFolder()));
             items.add(UItem.asShadow(null));
