@@ -116,6 +116,11 @@ public final class DevGramFilterController {
         prefs().edit().putStringSet("shadow_bans", set).apply();
     }
 
+    public static void clearAll() {
+        saveRules(new ArrayList<>());
+        prefs().edit().remove("shadow_bans").apply();
+    }
+
     public static boolean isFiltered(int account, MessageObject message) {
         if (!isEnabled() || message == null || message.isOut() || message.isOutOwner()) return false;
         long sender = message.messageOwner.from_id == null ? 0 : MessageObject.getPeerId(message.messageOwner.from_id);
