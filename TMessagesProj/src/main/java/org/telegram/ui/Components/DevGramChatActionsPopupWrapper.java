@@ -80,10 +80,10 @@ public class DevGramChatActionsPopupWrapper {
             }, false), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
         }
         if (includeExclusions) {
-            mainPage.addView(actionItem(activity, R.drawable.msg_view_file, "Исключение прочтения",
+            mainPage.addView(actionItem(activity, R.drawable.msg_view_file, "Чтение",
                     () -> openDetail("read"), true),
                     LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
-            mainPage.addView(actionItem(activity, R.drawable.msg_edit, "Исключение набора текста",
+            mainPage.addView(actionItem(activity, R.drawable.msg_edit, "Статус «печатает»",
                     () -> openDetail("typing"), true),
                     LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
         }
@@ -129,8 +129,8 @@ public class DevGramChatActionsPopupWrapper {
         detailOptions.removeAllViews();
         final int[] values = {0, 1, 2};
         final String[] labels = "read".equals(kind)
-                ? new String[]{"Использовать общую настройку", "Не отправлять прочтение", "Всегда отправлять прочтение"}
-                : new String[]{"Использовать общую настройку", "Не отправлять набор текста", "Всегда отправлять набор текста"};
+                ? new String[]{"Как в настройках", "Не отмечать", "Всегда отмечать"}
+                : new String[]{"Как в настройках", "Скрывать", "Показывать"};
         final ArrayList<ActionBarMenuSubItem> rows = new ArrayList<>(values.length);
         int selected = DevGramGhostSettings.getDialogOverride(
                 fragment.getCurrentAccount(), dialogId, kind);
