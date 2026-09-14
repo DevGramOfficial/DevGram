@@ -29,6 +29,7 @@ import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.CheckBoxCell;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.ScaleStateListAnimator;
 
 public class DevGramPluginInstallSheet {
 
@@ -111,7 +112,16 @@ public class DevGramPluginInstallSheet {
 
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(16), AndroidUtilities.dp(20), AndroidUtilities.dp(12));
+        root.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(18), AndroidUtilities.dp(20), AndroidUtilities.dp(24));
+
+        TextView eyebrow = new TextView(context);
+        eyebrow.setText(installed ? "ОБНОВЛЕНИЕ ПЛАГИНА" : "УСТАНОВКА ПЛАГИНА");
+        eyebrow.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+        eyebrow.setTypeface(AndroidUtilities.bold());
+        eyebrow.setLetterSpacing(.09f);
+        eyebrow.setGravity(Gravity.CENTER);
+        eyebrow.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        root.addView(eyebrow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
 
         // иконка (по умолчанию — общая; если у плагина задан icon-URL, подгрузим аву)
         android.widget.ImageView icon = new android.widget.ImageView(context);
@@ -119,18 +129,21 @@ public class DevGramPluginInstallSheet {
             icon.setImageResource(R.drawable.devgram_cat_general);
         } catch (Throwable ignore) {
         }
-        icon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
+        icon.setColorFilter(Theme.getColor(Theme.key_featuredStickers_buttonText));
+        icon.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
+        icon.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(20),
+                Theme.getColor(Theme.key_featuredStickers_addButton)));
         icon.setClipToOutline(true);
         icon.setOutlineProvider(new android.view.ViewOutlineProvider() {
             @Override
             public void getOutline(View v, android.graphics.Outline outline) {
-                outline.setRoundRect(0, 0, v.getWidth(), v.getHeight(), AndroidUtilities.dp(16));
+                outline.setRoundRect(0, 0, v.getWidth(), v.getHeight(), AndroidUtilities.dp(20));
             }
         });
         if (!iconUrl.isEmpty()) {
             loadIcon(icon, iconUrl);
         }
-        root.addView(icon, LayoutHelper.createLinear(64, 64, Gravity.CENTER_HORIZONTAL, 0, 4, 0, 0));
+        root.addView(icon, LayoutHelper.createLinear(72, 72, Gravity.CENTER_HORIZONTAL));
 
         // название
         TextView title = new TextView(context);
@@ -179,15 +192,16 @@ public class DevGramPluginInstallSheet {
             description.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
             description.setGravity(Gravity.CENTER);
+            description.setLineSpacing(AndroidUtilities.dp(3), 1f);
             root.addView(description, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 0));
         }
 
         // предупреждение / подтверждение (по статусу проверки)
         LinearLayout warn = new LinearLayout(context);
         warn.setOrientation(LinearLayout.VERTICAL);
-        warn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(12),
+        warn.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18),
                 verified ? 0x223BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
-        warn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12), AndroidUtilities.dp(14), AndroidUtilities.dp(12));
+        warn.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(14));
         TextView warnText = new TextView(context);
         warnText.setText(verified
                 ? (fromDevChannel
@@ -212,7 +226,7 @@ public class DevGramPluginInstallSheet {
             access.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             access.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             access.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(11), AndroidUtilities.dp(14), AndroidUtilities.dp(11));
-            access.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(12), Theme.getColor(Theme.key_windowBackgroundGray)));
+            access.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_windowBackgroundGray)));
             root.addView(access, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
         }
 
@@ -220,6 +234,8 @@ public class DevGramPluginInstallSheet {
         final boolean[] enableAfter = {true};
         CheckBoxCell check = new CheckBoxCell(context, 1, fragment.getResourceProvider());
         check.setText("Включить после установки", "", true, false);
+        check.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
+                Theme.getColor(Theme.key_windowBackgroundGray), Theme.getColor(Theme.key_listSelector)));
         check.setOnClickListener(v -> {
             enableAfter[0] = !enableAfter[0];
             check.setChecked(enableAfter[0], true);
@@ -234,10 +250,11 @@ public class DevGramPluginInstallSheet {
         install.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
         install.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         install.setTypeface(AndroidUtilities.bold());
-        install.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(10),
+        install.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
                 Theme.getColor(Theme.key_featuredStickers_addButton),
                 Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
-        root.addView(install, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 12, 0, 0));
+        ScaleStateListAnimator.apply(install, .025f, 1.2f);
+        root.addView(install, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52, 0, 12, 0, 0));
 
         // ---- перекраска по статусу проверки (живьём) ----
         final boolean[] vState = {verified};
@@ -249,7 +266,7 @@ public class DevGramPluginInstallSheet {
             badgeRef.setTextColor(vv ? 0xFFFFFFFF : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             badgeRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16),
                     vv ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
-            warnRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(12),
+            warnRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18),
                     vv ? 0x223BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
             warnTextRef.setText(vv
                     ? "✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять."
@@ -302,6 +319,7 @@ public class DevGramPluginInstallSheet {
             pubBtn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                     Theme.getColor(Theme.key_featuredStickers_addButton),
                     Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
+            ScaleStateListAnimator.apply(pubBtn, .025f, 1.2f);
             pubBtn.setText("📚 Опубликовать в каталог");
             final TextView[] rejectionRef = new TextView[1];
             final String fId = id, fName = name, fVer = ver, fAuthor = author, fDesc = desc, fIcon = iconUrl, fSource = verifySource == null ? "" : verifySource, fPackage = packagePath;
@@ -411,6 +429,7 @@ public class DevGramPluginInstallSheet {
                 upd.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                         Theme.getColor(Theme.key_featuredStickers_addButton),
                         Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
+                ScaleStateListAnimator.apply(upd, .025f, 1.2f);
                 final TextView updRef = upd;
                 // Кнопка меняет состояние прямо в карточке — без перезахода в меню.
                 final Runnable makeButton = () -> {
@@ -471,6 +490,8 @@ public class DevGramPluginInstallSheet {
         }
 
         ScrollView scroll = new ScrollView(context);
+        scroll.setFillViewport(true);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroll.addView(root);
 
         BottomSheet.Builder builder = new BottomSheet.Builder(context);
@@ -717,6 +738,7 @@ public class DevGramPluginInstallSheet {
 
     private static void applyIcon(android.widget.ImageView iv, android.graphics.Bitmap bmp) {
         iv.setColorFilter(null);
+        iv.setPadding(0, 0, 0, 0);
         iv.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
         iv.setImageBitmap(bmp);
     }

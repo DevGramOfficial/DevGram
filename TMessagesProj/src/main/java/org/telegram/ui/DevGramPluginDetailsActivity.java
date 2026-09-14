@@ -8,7 +8,6 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Button;
 import android.widget.ImageView;
 
 import org.telegram.messenger.AndroidUtilities;
@@ -20,6 +19,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.ScaleStateListAnimator;
 
 import java.util.ArrayList;
 
@@ -78,10 +78,15 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                     BulletinFactory.of(this).createErrorBulletin("Пакет ещё не размещён в архиве").show();
                     return;
                 }
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Скачиваю пакет «" + entry.name + "»…").show();
-                org.telegram.messenger.DevGramPackages.installCatalogPackage(entry, ok ->
-                        BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
-                                ok ? "Плагин установлен: " + entry.name : "Не удалось установить пакет").show());
+                install.setEnabled(false);
+                install.setText("Скачиваю и проверяю…");
+                org.telegram.messenger.DevGramPackages.installCatalogPackage(entry, ok -> {
+                    install.setEnabled(!ok);
+                    install.setAlpha(ok ? .72f : 1f);
+                    install.setText(ok ? "✓ Плагин установлен" : "Повторить установку");
+                    BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
+                            ok ? "Плагин установлен: " + entry.name : "Не удалось установить пакет").show();
+                });
                 return;
             }
             if (entry.source == null || entry.source.isEmpty()) {
@@ -89,9 +94,12 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                 return;
             }
             DevGramPlugins.trustFromChannel(entry.source);
-            if (DevGramPlugins.install(entry.source, entry.id, true))
+            if (DevGramPlugins.install(entry.source, entry.id, true)) {
+                install.setText("✓ Плагин установлен");
+                install.setEnabled(false);
+                install.setAlpha(.72f);
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Плагин установлен").show();
-            else BulletinFactory.of(this).createErrorBulletin("Не удалось установить плагин").show();
+            } else BulletinFactory.of(this).createErrorBulletin("Не удалось установить плагин").show();
         });
         content.addView(install, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 16, 0, 18));
 
@@ -141,21 +149,15 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         reviewButton = button(context, "Оставить отзыв");
         reviewButton.setOnClickListener(v -> showReviewDialog(context, ownReview));
         content.addView(reviewButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 46, 0, 12, 0, 0));
-        TextView allReviews = new TextView(context);
-        allReviews.setText("Все отзывы"); allReviews.setGravity(Gravity.CENTER); allReviews.setTextSize(14);
-        allReviews.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider)); allReviews.setPadding(0, AndroidUtilities.dp(12), 0, AndroidUtilities.dp(4));
+        TextView allReviews = secondaryAction(context, "Все отзывы", false);
         allReviews.setOnClickListener(v -> presentFragment(new DevGramPluginReviewsActivity(entry)));
-        content.addView(allReviews, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        TextView history = new TextView(context);
-        history.setText("История публикации"); history.setGravity(Gravity.CENTER); history.setTextSize(14);
-        history.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider)); history.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(8));
+        content.addView(allReviews, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 10, 0, 0));
+        TextView history = secondaryAction(context, "История публикации", false);
         history.setOnClickListener(v -> presentFragment(new DevGramPluginHistoryActivity(entry.id, entry.name)));
-        content.addView(history, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        reportButton = new TextView(context);
-        reportButton.setText("Пожаловаться на плагин"); reportButton.setGravity(Gravity.CENTER); reportButton.setTextSize(14);
-        reportButton.setTextColor(Theme.getColor(Theme.key_text_RedRegular, resourceProvider)); reportButton.setPadding(0, AndroidUtilities.dp(10), 0, AndroidUtilities.dp(8));
+        content.addView(history, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 0, 0));
+        reportButton = secondaryAction(context, "Пожаловаться на плагин", true);
         reportButton.setOnClickListener(v -> showPluginReportMenu(context));
-        content.addView(reportButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        content.addView(reportButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 0, 0));
         DevGramPlugins.hasReportedPlugin(entry.id, this::setPluginReportState);
         ScrollView scroll = new ScrollView(context);
         scroll.setFillViewport(true);
@@ -294,48 +296,43 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         }
     }
 
-    private LinearLayout section(Context context, int radius) { LinearLayout box = new LinearLayout(context); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(16), AndroidUtilities.dp(18), AndroidUtilities.dp(16)); box.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider))); box.setElevation(AndroidUtilities.dp(2)); return box; }
+    private LinearLayout section(Context context, int radius) { LinearLayout box = new LinearLayout(context); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(16), AndroidUtilities.dp(18), AndroidUtilities.dp(16)); box.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider))); box.setElevation(AndroidUtilities.dp(1)); return box; }
     private TextView text(Context context, String value, int size, boolean bold, int color) { TextView t = new TextView(context); t.setText(value); t.setTextSize(size); t.setTextColor(color); t.setLineSpacing(AndroidUtilities.dp(2), 1f); if (bold) t.setTypeface(AndroidUtilities.bold()); return t; }
 
     private void addLink(String label, String target) {
-        TextView t = addText(label, 14, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
+        TextView t = secondaryAction(getContext(), label, false);
         t.setOnClickListener(v -> Browser.openUrl(getContext(), target.startsWith("http") ? target : "https://t.me/" + target.replace("@", "")));
+        content.addView(t, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 46, 0, 0, 0, 8));
+    }
+
+    private TextView secondaryAction(Context context, String value, boolean danger) {
+        TextView t = new TextView(context);
+        t.setText(value + "  ›");
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
+        t.setTextSize(14);
+        t.setTypeface(AndroidUtilities.bold());
+        int color = Theme.getColor(danger ? Theme.key_text_RedRegular : Theme.key_windowBackgroundWhiteBlueText, resourceProvider);
+        t.setTextColor(color);
+        t.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(16),
+                Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider),
+                Theme.getColor(Theme.key_listSelector, resourceProvider)));
+        ScaleStateListAnimator.apply(t, .02f, 1.1f);
+        return t;
     }
 
     private TextView button(Context c, String text) {
         TextView t = new TextView(c); t.setText(text); t.setGravity(Gravity.CENTER); t.setTypeface(AndroidUtilities.bold());
         t.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
-        t.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14), Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider), Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourceProvider)));
+        t.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider), Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourceProvider)));
+        ScaleStateListAnimator.apply(t, .025f, 1.2f);
         return t;
     }
 
     private void showReviewDialog(Context context, DevGramPlugins.Review existing) {
-        LinearLayout form = new LinearLayout(context);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(AndroidUtilities.dp(24), 0, AndroidUtilities.dp(24), 0);
-        LinearLayout stars = new LinearLayout(context);
-        stars.setGravity(Gravity.CENTER);
-        final int[] selected = {existing == null ? 5 : existing.rating};
-        TextView[] starViews = new TextView[5];
-        for (int i = 0; i < starViews.length; i++) {
-            final int score = i + 1;
-            TextView star = new TextView(context);
-            star.setTextSize(32); star.setGravity(Gravity.CENTER); star.setTextColor(0xFFE0A400);
-            star.setOnClickListener(v -> { selected[0] = score; updateStars(starViews, selected[0]); });
-            starViews[i] = star;
-            stars.addView(star, LayoutHelper.createLinear(46, 52));
-        }
-        updateStars(starViews, selected[0]);
-        form.addView(stars, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
-        EditText input = new EditText(context); input.setHint("Ваш отзыв"); input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE); input.setMinLines(3);
-        input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, resourceProvider));
-        input.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
-        input.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14), Theme.getColor(Theme.key_dialogBackground, resourceProvider)));
-        input.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12), AndroidUtilities.dp(14), AndroidUtilities.dp(12));
-        if (existing != null) input.setText(existing.text);
-        form.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        new org.telegram.ui.ActionBar.AlertDialog.Builder(context).setTitle(existing == null ? "Отзыв о плагине" : "Изменить отзыв").setView(form)
-                .setPositiveButton(existing == null ? "Отправить" : "Сохранить", (d, w) -> DevGramPlugins.saveReview(entry.id, selected[0], input.getText().toString(), ok -> {
+        DevGramPluginUi.showReview(this, existing == null ? 5 : existing.rating,
+                existing == null ? null : existing.text, (rating, reviewText) ->
+                DevGramPlugins.saveReview(entry.id, rating, reviewText, ok -> {
                     BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? "Отзыв сохранён" : "Не удалось сохранить отзыв").show();
                     if (ok) DevGramPlugins.fetchReviews(entry.id, reviews -> {
                         double sum = 0; for (DevGramPlugins.Review r : reviews) sum += r.rating;
@@ -343,12 +340,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                         if (reviewButton != null) reviewButton.setText("Изменить мой отзыв");
                         updateRatingLabels(reviews, sum);
                     });
-                }))
-                .setNegativeButton("Отмена", null).show();
-    }
-
-    private void updateStars(TextView[] stars, int selected) {
-        for (int i = 0; i < stars.length; i++) stars[i].setText(i < selected ? "★" : "☆");
+                }));
     }
 
     private void updateRatingLabels(java.util.ArrayList<DevGramPlugins.Review> reviews, double sum) {
@@ -358,22 +350,9 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
     }
 
     private void showCustomReportDialog(Context context, long reviewUserId) {
-        EditText input = new EditText(context);
-        input.setHint("Что именно нарушает этот отзыв?");
-        input.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, resourceProvider));
-        input.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        input.setMinLines(3);
-        input.setMaxLines(6);
-        new org.telegram.ui.ActionBar.AlertDialog.Builder(context)
-                .setTitle("Причина жалобы")
-                .setView(input)
-                .setPositiveButton("Отправить", (d, w) -> {
-                    String reason = input.getText() == null ? "" : input.getText().toString().trim();
-                    if (reason.isEmpty()) BulletinFactory.of(this).createErrorBulletin("Напишите причину жалобы").show();
-                    else sendReviewReport(reviewUserId, reason);
-                })
-                .setNegativeButton("Отмена", null).show();
+        DevGramPluginUi.showTextInput(this, "Своя причина",
+                "Опишите нарушение коротко и по существу.", "Что именно нарушает этот отзыв?",
+                "", "Отправить жалобу", true, reason -> sendReviewReport(reviewUserId, reason));
     }
 
     private void sendReviewReport(long reviewUserId, String reason) {
@@ -387,10 +366,32 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
 
     private LinearLayout reviewCard(Context context, DevGramPlugins.Review r){LinearLayout card=section(context,16);LinearLayout head=new LinearLayout(context);head.setGravity(Gravity.CENTER_VERTICAL);TextView title=text(context,"★".repeat(Math.max(0,Math.min(5,r.rating)))+"  "+r.name,14,true,0xFFE0A400);head.addView(title,LayoutHelper.createLinear(0,LayoutHelper.WRAP_CONTENT,1f));TextView more=text(context,"⋮",28,true,Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider));more.setGravity(Gravity.CENTER);more.setOnClickListener(v->showReviewActions(context,r,card));head.addView(more,LayoutHelper.createLinear(42,42));card.addView(head);card.addView(text(context,r.text,14,false,Theme.getColor(Theme.key_windowBackgroundWhiteBlackText,resourceProvider)));content.addView(card,LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,6,0,6));return card;}
     private void showReviewActions(Context context,DevGramPlugins.Review r,View card){boolean own=r.userId==DevGramPlugins.myId(),dev=org.telegram.messenger.DevGramBadges.hasDeveloperFeatures(DevGramPlugins.myId());if(!own){DevGramPlugins.hasReportedReview(entry.id,r.userId,reported->showReviewActionsResolved(context,r,card,dev,reported));return;}showReviewActionsResolved(context,r,card,dev,false);}
-    private void showReviewActionsResolved(Context context,DevGramPlugins.Review r,View card,boolean dev,boolean reported){boolean own=r.userId==DevGramPlugins.myId();java.util.ArrayList<String>a=new java.util.ArrayList<>();if(own){a.add("Изменить отзыв");a.add("Удалить отзыв");}else{a.add(reported?"Вы уже подавали жалобу":"Пожаловаться на отзыв");if(dev)a.add("Удалить отзыв");}new org.telegram.ui.ActionBar.AlertDialog.Builder(context).setTitle(r.name).setItems(a.toArray(new CharSequence[0]),(d,w)->{String x=a.get(w);if(x.startsWith("Изменить"))showReviewDialog(context,r);else if(x.startsWith("Пожаловаться"))showReportReasonMenu(context,r.userId);else if(x.startsWith("Вы уже"))BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,"Вы уже подавали жалобу").show();else if(own)DevGramPlugins.deleteOwnReview(entry.id,ok->afterReviewDeleted(ok,card));else DevGramPlugins.deleteReviewAsDeveloper(entry.id,r.userId,ok->afterReviewDeleted(ok,card));}).setNegativeButton("Закрыть",null).show();}
+    private void showReviewActionsResolved(Context context, DevGramPlugins.Review r, View card, boolean dev, boolean reported) {
+        boolean own = r.userId == DevGramPlugins.myId();
+        java.util.ArrayList<String> actions = new java.util.ArrayList<>();
+        java.util.ArrayList<Integer> icons = new java.util.ArrayList<>();
+        if (own) {
+            actions.add("Изменить отзыв"); icons.add(R.drawable.msg_edit);
+            actions.add("Удалить отзыв"); icons.add(R.drawable.msg_delete);
+        } else {
+            actions.add(reported ? "Жалоба уже отправлена" : "Пожаловаться на отзыв"); icons.add(R.drawable.msg_report);
+            if (dev) { actions.add("Удалить отзыв"); icons.add(R.drawable.msg_delete); }
+        }
+        int[] iconArray = new int[icons.size()];
+        for (int i = 0; i < icons.size(); i++) iconArray[i] = icons.get(i);
+        DevGramPluginUi.showChoices(this, r.name, "Действия с отзывом", actions.toArray(new String[0]),
+                iconArray, actions.size() - (actions.get(actions.size() - 1).startsWith("Удалить") ? 1 : 0), which -> {
+                    String action = actions.get(which);
+                    if (action.startsWith("Изменить")) showReviewDialog(context, r);
+                    else if (action.startsWith("Пожаловаться")) showReportReasonMenu(context, r.userId);
+                    else if (action.startsWith("Жалоба")) BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Вы уже подавали жалобу").show();
+                    else if (own) DevGramPlugins.deleteOwnReview(entry.id, ok -> afterReviewDeleted(ok, card));
+                    else DevGramPlugins.deleteReviewAsDeveloper(entry.id, r.userId, ok -> afterReviewDeleted(ok, card));
+                });
+    }
     private void afterReviewDeleted(boolean ok,View card){if(!ok){BulletinFactory.of(this).createErrorBulletin("Не удалось удалить отзыв").show();return;}card.setVisibility(View.GONE);ownReview=null;if(reviewButton!=null)reviewButton.setText("Оставить отзыв");DevGramPlugins.fetchReviews(entry.id,reviews->{double sum=0;for(DevGramPlugins.Review review:reviews)sum+=review.rating;updateRatingLabels(reviews,sum);});}
-    void showReportReasonMenu(Context context,long uid){new org.telegram.ui.ActionBar.AlertDialog.Builder(context).setTitle("Жалоба на отзыв").setMessage("Выберите нарушение. Команда DevGram проверит отзыв и сообщит решение.").setItems(new CharSequence[]{"Спам или реклама","Оскорбления и травля","Ложная информация","Другая причина"},(d,w)->{if(w==3)showCustomReportDialog(context,uid);else sendReviewReport(uid,w==0?"Спам или реклама":w==1?"Оскорбления и травля":"Ложная информация");}).setNegativeButton("Отмена",null).show();}
-    private void showPluginReportMenu(Context context){new org.telegram.ui.ActionBar.AlertDialog.Builder(context).setTitle("Жалоба на плагин").setMessage("Выберите, что не так с плагином.").setItems(new CharSequence[]{"Вредоносный код","Спам или обман","Нарушение авторских прав","Плагин не работает","Другая причина"},(d,w)->{if(w==4){EditText i=DevGramPluginReportsActivity.themedInput(context,"Что именно не так с плагином?");new org.telegram.ui.ActionBar.AlertDialog.Builder(context).setTitle("Своя причина").setMessage("Опишите проблему коротко и по существу.").setView(i).setPositiveButton("Отправить",(dd,ww)->sendPluginReport(i.getText().toString())).setNegativeButton("Отмена",null).show();}else sendPluginReport(new String[]{"Вредоносный код","Спам или обман","Нарушение авторских прав","Плагин не работает"}[w]);}).setNegativeButton("Отмена",null).show();}
+    void showReportReasonMenu(Context context,long uid){String[] reasons={"Спам или реклама","Оскорбления и травля","Ложная информация","Другая причина"};DevGramPluginUi.showChoices(this,"Жалоба на отзыв","Команда DevGram проверит отзыв и сообщит решение.",reasons,new int[]{R.drawable.msg_report,R.drawable.msg_block,R.drawable.msg_info,R.drawable.msg_edit},reasons.length,w->{if(w==3)showCustomReportDialog(context,uid);else sendReviewReport(uid,reasons[w]);});}
+    private void showPluginReportMenu(Context context){String[] reasons={"Вредоносный код","Спам или обман","Нарушение авторских прав","Плагин не работает","Другая причина"};DevGramPluginUi.showChoices(this,"Жалоба на плагин","Выберите, что именно нужно проверить команде DevGram.",reasons,new int[]{R.drawable.msg_block,R.drawable.msg_report,R.drawable.msg_copy,R.drawable.msg_retry,R.drawable.msg_edit},reasons.length,w->{if(w==4)DevGramPluginUi.showTextInput(this,"Своя причина","Опишите проблему коротко и по существу.","Что именно не так с плагином?","","Отправить жалобу",true,this::sendPluginReport);else sendPluginReport(reasons[w]);});}
     private void sendPluginReport(String reason){reason=reason==null?"":reason.trim();if(reason.isEmpty()){BulletinFactory.of(this).createErrorBulletin("Укажите причину").show();return;}DevGramPlugins.reportPlugin(entry.id,reason,ok->{if(ok)setPluginReportState(true);else DevGramPlugins.hasReportedPlugin(entry.id,reported->{if(reported)setPluginReportState(true);});BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,ok?"Жалоба отправлена команде":"Не удалось отправить жалобу").show();});}
     private void setPluginReportState(boolean reported){if(reportButton==null||!reported)return;reportButton.setText("Вы уже подавали жалобу");reportButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider));reportButton.setOnClickListener(null);reportButton.setEnabled(false);reportButton.setAlpha(.75f);}
     private void loadIcon(ImageView view,String url){org.telegram.messenger.Utilities.globalQueue.postRunnable(()->{try{java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();c.setConnectTimeout(8000);c.setReadTimeout(10000);android.graphics.Bitmap b=android.graphics.BitmapFactory.decodeStream(c.getInputStream());AndroidUtilities.runOnUIThread(()->{if(b!=null){view.clearColorFilter();view.setImageBitmap(b);}});}catch(Throwable ignore){}});}

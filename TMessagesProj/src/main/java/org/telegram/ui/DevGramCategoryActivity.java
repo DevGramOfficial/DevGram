@@ -731,9 +731,9 @@ public class DevGramCategoryActivity extends BaseFragment {
                     index -> DevGramConfig.setMediaCacheLimit(MEDIA_CACHE_LIMITS[index])
             ).setId(ID_MEDIA_CACHE_LIMIT));
             items.add(UItem.asShadow("Если папка превысит лимит, самые старые вложения будут удалены с устройства."));
-            items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, "Скопировать резервную копию"));
-            items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, R.drawable.msg_archive, "Импортировать резервную копию"));
-            items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, R.drawable.msg_clear, "Очистить историю DevGram"));
+            items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, "Экспорт базы данных"));
+            items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, R.drawable.msg_archive, "Импорт базы данных"));
+            items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, R.drawable.msg_clear, "Очистить"));
             items.add(UItem.asShadow(null));
         } else if (category == CATEGORY_APPEARANCE) {
             // Секции и порядок — как в exteraGram 12.9.0:

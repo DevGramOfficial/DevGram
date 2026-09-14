@@ -106,7 +106,7 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
     @Override
     public void onUpdateData(boolean forceRefresh) {
         startLoading();
-        Weather.fetch(forceRefresh, state -> {
+        Weather.fetchForPill(forceRefresh, state -> {
             if (state != null) {
                 markDataUpdated();
                 postDelayed(() -> setData(state, true), 300L);

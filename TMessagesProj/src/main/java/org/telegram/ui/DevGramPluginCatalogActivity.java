@@ -10,6 +10,7 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.PasswordTransformationMethod;
 import android.util.TypedValue;
@@ -38,6 +39,7 @@ import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RadialProgressView;
 import org.telegram.ui.Components.RecyclerListView;
+import org.telegram.ui.Components.ScaleStateListAnimator;
 
 import java.util.ArrayList;
 
@@ -45,6 +47,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class DevGramPluginCatalogActivity extends BaseFragment {
+
+    private static final String FILTER_INSTALLED = "\u0000installed";
 
     private RecyclerListView listView;
     private Adapter adapter;
@@ -57,12 +61,19 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
     private String activeFilter = "";
     private LinearLayout chipRow;
     private TextView catalogSummary;
-    private TextView emptyView;
+    private LinearLayout emptyView;
+    private TextView emptyTitle;
+    private TextView emptySubtitle;
+    private TextView emptyAction;
+    private TextView sortButton;
+    private EditText searchField;
+    private ImageView searchClear;
     private org.telegram.ui.ActionBar.ActionBarMenuItem moderationItem;
     private int sortMode;
     private int loadGeneration;
     private boolean destroyed;
     private RadialProgressView progressView;
+    private final java.util.HashSet<String> installing = new java.util.HashSet<>();
 
     @Override
     public View createView(Context context) {
@@ -92,9 +103,6 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         moderationItem.setVisibility(View.GONE);
         org.telegram.ui.ActionBar.ActionBarMenuItem more = actionBar.createMenu().addItem(3, R.drawable.ic_ab_other);
         more.addSubItem(2, R.drawable.msg_info, "Мои заявки");
-        more.addSubItem(10, R.drawable.msg_recent, "Сначала новые");
-        more.addSubItem(11, R.drawable.msg_info, "По рейтингу");
-        more.addSubItem(12, R.drawable.msg_discussion, "По отзывам");
 
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
@@ -102,46 +110,64 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
 
         // --- поиск (в «пилюле») ---
         FrameLayout searchWrap = new FrameLayout(context);
-        searchWrap.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(21),
+        searchWrap.setElevation(AndroidUtilities.dp(1));
+        searchWrap.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(24),
                 Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
         ImageView searchIcon = new ImageView(context);
         searchIcon.setImageResource(R.drawable.msg_search);
         searchIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         searchWrap.addView(searchIcon, LayoutHelper.createFrame(20, 20, Gravity.CENTER_VERTICAL | Gravity.LEFT, 14, 0, 0, 0));
-        EditText search = new EditText(context);
-        search.setHint("Поиск плагинов");
-        search.setSingleLine(true);
-        search.setBackground(null);
-        search.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        search.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        search.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
-        search.setPadding(AndroidUtilities.dp(44), 0, AndroidUtilities.dp(14), 0);
-        search.addTextChangedListener(new TextWatcher() {
+        searchField = new EditText(context);
+        searchField.setHint("Название, автор или описание");
+        searchField.setSingleLine(true);
+        searchField.setBackground(null);
+        searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        searchField.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        searchField.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
+        searchField.setPadding(AndroidUtilities.dp(44), 0, AndroidUtilities.dp(48), 0);
+        searchField.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             public void onTextChanged(CharSequence s, int a, int b, int c) {}
             public void afterTextChanged(Editable s) {
                 query = s.toString().trim().toLowerCase();
+                if (searchClear != null) searchClear.setVisibility(query.isEmpty() ? View.GONE : View.VISIBLE);
                 applyFilter();
             }
         });
-        searchWrap.addView(search, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 42));
-        container.addView(searchWrap, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 42, 12, 12, 12, 8));
+        searchWrap.addView(searchField, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48));
+        searchClear = new ImageView(context);
+        searchClear.setImageResource(R.drawable.msg_close);
+        searchClear.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
+        searchClear.setScaleType(ImageView.ScaleType.CENTER);
+        searchClear.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP));
+        searchClear.setVisibility(View.GONE);
+        searchClear.setOnClickListener(v -> searchField.setText(""));
+        searchWrap.addView(searchClear, LayoutHelper.createFrame(44, 44, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 2, 0));
+        container.addView(searchWrap, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 12, 12, 12, 10));
 
         // --- категории каталога ---
         LinearLayout categoryHeader = new LinearLayout(context);
         categoryHeader.setOrientation(LinearLayout.HORIZONTAL);
         categoryHeader.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout heading = new LinearLayout(context);
+        heading.setOrientation(LinearLayout.VERTICAL);
         TextView categoryTitle = new TextView(context);
-        categoryTitle.setText("Категории");
-        categoryTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        categoryTitle.setText("Подборка плагинов");
+        categoryTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         categoryTitle.setTypeface(AndroidUtilities.bold());
         categoryTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        categoryHeader.addView(categoryTitle, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+        heading.addView(categoryTitle);
         catalogSummary = new TextView(context);
         catalogSummary.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         catalogSummary.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-        categoryHeader.addView(catalogSummary, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-        container.addView(categoryHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 3, 16, 8));
+        heading.addView(catalogSummary, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+        categoryHeader.addView(heading, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+        sortButton = pill(context, sortTitle(), true);
+        sortButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        sortButton.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(7), AndroidUtilities.dp(12), AndroidUtilities.dp(7));
+        sortButton.setOnClickListener(v -> showSortMenu());
+        categoryHeader.addView(sortButton, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
+        container.addView(categoryHeader, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 2, 16, 10));
 
         HorizontalScrollView chipScroll = new HorizontalScrollView(context);
         chipScroll.setHorizontalScrollBarEnabled(false);
@@ -164,11 +190,45 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         listView.setAdapter(adapter);
         listWrap.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        emptyView = new TextView(context);
+        emptyView = new LinearLayout(context);
+        emptyView.setOrientation(LinearLayout.VERTICAL);
         emptyView.setGravity(Gravity.CENTER);
-        emptyView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-        emptyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         emptyView.setPadding(AndroidUtilities.dp(40), 0, AndroidUtilities.dp(40), 0);
+        ImageView emptyIcon = new ImageView(context);
+        emptyIcon.setImageResource(R.drawable.devgram_plugins);
+        emptyIcon.setColorFilter(Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
+        emptyIcon.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(28),
+                Theme.multAlpha(Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider), .12f)));
+        emptyIcon.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(18), AndroidUtilities.dp(18), AndroidUtilities.dp(18));
+        emptyView.addView(emptyIcon, LayoutHelper.createLinear(72, 72, Gravity.CENTER_HORIZONTAL));
+        emptyTitle = new TextView(context);
+        emptyTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        emptyTitle.setTypeface(AndroidUtilities.bold());
+        emptyTitle.setGravity(Gravity.CENTER);
+        emptyTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        emptyView.addView(emptyTitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 14, 0, 0));
+        emptySubtitle = new TextView(context);
+        emptySubtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        emptySubtitle.setGravity(Gravity.CENTER);
+        emptySubtitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
+        emptyView.addView(emptySubtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 0));
+        emptyAction = new TextView(context);
+        emptyAction.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        emptyAction.setTypeface(AndroidUtilities.bold());
+        emptyAction.setGravity(Gravity.CENTER);
+        emptyAction.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
+        emptyAction.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
+                Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider),
+                Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourceProvider)));
+        emptyAction.setOnClickListener(v -> {
+            if (!query.isEmpty() || !activeFilter.isEmpty()) {
+                activeFilter = "";
+                if (searchField != null) searchField.setText("");
+                rebuildChips();
+                applyFilter();
+            } else loadAll();
+        });
+        emptyView.addView(emptyAction, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 42, Gravity.CENTER_HORIZONTAL, 0, 16, 0, 0));
         emptyView.setVisibility(View.GONE);
         listWrap.addView(emptyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
 
@@ -199,13 +259,15 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         chipRow.removeAllViews();
         ArrayList<String> names = new ArrayList<>();
         names.add("");
+        names.add(FILTER_INSTALLED);
         names.addAll(filters);
         for (String name : names) {
             final String f = name;
             boolean on = activeFilter.equals(f);
             TextView chip = new TextView(context);
             int count = countForFilter(f);
-            chip.setText((name.isEmpty() ? "Все" : name) + "  " + count);
+            String label = name.isEmpty() ? "Все" : FILTER_INSTALLED.equals(name) ? "Установленные" : name;
+            chip.setText((on ? "✓  " : "") + label + "  " + count);
             chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             chip.setTypeface(on ? AndroidUtilities.bold() : Typeface.DEFAULT);
             chip.setGravity(Gravity.CENTER);
@@ -217,7 +279,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                             : Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider),
                     Theme.getColor(Theme.key_listSelector, resourceProvider)));
             chip.setOnClickListener(v -> { activeFilter = f; rebuildChips(); applyFilter(); });
-            if (team && !f.isEmpty()) {
+            if (team && !f.isEmpty() && !FILTER_INSTALLED.equals(f)) {
                 chip.setOnLongClickListener(v -> { showFilterActions(f); return true; });
             }
             chipRow.addView(chip, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 8, 0));
@@ -244,7 +306,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         if (filter == null || filter.isEmpty()) return all.size();
         int count = 0;
         for (DevGramPlugins.CatalogEntry entry : all) {
-            if (filter.equals(entry.filter)) count++;
+            if (FILTER_INSTALLED.equals(filter) ? DevGramPlugins.isInstalled(entry.id) : filter.equals(entry.filter)) count++;
         }
         return count;
     }
@@ -301,6 +363,12 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         chipRow = null;
         catalogSummary = null;
         emptyView = null;
+        emptyTitle = null;
+        emptySubtitle = null;
+        emptyAction = null;
+        sortButton = null;
+        searchField = null;
+        searchClear = null;
         moderationItem = null;
         adapter = null;
         listView = null;
@@ -308,7 +376,9 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
     }
 
     private boolean matches(DevGramPlugins.CatalogEntry e) {
-        if (!activeFilter.isEmpty() && !activeFilter.equals(e.filter)) return false;
+        if (FILTER_INSTALLED.equals(activeFilter)) {
+            if (!DevGramPlugins.isInstalled(e.id)) return false;
+        } else if (!activeFilter.isEmpty() && !activeFilter.equals(e.filter)) return false;
         if (query.isEmpty()) return true;
         return (e.name + " " + e.desc + " " + e.author + " " + e.channel).toLowerCase().contains(query);
     }
@@ -323,6 +393,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         else shown.sort((a, b) -> Long.compare(b.updatedAt, a.updatedAt));
         if (adapter != null) adapter.notifyDataSetChanged();
         if (catalogSummary != null) catalogSummary.setText(shown.size() + " из " + all.size());
+        if (sortButton != null) sortButton.setText(sortTitle());
         if (progressView != null) {
             progressView.setVisibility(loading ? View.VISIBLE : View.GONE);
         }
@@ -330,9 +401,12 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             if (loading) {
                 emptyView.setVisibility(View.GONE);
             } else if (shown.isEmpty()) {
-                emptyView.setText(all.isEmpty()
-                        ? "В каталоге пока нет плагинов.\nРазработчики публикуют их из каналов со значком 🧩."
-                        : "Ничего не найдено");
+                boolean filtered = !query.isEmpty() || !activeFilter.isEmpty();
+                emptyTitle.setText(all.isEmpty() ? "Каталог пока пуст" : "Ничего не найдено");
+                emptySubtitle.setText(all.isEmpty()
+                        ? "Новые плагины появятся здесь после проверки командой DevGram."
+                        : "Попробуйте изменить запрос или выбрать другую категорию.");
+                emptyAction.setText(filtered ? "Сбросить фильтры" : "Обновить");
                 emptyView.setVisibility(View.VISIBLE);
             } else {
                 emptyView.setVisibility(View.GONE);
@@ -340,58 +414,64 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         }
     }
 
+    private String sortTitle() {
+        return sortMode == 1 ? "★ Рейтинг" : sortMode == 2 ? "Отзывы" : "Сначала новые";
+    }
+
+    private void showSortMenu() {
+        String[] choices = {"Сначала новые", "По рейтингу", "По количеству отзывов"};
+        DevGramPluginUi.showChoices(this, "Сортировка", "Выберите порядок карточек в каталоге.",
+                choices, new int[]{R.drawable.msg_recent, R.drawable.msg_fave, R.drawable.msg_discussion},
+                choices.length, which -> {
+                    sortMode = which;
+                    applyFilter();
+                });
+    }
+
     // ---------- карточка плагина ----------
     private View createCard(Context context, DevGramPlugins.CatalogEntry e) {
         LinearLayout card = new LinearLayout(context);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(20),
+        card.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(22),
                 Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider),
                 Theme.getColor(Theme.key_listSelector, resourceProvider)));
-        card.setPadding(AndroidUtilities.dp(15), AndroidUtilities.dp(13), AndroidUtilities.dp(13), AndroidUtilities.dp(13));
+        card.setElevation(AndroidUtilities.dp(1));
+        card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(15), AndroidUtilities.dp(16), AndroidUtilities.dp(15));
         card.setOnClickListener(v -> presentFragment(new DevGramPluginDetailsActivity(e)));
+        ScaleStateListAnimator.apply(card, .018f, 1.2f);
 
-        // шапка
         LinearLayout head = new LinearLayout(context);
         head.setOrientation(LinearLayout.HORIZONTAL);
-        head.setGravity(Gravity.TOP);
+        head.setGravity(Gravity.CENTER_VERTICAL);
 
         ImageView icon = new ImageView(context);
         icon.setImageResource(R.drawable.devgram_plugins);
-        icon.setColorFilter(Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
-        icon.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider)));
         icon.setColorFilter(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
-        icon.setPadding(AndroidUtilities.dp(13), AndroidUtilities.dp(13), AndroidUtilities.dp(13), AndroidUtilities.dp(13));
+        icon.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18),
+                Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider)));
+        icon.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14));
         icon.setClipToOutline(true);
         if (e.icon != null && !e.icon.isEmpty()) loadIcon(icon, e.icon);
-        head.addView(icon, LayoutHelper.createLinear(56, 56, Gravity.TOP, 0, 2, 0, 0));
+        head.addView(icon, LayoutHelper.createLinear(62, 62, Gravity.CENTER_VERTICAL));
 
         LinearLayout titleCol = new LinearLayout(context);
         titleCol.setOrientation(LinearLayout.VERTICAL);
         TextView title = new TextView(context);
-        title.setText(e.name);
+        title.setText(TextUtils.isEmpty(e.name) ? e.id : e.name);
         title.setSingleLine(true);
-        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        title.setEllipsize(TextUtils.TruncateAt.END);
         title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
         title.setTypeface(AndroidUtilities.bold());
         titleCol.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        StringBuilder sub = new StringBuilder();
-        if (!e.version.isEmpty()) sub.append("v").append(e.version);
-        if (!e.author.isEmpty()) sub.append(sub.length() > 0 ? "  •  " : "").append(e.author);
-        if (sub.length() > 0) {
-            TextView subtitle = new TextView(context);
-            subtitle.setText(sub.toString());
-            subtitle.setSingleLine(true);
-            subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            subtitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-            subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
-            titleCol.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
-        }
-        LinearLayout micro = new LinearLayout(context); micro.setGravity(Gravity.CENTER_VERTICAL);
-        if (e.rating > 0) { TextView rating = pill(context, String.format(java.util.Locale.US, "★ %.1f", e.rating), true); micro.addView(rating, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 7, 5, 0)); }
-        if (!e.filter.isEmpty()) micro.addView(pill(context, e.filter, false), LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 7, 5, 0));
-        if (micro.getChildCount() > 0) titleCol.addView(micro);
-        head.addView(titleCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL, 12, 0, 6, 0));
+        TextView author = new TextView(context);
+        author.setText(TextUtils.isEmpty(e.author) ? "Автор не указан" : e.author);
+        author.setSingleLine(true);
+        author.setEllipsize(TextUtils.TruncateAt.END);
+        author.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
+        author.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        titleCol.addView(author, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
+        head.addView(titleCol, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL, 13, 0, 8, 0));
 
         if (team) {
             ImageView del = new ImageView(context);
@@ -404,51 +484,71 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         }
         card.addView(head, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        if (!e.desc.isEmpty()) {
-            TextView desc = new TextView(context);
-            desc.setText(e.desc);
-            desc.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-            desc.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-            desc.setMaxLines(2);
-            desc.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            desc.setLineSpacing(AndroidUtilities.dp(2), 1f);
-            card.addView(desc, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 11, 0, 0));
-        }
+        LinearLayout badges = new LinearLayout(context);
+        badges.setOrientation(LinearLayout.HORIZONTAL);
+        badges.setGravity(Gravity.CENTER_VERTICAL);
+        if (!e.version.isEmpty()) badges.addView(pill(context, "v" + e.version, false),
+                LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
+        if (e.rating > 0) badges.addView(pill(context,
+                        String.format(java.util.Locale.US, "★ %.1f · %d", e.rating, e.reviews), true),
+                LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
+        if (!e.filter.isEmpty()) badges.addView(pill(context, e.filter, false),
+                LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
+        if (DevGramPlugins.isInstalled(e.id)) badges.addView(pill(context, "✓ Установлен", true));
+        if (badges.getChildCount() > 0) card.addView(badges,
+                LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 0));
 
-        // низ: чипы (канал 🧩 + фильтр) слева, кнопка справа
+        TextView desc = new TextView(context);
+        desc.setText(TextUtils.isEmpty(e.desc) ? "Описание плагина не указано." : e.desc);
+        desc.setTextColor(Theme.getColor(TextUtils.isEmpty(e.desc)
+                ? Theme.key_windowBackgroundWhiteGrayText2 : Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        desc.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        desc.setMaxLines(3);
+        desc.setEllipsize(TextUtils.TruncateAt.END);
+        desc.setLineSpacing(AndroidUtilities.dp(2), 1f);
+        card.addView(desc, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 0));
+
         LinearLayout bottom = new LinearLayout(context);
         bottom.setOrientation(LinearLayout.HORIZONTAL);
         bottom.setGravity(Gravity.CENTER_VERTICAL);
-
-        LinearLayout tags = new LinearLayout(context);
-        tags.setOrientation(LinearLayout.HORIZONTAL);
-        tags.setGravity(Gravity.CENTER_VERTICAL);
-        bottom.addView(tags, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
-
         if (!e.channel.isEmpty()) {
-            TextView ch = pill(context, "🧩 " + e.channel, true);
+            TextView ch = new TextView(context);
+            ch.setText("🧩  " + e.channel);
+            ch.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            ch.setSingleLine(true);
+            ch.setEllipsize(TextUtils.TruncateAt.END);
+            ch.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
             ch.setOnClickListener(v -> openChannel(e.channel));
-            tags.addView(ch, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
+            bottom.addView(ch, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
+        } else {
+            TextView details = new TextView(context);
+            details.setText("Подробнее");
+            details.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+            details.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
+            bottom.addView(details, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
         }
 
-        final boolean installed = DevGramPlugins.isInstalled(e.id);
+        boolean installed = DevGramPlugins.isInstalled(e.id);
+        boolean busy = installing.contains(e.id);
         TextView btn = new TextView(context);
-        btn.setText(installed ? "Обновить" : "Установить");
+        btn.setText(busy ? "Загрузка…" : installed ? "Обновить" : "Установить");
         btn.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
         btn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         btn.setTypeface(AndroidUtilities.bold());
         btn.setGravity(Gravity.CENTER);
-        btn.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(9), AndroidUtilities.dp(14), AndroidUtilities.dp(9));
-        btn.setMinWidth(0);
-        btn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
+        btn.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(10));
+        btn.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(20),
                 Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider),
                 Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourceProvider)));
+        btn.setEnabled(!busy);
+        btn.setAlpha(busy ? .65f : 1f);
         btn.setOnClickListener(v -> install(e));
+        ScaleStateListAnimator.apply(btn, .04f, 1.2f);
         bottom.addView(btn, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
-        card.addView(bottom, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 11, 0, 0));
+        card.addView(bottom, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 14, 0, 0));
 
         LinearLayout outer = new LinearLayout(context);
-        outer.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(4), AndroidUtilities.dp(12), AndroidUtilities.dp(4));
+        outer.setPadding(AndroidUtilities.dp(12), AndroidUtilities.dp(5), AndroidUtilities.dp(12), AndroidUtilities.dp(5));
         outer.addView(card, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         return outer;
     }
@@ -476,11 +576,15 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 BulletinFactory.of(this).createErrorBulletin("Пакет ещё не размещён в архиве").show();
                 return;
             }
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Скачиваю пакет «" + e.name + "»…").show();
-            org.telegram.messenger.DevGramPackages.installCatalogPackage(e, ok ->
-                    BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
-                            ok ? "Плагин установлен: " + e.name : "Не удалось установить пакет").show());
+            installing.add(e.id);
             if (adapter != null) adapter.notifyDataSetChanged();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Скачиваю пакет «" + e.name + "»…").show();
+            org.telegram.messenger.DevGramPackages.installCatalogPackage(e, ok -> {
+                    installing.remove(e.id);
+                    if (adapter != null) adapter.notifyDataSetChanged();
+                    BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
+                            ok ? "Плагин установлен: " + e.name : "Не удалось установить пакет").show();
+            });
             return;
         }
         if (e.source == null || e.source.isEmpty()) {
@@ -495,44 +599,36 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
     }
 
     private void confirmDelete(DevGramPlugins.CatalogEntry e) {
-        EditTextBoldCursor reason = makeInput(getParentActivity(), "Причина удаления", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
-        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Удалить из каталога");
-        b.setMessage("Выберите обычное удаление или удаление с блокировкой файла. При обычном удалении плагин можно будет опубликовать снова.");
-        b.setView(reason);
-        b.setNeutralButton("Удалить", (d, w) -> ensureAdmin(() -> {
-            String why=reason.getText().toString().trim();if(why.isEmpty()){BulletinFactory.of(this).createErrorBulletin("Укажите причину удаления").show();return;}
-            if (DevGramPlugins.catalogDelete(e,why)) {
-                all.remove(e);
-                applyFilter();
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Удалено из каталога").show();
+        String[] actions = {"Удалить с возможностью публикации", "Удалить и заблокировать файл"};
+        DevGramPluginUi.showChoices(this, "Удалить «" + e.name + "»",
+                "При блокировке этот же файл нельзя будет опубликовать повторно.", actions,
+                new int[]{R.drawable.msg_delete, R.drawable.msg_block}, 0,
+                which -> DevGramPluginUi.showTextInput(this,
+                        which == 1 ? "Удалить и заблокировать" : "Удалить из каталога",
+                        "Причина сохранится в истории плагина.", "Укажите причину удаления",
+                        "", which == 1 ? "Удалить и заблокировать" : "Удалить плагин", true,
+                        reason -> performCatalogDelete(e, reason, which == 1)));
+    }
+
+    private void performCatalogDelete(DevGramPlugins.CatalogEntry entry, String reason, boolean block) {
+        ensureAdmin(() -> {
+            boolean ok = block ? DevGramPlugins.catalogDeleteAndBlock(entry, reason)
+                    : DevGramPlugins.catalogDelete(entry, reason);
+            if (!ok) {
+                BulletinFactory.of(this).createErrorBulletin("Не удалось удалить плагин").show();
+                return;
             }
-        }));
-        b.setPositiveButton("Удалить и заблокировать", (d, w) -> ensureAdmin(() -> {
-            String why=reason.getText().toString().trim();if(why.isEmpty()){BulletinFactory.of(this).createErrorBulletin("Укажите причину удаления").show();return;}
-            if (DevGramPlugins.catalogDeleteAndBlock(e,why)) {
-                all.remove(e);
-                applyFilter();
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Удалено и заблокировано").show();
-            }
-        }));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
+            all.remove(entry);
+            applyFilter();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
+                    block ? "Удалено и заблокировано" : "Удалено из каталога").show();
+        });
     }
 
     private void addFilterDialog() {
-        Context context = getParentActivity();
-        EditTextBoldCursor et = makeInput(context, "Название фильтра", InputType.TYPE_CLASS_TEXT);
-        FrameLayout box = new FrameLayout(context);
-        box.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
-        box.addView(et, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 44));
-
-        AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Новый фильтр");
-        b.setView(box);
-        b.setPositiveButton("Добавить", (d, w) -> {
-            String name = et.getText().toString().trim();
-            if (name.isEmpty()) return;
+        DevGramPluginUi.showTextInput(this, "Новая категория",
+                "Категория появится в строке фильтров каталога.", "Название категории",
+                "", "Добавить категорию", false, name -> {
             ensureAdmin(() -> {
                 ArrayList<String> updated = new ArrayList<>(filters);
                 if (!updated.contains(name)) updated.add(name);
@@ -548,17 +644,13 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 });
             });
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
-        et.requestFocus();
-        AndroidUtilities.showKeyboard(et);
     }
 
     private void confirmRemoveFilter(String name) {
-        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Удалить фильтр");
-        b.setMessage("Убрать фильтр «" + name + "»? Плагины не удалятся, только категория.");
-        b.setPositiveButton("Удалить", (d, w) -> ensureAdmin(() -> {
+        DevGramPluginUi.showChoices(this, "Удалить категорию?",
+                "Плагины останутся в каталоге, исчезнет только категория «" + name + "».",
+                new String[]{"Удалить категорию"}, new int[]{R.drawable.msg_delete}, 0,
+                ignored -> ensureAdmin(() -> {
             ArrayList<String> updated = new ArrayList<>(filters);
             updated.remove(name);
             DevGramPlugins.saveFilters(updated, ok -> {
@@ -574,29 +666,31 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 }
             });
         }));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
     }
 
     private void showFilterActions(String name) {
         int index = filters.indexOf(name);
         if (index < 0) return;
-        ArrayList<CharSequence> actions = new ArrayList<>();
+        ArrayList<String> actions = new ArrayList<>();
         ArrayList<Integer> ids = new ArrayList<>();
+        ArrayList<Integer> icons = new ArrayList<>();
         if (index > 0) {
             actions.add("Переместить левее");
             ids.add(-1);
+            icons.add(R.drawable.msg_arrow_back);
         }
         if (index < filters.size() - 1) {
             actions.add("Переместить правее");
             ids.add(1);
+            icons.add(R.drawable.msg_arrow_forward);
         }
         actions.add("Удалить категорию");
         ids.add(0);
-        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle(name);
-        builder.setMessage("Управление категорией каталога");
-        builder.setItems(actions.toArray(new CharSequence[0]), (dialog, which) -> {
+        icons.add(R.drawable.msg_delete);
+        int[] iconArray = new int[icons.size()];
+        for (int i = 0; i < icons.size(); i++) iconArray[i] = icons.get(i);
+        DevGramPluginUi.showChoices(this, name, "Управление категорией каталога",
+                actions.toArray(new String[0]), iconArray, actions.size() - 1, which -> {
             int action = ids.get(which);
             if (action == 0) {
                 confirmRemoveFilter(name);
@@ -604,8 +698,6 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 moveFilter(name, action);
             }
         });
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(builder.create());
     }
 
     private void moveFilter(String name, int direction) {

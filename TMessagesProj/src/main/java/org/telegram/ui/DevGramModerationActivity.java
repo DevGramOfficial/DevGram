@@ -16,6 +16,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,6 +34,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.ScaleStateListAnimator;
 
 import java.util.ArrayList;
 
@@ -47,6 +49,7 @@ public class DevGramModerationActivity extends BaseFragment {
     private final ArrayList<DevGramPlugins.CatalogEntry> pending = new ArrayList<>();
     private boolean loading = true;
     private TextView emptyView;
+    private TextView queueSummary;
 
     private static final int MENU_OVERFLOW = 10;
     private static final int MENU_MODERATORS = 1;
@@ -90,8 +93,28 @@ public class DevGramModerationActivity extends BaseFragment {
         }
         DevGramPlugins.loadModNotify();
 
+        LinearLayout page = new LinearLayout(context);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
+        LinearLayout dashboard = new LinearLayout(context);
+        dashboard.setOrientation(LinearLayout.VERTICAL);
+        dashboard.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(14), AndroidUtilities.dp(18), AndroidUtilities.dp(14));
+        dashboard.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(20),
+                Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
+        TextView dashboardTitle = new TextView(context);
+        dashboardTitle.setText("Очередь проверки");
+        dashboardTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        dashboardTitle.setTypeface(AndroidUtilities.bold());
+        dashboardTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        dashboard.addView(dashboardTitle);
+        queueSummary = new TextView(context);
+        queueSummary.setText("Загружаем заявки…");
+        queueSummary.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        queueSummary.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
+        dashboard.addView(queueSummary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
+        page.addView(dashboard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 12, 10, 12, 5));
+
         FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
 
         listView = new RecyclerListView(context, resourceProvider);
         listView.setLayoutManager(new LinearLayoutManager(context));
@@ -108,9 +131,10 @@ public class DevGramModerationActivity extends BaseFragment {
         emptyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         emptyView.setPadding(AndroidUtilities.dp(40), 0, AndroidUtilities.dp(40), 0);
         root.addView(emptyView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+        page.addView(root, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1f));
 
         load();
-        return fragmentView = root;
+        return fragmentView = page;
     }
 
     private void load() {
@@ -122,6 +146,9 @@ public class DevGramModerationActivity extends BaseFragment {
             pending.addAll(list);
             loading = false;
             actionBar.setTitle("Модерация" + (pending.isEmpty() ? "" : " (" + pending.size() + ")"));
+            if (queueSummary != null) queueSummary.setText(pending.isEmpty()
+                    ? "Все заявки обработаны" : pending.size() + " " + requestWord(pending.size())
+                    + (pending.size() == 1 ? " ждёт решения" : " ждут решения"));
             if (adapter != null) adapter.notifyDataSetChanged();
             refreshEmpty();
         });
@@ -147,6 +174,8 @@ public class DevGramModerationActivity extends BaseFragment {
         card.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(20),
                 Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider), Theme.getColor(Theme.key_listSelector, resourceProvider)));
         card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(15), AndroidUtilities.dp(16), AndroidUtilities.dp(15));
+        card.setElevation(AndroidUtilities.dp(1));
+        ScaleStateListAnimator.apply(card, .012f, 1.2f);
 
         TextView title = new TextView(context);
         title.setText(e.name);
@@ -271,58 +300,45 @@ public class DevGramModerationActivity extends BaseFragment {
 
     private void afterAction(String msg) {
         actionBar.setTitle("Модерация" + (pending.isEmpty() ? "" : " (" + pending.size() + ")"));
+        if (queueSummary != null) queueSummary.setText(pending.isEmpty()
+                ? "Все заявки обработаны" : pending.size() + " " + requestWord(pending.size())
+                + (pending.size() == 1 ? " ждёт решения" : " ждут решения"));
         if (adapter != null) adapter.notifyDataSetChanged();
         refreshEmpty();
         BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, msg).show();
     }
 
+    private String requestWord(int count) {
+        int n = count % 100, n1 = count % 10;
+        return n > 10 && n < 20 ? "заявок" : n1 == 1 ? "заявка" : n1 >= 2 && n1 <= 4 ? "заявки" : "заявок";
+    }
+
     private void confirmReject(DevGramPlugins.CatalogEntry e) {
-        final EditTextBoldCursor reason = new EditTextBoldCursor(getParentActivity());
-        reason.setHint("Причина отказа");
-        reason.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-        reason.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, resourceProvider));
-        reason.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
-        reason.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        reason.setMinLines(3);
-        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Отклонить заявку");
-        b.setMessage("Укажите автору, что нужно исправить в «" + e.name + "».");
-        b.setView(reason);
-        b.setItems(new CharSequence[]{"Отклонить", "Отклонить и заблокировать файл"}, (d, which) -> {
-            final boolean block = which == 1;
-            final String text = reason.getText() == null ? "" : reason.getText().toString().trim();
-            if (text.isEmpty()) {
-                BulletinFactory.of(this).createErrorBulletin("Укажите причину отказа").show();
-                return;
-            }
-            ensureAdmin(() -> {
-                if (DevGramPlugins.rejectPending(e, block, text)) {
-                    pending.remove(e);
-                    afterAction(block ? "Отклонено и заблокировано" : "Отклонено");
-                }
-            });
-        });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
+        DevGramPluginUi.showChoices(this, "Отклонить заявку",
+                "Выберите, сможет ли автор отправить исправленную версию.",
+                new String[]{"Отклонить с возможностью исправить", "Отклонить и заблокировать файл"},
+                new int[]{R.drawable.msg_retry, R.drawable.msg_block}, 1, which -> {
+                    boolean block = which == 1;
+                    DevGramPluginUi.showTextInput(this, block ? "Отклонить и заблокировать" : "Причина отказа",
+                            "Автор увидит этот текст в своих заявках.", "Что нужно исправить в «" + e.name + "»?",
+                            "", block ? "Заблокировать файл" : "Отклонить заявку", true, reason -> ensureAdmin(() -> {
+                                if (DevGramPlugins.rejectPending(e, block, reason)) {
+                                    pending.remove(e);
+                                    afterAction(block ? "Отклонено и заблокировано" : "Отклонено");
+                                }
+                            }));
+                });
     }
 
     private void showSource(DevGramPlugins.CatalogEntry e) {
-        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle(e.name + " — код");
         String src = e.source == null ? "" : e.source;
-        b.setMessage(src.length() > 4000 ? src.substring(0, 4000) + "\n…" : src);
-        b.setPositiveButton("Копировать", (d, w) -> {
-            AndroidUtilities.addToClipboard(src);
-            BulletinFactory.of(this).createCopyBulletin("Скопировано").show();
-        });
-        b.setNegativeButton("Закрыть", null);
-        showDialog(b.create());
+        showCodeSheet(e.name + " — код", "Исходник заявки. Перед одобрением проверьте опасные разрешения и сетевые вызовы.", src);
     }
 
     private void showDiff(DevGramPlugins.CatalogEntry oldEntry, DevGramPlugins.CatalogEntry newEntry) {
         String[] oldLines = (oldEntry.source == null ? "" : oldEntry.source).split("\\n", -1);
         String[] newLines = (newEntry.source == null ? "" : newEntry.source).split("\\n", -1);
-        StringBuilder diff = new StringBuilder("Версия ").append(oldEntry.version).append(" → ").append(newEntry.version).append("\n\n");
+        StringBuilder diff = new StringBuilder();
         int max = Math.max(oldLines.length, newLines.length), shown = 0;
         for (int i = 0; i < max && shown < 120; i++) {
             String a = i < oldLines.length ? oldLines[i] : "", b = i < newLines.length ? newLines[i] : "";
@@ -332,7 +348,38 @@ public class DevGramModerationActivity extends BaseFragment {
             shown++;
         }
         if (shown == 0) diff.append("Изменений в исходнике нет."); else if (shown >= 120) diff.append("\n…показаны первые 120 изменений");
-        new AlertDialog.Builder(getParentActivity()).setTitle("Изменения плагина").setMessage(diff.toString()).setPositiveButton("Закрыть", null).show();
+        showCodeSheet("Изменения плагина", "Версия " + oldEntry.version + " → " + newEntry.version, diff.toString());
+    }
+
+    private void showCodeSheet(String title, String subtitle, String value) {
+        Context context = getParentActivity();
+        if (context == null) return;
+        LinearLayout root = DevGramPluginUi.sheetRoot(context, this, title, subtitle);
+        TextView code = new TextView(context);
+        code.setText(value.isEmpty() ? "Исходник отсутствует" : value);
+        code.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        code.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        code.setTypeface(android.graphics.Typeface.MONOSPACE);
+        code.setTextIsSelectable(true);
+        code.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12), AndroidUtilities.dp(14), AndroidUtilities.dp(12));
+        code.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16),
+                Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider)));
+        ScrollView scroll = new ScrollView(context);
+        scroll.addView(code);
+        root.addView(scroll, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 360, 0, 0, 0, 12));
+        TextView copy = pillButton(context, "Копировать текст",
+                Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider),
+                Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
+        ScaleStateListAnimator.apply(copy, .025f, 1.2f);
+        copy.setOnClickListener(v -> {
+            AndroidUtilities.addToClipboard(value);
+            BulletinFactory.of(this).createCopyBulletin("Скопировано").show();
+        });
+        root.addView(copy, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50));
+        BottomSheet.Builder builder = new BottomSheet.Builder(context);
+        builder.setApplyBottomPadding(false);
+        builder.setCustomView(root);
+        builder.create().show();
     }
 
     private void openChannel(String channel) {

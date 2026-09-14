@@ -35,6 +35,9 @@ import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.PermissionRequest;
 import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Stories.DarkThemeResourceProvider;
+import org.telegram.ui.web.HttpGetTask;
+
+import org.json.JSONObject;
 
 
 import java.util.Calendar;
@@ -370,9 +373,18 @@ public class Weather {
     }
 
     public static void fetch(boolean withProgress, Utilities.Callback<State> whenFetched) {
+        fetchInternal(withProgress, false, whenFetched);
+    }
+
+    /** Weather used by Pill Stack must not depend on the separate story-editor toggle. */
+    public static void fetchForPill(boolean withProgress, Utilities.Callback<State> whenFetched) {
+        fetchInternal(withProgress, true, whenFetched);
+    }
+
+    private static void fetchInternal(boolean withProgress, boolean pillStackRequest, Utilities.Callback<State> whenFetched) {
         if (whenFetched == null) return;
         // DevGram: погода в историях по умолчанию выключена — не дёргаем гео и попап разрешения.
-        if (!org.telegram.messenger.DevGramConfig.weatherInStories) {
+        if (!pillStackRequest && !org.telegram.messenger.DevGramConfig.weatherInStories) {
             whenFetched.run(null);
             return;
         }
@@ -485,10 +497,25 @@ public class Weather {
         }
 
         final int[] currentReqId = new int[1];
+        final Runnable[] fallbackCancel = new Runnable[1];
 
         final MessagesController messagesController = MessagesController.getInstance(UserConfig.selectedAccount);
         final ConnectionsManager connectionsManager = ConnectionsManager.getInstance(UserConfig.selectedAccount);
         final String username = messagesController.weatherSearchUsername;
+        final Runnable fallback = () -> {
+            if (fallbackCancel[0] == null) {
+                fallbackCancel[0] = fetchOpenMeteo(lat, lng, key, whenFetched);
+            }
+        };
+
+        // На некоторых конфигурациях Telegram не отдаёт weatherSearchUsername. Pill Stack
+        // всё равно должен работать, поэтому сразу используем публичный погодный источник.
+        if (TextUtils.isEmpty(username)) {
+            fallback.run();
+            return () -> {
+                if (fallbackCancel[0] != null) fallbackCancel[0].run();
+            };
+        }
 
         final TLRPC.User[] bot = new TLRPC.User[] { messagesController.getUser(username) };
         Runnable request = () -> {
@@ -513,7 +540,7 @@ public class Weather {
                         try {
                             temp = Float.parseFloat(rr.description);
                         } catch (Exception e) {
-                            whenFetched.run(null);
+                            fallback.run();
                             return;
                         }
                         final State state = new State();
@@ -529,7 +556,7 @@ public class Weather {
                         return;
                     }
                 }
-                whenFetched.run(null);
+                fallback.run();
             }));
         };
 
@@ -549,7 +576,7 @@ public class Weather {
                         return;
                     }
                 }
-                whenFetched.run(null);
+                fallback.run();
             }));
         } else {
             request.run();
@@ -560,7 +587,46 @@ public class Weather {
                 connectionsManager.cancelRequest(currentReqId[0], true);
                 currentReqId[0] = 0;
             }
+            if (fallbackCancel[0] != null) fallbackCancel[0].run();
         };
+    }
+
+    private static Runnable fetchOpenMeteo(double lat, double lng, String key, Utilities.Callback<State> whenFetched) {
+        HttpGetTask task = new HttpGetTask(result -> {
+            if (TextUtils.isEmpty(result)) {
+                whenFetched.run(null);
+                return;
+            }
+            try {
+                JSONObject current = new JSONObject(result).getJSONObject("current_weather");
+                State state = new State();
+                state.lat = lat;
+                state.lng = lng;
+                state.temperature = (float) current.getDouble("temperature");
+                state.emoji = weatherEmoji(current.optInt("weathercode", 0));
+                cacheKey = key;
+                cacheValue = state;
+                whenFetched.run(state);
+            } catch (Throwable e) {
+                FileLog.e(e);
+                whenFetched.run(null);
+            }
+        });
+        task.execute("https://api.open-meteo.com/v1/forecast?latitude=" + lat
+                + "&longitude=" + lng + "&current_weather=true&temperature_unit=celsius");
+        return () -> task.cancel(true);
+    }
+
+    private static String weatherEmoji(int code) {
+        if (code == 0) return "☀";
+        if (code <= 2) return "🌤";
+        if (code == 3) return "☁";
+        if (code == 45 || code == 48) return "😶‍🌫";
+        if (code >= 95) return "⛈";
+        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return "🌨";
+        if (code == 56 || code == 57 || code == 66 || code == 67) return "🌨";
+        if (code >= 51 && code <= 82) return "🌧";
+        return "🌤";
     }
 
     @SuppressLint("MissingPermission")

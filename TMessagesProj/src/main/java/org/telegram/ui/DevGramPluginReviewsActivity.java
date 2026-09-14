@@ -17,6 +17,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.ScaleStateListAnimator;
 
 import java.util.ArrayList;
 
@@ -48,9 +49,22 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
     private void load(Context context) {
         DevGramPlugins.fetchReviews(entry.id, reviews -> {
             content.removeAllViews();
-            TextView header = label(context, reviews.isEmpty() ? "Отзывов пока нет" : reviews.size() + " " + plural(reviews.size()), 20, true,
-                    Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-            content.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 10));
+            LinearLayout summary = new LinearLayout(context);
+            summary.setOrientation(LinearLayout.VERTICAL);
+            summary.setGravity(Gravity.CENTER);
+            summary.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(18), AndroidUtilities.dp(18), AndroidUtilities.dp(18));
+            summary.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(22), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
+            double total = 0; for (DevGramPlugins.Review review : reviews) total += review.rating;
+            String score = reviews.isEmpty() ? "—" : String.format(java.util.Locale.US, "%.1f", total / reviews.size());
+            TextView scoreView = label(context, score, 34, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+            scoreView.setGravity(Gravity.CENTER); summary.addView(scoreView);
+            int roundedRating = reviews.isEmpty() ? 0 : Math.max(0, Math.min(5, (int) Math.round(total / reviews.size())));
+            TextView stars = label(context, "★".repeat(roundedRating) + "☆".repeat(5 - roundedRating), 20, true, 0xFFE0A400);
+            stars.setGravity(Gravity.CENTER); summary.addView(stars, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
+            TextView count = label(context, reviews.isEmpty() ? "Отзывов пока нет" : reviews.size() + " " + plural(reviews.size()), 14, false,
+                    Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
+            count.setGravity(Gravity.CENTER); summary.addView(count, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 5, 0, 0));
+            content.addView(summary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
             if (reviews.isEmpty()) {
                 TextView empty = label(context, "Станьте первым, кто поделится впечатлением о плагине.", 15, false,
                         Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
@@ -64,19 +78,28 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
 
     private View reviewCard(Context context, DevGramPlugins.Review review) {
         LinearLayout card = new LinearLayout(context); card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(10), AndroidUtilities.dp(14));
-        card.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
+        card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(13), AndroidUtilities.dp(10), AndroidUtilities.dp(15));
+        card.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(20), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider), Theme.getColor(Theme.key_listSelector, resourceProvider)));
+        card.setElevation(AndroidUtilities.dp(1));
         LinearLayout head = new LinearLayout(context); head.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = label(context, review.name, 15, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        head.addView(title, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+        TextView avatar = label(context, review.name == null || review.name.isEmpty() ? "?" : review.name.substring(0, 1).toUpperCase(), 16, true,
+                Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
+        avatar.setGravity(Gravity.CENTER); avatar.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider)));
+        head.addView(avatar, LayoutHelper.createLinear(38, 38, Gravity.CENTER_VERTICAL, 0, 0, 11, 0));
+        LinearLayout author = new LinearLayout(context); author.setOrientation(LinearLayout.VERTICAL);
+        author.addView(label(context, review.name, 15, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider)));
+        if (review.date > 0) author.addView(label(context, android.text.format.DateFormat.format("dd.MM.yyyy", review.date).toString(), 12, false,
+                Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider)), LayoutHelper.createLinear(-1, -2, 0, 2, 0, 0));
+        head.addView(author, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
         TextView menu = label(context, "⋮", 28, true, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         menu.setGravity(Gravity.CENTER); menu.setContentDescription("Действия с отзывом");
         menu.setOnClickListener(v -> showActions(context, review, card));
         head.addView(menu, LayoutHelper.createLinear(44, 44)); card.addView(head);
-        TextView stars = label(context, "★".repeat(Math.max(0, Math.min(5, review.rating))), 15, true, 0xFFE0A400);
-        card.addView(stars, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, -5, 0, 7));
+        TextView stars = label(context, "★".repeat(Math.max(0, Math.min(5, review.rating))) + "☆".repeat(Math.max(0, 5 - review.rating)), 16, true, 0xFFE0A400);
+        card.addView(stars, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 7));
         TextView body = label(context, review.text, 15, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        body.setLineSpacing(AndroidUtilities.dp(2), 1f); card.addView(body);
+        body.setLineSpacing(AndroidUtilities.dp(3), 1f); card.addView(body);
+        ScaleStateListAnimator.apply(card, .015f, 1.2f);
         return card;
     }
 
@@ -112,16 +135,13 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
     }
 
     private void showReportReasonMenu(Context context, long uid) {
-        new org.telegram.ui.ActionBar.AlertDialog.Builder(context)
-                .setTitle("Почему вы жалуетесь?")
-                .setMessage("Жалоба будет отправлена команде DevGram на проверку.")
-                .setItems(new CharSequence[]{"Спам или реклама", "Оскорбления и травля", "Ложная информация", "Другая причина"}, (d, which) -> {
-                    if (which == 3) {
-                        android.widget.EditText input = DevGramPluginReportsActivity.themedInput(context, "Что именно нарушает этот отзыв?");
-                        new org.telegram.ui.ActionBar.AlertDialog.Builder(context).setTitle("Другая причина").setView(input)
-                                .setPositiveButton("Отправить", (dd, ww) -> sendReport(uid, input.getText().toString())).setNegativeButton("Отмена", null).show();
-                    } else sendReport(uid, which == 0 ? "Спам или реклама" : which == 1 ? "Оскорбления и травля" : "Ложная информация");
-                }).setNegativeButton("Отмена", null).show();
+        String[] reasons = {"Спам или реклама", "Оскорбления и травля", "Ложная информация", "Другая причина"};
+        DevGramPluginUi.showChoices(this, "Жалоба на отзыв", "Выберите нарушение — команда DevGram проверит жалобу.",
+                reasons, new int[]{R.drawable.msg_report, R.drawable.msg_block, R.drawable.msg_info, R.drawable.msg_edit}, reasons.length, which -> {
+                    if (which == 3) DevGramPluginUi.showTextInput(this, "Другая причина", "Опишите нарушение коротко и по существу.",
+                            "Что именно нарушает этот отзыв?", "", "Отправить жалобу", true, reason -> sendReport(uid, reason));
+                    else sendReport(uid, reasons[which]);
+                });
     }
 
     private void sendReport(long uid, String reason) {
