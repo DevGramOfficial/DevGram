@@ -2742,57 +2742,6 @@ public class StarsController {
         }));
     }
 
-    // DevGram: отправка подарка напрямую по gift_id — в том числе «скрытых», которых нет
-    // в текущей витрине getStarGifts (событийные мишки и т.п.). Сервер сам вернёт цену
-    // в форме оплаты; если id недействителен или подарок нельзя отправить — покажет ошибку.
-    public void devgramSendGiftById(long giftId, long dialogId, boolean anonymous, boolean upgraded,
-                                    TLRPC.TL_textWithEntities text,
-                                    Utilities.Callback2<Boolean, String> whenDone) {
-        final TLRPC.TL_inputInvoiceStarGift inputInvoice = new TLRPC.TL_inputInvoiceStarGift();
-        inputInvoice.hide_name = anonymous;
-        inputInvoice.peer = MessagesController.getInstance(currentAccount).getInputPeer(dialogId);
-        inputInvoice.gift_id = giftId;
-        inputInvoice.include_upgrade = upgraded;
-        if (text != null && !TextUtils.isEmpty(text.text)) {
-            inputInvoice.flags |= 2;
-            inputInvoice.message = text;
-        }
-
-        final TLRPC.TL_payments_getPaymentForm req = new TLRPC.TL_payments_getPaymentForm();
-        final JSONObject themeParams = BotWebViewSheet.makeThemeParams(getResourceProvider());
-        if (themeParams != null) {
-            req.theme_params = new TLRPC.TL_dataJSON();
-            req.theme_params.data = themeParams.toString();
-            req.flags |= 1;
-        }
-        req.invoice = inputInvoice;
-
-        ConnectionsManager.getInstance(currentAccount).sendRequest(req, (res, err) -> AndroidUtilities.runOnUIThread(() -> {
-            if (!(res instanceof TLRPC.TL_payments_paymentFormStarGift)) {
-                bulletinError(err, "NO_PAYMENT_FORM");
-                if (whenDone != null) whenDone.run(false, err != null ? err.text : null);
-                return;
-            }
-            final TLRPC.TL_payments_paymentFormStarGift form = (TLRPC.TL_payments_paymentFormStarGift) res;
-            final TL_stars.TL_payments_sendStarsForm req2 = new TL_stars.TL_payments_sendStarsForm();
-            req2.form_id = form.form_id;
-            req2.invoice = inputInvoice;
-            ConnectionsManager.getInstance(currentAccount).sendRequest(req2, (res2, err2) -> AndroidUtilities.runOnUIThread(() -> {
-                if (res2 instanceof TLRPC.TL_payments_paymentResult) {
-                    invalidateBalance();
-                    final BaseFragment fragment = LaunchActivity.getLastFragment();
-                    if (fragment != null) {
-                        BulletinFactory.of(fragment).createSimpleBulletin(R.raw.gift, "Подарок отправлен").show();
-                    }
-                    if (whenDone != null) whenDone.run(true, null);
-                } else {
-                    bulletinError(err2, "GIFT_SEND_FAILED");
-                    if (whenDone != null) whenDone.run(false, err2 != null ? err2.text : null);
-                }
-            }));
-        }));
-    }
-
     @Deprecated
     public void getResellingGiftForm(TL_stars.StarGift gift, long dialogId, Utilities.Callback<TLRPC.TL_payments_paymentFormStarGift> whenDone) {
         getResellingGiftForm(gift, dialogId, null, true, whenDone);

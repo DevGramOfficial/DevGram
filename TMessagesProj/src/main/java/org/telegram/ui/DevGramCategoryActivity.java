@@ -48,7 +48,6 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_AI_TEMPERATURE = 158;
     private static final int ID_AI_CLEAR_HISTORY = 159;
     private static final int MENU_OPEN_CHAT = 500; // пункт меню в шапке (не строка списка)
-    private static final int MENU_GHOST_SCOPE = 501;
 
     // Режим призрака
     private static final int ID_GHOST_MASTER = 1;
@@ -586,11 +585,6 @@ public class DevGramCategoryActivity extends BaseFragment {
         // На экране AI Chat — иконка «открыть ИИ-чат» в шапке.
         if (category == CATEGORY_AI) {
             actionBar.createMenu().addItem(MENU_OPEN_CHAT, R.drawable.msg2_ask_question);
-        } else if (category == CATEGORY_GHOST) {
-            // AyuGram keeps the global/per-account selector in the action bar rather
-            // than exposing it as another preference row.
-            actionBar.createMenu().addItem(MENU_GHOST_SCOPE, R.drawable.msg_contacts)
-                    .setContentDescription("Общие настройки для аккаунтов");
         }
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
@@ -603,14 +597,6 @@ public class DevGramCategoryActivity extends BaseFragment {
                     } else {
                         showAiProviderDialog(true);
                     }
-                } else if (id == MENU_GHOST_SCOPE) {
-                    boolean global = !org.telegram.messenger.DevGramGhostSettings.useGlobal();
-                    org.telegram.messenger.DevGramGhostSettings.setUseGlobal(global);
-                    refreshListImmediately();
-                    BulletinFactory.of(DevGramCategoryActivity.this).createSimpleBulletin(
-                            R.raw.info,
-                            global ? "Общие настройки для всех аккаунтов" : "Настройки только этого аккаунта"
-                    ).show();
                 }
             }
         });
