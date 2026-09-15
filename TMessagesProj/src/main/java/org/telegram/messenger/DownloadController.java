@@ -623,6 +623,9 @@ public class DownloadController extends BaseController implements NotificationCe
         if (ApplicationLoader.isBandwidthConstrained()) {
             return false;
         }
+        if (DevGramFilterController.isFiltered(currentAccount, messageObject)) {
+            return false;
+        }
         if (messageObject.type == MessageObject.TYPE_STORY) {
             if (!SharedConfig.isAutoplayVideo()) return false;
             TLRPC.TL_messageMediaStory mediaStory = (TLRPC.TL_messageMediaStory) MessageObject.getMedia(messageObject);
@@ -898,6 +901,10 @@ public class DownloadController extends BaseController implements NotificationCe
         if (message == null || message.media instanceof TLRPC.TL_messageMediaStory) {
             return canPreloadStories() ? 2 : 0;
         }
+        if (DevGramFilterController.isEnabled()
+                && DevGramFilterController.isFiltered(currentAccount, new MessageObject(currentAccount, message, false, false))) {
+            return 0;
+        }
         int type;
         boolean isVideo;
         if ((isVideo = MessageObject.isVideoMessage(message)) || MessageObject.isGifMessage(message) || MessageObject.isRoundVideoMessage(message) || MessageObject.isGameMessage(message)) {
@@ -981,6 +988,10 @@ public class DownloadController extends BaseController implements NotificationCe
         }
         if (message == null || media instanceof TLRPC.TL_messageMediaStory) {
             return canPreloadStories() ? 2 : 0;
+        }
+        if (DevGramFilterController.isEnabled()
+                && DevGramFilterController.isFiltered(currentAccount, new MessageObject(currentAccount, message, false, false))) {
+            return 0;
         }
         int type;
         boolean isVideo = false;

@@ -162,6 +162,19 @@ public class ReactionsLayoutInBubble {
         return false;
     }
 
+    private static int countDevGramBlockedReactions(int account, TLRPC.Reaction reaction,
+                                                     ArrayList<TLRPC.MessagePeerReaction> recent) {
+        if (recent == null || !org.telegram.messenger.DevGramFilterController.isEnabled()) return 0;
+        int count = 0;
+        for (TLRPC.MessagePeerReaction item : recent) {
+            if (equalsTLReaction(reaction, item.reaction)
+                    && org.telegram.messenger.DevGramFilterController.isBlocked(account, MessageObject.getPeerId(item.peer_id))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public void setMessage(MessageObject messageObject, boolean isSmall, boolean isTag, Theme.ResourcesProvider resourcesProvider) {
         this.resourcesProvider = resourcesProvider;
         this.isSmall = isSmall;
@@ -186,6 +199,14 @@ public class ReactionsLayoutInBubble {
                 int totalCount = 0;
                 for (int i = 0; i < messageObject.messageOwner.reactions.results.size(); i++) {
                     totalCount += messageObject.messageOwner.reactions.results.get(i).count;
+                }
+                if (messageObject.messageOwner.reactions.recent_reactions != null) {
+                    for (TLRPC.MessagePeerReaction recent : messageObject.messageOwner.reactions.recent_reactions) {
+                        if (org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, MessageObject.getPeerId(recent.peer_id))) {
+                            totalCount--;
+                        }
+                    }
+                    totalCount = Math.max(0, totalCount);
                 }
                 boolean includeEmptyStarButton = false;
                 boolean includeEmptyLikeButton = forceLikeDislikeReactions;
@@ -248,6 +269,16 @@ public class ReactionsLayoutInBubble {
                         }
                     }
                     ReactionButton button = new ReactionLayoutButton(old, reactionCount, isSmall, isTag);
+                    int blockedReactions = i < 0 ? 0 : countDevGramBlockedReactions(currentAccount,
+                            reactionCount.reaction, messageObject.messageOwner.reactions.recent_reactions);
+                    if (blockedReactions > 0) {
+                        int visibleCount = Math.max(reactionCount.count - blockedReactions, reactionCount.chosen ? 1 : 0);
+                        if (visibleCount == 0) continue;
+                        button.count = visibleCount;
+                        button.realCount = visibleCount;
+                        button.countText = Integer.toString(visibleCount);
+                        button.counterDrawable.setCount(visibleCount, false);
+                    }
                     button.inGroup = messageObject.hasValidGroupId();
                     reactionButtons.add(button);
                     hasPaidReaction = hasPaidReaction || button.paid;
@@ -262,7 +293,7 @@ public class ReactionsLayoutInBubble {
                                 if (me != null) {
                                     users.add(me);
                                 }
-                                if (dialogUser != null) {
+                                if (dialogUser != null && !org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, dialogUser.id)) {
                                     users.add(dialogUser);
                                 }
                             } else {
@@ -271,7 +302,7 @@ public class ReactionsLayoutInBubble {
                                         users.add(me);
                                     }
                                 } else {
-                                    if (dialogUser != null) {
+                                    if (dialogUser != null && !org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, dialogUser.id)) {
                                         users.add(dialogUser);
                                     }
                                 }
@@ -287,7 +318,8 @@ public class ReactionsLayoutInBubble {
                                 VisibleReaction visibleReactionPeer = VisibleReaction.fromTL(recent.reaction);
                                 VisibleReaction visibleReactionCount = VisibleReaction.fromTL(reactionCount.reaction);
                                 TLObject object = MessagesController.getInstance(currentAccount).getUserOrChat(MessageObject.getPeerId(recent.peer_id));
-                                if (visibleReactionPeer.equals(visibleReactionCount) && object != null) {
+                                if (visibleReactionPeer.equals(visibleReactionCount) && object != null
+                                        && !org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, MessageObject.getPeerId(recent.peer_id))) {
                                     if (users == null) {
                                         users = new ArrayList<>();
                                     }

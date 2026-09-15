@@ -7395,7 +7395,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         } else {
                             comment = commentCount == 0 ? getString("LeaveAComment", R.string.LeaveAComment) : LocaleController.getPluralString("CommentsNoNumber", commentCount);
                         }
-                        ArrayList<TLRPC.Peer> recentRepliers = getRecentRepliers();
+                        ArrayList<TLRPC.Peer> recentRepliersSource = getRecentRepliers();
+                        ArrayList<TLRPC.Peer> recentRepliers = null;
+                        if (recentRepliersSource != null) {
+                            recentRepliers = new ArrayList<>(recentRepliersSource.size());
+                            for (TLRPC.Peer peer : recentRepliersSource) {
+                                if (!org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, MessageObject.getPeerId(peer))) {
+                                    recentRepliers.add(peer);
+                                }
+                            }
+                        }
                         if (commentCount != 0 && recentRepliers != null && !recentRepliers.isEmpty()) {
                             createCommentUI();
                             int size = recentRepliers.size();
@@ -19806,6 +19815,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         stringFinalText = TextUtils.ellipsize(stringBuilder, textPaint, maxWidth, TextUtils.TruncateAt.END);
                         forwardNameCenterX = (int) Math.ceil(Theme.chat_replyNamePaint.measureText(ellipsizedText, 0, ellipsizedText.length())) / 2;
                     }
+                }
+                if (messageObject.skipDevGramFiltering && messageObject.replyMessageObject != null
+                        && org.telegram.messenger.DevGramFilterController.isFiltered(
+                        currentAccount, messageObject.replyMessageObject, getCurrentMessagesGroup())) {
+                    replyImageReceiver.setImageBitmap((Drawable) null);
+                    needReplyImage = false;
+                    name = "👻";
+                    stringFinalText = "Отфильтрованное сообщение";
                 }
                 CharSequence stringFinalName = name;
                 try {

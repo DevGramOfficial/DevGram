@@ -458,7 +458,11 @@ public class ReplyMessageLine {
             emojiDocumentId = messageObject.overrideLinkEmoji;
         }
         if (type == TYPE_REPLY) {
-            if (!devgramReplyElement("dg_replyColors")) {
+            boolean filteredReply = messageObject != null && messageObject.skipDevGramFiltering
+                    && messageObject.replyMessageObject != null
+                    && org.telegram.messenger.DevGramFilterController.isFiltered(
+                    messageObject.currentAccount, messageObject.replyMessageObject);
+            if (filteredReply || !devgramReplyElement("dg_replyColors")) {
                 hasColor2 = hasColor3 = false;
                 if (messageObject.isOutOwner()) {
                     color1 = color2 = color3 = Theme.getColor(Theme.key_chat_outReplyLine, resourcesProvider);
@@ -474,7 +478,7 @@ public class ReplyMessageLine {
             if (!devgramReplyElement("dg_replyBackground")) {
                 backgroundColor = Color.TRANSPARENT;
             }
-            if (!devgramReplyElement("dg_replyEmoji")) {
+            if (filteredReply || !devgramReplyElement("dg_replyEmoji")) {
                 emojiDocumentId = 0;
             }
         }

@@ -220,6 +220,7 @@ public class ReactedUsersListView extends FrameLayout {
         }
         List<TLRPC.TL_messagePeerReaction> nr = new ArrayList<>(users.size());
         for (ReactedHeaderView.UserSeen p : users) {
+            if (org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, p.dialogId)) continue;
             ArrayList<TLRPC.MessagePeerReaction> userReactions = peerReactionMap.get(p.dialogId);
             if (userReactions != null) {
                continue;
@@ -283,8 +284,9 @@ public class ReactedUsersListView extends FrameLayout {
 
                     HashSet<ReactionsLayoutInBubble.VisibleReaction> visibleCustomEmojiReactions = new HashSet<>();
                     for (int i = 0; i < res.reactions.size(); i++) {
-                        userReactions.add(res.reactions.get(i));
                         long peerId = MessageObject.getPeerId(res.reactions.get(i).peer_id);
+                        if (org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, peerId)) continue;
+                        userReactions.add(res.reactions.get(i));
                         ArrayList<TLRPC.MessagePeerReaction> currentUserReactions = peerReactionMap.get(peerId);
                         if (currentUserReactions == null) {
                             currentUserReactions = new ArrayList<>();

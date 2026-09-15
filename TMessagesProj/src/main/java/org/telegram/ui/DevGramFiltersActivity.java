@@ -52,17 +52,22 @@ public class DevGramFiltersActivity extends BaseFragment {
     private static final int ID_MASTER = 1, ID_PRIVATE = 2, ID_BLOCKED = 3, ID_SHARED = 4, ID_BANS = 5;
     private static final int ID_SELECT_CHAT = 8;
     private static final int ID_IMPORT = 9, ID_EXPORT = 10, ID_CLEAR = 11, ID_ADD = 12;
-    private static final int DIALOG_BASE = 1000, RULE_BASE = 10000, BAN_BASE = 20000;
+    private static final int DIALOG_BASE = 1000, RULE_BASE = 10000, BAN_BASE = 20000, EXCLUSION_BASE = 30000;
 
     private final int mode;
     private final long scopeDialogId;
     private UniversalRecyclerView listView;
     private final ArrayList<DevGramFilterController.Rule> visibleRules = new ArrayList<>();
+    private final ArrayList<DevGramFilterController.Rule> sharedRules = new ArrayList<>();
     private final ArrayList<Long> dialogScopes = new ArrayList<>();
     private ArrayList<Long> bans = new ArrayList<>();
 
     public DevGramFiltersActivity() {
         this(MODE_ROOT, 0);
+    }
+
+    public DevGramFiltersActivity(long dialogId) {
+        this(MODE_RULES, dialogId);
     }
 
     private DevGramFiltersActivity(int mode, long scopeDialogId) {
@@ -177,15 +182,30 @@ public class DevGramFiltersActivity extends BaseFragment {
         items.add(UItem.asHeader(scopeDialogId == 0 ? "Общий набор" : dialogTitle(scopeDialogId)));
         if (visibleRules.isEmpty()) {
             items.add(UItem.asShadow("В этом наборе пока нет фильтров. Для добавления нажмите +."));
-            return;
+        } else {
+            for (int i = 0; i < visibleRules.size(); i++) {
+                DevGramFilterController.Rule rule = visibleRules.get(i);
+                UItem item = UItem.asButton(RULE_BASE + i, rule.text, ruleDescription(rule));
+                item.onBind(view -> view.setAlpha(rule.enabled ? 1f : 0.5f));
+                items.add(item);
+            }
+            items.add(UItem.asShadow("Нажмите для изменения. Удерживайте фильтр, чтобы включить, выключить или удалить его."));
         }
-        for (int i = 0; i < visibleRules.size(); i++) {
-            DevGramFilterController.Rule rule = visibleRules.get(i);
-            UItem item = UItem.asButton(RULE_BASE + i, rule.text, ruleDescription(rule));
-            item.onBind(view -> view.setAlpha(rule.enabled ? 1f : 0.5f));
-            items.add(item);
+        sharedRules.clear();
+        if (scopeDialogId != 0) {
+            for (DevGramFilterController.Rule rule : DevGramFilterController.getRules()) {
+                if (rule.dialogId == 0) sharedRules.add(rule);
+            }
+            if (!sharedRules.isEmpty()) {
+                items.add(UItem.asHeader("Общие фильтры в этом чате"));
+                for (int i = 0; i < sharedRules.size(); i++) {
+                    DevGramFilterController.Rule rule = sharedRules.get(i);
+                    items.add(UItem.asCheck(EXCLUSION_BASE + i, rule.text)
+                            .setChecked(!rule.excludedDialogs.contains(scopeDialogId)));
+                }
+                items.add(UItem.asShadow("Выключенный здесь общий фильтр продолжит работать во всех остальных чатах."));
+            }
         }
-        items.add(UItem.asShadow("Нажмите для изменения. Удерживайте фильтр, чтобы включить, выключить или удалить его."));
     }
 
     private void fillBans(ArrayList<UItem> items) {
@@ -225,6 +245,14 @@ public class DevGramFiltersActivity extends BaseFragment {
             if (index >= 0 && index < visibleRules.size()) {
                 editRule(visibleRules.get(index));
                 return;
+            }
+        } else if (item.id >= EXCLUSION_BASE) {
+            int index = item.id - EXCLUSION_BASE;
+            if (index >= 0 && index < sharedRules.size()) {
+                DevGramFilterController.Rule rule = sharedRules.get(index);
+                if (rule.excludedDialogs.contains(scopeDialogId)) rule.excludedDialogs.remove(scopeDialogId);
+                else rule.excludedDialogs.add(scopeDialogId);
+                saveVisibleRule(rule);
             }
         } else if (item.id >= BAN_BASE) {
             int index = item.id - BAN_BASE;

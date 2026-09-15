@@ -338,6 +338,8 @@ public class MessageObject {
     public Bitmap audioCover;
 
     public int currentAccount;
+    /** Temporarily bypass filtering after "Show filtered" is selected in a chat. */
+    public boolean skipDevGramFiltering;
 
     public TLRPC.TL_channelAdminLogEvent currentEvent;
 
@@ -8678,7 +8680,7 @@ public class MessageObject {
         if (type != TYPE_TEXT && type != TYPE_EMOJIS && type != TYPE_STORY_MENTION || messageOwner.peer_id == null || TextUtils.isEmpty(messageText) && !isBotPendingDraft) {
             return;
         }
-        if (DevGramFilterController.isFiltered(currentAccount, this)) {
+        if (!skipDevGramFiltering && DevGramFilterController.isFiltered(currentAccount, this)) {
             return;
         }
         boolean hasUrls = applyEntities();

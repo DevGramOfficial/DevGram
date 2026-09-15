@@ -507,6 +507,7 @@ public class ChatActivity extends BaseFragment implements
     private ActionBarMenuItem.Item feeItemText;
     private ChatNotificationsPopupWrapper chatNotificationsPopupWrapper;
     private DevGramChatActionsPopupWrapper devGramChatActionsPopupWrapper;
+    private boolean hideDevGramFilteredMessages = true;
     // private ChatActivitySideControlsButtonsLayout topButtonsLayout;
     private ChatActivitySideControlsButtonsLayout sideControlsButtonsLayout;
     private boolean pagedownButtonShowedByScroll;
@@ -4823,13 +4824,19 @@ public class ChatActivity extends BaseFragment implements
             boolean includeGhostExclusions = chatMode == MODE_DEFAULT
                     && !ChatObject.isChannelAndNotMegaGroup(currentChat)
                     && !UserObject.isUserSelf(currentUser);
-            if (includeDeletedHistory || includeGhostExclusions) {
+            boolean includeFiltering = chatMode == MODE_DEFAULT
+                    && org.telegram.messenger.DevGramFilterController.isEnabled();
+            boolean includeFilterEditor = includeFiltering
+                    && (currentUser == null || currentUser.bot);
+            if (includeDeletedHistory || includeGhostExclusions || includeFiltering) {
                 devGramChatActionsPopupWrapper = new DevGramChatActionsPopupWrapper(
                         this,
                         headerItem.getPopupLayout().getSwipeBack(),
                         getDialogId(),
                         includeDeletedHistory,
                         includeGhostExclusions,
+                        includeFiltering,
+                        includeFilterEditor,
                         headerItem::toggleSubMenu,
                         () -> presentFragment(new DevGramDeletedHistoryActivity(dialog_id, getTopicId())),
                         themeDelegate
@@ -38117,6 +38124,43 @@ public class ChatActivity extends BaseFragment implements
 
     private boolean hasSendingMessagesInBotForum;
 
+    public boolean isHideDevGramFilteredMessages() {
+        return hideDevGramFilteredMessages;
+    }
+
+    /** Reveals or hides filtered messages only for this open ChatActivity. */
+    public void switchHideDevGramFilteredMessages() {
+        hideDevGramFilteredMessages = !hideDevGramFilteredMessages;
+        for (MessageObject message : messages) {
+            if (message != null) {
+                message.skipDevGramFiltering = !hideDevGramFilteredMessages;
+                message.forceUpdate = true;
+            }
+        }
+        if (chatAdapter != null) {
+            chatAdapter.updateRowsSafe();
+            chatAdapter.notifyDataSetChanged(true);
+        }
+    }
+
+    private boolean isDevGramMessageFiltered(MessageObject message) {
+        if (message == null) return false;
+        MessageObject.GroupedMessages group = message.getGroupId() == 0 ? null : getGroup(message.getGroupId());
+        if (group == null) group = getValidGroupedMessage(message);
+        MessageObject primary = group == null ? message : group.findPrimaryMessageObject();
+        if (primary == null) primary = message;
+        return org.telegram.messenger.DevGramFilterController.isFiltered(currentAccount, primary, group);
+    }
+
+    private boolean isDevGramDayFullyFiltered(String dateKey) {
+        ArrayList<MessageObject> day = messagesByDays.get(dateKey);
+        if (day == null || day.isEmpty()) return false;
+        for (MessageObject message : day) {
+            if (message != null && !isDevGramMessageFiltered(message)) return false;
+        }
+        return true;
+    }
+
     public class ChatActivityAdapter extends RecyclerAnimationScrollHelper.AnimatableAdapter {
 
         private Context mContext;
@@ -38821,6 +38865,7 @@ public class ChatActivity extends BaseFragment implements
                 }
 
                 MessageObject message = messages.get(position - messagesStartRow);
+                message.skipDevGramFiltering = !hideDevGramFilteredMessages;
                 View view = holder.itemView;
 
                 if (view instanceof ChatMessageCell) {
@@ -39374,8 +39419,17 @@ public class ChatActivity extends BaseFragment implements
                     messages = ChatActivity.this.messages;
                 }
                 MessageObject message = messages.get(position - messagesStartRow);
-                if (org.telegram.messenger.DevGramFilterController.isFiltered(currentAccount, message)) {
-                    return -1000;
+                message.skipDevGramFiltering = !hideDevGramFilteredMessages;
+                if (hideDevGramFilteredMessages) {
+                    boolean filtered = message.isDateObject
+                            ? isDevGramDayFullyFiltered(message.dateKey)
+                            : isDevGramMessageFiltered(message);
+                    if (filtered) {
+                        if (devGramChatActionsPopupWrapper != null) {
+                            devGramChatActionsPopupWrapper.showFilteringItem();
+                        }
+                        return -1000;
+                    }
                 }
                 return message.contentType;
             } else if (position == botInfoRow) {

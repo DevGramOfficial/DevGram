@@ -117,7 +117,7 @@ public class MessageSeenView extends FrameLayout {
                     if (object instanceof TLRPC.TL_readParticipantDate) {
                         int date = ((TLRPC.TL_readParticipantDate) object).date;
                         Long peerId = ((TLRPC.TL_readParticipantDate) object).user_id;
-                        if (finalFromId == peerId) {
+                        if (finalFromId == peerId || org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, peerId)) {
                             continue;
                         }
                         TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(peerId);
@@ -129,7 +129,7 @@ public class MessageSeenView extends FrameLayout {
                         }
                     } else if (object instanceof Long) {
                         Long peerId = (Long) object;
-                        if (finalFromId == peerId) {
+                        if (finalFromId == peerId || org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, peerId)) {
                             continue;
                         }
                         if (peerId > 0) {

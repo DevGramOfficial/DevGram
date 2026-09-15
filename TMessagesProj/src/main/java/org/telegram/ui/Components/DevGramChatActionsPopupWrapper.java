@@ -20,6 +20,8 @@ import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
 import org.telegram.ui.ActionBar.ActionBarPopupWindow;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ChatActivity;
+import org.telegram.ui.DevGramFiltersActivity;
 
 import java.util.ArrayList;
 
@@ -34,6 +36,8 @@ public class DevGramChatActionsPopupWrapper {
     private final LinearLayout mainPage;
     private final LinearLayout detailPage;
     private final LinearLayout detailOptions;
+    private ActionBarMenuSubItem switchFilteringItem;
+    private boolean filteringItemShown;
     private boolean detailOpen;
 
     public DevGramChatActionsPopupWrapper(
@@ -42,6 +46,8 @@ public class DevGramChatActionsPopupWrapper {
             long dialogId,
             boolean includeHistory,
             boolean includeExclusions,
+            boolean includeFiltering,
+            boolean includeFilterEditor,
             Runnable dismissPopup,
             Runnable openHistory,
             Theme.ResourcesProvider resourcesProvider
@@ -73,6 +79,23 @@ public class DevGramChatActionsPopupWrapper {
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44));
         mainPage.addView(createGap(activity), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 8));
 
+        if (includeFilterEditor) {
+            mainPage.addView(actionItem(activity, R.drawable.msg_addfolder, "Фильтры чата", () -> {
+                dismissPopup.run();
+                fragment.presentFragment(new DevGramFiltersActivity(dialogId));
+            }, false), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        }
+        if (includeFiltering && fragment instanceof ChatActivity) {
+            switchFilteringItem = actionItem(activity, R.drawable.msg_clear_recent,
+                    "Показать отфильтрованное", () -> {
+                        ChatActivity chat = (ChatActivity) fragment;
+                        chat.switchHideDevGramFilteredMessages();
+                        switchFilteringItem.setText(chat.isHideDevGramFilteredMessages()
+                                ? "Показать отфильтрованное" : "Скрыть отфильтрованное");
+                    }, false);
+            switchFilteringItem.setVisibility(View.GONE);
+            mainPage.addView(switchFilteringItem, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        }
         if (includeHistory) {
             mainPage.addView(actionItem(activity, R.drawable.msg_archive, "История удалённых", () -> {
                 dismissPopup.run();
@@ -186,5 +209,13 @@ public class DevGramChatActionsPopupWrapper {
         swipeBackLayout.setSwipeBackDisallowed(false);
         detailPage.setVisibility(View.GONE);
         mainPage.setVisibility(View.VISIBLE);
+    }
+
+    /** AyuGram keeps this action hidden until the adapter encounters a filtered message. */
+    public void showFilteringItem() {
+        if (filteringItemShown || switchFilteringItem == null) return;
+        filteringItemShown = true;
+        switchFilteringItem.setVisibility(View.VISIBLE);
+        resizeForeground(mainPage);
     }
 }

@@ -66,6 +66,7 @@ import org.telegram.messenger.ChatThemeController;
 import org.telegram.messenger.CodeHighlighting;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DevGramBadges;
+import org.telegram.messenger.DevGramFilterController;
 import org.telegram.messenger.DevGramStreaks;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DownloadController;
@@ -302,6 +303,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         if (topic != null) {
             groupMessages = topic.groupedMessages;
         }
+        filterCurrentMessage();
         if (forumTopic != null && forumTopic.id == 1) {
             if (archivedChatsDrawable != null) {
                 archivedChatsDrawable.setCell(this);
@@ -427,6 +429,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private MessageObject message;
     private boolean isForum;
     private ArrayList<MessageObject> groupMessages;
+    private static final MessageObject[] devGramFilteredDummyMessages = new MessageObject[UserConfig.MAX_ACCOUNT_COUNT];
     private boolean clearingDialog;
     private CharSequence lastMessageString;
     private int dialogsType;
@@ -934,6 +937,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         if (message != null) {
             lastSendState = message.messageOwner.send_state;
         }
+        groupMessages = null;
+        filterCurrentMessage();
         update(0, animated);
     }
 
@@ -959,6 +964,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         if (message != null) {
             lastSendState = message.messageOwner.send_state;
         }
+        filterCurrentMessage();
         update(0, animated);
     }
 
@@ -3407,6 +3413,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                         clearingDialog = MessagesController.getInstance(currentAccount).isClearingDialog(dialog.id);
                         groupMessages = MessagesController.getInstance(currentAccount).dialogMessage.get(dialog.id);
                         message = groupMessages != null && groupMessages.size() > 0 ? groupMessages.get(0) : null;
+                        filterCurrentMessage();
                         lastUnreadState = message != null && message.isUnread();
                         TLRPC.Chat localChat = MessagesController.getInstance(currentAccount).getChat(-dialog.id);
                         boolean isForumCell = localChat != null && localChat.forum && !isTopic;
@@ -3659,6 +3666,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 dialogMuted = false;
                 drawUnmute = false;
                 message = findFolderTopMessage();
+                filterCurrentMessage();
                 if (message != null) {
                     dialogId = message.getDialogId();
                 } else {
@@ -5874,6 +5882,32 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             return null;
         }
         return captionMessage;
+    }
+
+    /** Replace filtered chat-list content with an empty local placeholder. */
+    private void filterCurrentMessage() {
+        if (message == null || message == devGramFilteredDummyMessages[currentAccount]) return;
+        MessageObject.GroupedMessages grouped = null;
+        if (groupMessages != null && groupMessages.size() > 1) {
+            grouped = new MessageObject.GroupedMessages();
+            grouped.messages = groupMessages;
+            grouped.groupId = message.getGroupId();
+        }
+        MessageObject captionMessage = getCaptionMessage();
+        if (!DevGramFilterController.isFiltered(currentAccount, message, grouped)
+                && (captionMessage == null || captionMessage == message
+                || !DevGramFilterController.isFiltered(currentAccount, captionMessage, grouped))) {
+            return;
+        }
+        MessageObject dummy = devGramFilteredDummyMessages[currentAccount];
+        if (dummy == null) {
+            TLRPC.TL_message owner = new TLRPC.TL_message();
+            owner.id = Integer.MAX_VALUE;
+            dummy = new MessageObject(currentAccount, owner, false, false);
+            devGramFilteredDummyMessages[currentAccount] = dummy;
+        }
+        message = dummy;
+        groupMessages = null;
     }
 
     public void updateMessageThumbs() {

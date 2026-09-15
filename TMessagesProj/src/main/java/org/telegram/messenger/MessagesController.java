@@ -11226,7 +11226,7 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     private String getUserNameForTyping(TLRPC.User user) {
-        if (user == null) {
+        if (user == null || DevGramFilterController.isBlocked(currentAccount, user.id)) {
             return "";
         }
         if (user.first_name != null && user.first_name.length() > 0) {

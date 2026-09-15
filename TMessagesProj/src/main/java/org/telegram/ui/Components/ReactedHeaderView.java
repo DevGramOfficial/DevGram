@@ -139,14 +139,14 @@ public class ReactedHeaderView extends FrameLayout {
                         for (Object obj : v.objects) {
                             if (obj instanceof Long) {
                                 long l = (long) obj;
-                                if (fromId != l) {
+                                if (fromId != l && !org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, l)) {
                                     usersToRequest.add(l);
                                     dates.add(0);
                                 }
                             } else if (obj instanceof TLRPC.TL_readParticipantDate) {
                                 long userId = ((TLRPC.TL_readParticipantDate) obj).user_id;
                                 int date = ((TLRPC.TL_readParticipantDate) obj).date;
-                                if (fromId != userId) {
+                                if (fromId != userId && !org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, userId)) {
                                     usersToRequest.add(userId);
                                     dates.add(date);
                                 }
@@ -273,7 +273,8 @@ public class ReactedHeaderView extends FrameLayout {
                         iconView.animate().alpha(1f).start();
                     }
                     for (TLRPC.User u : list.users) {
-                        if (message.messageOwner.from_id != null && u.id != message.messageOwner.from_id.user_id) {
+                        if (!org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, u.id)
+                                && message.messageOwner.from_id != null && u.id != message.messageOwner.from_id.user_id) {
                             boolean hasSame = false;
                             for (int i = 0; i < users.size(); i++) {
                                 if (users.get(i).dialogId == u.id) {
@@ -287,7 +288,8 @@ public class ReactedHeaderView extends FrameLayout {
                         }
                     }
                     for (TLRPC.Chat u : list.chats) {
-                        if (message.messageOwner.from_id != null && u.id != message.messageOwner.from_id.user_id) {
+                        if (!org.telegram.messenger.DevGramFilterController.isBlocked(currentAccount, -u.id)
+                                && message.messageOwner.from_id != null && u.id != message.messageOwner.from_id.user_id) {
                             boolean hasSame = false;
                             for (int i = 0; i < users.size(); i++) {
                                 if (users.get(i).dialogId == -u.id) {
