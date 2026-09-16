@@ -185,7 +185,28 @@ public class NativeLoader {
         }
     }
 
+    // ABI, которые реально кладутся в APK (см. afat abiFilters в TMessagesProj_App/build.gradle).
+    private static final String[] SHIPPED_ABIS = {"arm64-v8a", "armeabi-v7a"};
+
     public static String getAbiFolder() {
+        // DevGram: сначала выбираем папку по Build.SUPPORTED_ABIS (список того, что устройство РЕАЛЬНО
+        // может запустить, в порядке приоритета) и берём первую, которая есть в APK. Иначе на части
+        // прошивок устаревший Build.CPU_ABI врёт (напр. x86_64 на arm-устройстве) → фолбэк лез в
+        // несуществующую папку x86_64 и приложение падало на старте (can't load native libraries).
+        try {
+            String[] supported = Build.SUPPORTED_ABIS;
+            if (supported != null) {
+                for (String abi : supported) {
+                    for (String shipped : SHIPPED_ABIS) {
+                        if (shipped.equalsIgnoreCase(abi)) {
+                            return shipped;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignore) {
+        }
+
         String folder;
         try {
             String str = Build.CPU_ABI;
