@@ -249,7 +249,7 @@ public class ViewPagerFixed extends FrameLayout {
         manualScrolling = ValueAnimator.ofFloat(0, 1);
         manualScrolling.addUpdateListener(anm -> {
             float progress = (float) anm.getAnimatedValue();
-            if (viewPages[1] == null) {
+            if (viewPages[1] == null || viewPages[0] == null) {
                 return;
             }
             if (animatingForward) {
@@ -418,7 +418,10 @@ public class ViewPagerFixed extends FrameLayout {
     }
 
     protected void setTranslationX(View view, float tx) {
-        view.setTranslationX(tx);
+        // DevGram: страница вкладки могла не создаться/пересоздаться — не падаем на null.
+        if (view != null) {
+            view.setTranslationX(tx);
+        }
     }
 
     protected void invalidateBlur() {
