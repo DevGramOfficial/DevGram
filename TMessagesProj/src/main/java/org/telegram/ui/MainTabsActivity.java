@@ -159,8 +159,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
-                        final BaseFragment fragment = state.fragment;
-                        if (fragment.fragmentView == null) {
+                        final BaseFragment fragment = state == null ? null : state.fragment;
+                        // DevGram: fragment/state может быть null во время пересоздания вкладок —
+                        // при отрисовке блюра (blur3) это ловило NPE на fragment.fragmentView.
+                        if (fragment == null || fragment.fragmentView == null) {
                             continue;
                         }
                         if (!ViewPositionWatcher.computeRectInParent(fragment.fragmentView, contentView, fragmentPosition)) {
@@ -191,8 +193,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
                     for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
                         final FragmentState state = fragmentsArr.valueAt(a);
-                        final BaseFragment fragment = state.fragment;
-                        if (fragment.fragmentView == null) {
+                        final BaseFragment fragment = state == null ? null : state.fragment;
+                        // DevGram: fragment/state может быть null во время пересоздания вкладок —
+                        // при отрисовке блюра (blur3) это ловило NPE на fragment.fragmentView.
+                        if (fragment == null || fragment.fragmentView == null) {
                             continue;
                         }
                         if (!ViewPositionWatcher.computeRectInParent(fragment.fragmentView, contentView, fragmentPosition)) {
