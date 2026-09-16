@@ -33,6 +33,11 @@ public class DevGramPlugins {
 
     // Реестр проверенных плагинов: множество SHA-256 доверенных исходников (из облака).
     private static final String RTDB = "https://devgram-d03e4-default-rtdb.europe-west1.firebasedatabase.app";
+    // DevGram: реестр проверенных плагинов держит ПОСТОЯННЫЙ SSE-стрим — он занимал одно из 100
+    // бесплатных соединений Firebase на каждом клиенте. Переехал на свой push-сервис (лимита нет),
+    // формат REST/SSE совместим (тот же /plugins_verified.json и события put), сервер зеркалит запись
+    // в Firebase для старых клиентов. Каталог/отзывы (разовые запросы) остаются на RTDB.
+    private static final String VERIFIED_BASE = "https://api.devgram.space";
     private static final String FIREBASE_API_KEY = "AIzaSyAj-Fq-7707X54Yr8t51mFAkJmCLEKtYoU";
 
     // Отдельный пул потоков под сетевые запросы DevGram (каталог/бейджи/модерация и т.п.),
@@ -2350,7 +2355,7 @@ public class DevGramPlugins {
     public static void fetchVerified() {
         NET_QUEUE.execute(() -> {
             try {
-                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(RTDB + "/plugins_verified.json").openConnection();
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(VERIFIED_BASE + "/plugins_verified.json").openConnection();
                 c.setConnectTimeout(15000);
                 c.setReadTimeout(15000);
                 if (c.getResponseCode() != 200) {
@@ -2400,7 +2405,7 @@ public class DevGramPlugins {
         verifiedHashes = set;
         final String h = hash;
         NET_QUEUE.execute(() ->
-                httpVerified("PUT", RTDB + "/plugins_verified/" + h + ".json?auth=" + token, "\"verified\""));
+                httpVerified("PUT", VERIFIED_BASE + "/plugins_verified/" + h + ".json?auth=" + token, "\"verified\""));
         return true;
     }
 
@@ -2419,7 +2424,7 @@ public class DevGramPlugins {
         verifiedHashes = set;
         final String h = hash;
         NET_QUEUE.execute(() ->
-                httpVerified("DELETE", RTDB + "/plugins_verified/" + h + ".json?auth=" + token, null));
+                httpVerified("DELETE", VERIFIED_BASE + "/plugins_verified/" + h + ".json?auth=" + token, null));
         return true;
     }
 
@@ -3256,7 +3261,7 @@ public class DevGramPlugins {
                     httpVerified("PUT", RTDB + "/plugin_backups/" + key + "/" + System.currentTimeMillis() + ".json?auth=" + token, previous);
                 httpVerified("PUT", RTDB + "/plugins_catalog/" + key + ".json?auth=" + token, body);
                 if (!hash.isEmpty()) {
-                    httpVerified("PUT", RTDB + "/plugins_verified/" + hash + ".json?auth=" + token, "\"verified\"");
+                    httpVerified("PUT", VERIFIED_BASE + "/plugins_verified/" + hash + ".json?auth=" + token, "\"verified\"");
                     java.util.Set<String> set = new java.util.HashSet<>(verifiedHashes);
                     set.add(hash);
                     verifiedHashes = set;
@@ -3850,7 +3855,7 @@ public class DevGramPlugins {
         while (true) {
             java.net.HttpURLConnection conn = null;
             try {
-                conn = (java.net.HttpURLConnection) new java.net.URL(RTDB + "/plugins_verified.json").openConnection();
+                conn = (java.net.HttpURLConnection) new java.net.URL(VERIFIED_BASE + "/plugins_verified.json").openConnection();
                 conn.setRequestProperty("Accept", "text/event-stream");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(90000);
