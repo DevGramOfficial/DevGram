@@ -85,7 +85,9 @@ public final class DevGramBeta {
                             done[0] = true;
                             AndroidUtilities.cancelRunOnUIThread(timeout);
                             nc.removeObserver(holder[0], NotificationCenter.didReceiveNewMessages);
-                            callback.onResult(false, "Бот отказал в доступе");
+                            // didReceiveNewMessages может прийти с фонового потока обработки апдейтов —
+                            // колбэк дёргает UI (обновление списка/буллетин), поэтому строго на UI-поток.
+                            AndroidUtilities.runOnUIThread(() -> callback.onResult(false, "Бот отказал в доступе"));
                             return;
                         }
                         continue;
@@ -101,7 +103,9 @@ public final class DevGramBeta {
                     DevGramConfig.setBetaToken(token);
                     // подчистим служебную переписку с ботом (не мусорим в списке чатов)
                     cleanupBotChat(account, botId);
-                    callback.onResult(true, null);
+                    // строго на UI-поток: didReceiveNewMessages мог прийти с фонового потока,
+                    // а колбэк обновляет экран (иначе «сразу не обновляется» при получении токена).
+                    AndroidUtilities.runOnUIThread(() -> callback.onResult(true, null));
                     return;
                 }
             } catch (Exception ignore) {}
