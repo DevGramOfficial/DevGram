@@ -154,7 +154,8 @@ public class DevGramBadgesActivity extends BaseFragment {
 
     private void openGrantFromInput() {
         if (recipientInput == null) return;
-        long id = Utilities.parseLong(recipientInput.getText().toString());
+        // Канал в bot-API формате (-100…) приводим к внутреннему dialogId, иначе значок «не появится».
+        long id = DevGramBadges.normalizeDialogId(Utilities.parseLong(recipientInput.getText().toString()));
         if (id == 0) {
             recipientInput.animate().translationX(AndroidUtilities.dp(5)).setDuration(70).withEndAction(() ->
                     recipientInput.animate().translationX(0).setDuration(70).start()).start();

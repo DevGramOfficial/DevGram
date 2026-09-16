@@ -116,7 +116,13 @@ public class DevGramBadges {
     // (правило ".read": true), запись — по токену админа (вход email/пароль через Auth REST).
 
     // URL Realtime Database (регион europe-west1). Без завершающего слэша — ниже добавляем пути.
-    private static final String RTDB_BASE = "https://devgram-d03e4-default-rtdb.europe-west1.firebasedatabase.app";
+    // DevGram: значки переехали с Firebase RTDB на свой push-сервис api.devgram.space.
+    // У Firebase Spark лимит 100 одновременных SSE-соединений (каждый онлайн-клиент держит стрим) —
+    // при росте аудитории он пробивался. Наш сервер (gevent за Cloudflare) лимита не имеет, а формат
+    // REST/SSE полностью совместим (тот же /badges.json и события put/patch), поэтому меняется только
+    // база. Запись (грант) идёт тем же PUT/DELETE с ?auth=<idToken> — сервер проверяет админа и
+    // зеркалит в Firebase, чтобы старые версии клиента тоже видели значки в переходный период.
+    private static final String RTDB_BASE = "https://api.devgram.space";
     private static final String API_KEY = "AIzaSyAj-Fq-7707X54Yr8t51mFAkJmCLEKtYoU";
 
     private static volatile String adminIdToken; // токен админа после входа (нужен для записи)
@@ -622,7 +628,18 @@ public class DevGramBadges {
         return adminIdToken;
     }
 
-    public static void grantBadge(long dialogId, long emojiId, String textTemplate, int access) {
+    // Приводит id канала из bot-API формата (-100xxxxxxxxxx) к внутреннему dialogId (-xxxxxxxxxx).
+    // Иначе значок пишется под ключом, по которому клиент его НЕ ищет, и он «не появляется».
+    // Пользователи (>0) и обычные чаты не трогаем.
+    public static long normalizeDialogId(long id) {
+        if (id < -1000000000000L) { // -100 + channel_id  →  -channel_id
+            return id + 1000000000000L;
+        }
+        return id;
+    }
+
+    public static void grantBadge(long rawDialogId, long emojiId, String textTemplate, int access) {
+        final long dialogId = normalizeDialogId(rawDialogId);
         if (dialogId == 0) {
             return;
         }
