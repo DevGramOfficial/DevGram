@@ -46,7 +46,7 @@
 ## Скачать
 
 Актуальные APK публикуются в [официальном Telegram-канале](https://t.me/DevGramNews).
-Универсальная сборка поддерживает `arm64-v8a`, `armeabi-v7a`, `x86` и `x86_64`.
+Универсальная сборка поддерживает `arm64-v8a` и `armeabi-v7a`.
 Минимальная версия системы — **Android 7.0 (API 24)**.
 
 | Сборка | Назначение |
@@ -100,8 +100,9 @@ dgb build -a -v -nf
 [Issues](https://github.com/DevGramOfficial/DevGram/issues). Перед отправкой
 уберите из логов токены, личные сообщения и другие чувствительные данные.
 
-DevGram основан на [Telegram for Android](https://github.com/DrKLO/Telegram) и
-[Forkgram](https://github.com/forkgram/TelegramAndroid), а также развивает идеи
+DevGram основан на [Telegram for Android](https://github.com/DrKLO/Telegram),
+[Forkgram](https://github.com/forkgram/TelegramAndroid) и
+[exteraGram](https://github.com/exteraSquad/exteraGram), а также развивает идеи
 [Cherrygram](https://github.com/arslan4k1390/Cherrygram) и
 [AyuGram](https://github.com/AyuGram/AyuGram4A).
 
