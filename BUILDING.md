@@ -5,7 +5,7 @@
       - `sudo apt install google-android-platform-35-installer google-android-build-tools-35.0.0-installer google-android-ndk-r21e-installer google-android-ndk-r23c-installer openjdk-21-jdk-headless`
 
 2. Don't forget to include the submodules when you clone:
-      - `git clone --recursive https://github.com/firedragoq/DevGram.git`
+      - `git clone --recursive https://github.com/DevGramOfficial/DevGram.git`
 
 3. Build native FFmpeg and BoringSSL dependencies:
       - Go to the `TMessagesProj/jni` folder and execute the following (define the paths to your NDK and Ninja):
