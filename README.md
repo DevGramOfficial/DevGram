@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/firedragoq/DevGram/releases/latest"><img src="https://img.shields.io/badge/Скачать-APK-6C2BD9?style=for-the-badge&logo=android&logoColor=white" alt="Скачать APK"></a>
+  <a href="https://t.me/DevGramNews"><img src="https://img.shields.io/badge/Скачать-APK-6C2BD9?style=for-the-badge&logo=android&logoColor=white" alt="Скачать APK"></a>
   <a href="https://t.me/DevGramNews"><img src="https://img.shields.io/badge/Telegram-@DevGramNews-229ED9?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram канал"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/Лицензия-GPL--2.0-8A2BE2?style=for-the-badge" alt="GPL-2.0"></a>
 </p>
@@ -31,8 +31,8 @@
 
 ## Скачать
 
-Готовые универсальные APK для `arm64-v8a`, `armeabi-v7a`, `x86` и `x86_64` публикуются на странице
-[GitHub Releases](https://github.com/firedragoq/DevGram/releases/latest).
+Готовые универсальные APK для `arm64-v8a`, `armeabi-v7a`, `x86` и `x86_64`
+публикуются в канале [@DevGramNews](https://t.me/DevGramNews).
 
 | Сборка | Для чего |
 |---|---|
@@ -46,7 +46,7 @@
 ## Сборка из исходников
 
 ```bash
-git clone --recursive https://github.com/firedragoq/DevGram.git
+git clone --recursive https://github.com/DevGramOfficial/DevGram.git
 cd DevGram
 ./gradlew --no-daemon --no-parallel \
   :TMessagesProj_App:assembleAfatDebug \
