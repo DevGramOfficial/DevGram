@@ -534,7 +534,7 @@ public class DevGramPlugins {
 
     // DevGram: обновить био/"о себе" ТЕКУЩЕГО аккаунта — тот же TL-запрос, что и штатный
     // ChangeBioActivity (account.updateProfile, flags|=4 под about). Нужен плагинам, которые
-    // транслируют "сейчас играет" в профиль (см. reSwaga "Стрим в профиль").
+    // транслируют динамический статус в профиль.
     public static void updateProfileAbout(String about) {
         if (about == null) return;
         try {
@@ -1520,11 +1520,11 @@ public class DevGramPlugins {
     }
 
     // ===== Xposed-хуки Java-методов (AliuHook / LSPlant) =====
-    // Мигрировали с Pine на AliuHook (Java Xposed API поверх LSPlant + Dobby, как у exteraGram):
+    // AliuHook предоставляет Java Xposed API поверх LSPlant + Dobby:
     // надёжная установка хуков на всех Android, хук инлайненных методов, method-replacement.
     private static volatile boolean hooksReady;
 
-    // Снятие хуков по плагину (аналог XposedHookRecord у exteraGram): на reload/выгрузку снимаем.
+    // Снятие хуков по плагину: на reload/выгрузку освобождаем все регистрации.
     private static final java.util.Map<String, java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook>>
             pluginUnhooks = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -1592,7 +1592,7 @@ public class DevGramPlugins {
             }
             final String pid = pluginId;
             // Деоптимизируем метод перед хуком — иначе инлайненные/оптимизированные методы ART
-            // могут не поймать хук. Это даёт возможность хукать то, что Pine не мог (как exteraGram).
+            // могут не поймать хук. Деоптимизация делает установку хука стабильнее.
             try {
                 de.robv.android.xposed.XposedBridge.deoptimizeMethod(member);
             } catch (Throwable ignore) {
@@ -1636,8 +1636,8 @@ public class DevGramPlugins {
         return m;
     }
 
-    // ===== Полный хук-API как у exteraGram: per-hook колбэки before/after/replace =====
-    // DGMethodHook держит python-колбэки конкретного хука (аналог exteraGram PyMethodHook):
+    // ===== Полный хук-API: per-hook колбэки before/after/replace =====
+    // DGMethodHook держит Python-колбэки конкретного хука:
     // своя before/after функция на каждый хук + полная подмена метода (replace).
     static final class DGMethodHook extends de.robv.android.xposed.XC_MethodHook {
         private final String pluginId;
@@ -1764,7 +1764,7 @@ public class DevGramPlugins {
         }
     }
 
-    // ===== Утилиты AliuHook для плагинов (паритет с exteraGram) =====
+    // ===== Утилиты AliuHook для плагинов =====
     // Вызвать ОРИГИНАЛ метода в обход хуков — типично внутри before/replace-колбэка,
     // чтобы условно выполнить оригинал и/или доработать его результат.
     public static Object invokeOriginal(de.robv.android.xposed.XC_MethodHook.MethodHookParam param) throws Throwable {
@@ -3204,7 +3204,9 @@ public class DevGramPlugins {
             final String key = safeKey(e.id);
             NET_QUEUE.execute(() ->
             {
-                httpVerified("PUT", RTDB + "/plugins_pending/" + key + ".json", body);
+                // Правило /plugins_pending требует auth != null и submitterUid === auth.uid,
+                // поэтому пишем с анонимным токеном (его uid = firebaseAnonUid() = submitterUid).
+                httpVerified("PUT", RTDB + "/plugins_pending/" + key + ".json?auth=" + firebaseAnonToken(), body);
                 appendPluginHistory(e.id, e.update ? "update_submitted" : "submitted", e.version, e.submitterId, e.submitterName, null);
             });
             return 1;
@@ -3231,8 +3233,9 @@ public class DevGramPlugins {
                 if (e.submitterUid != null && !e.submitterUid.isEmpty()) {
                     String key = safeKey(e.id);
                     boolean written = false;
+                    final String anonToken = firebaseAnonToken(); // auth для правила /plugins_pending
                     for (int attempt = 0; attempt < 3 && !written; attempt++) {
-                        written = httpVerified("PUT", RTDB + "/plugins_pending/" + key + ".json", entryJson(e).toString());
+                        written = httpVerified("PUT", RTDB + "/plugins_pending/" + key + ".json?auth=" + anonToken, entryJson(e).toString());
                     }
                     if (written && nodeHasKey("plugins_pending", key)) {
                         appendPluginHistory(e.id, e.update ? "update_submitted" : "submitted", e.version, e.submitterId, e.submitterName, null);
