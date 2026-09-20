@@ -38,23 +38,15 @@ public class DevGramPluginInstallSheet {
 
     // Лист установки .dgplugin-пакета — ТА ЖЕ карточка, что и у .plugin (единая логика).
     public static void showPackage(BaseFragment fragment, String path, long sourceDialogId) {
-        if (DevGramPlugins.packageIsEncrypted(path)) {
-            requestPackagePassword(fragment, path, sourceDialogId);
-            return;
-        }
-        showPackage(fragment, path, sourceDialogId, "");
-    }
-
-    private static void showPackage(BaseFragment fragment, String path, long sourceDialogId, String password) {
         Context context = fragment.getParentActivity();
         if (context == null || path == null) return;
-        String validationError = DevGramPlugins.packageValidationError(path, password);
+        String validationError = DevGramPlugins.packageValidationError(path);
         if (!validationError.isEmpty()) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
                     .createErrorBulletin(validationError).show();
             return;
         }
-        String[] m = DevGramPlugins.packageMeta(path, password).split("\u001f", -1);
+        String[] m = DevGramPlugins.packageMeta(path).split("\u001f", -1);
         final String id = m.length > 0 ? m[0] : "";
         String name = m.length > 1 && !m[1].isEmpty() ? m[1] : (id.isEmpty() ? "Плагин" : id);
         String ver = m.length > 2 ? m[2] : "";
@@ -62,53 +54,12 @@ public class DevGramPluginInstallSheet {
         String desc = m.length > 4 ? m[4] : "";
         String iconUrl = m.length > 5 ? m[5] : "";
         // возможности сканируем по входному файлу архива (как по исходнику у .plugin)
-        String capabilities = DevGramPlugins.packageMainSource(path, password);
+        String capabilities = DevGramPlugins.packageMainSource(path);
         // у пакета нет единого «source»-текста для реестра/каталога — verifySource=null:
         // это отключает source-зависимые кнопки (проверка/публикация), карточка при этом та же.
         String pkgSha = org.telegram.messenger.DevGramPackages.sha256File(new java.io.File(path));
         showCard(fragment, id, name, ver, author, desc, iconUrl, sourceDialogId, null, pkgSha, capabilities, path,
-                enableAfter -> DevGramPlugins.installPackage(path, id, enableAfter, password));
-    }
-
-    private static void requestPackagePassword(BaseFragment fragment, String path, long sourceDialogId) {
-        Context context = fragment.getParentActivity();
-        if (context == null || path == null) return;
-        EditTextBoldCursor passwordInput = makeInput(context, "Пароль пакета",
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        passwordInput.setTransformationMethod(PasswordTransformationMethod.getInstance());
-
-        LinearLayout box = new LinearLayout(context);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
-        box.addView(passwordInput, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle("Зашифрованный плагин");
-        builder.setMessage("Введите пароль автора, чтобы проверить и установить пакет.");
-        builder.setView(box);
-        builder.setPositiveButton("Продолжить", (dialog, which) -> {
-            String password = passwordInput.getText().toString();
-            if (password.isEmpty()) {
-                org.telegram.ui.Components.BulletinFactory.of(fragment)
-                        .createErrorBulletin("Введите пароль пакета").show();
-                AndroidUtilities.runOnUIThread(
-                        () -> requestPackagePassword(fragment, path, sourceDialogId), 180);
-                return;
-            }
-            String error = DevGramPlugins.packageValidationError(path, password);
-            if (!error.isEmpty()) {
-                org.telegram.ui.Components.BulletinFactory.of(fragment)
-                        .createErrorBulletin(error).show();
-                AndroidUtilities.runOnUIThread(
-                        () -> requestPackagePassword(fragment, path, sourceDialogId), 180);
-                return;
-            }
-            showPackage(fragment, path, sourceDialogId, password);
-        });
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        fragment.showDialog(builder.create());
-        passwordInput.requestFocus();
-        AndroidUtilities.showKeyboard(passwordInput);
+                enableAfter -> DevGramPlugins.installPackage(path, id, enableAfter));
     }
 
     public static void show(BaseFragment fragment, String source) {

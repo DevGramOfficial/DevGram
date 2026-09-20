@@ -61,16 +61,12 @@ public final class DevGramDevServer extends NanoHTTPD {
                         ApplicationLoader.applicationContext.getCacheDir());
                 java.nio.file.Files.copy(source.toPath(), upload.toPath(),
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                String packagePassword = session.getHeaders().get("x-devgram-package-password");
-                if (packagePassword == null) packagePassword = "";
-                String validationError = DevGramPlugins.packageValidationError(
-                        upload.getAbsolutePath(), packagePassword);
+                String validationError = DevGramPlugins.packageValidationError(upload.getAbsolutePath());
                 if (validationError != null && !validationError.isEmpty()) {
                     return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT,
                             "invalid package: " + validationError);
                 }
-                boolean ok = DevGramPlugins.installPackage(
-                        upload.getAbsolutePath(), null, true, packagePassword);
+                boolean ok = DevGramPlugins.installPackage(upload.getAbsolutePath(), null, true);
                 return newFixedLengthResponse(ok ? Response.Status.OK : Response.Status.BAD_REQUEST,
                         MIME_PLAINTEXT, ok ? "installed=true" : "installed=false; plugin failed to load");
             } catch (Throwable e) {
