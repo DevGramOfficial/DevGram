@@ -123,6 +123,49 @@ def _validate_package_manifest(manifest, names):
     return plugin_id, main
 
 
+def package_is_encrypted(path):
+    """Whether a .dgplugin contains password-protected ZIP entries."""
+    try:
+        if not zipfile.is_zipfile(path):
+            return False
+        with zipfile.ZipFile(path) as archive:
+            return any(info.flag_bits & 0x1 for info in archive.infolist())
+    except Exception:
+        return False
+
+
+def _stored_package_password(path):
+    try:
+        value = jclass("org.telegram.messenger.DevGramPlugins").packagePassword(
+            os.path.basename(str(path or "")))
+        return str(value or "")
+    except Exception:
+        return ""
+
+
+def _open_package(path, password=None):
+    if not package_is_encrypted(path):
+        return zipfile.ZipFile(path)
+    password = str(password or _stored_package_password(path) or "")
+    if not password:
+        raise RuntimeError("Требуется пароль")
+    try:
+        import pyzipper
+    except Exception as error:
+        raise RuntimeError("Поддержка AES-пакетов недоступна") from error
+    archive = pyzipper.AESZipFile(path)
+    archive.setpassword(password.encode("utf-8"))
+    return archive
+
+
+def _package_error(error):
+    message = str(error or "")
+    lowered = message.lower()
+    if any(value in lowered for value in ("password", "hmac", "authentication")):
+        return "Неверный пароль"
+    return message or "Пакет повреждён"
+
+
 import time as _time
 
 _LOG_BUF = []      # кольцевой буфер полных логов плагинов (экран «Логи плагинов»)
@@ -375,12 +418,12 @@ def load_from_file(path):
         _err("load " + str(path))
     return found
 
-def load_package(path):
+def load_package(path, password=None):
     """Load a .dgplugin archive with manifest.json, main.py and optional modules."""
     if not zipfile.is_zipfile(path):
         _log('invalid .dgplugin: ' + path); return 0
     try:
-        with zipfile.ZipFile(path) as archive:
+        with _open_package(path, password) as archive:
             infos = archive.infolist()
             # DevGram: лимиты на размер пакета/файлов сняты по требованию (нужны большие
             # нативные плагины, напр. VPN-ядро). Оставляем только структурные проверки.
@@ -431,9 +474,9 @@ def delete_package_files(plugin_id):
     except Exception:
         _err('delete_package_files ' + str(plugin_id), plugin=plugin_id); return False
 
-def package_meta(path):
+def package_meta(path, password=None):
     try:
-        with zipfile.ZipFile(path) as archive:
+        with _open_package(path, password) as archive:
             infos = archive.infolist()
             names_list = archive.namelist()
             if (len(infos) > 4096 or len(names_list) != len(set(names_list))):
@@ -444,12 +487,12 @@ def package_meta(path):
     except Exception: return ''
 
 
-def validate_package(path):
+def validate_package(path, password=None):
     """Return an empty string when valid, otherwise a user-facing validation error."""
     try:
         if not zipfile.is_zipfile(path):
             return 'Файл не является архивом .dgplugin'
-        with zipfile.ZipFile(path) as archive:
+        with _open_package(path, password) as archive:
             infos = archive.infolist()
             names_list = archive.namelist()
             if len(infos) > 4096:
@@ -468,7 +511,23 @@ def validate_package(path):
                 return compat
         return ''
     except Exception as error:
-        return str(error) or 'Пакет повреждён'
+        return _package_error(error)
+
+
+def package_main_source(path, password=None):
+    """Read a source entry point without executing it; bytecode packages return ''."""
+    try:
+        with _open_package(path, password) as archive:
+            names = set(archive.namelist())
+            if 'manifest.json' not in names:
+                return ''
+            manifest = json.loads(archive.read('manifest.json').decode('utf-8'))
+            _plugin_id, main = _validate_package_manifest(manifest, names)
+            if not main.endswith('.py'):
+                return ''
+            return archive.read(main).decode('utf-8')
+    except Exception:
+        return ''
 
 
 def load_dir(dir_path):

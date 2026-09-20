@@ -2284,6 +2284,7 @@ public class DevGramPlugins {
                 if (f.exists()) {
                     f.delete();
                 }
+                forgetPackagePassword(fileName);
             }
             loader().callAttr("unload_plugin", pluginId);
             // Для .dgplugin дочищаем распакованные файлы (.devgram/<id>); для .py — no-op.
@@ -3958,21 +3959,32 @@ public class DevGramPlugins {
     }
 
     public static boolean installPackage(String sourcePath, String pluginId, boolean enable) {
+        return installPackage(sourcePath, pluginId, enable, "");
+    }
+
+    public static boolean installPackage(String sourcePath, String pluginId, boolean enable, String password) {
         if (sourcePath == null) return false;
         File tmp = null;
         File backup = null;
         File dst = null;
+        String destinationName = null;
+        String previousPassword = null;
+        boolean hadPreviousPassword = false;
         try {
             File src = new File(sourcePath);
-            PyObject validation = loader().callAttr("validate_package", sourcePath);
+            String safePassword = password == null ? "" : password;
+            PyObject validation = loader().callAttr("validate_package", sourcePath, safePassword);
             if (validation != null && !validation.toString().isEmpty()) return false;
             if (pluginId == null || pluginId.isEmpty()) {
-                PyObject meta = loader().callAttr("package_meta", sourcePath);
+                PyObject meta = loader().callAttr("package_meta", sourcePath, safePassword);
                 String raw = meta == null ? "" : meta.toString();
                 pluginId = raw.isEmpty() ? "package" : raw.split("\u001f", -1)[0];
             }
             String safe = pluginId.replaceAll("[^a-zA-Z0-9_\\-]", "_");
             dst = new File(pluginsDir(), safe + ".dgplugin");
+            destinationName = dst.getName();
+            hadPreviousPassword = prefs().contains(packagePasswordKey(destinationName));
+            previousPassword = packagePassword(destinationName);
             tmp = new File(pluginsDir(), safe + ".dgplugin.installing");
             backup = new File(pluginsDir(), safe + ".dgplugin.backup");
             java.io.FileInputStream in = new java.io.FileInputStream(src);
@@ -3989,10 +4001,13 @@ public class DevGramPlugins {
                 if (backup.exists()) backup.renameTo(dst);
                 return false;
             }
+            setPackagePassword(destinationName,
+                    packageIsEncrypted(dst.getAbsolutePath()) ? safePassword : "");
             loaded = true;
             int count = loader().callAttr("load_from_file", dst.getAbsolutePath()).toInt();
             if (count <= 0) {
                 dst.delete();
+                restorePackagePassword(destinationName, previousPassword, hadPreviousPassword);
                 if (backup.exists() && backup.renameTo(dst)) {
                     try { loader().callAttr("load_from_file", dst.getAbsolutePath()); } catch (Throwable restoreError) { FileLog.e(restoreError); }
                 }
@@ -4004,6 +4019,9 @@ public class DevGramPlugins {
         } catch (Throwable e) {
             FileLog.e(e);
             if (tmp != null) tmp.delete();
+            if (destinationName != null) {
+                restorePackagePassword(destinationName, previousPassword, hadPreviousPassword);
+            }
             if (backup != null && backup.exists()) {
                 if (dst != null) dst.delete();
                 if (backup.renameTo(dst)) {
@@ -4015,8 +4033,12 @@ public class DevGramPlugins {
     }
 
     public static String packageValidationError(String sourcePath) {
+        return packageValidationError(sourcePath, "");
+    }
+
+    public static String packageValidationError(String sourcePath, String password) {
         try {
-            PyObject result = loader().callAttr("validate_package", sourcePath);
+            PyObject result = loader().callAttr("validate_package", sourcePath, password == null ? "" : password);
             return result == null ? "Пакет повреждён" : result.toString();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -4025,37 +4047,66 @@ public class DevGramPlugins {
     }
 
     public static String packageMeta(String sourcePath) {
+        return packageMeta(sourcePath, "");
+    }
+
+    public static String packageMeta(String sourcePath, String password) {
         try {
-            PyObject result = loader().callAttr("package_meta", sourcePath);
+            PyObject result = loader().callAttr("package_meta", sourcePath, password == null ? "" : password);
             return result == null ? "" : result.toString();
         } catch (Throwable e) { FileLog.e(e); return ""; }
+    }
+
+    public static boolean packageIsEncrypted(String sourcePath) {
+        try {
+            return loader().callAttr("package_is_encrypted", sourcePath).toBoolean();
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return false;
+        }
+    }
+
+    private static String packagePasswordKey(String fileName) {
+        String safe = fileName == null ? "" : fileName.replaceAll("[^a-zA-Z0-9_.\\-]", "_");
+        return "package_password_" + safe;
+    }
+
+    public static String packagePassword(String fileName) {
+        return prefs().getString(packagePasswordKey(fileName), "");
+    }
+
+    private static void setPackagePassword(String fileName, String password) {
+        if (password == null || password.isEmpty()) {
+            prefs().edit().remove(packagePasswordKey(fileName)).apply();
+        } else {
+            prefs().edit().putString(packagePasswordKey(fileName), password).apply();
+        }
+    }
+
+    private static void forgetPackagePassword(String fileName) {
+        prefs().edit().remove(packagePasswordKey(fileName)).apply();
+    }
+
+    private static void restorePackagePassword(String fileName, String password, boolean existed) {
+        if (fileName == null) return;
+        if (existed) setPackagePassword(fileName, password);
+        else forgetPackagePassword(fileName);
     }
 
     // Прочитать исходник входного файла (main.py) из архива .dgplugin — для скана возможностей
     // в карточке установки (общей с .plugin). Возвращает "" при ошибке.
     public static String packageMainSource(String sourcePath) {
-        try (java.util.zip.ZipFile zf = new java.util.zip.ZipFile(sourcePath)) {
-            String main = "main.py";
-            java.util.zip.ZipEntry mf = zf.getEntry("manifest.json");
-            if (mf != null) {
-                try { main = new org.json.JSONObject(readZipEntry(zf, mf)).optString("main", "main.py"); }
-                catch (Throwable ignore) { }
-            }
-            java.util.zip.ZipEntry e = zf.getEntry(main);
-            return e != null ? readZipEntry(zf, e) : "";
+        return packageMainSource(sourcePath, "");
+    }
+
+    public static String packageMainSource(String sourcePath, String password) {
+        try {
+            PyObject result = loader().callAttr("package_main_source", sourcePath,
+                    password == null ? "" : password);
+            return result == null ? "" : result.toString();
         } catch (Throwable e) {
             FileLog.e(e);
             return "";
         }
-    }
-
-    private static String readZipEntry(java.util.zip.ZipFile zf, java.util.zip.ZipEntry e) throws java.io.IOException {
-        java.io.InputStream in = zf.getInputStream(e);
-        java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) > 0) bos.write(buf, 0, n);
-        in.close();
-        return new String(bos.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
     }
 }

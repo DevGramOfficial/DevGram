@@ -216,6 +216,9 @@ android {
             // libcrypto; штатный fallback tg-ws-proxy падает). Предсобранный wheel под Android.
             pip {
                 install "pycryptodome"
+                // AES-encrypted .dgplugin archives. pyzipper is pure Python; its
+                // pycryptodomex dependency is supplied by the Chaquopy package index.
+                install "pyzipper==0.3.6"
                 // Remote debugging for the DevGram plugin development server.
                 install "debugpy==1.8.16"
             }
