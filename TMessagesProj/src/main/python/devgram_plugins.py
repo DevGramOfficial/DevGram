@@ -22,7 +22,6 @@ _SEP = "\x1f"  # разделитель полей для передачи в Ja
 _plugins = []  # экземпляры плагинов
 _package_roots = {}
 _package_manifests = {}
-_PROTECTED_SOURCES_PATH = '.devgram/protected-sources.zip'
 _package_archives = {}  # plugin_id -> путь к установленному .dgplugin (для единой карточки: _filename)
 
 # Уровень API плагинов DevGram. Бампать при добавлении нового plugin-facing API
@@ -122,21 +121,6 @@ def _validate_package_manifest(manifest, names):
         if not any(filename.startswith(package + '-') for filename in wheels):
             raise ValueError('missing bundled wheel for requirement: ' + package)
     return plugin_id, main
-
-
-def _protected_sources_path(manifest, names):
-    builder = manifest.get('devgram_builder') if isinstance(manifest, dict) else None
-    protected = builder.get('protected_sources') if isinstance(builder, dict) else None
-    if not isinstance(protected, dict):
-        return ''
-    if protected.get('format') != 'aes-zip-v1':
-        raise ValueError('unsupported protected sources format')
-    path = str(protected.get('path') or _PROTECTED_SOURCES_PATH).replace('\\', '/')
-    if (not path or path.startswith('/') or '..' in path.split('/') or path not in names):
-        raise ValueError('protected sources container missing')
-    if not str(manifest.get('main', '')).endswith('.pyc'):
-        raise ValueError('protected package must use compiled entrypoint')
-    return path
 
 
 import time as _time
@@ -407,13 +391,10 @@ def load_package(path):
                 _log('missing manifest.json'); return 0
             manifest = json.loads(archive.read('manifest.json').decode('utf-8'))
             plugin_id, main = _validate_package_manifest(manifest, names)
-            protected_sources = _protected_sources_path(manifest, names)
             _remove_package_paths(plugin_id, True)
             root = os.path.join(os.path.dirname(path), '.devgram', plugin_id)
             if os.path.isdir(root): shutil.rmtree(root)
             for name in names:
-                if name == protected_sources:
-                    continue
                 if name.startswith('/') or '..' in name.split('/'):
                     raise ValueError('unsafe archive path')
                 target = os.path.join(root, name)
@@ -459,7 +440,6 @@ def package_meta(path):
                 return ''
             data = json.loads(archive.read('manifest.json').decode('utf-8'))
             _validate_package_manifest(data, set(names_list))
-            _protected_sources_path(data, set(names_list))
         return _SEP.join(str(data.get(key, '')) for key in ('id', 'name', 'version', 'author', 'description', 'icon'))
     except Exception: return ''
 
@@ -482,7 +462,6 @@ def validate_package(path):
                 return 'В пакете отсутствует manifest.json'
             manifest = json.loads(archive.read('manifest.json').decode('utf-8'))
             _validate_package_manifest(manifest, names)
-            _protected_sources_path(manifest, names)
             compat = _compat_error(manifest.get('min_app_version'),
                                    manifest.get('min_devgram') or manifest.get('min_sdk'))
             if compat:
