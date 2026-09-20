@@ -103,6 +103,10 @@ def _validate_package_manifest(manifest, names):
         raise ValueError('manifest must be an object')
     plugin_id = str(manifest.get('id', '')).strip()
     main = str(manifest.get('main', 'main.py')).strip()
+    if not main.lower().endswith('.py'):
+        raise ValueError('Точка входа плагина должна быть открытым файлом .py')
+    if any(str(name).lower().endswith(('.pyc', '.pyo')) for name in names):
+        raise ValueError('Байткод .pyc/.pyo запрещён; добавьте открытые исходники .py')
     if (not plugin_id or len(plugin_id) > 64 or
             not all(c.isalnum() or c in '._-' for c in plugin_id) or
             main not in names or main.startswith('/') or '..' in main.split('/')):

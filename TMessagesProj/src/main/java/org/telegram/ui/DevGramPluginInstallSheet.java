@@ -464,7 +464,9 @@ public class DevGramPluginInstallSheet {
                         } else {
                             makeButton.run();
                             String msg = (r == -1 ? "Плагин заблокирован — обновление запрещено"
-                                    : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
+                                    : (r == -2 ? "Файл не прошёл проверку"
+                                    : (r == -3 ? "Пакет должен содержать открытые исходники .py"
+                                    : "Не удалось отправить обновление, попробуйте ещё раз")));
                             org.telegram.ui.Components.BulletinFactory.of(fragment)
                                     .createSimpleBulletin(R.raw.error, msg).show();
                         }
@@ -596,7 +598,9 @@ public class DevGramPluginInstallSheet {
                         if (r == 1 && sheetRef[0] != null) sheetRef[0].dismiss();
                         String msg = r == 1 ? "Заявка отправлена на модерацию"
                                 : (r == -1 ? "Плагин заблокирован — публикация запрещена"
-                                : (r == -2 ? DevGramPlugins.validateCatalogEntry(ce) : "Firebase не подтвердил отправку. Нажмите ещё раз"));
+                                : (r == -2 ? DevGramPlugins.validateCatalogEntry(ce)
+                                : (r == -3 ? "Пакет должен содержать открытые исходники .py"
+                                : "Firebase не подтвердил отправку. Нажмите ещё раз")));
                         org.telegram.ui.Components.BulletinFactory.of(fragment).createSimpleBulletin(r == 1 ? R.raw.contact_check : R.raw.error, msg).show();
                         if (r == 1) { if (onSubmitted != null) onSubmitted.run(); }
                         else { row.setEnabled(true); name.setText(selected.isEmpty() ? "Без категории" : selected); }

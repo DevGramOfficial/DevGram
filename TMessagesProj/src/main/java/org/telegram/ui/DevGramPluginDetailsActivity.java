@@ -225,7 +225,9 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                     btn.setOnClickListener(v -> publishCatalogUpdate(context, btn));
                 }
                 String msg = (r == -1 ? "Плагин заблокирован — обновление запрещено"
-                        : (r == -2 ? "Файл не прошёл проверку" : "Не удалось отправить обновление, попробуйте ещё раз"));
+                        : (r == -2 ? "Файл не прошёл проверку"
+                        : (r == -3 ? "Пакет должен содержать открытые исходники .py"
+                        : "Не удалось отправить обновление, попробуйте ещё раз")));
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.error, msg).show();
             }
         };

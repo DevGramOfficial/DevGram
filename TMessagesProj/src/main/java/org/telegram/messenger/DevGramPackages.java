@@ -53,6 +53,10 @@ public final class DevGramPackages {
         if (e == null || path == null || path.isEmpty()) { AndroidUtilities.runOnUIThread(() -> cb.onResult(0)); return; }
         final File f = new File(path);
         if (!f.exists()) { AndroidUtilities.runOnUIThread(() -> cb.onResult(0)); return; }
+        if (!DevGramPlugins.packageValidationError(path).isEmpty()) {
+            AndroidUtilities.runOnUIThread(() -> cb.onResult(-3));
+            return;
+        }
         e.isPackage = true;
         e.packageSize = f.length();
         e.source = "";
