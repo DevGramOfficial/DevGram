@@ -136,7 +136,7 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_MINI_AVATARS = 36;
     private static final int ID_HIDE_CONTACTS_DIALOGS = 37;
     private static final int ID_LAST_SEEN_DOTS = 38;
-    private static final int ID_LAST_SEEN_DOTS_COLOR = 39; // цвет точек последнего захода
+    private static final int ID_LAST_SEEN_DOTS_COLOR = 178; // цвет точек последнего захода (39 занят ID_CHAT_BLUR)
     private static final int ID_CHAT_BLUR = 39;
 
     // ExteraGram 12.9.0: avatarCorners по умолчанию 28dp.
