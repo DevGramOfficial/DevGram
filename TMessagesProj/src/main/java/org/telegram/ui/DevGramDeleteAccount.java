@@ -28,47 +28,75 @@ import org.telegram.ui.Components.LayoutHelper;
  */
 public class DevGramDeleteAccount {
 
+    // Красивый BottomSheet-предупреждение (стиль «Очистить аккаунт»): иконка, заголовок,
+    // красный текст, красная кнопка «Удалить навсегда» + отмена.
     public static void confirmAndDelete(BaseFragment fragment) {
         Context context = fragment.getParentActivity();
         if (context == null) {
             return;
         }
-        // Шаг 1 — предупреждение.
-        AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Удалить аккаунт");
-        b.setMessage("Аккаунт будет удалён НАВСЕГДА со всех устройств: чаты, контакты, каналы и группы, "
-                + "созданные вами, будут потеряны. Это действие необратимо.\n\nПродолжить?");
-        b.setPositiveButton("Удалить", (d, w) -> confirmTwice(fragment));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        AlertDialog dialog = b.create();
-        fragment.showDialog(dialog);
-        AndroidUtilities.runOnUIThread(() -> {
-            android.widget.TextView btn = (android.widget.TextView) dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            if (btn != null) {
-                btn.setTextColor(Theme.getColor(Theme.key_text_RedBold));
-            }
-        });
-    }
+        final org.telegram.ui.ActionBar.Theme.ResourcesProvider rp = fragment.getResourceProvider();
 
-    private static void confirmTwice(BaseFragment fragment) {
-        Context context = fragment.getParentActivity();
-        if (context == null) {
-            return;
-        }
-        // Шаг 2 — финальное подтверждение (защита от случайного нажатия).
-        AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Точно удалить?");
-        b.setMessage("Последнее предупреждение. Восстановить аккаунт после удаления невозможно.");
-        b.setPositiveButton("Удалить навсегда", (d, w) -> checkPasswordAndDelete(fragment));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        AlertDialog dialog = b.create();
-        fragment.showDialog(dialog);
-        AndroidUtilities.runOnUIThread(() -> {
-            android.widget.TextView btn = (android.widget.TextView) dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            if (btn != null) {
-                btn.setTextColor(Theme.getColor(Theme.key_text_RedBold));
-            }
+        android.widget.LinearLayout col = new android.widget.LinearLayout(context);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(22), AndroidUtilities.dp(20), AndroidUtilities.dp(12));
+
+        android.widget.ImageView icon = new android.widget.ImageView(context);
+        icon.setImageResource(R.drawable.msg_delete);
+        icon.setColorFilter(new android.graphics.PorterDuffColorFilter(
+                Theme.getColor(Theme.key_text_RedRegular, rp), android.graphics.PorterDuff.Mode.SRC_IN));
+        col.addView(icon, org.telegram.ui.Components.LayoutHelper.createLinear(52, 52, android.view.Gravity.CENTER_HORIZONTAL, 0, 4, 0, 12));
+
+        android.widget.TextView title = new android.widget.TextView(context);
+        title.setText("Удалить аккаунт");
+        title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
+        title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20);
+        title.setTypeface(AndroidUtilities.bold());
+        title.setGravity(android.view.Gravity.CENTER);
+        col.addView(title, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 8));
+
+        android.widget.TextView warn = new android.widget.TextView(context);
+        warn.setText("Аккаунт будет удалён НАВСЕГДА со всех устройств: чаты, контакты, а также каналы "
+                + "и группы, созданные вами. Восстановить его будет невозможно.");
+        warn.setTextColor(Theme.getColor(Theme.key_text_RedRegular, rp));
+        warn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
+        warn.setGravity(android.view.Gravity.CENTER);
+        col.addView(warn, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 20));
+
+        org.telegram.ui.ActionBar.BottomSheet.Builder builder = new org.telegram.ui.ActionBar.BottomSheet.Builder(context);
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(context);
+        frame.addView(col, org.telegram.ui.Components.LayoutHelper.createFrame(-1, -2));
+        builder.setCustomView(frame);
+        final org.telegram.ui.ActionBar.BottomSheet sheet = builder.create();
+
+        android.widget.TextView del = new android.widget.TextView(context);
+        del.setText("Удалить навсегда");
+        del.setGravity(android.view.Gravity.CENTER);
+        del.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
+        del.setTypeface(AndroidUtilities.bold());
+        del.setTextColor(0xFFFFFFFF);
+        del.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12),
+                Theme.getColor(Theme.key_text_RedRegular, rp), Theme.getColor(Theme.key_text_RedBold, rp)));
+        del.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+        del.setOnClickListener(v -> {
+            sheet.dismiss();
+            checkPasswordAndDelete(fragment);
         });
+        col.addView(del, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 8));
+
+        android.widget.TextView cancel = new android.widget.TextView(context);
+        cancel.setText(LocaleController.getString(R.string.Cancel));
+        cancel.setGravity(android.view.Gravity.CENTER);
+        cancel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
+        cancel.setTypeface(AndroidUtilities.bold());
+        cancel.setTextColor(Theme.getColor(Theme.key_dialogTextGray2, rp));
+        cancel.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12),
+                Theme.getColor(Theme.key_listSelector, rp), Theme.getColor(Theme.key_listSelector, rp)));
+        cancel.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+        cancel.setOnClickListener(v -> sheet.dismiss());
+        col.addView(cancel, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 4));
+
+        sheet.show();
     }
 
     // Узнаём, включён ли 2FA. Если да — просим пароль, иначе удаляем сразу.
