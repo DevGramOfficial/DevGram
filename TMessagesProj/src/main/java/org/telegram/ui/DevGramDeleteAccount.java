@@ -82,19 +82,7 @@ public class DevGramDeleteAccount {
             sheet.dismiss();
             checkPasswordAndDelete(fragment);
         });
-        col.addView(del, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 8));
-
-        android.widget.TextView cancel = new android.widget.TextView(context);
-        cancel.setText(LocaleController.getString(R.string.Cancel));
-        cancel.setGravity(android.view.Gravity.CENTER);
-        cancel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
-        cancel.setTypeface(AndroidUtilities.bold());
-        cancel.setTextColor(Theme.getColor(Theme.key_dialogTextGray2, rp));
-        cancel.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12),
-                Theme.getColor(Theme.key_listSelector, rp), Theme.getColor(Theme.key_listSelector, rp)));
-        cancel.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
-        cancel.setOnClickListener(v -> sheet.dismiss());
-        col.addView(cancel, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 4));
+        col.addView(del, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 6));
 
         sheet.show();
     }
