@@ -295,21 +295,9 @@ public class DevGramOtherActivity extends BaseFragment {
 
     // Удаление аккаунта необратимо — открываем официальный экран Telegram (Конфиденциальность).
     private void confirmDeleteAccount() {
-        if (getParentActivity() == null) {
-            return;
-        }
-        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Удалить аккаунт");
-        b.setMessage("Удаление аккаунта Telegram необратимо. Откроем официальный раздел «Конфиденциальность», "
-                + "где можно управлять удалением аккаунта.");
-        b.setPositiveButton("Открыть", (d, w) -> presentFragment(new PrivacySettingsActivity()));
-        b.setNegativeButton("Отмена", null);
-        AlertDialog dlg = b.create();
-        showDialog(dlg);
-        TextView btn = (TextView) dlg.getButton(AlertDialog.BUTTON_POSITIVE);
-        if (btn != null) {
-            btn.setTextColor(Theme.getColor(Theme.key_text_RedBold));
-        }
+        // Реальное удаление аккаунта прямо из клиента (account.deleteAccount + 2FA).
+        // Раньше кнопка лишь открывала раздел «Конфиденциальность» (только автоудаление по TTL).
+        DevGramDeleteAccount.confirmAndDelete(this);
     }
 
     // Tonkeeper: сперва пытаемся открыть кошелёк напрямую (ton://transfer), иначе — универсальная ссылка.

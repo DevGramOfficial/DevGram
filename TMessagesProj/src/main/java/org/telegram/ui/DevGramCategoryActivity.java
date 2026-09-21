@@ -108,7 +108,6 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_SAT_SAVING = 810;
     private static final int ID_MOTION_PHOTO = 811;
     private static final int ID_TABLET_MODE = 812;
-    private static final int ID_DELETE_ACCOUNT = 815; // полное удаление Telegram-аккаунта
     private static final int ID_LINK_REPLACE = 813;
     private static final int ID_DEF_FOLDER = 814;
     // Внешний вид
@@ -1222,12 +1221,6 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(org.telegram.messenger.SharedConfig.forceDisableTabletMode));
             items.add(UItem.asShadow("Планшетный режим — двухколоночный интерфейс на широком экране; "
                     + "его отключение перезапустит приложение."));
-
-            // — Аккаунт: полное удаление Telegram-аккаунта прямо из клиента.
-            items.add(UItem.asHeader("Аккаунт"));
-            items.add(UItem.asButton(ID_DELETE_ACCOUNT, R.drawable.msg_delete, "Удалить мой аккаунт").red());
-            items.add(UItem.asShadow("Удаляет ваш Telegram-аккаунт НАВСЕГДА со всех устройств. "
-                    + "Необратимо. При включённой двухэтапной проверке спросит облачный пароль."));
         }
     }
 
@@ -1578,9 +1571,6 @@ public class DevGramCategoryActivity extends BaseFragment {
             org.telegram.messenger.ApplicationLoader.setSatelliteDataSavingEnabled(gPref("satelliteDataSaving", true));
         } else if (item.id == ID_LINK_REPLACE) {
             presentFragment(new LinkReplacementsActivity());
-            return;
-        } else if (item.id == ID_DELETE_ACCOUNT) {
-            DevGramDeleteAccount.confirmAndDelete(this);
             return;
         } else if (item.id == ID_TABLET_MODE) {
             org.telegram.messenger.SharedConfig.toggleForceDisableTabletMode();
