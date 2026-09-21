@@ -154,10 +154,13 @@ public class DevGramProxy {
         }
     }
 
-    // Наш скрытый SOCKS5-прокси в виде ProxySettings (новый API 12.10.4).
+    // Наш скрытый MTProto fake-TLS прокси в виде ProxySettings (новый API 12.10.4).
+    // ВАЖНО: тип именно MTPROTO — только он сохраняет secret в конструкторе ProxySettings;
+    // при Type.SOCKS5 секрет обнуляется (secret = "") → native получает пустой секрет,
+    // fake-TLS не поднимается и прокси молча не работает.
     private static org.telegram.proxy.ProxySettings ourProxySettings() {
         return org.telegram.proxy.ProxySettings.builder()
-                .setType(org.telegram.proxy.ProxySettings.Type.SOCKS5)
+                .setType(org.telegram.proxy.ProxySettings.Type.MTPROTO)
                 .setAddress(ADDRESS)
                 .setPort(PORT)
                 .setSecret(SECRET)
