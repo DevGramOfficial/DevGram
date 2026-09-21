@@ -108,6 +108,7 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_SAT_SAVING = 810;
     private static final int ID_MOTION_PHOTO = 811;
     private static final int ID_TABLET_MODE = 812;
+    private static final int ID_CONFIRM_CALLS = 815; // подтверждение перед звонком (как AyuGram)
     private static final int ID_LINK_REPLACE = 813;
     private static final int ID_DEF_FOLDER = 814;
     // Внешний вид
@@ -1221,6 +1222,10 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(org.telegram.messenger.SharedConfig.forceDisableTabletMode));
             items.add(UItem.asShadow("Планшетный режим — двухколоночный интерфейс на широком экране; "
                     + "его отключение перезапустит приложение."));
+
+            items.add(UItem.asCheck(ID_CONFIRM_CALLS, "Подтверждение звонка")
+                    .setChecked(gPref("dg_confirmCalls", false)));
+            items.add(UItem.asShadow("Спрашивает подтверждение перед началом звонка, чтобы не позвонить случайно."));
         }
     }
 
@@ -1572,6 +1577,8 @@ public class DevGramCategoryActivity extends BaseFragment {
         } else if (item.id == ID_LINK_REPLACE) {
             presentFragment(new LinkReplacementsActivity());
             return;
+        } else if (item.id == ID_CONFIRM_CALLS) {
+            gToggle("dg_confirmCalls", false);
         } else if (item.id == ID_TABLET_MODE) {
             org.telegram.messenger.SharedConfig.toggleForceDisableTabletMode();
             refreshList();
