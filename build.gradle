@@ -8,10 +8,13 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.google.gms:google-services:4.4.2'          // DevGram: FCM push
+        classpath 'com.chaquo.python:gradle:16.1.0'               // DevGram: Python-плагины (Chaquopy)
     }
 }
 repositories {
     google()
+    maven { url "https://chaquo.com/maven" }                       // DevGram: рантайм Chaquopy
 }
 
 // Strip JLatexMath fonts we don't ship (transitive AAR assets from

@@ -5,7 +5,14 @@ plugins {
 
 gradlePlugin {
     plugins {
-        // DevGram: LottieMetaPlugin убран — ResLottieMeta стаббим вручную (runtime-парсинг lottie)
+        register("telegramBuildPlugin") {
+            id = "org.telegram.build-plugin"
+            implementationClass = "org.telegram.plugin.TelegramBuildPlugin"
+        }
+        register("telegramBuildAppPlugin") {
+            id = "org.telegram.build-app-plugin"
+            implementationClass = "org.telegram.plugin.TelegramBuildAppPlugin"
+        }
         register("testGenerator") {
             id = "test-generator"
             implementationClass = "com.example.TestGeneratorPlugin"
@@ -33,11 +40,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 dependencies {
     implementation(gradleApi())
-    // DevGram: AGP 8.10.1 и gson убраны — были нужны только удалённому LottieMetaPlugin,
-    // а AGP 8.10.1 в classpath buildSrc ломал Chaquopy 16.1.0 (packageDebugAssets).
+    implementation("com.android.tools.build:gradle:8.13.2")
 
     implementation("com.squareup.moshi:moshi:1.15.0")
     implementation("com.squareup.moshi:moshi-kotlin:1.15.0")
     implementation("com.github.javaparser:javaparser-core:3.25.4")
     implementation("com.squareup:kotlinpoet:1.15.0")
+    implementation("com.google.code.gson:gson:2.11.0")
 }

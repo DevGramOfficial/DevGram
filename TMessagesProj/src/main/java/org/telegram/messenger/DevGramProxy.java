@@ -79,7 +79,7 @@ public class DevGramProxy {
         MessagesController.getGlobalMainSettings().edit().putBoolean(FLAG, enable).apply();
         if (enable) {
             ensureLocalStarted();
-            ConnectionsManager.setProxySettings(true, ADDRESS, PORT, "", "", SECRET);
+            ConnectionsManager.setProxySettings(true, ourProxySettings());
         } else {
             try {
                 DevGramPlugins.stopWsProxy();
@@ -115,7 +115,7 @@ public class DevGramProxy {
         try {
             SharedConfig.loadProxyList();
             for (SharedConfig.ProxyInfo info : new java.util.ArrayList<>(SharedConfig.proxyList)) {
-                if (isOurs(info.address)) {
+                if (isOurs(info.settings.getAddress())) {
                     SharedConfig.deleteProxy(info);
                 }
             }
@@ -124,7 +124,7 @@ public class DevGramProxy {
         // применить итоговое состояние (скрытый локальный прокси, если включён)
         if (isEnabled()) {
             ensureLocalStarted();
-            ConnectionsManager.setProxySettings(true, ADDRESS, PORT, "", "", SECRET);
+            ConnectionsManager.setProxySettings(true, ourProxySettings());
         }
     }
 
@@ -148,10 +148,19 @@ public class DevGramProxy {
         SharedPreferences p = MessagesController.getGlobalMainSettings();
         String ip = p.getString("proxy_ip", "");
         if (p.getBoolean("proxy_enabled", false) && !TextUtils.isEmpty(ip)) {
-            ConnectionsManager.setProxySettings(true, ip, p.getInt("proxy_port", 1080),
-                    p.getString("proxy_user", ""), p.getString("proxy_pass", ""), p.getString("proxy_secret", ""));
+            ConnectionsManager.setProxySettings(true, org.telegram.proxy.ProxySettings.fromSharedPreferences(p));
         } else {
-            ConnectionsManager.setProxySettings(false, "", 0, "", "", "");
+            ConnectionsManager.setProxySettings(false, null);
         }
+    }
+
+    // Наш скрытый SOCKS5-прокси в виде ProxySettings (новый API 12.10.4).
+    private static org.telegram.proxy.ProxySettings ourProxySettings() {
+        return org.telegram.proxy.ProxySettings.builder()
+                .setType(org.telegram.proxy.ProxySettings.Type.SOCKS5)
+                .setAddress(ADDRESS)
+                .setPort(PORT)
+                .setSecret(SECRET)
+                .build();
     }
 }
