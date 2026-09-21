@@ -1052,9 +1052,14 @@ public class TL_account {
     }
 
     public static class deleteAccount extends TLObject {
-        public static final int constructor = 0x418d4e0b;
+        // Актуальная схема: account.deleteAccount#a2c0cf74 flags:# reason:string
+        //   password:flags.0?InputCheckPasswordSRP = Bool
+        // (старый конструктор 0x418d4e0b без password не удалял аккаунты с включённым 2FA).
+        public static final int constructor = 0xa2c0cf74;
 
+        public int flags;
         public String reason;
+        public TLRPC.InputCheckPasswordSRP password;
 
         public TLObject deserializeResponse(InputSerializedData stream, int constructor, boolean exception) {
             return TLRPC.Bool.TLdeserialize(stream, constructor, exception);
@@ -1062,7 +1067,11 @@ public class TL_account {
 
         public void serializeToStream(OutputSerializedData stream) {
             stream.writeInt32(constructor);
+            stream.writeInt32(flags);
             stream.writeString(reason);
+            if ((flags & 1) != 0) {
+                password.serializeToStream(stream);
+            }
         }
     }
 
