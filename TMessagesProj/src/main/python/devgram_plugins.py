@@ -543,7 +543,6 @@ def _invoke_unload(plugin):
 
 def load_from_file(path):
     """Загрузить один .py/.plugin-файл. Возвращает число найденных плагинов."""
-    from devgram import BasePlugin
     if path.endswith('.dgplugin'):
         return load_package(path)
     # Отключённые плагины и safe mode не должны выполнять даже код уровня модуля.
@@ -556,6 +555,9 @@ def load_from_file(path):
                            path, os.path.basename(path), _saved_enabled(plugin_id))
         _release_plugin_imports(plugin_id)
         return 1
+    # SDK нужен только исполняемому плагину. Выключенные плагины и safe mode выше
+    # ограничиваются AST-метаданными и не поднимают devgram со всеми его реестрами.
+    from devgram import BasePlugin
     found = 0
     try:
         package_id = next((key for key, root in _package_roots.items() if os.path.abspath(path).startswith(os.path.abspath(root) + os.sep)), None)
