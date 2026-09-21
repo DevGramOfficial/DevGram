@@ -459,4 +459,14 @@
     <string name="FolderTabsStyleIconText">Значки и названия</string>
     <string name="FolderTabsStyleIcon">Значки</string>
     <string name="FolderTabsStyleInfo">Выберите, как папки отображаются на панели вкладок. Значок можно задать в настройках каждой папки.</string>
+    <string name="ReplaceLinksOnPaste">Замена ссылок при вставке</string>
+    <string name="ReplaceLinksOnPasteInfo">Ссылки, которые вы вставляете в сообщение, переписываются по правилам ниже. Полезно для сервисов, превью которых Telegram не показывает.</string>
+    <string name="LinkReplacementRules">Правила замены</string>
+    <string name="LinkReplacementRulesInfo">Каждое правило — регулярное выражение и текст, заменяющий совпадение. Используйте \$1 для вставки захваченной группы.</string>
+    <string name="LinkReplacementAdd">Добавить правило</string>
+    <string name="LinkReplacementEdit">Изменить правило</string>
+    <string name="LinkReplacementFind">Найти</string>
+    <string name="LinkReplacementReplaceWith">Заменить на</string>
+    <string name="LinkReplacementInvalid">Неверное выражение</string>
+    <string name="FilterAllChats">Все чаты</string>
 </resources>

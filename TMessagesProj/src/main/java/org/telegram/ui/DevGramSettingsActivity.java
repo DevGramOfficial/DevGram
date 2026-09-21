@@ -38,6 +38,10 @@ import java.util.ArrayList;
 public class DevGramSettingsActivity extends BaseFragment {
 
     private UniversalRecyclerView listView;
+    // Замок настроек мода: спрашиваем код ОДИН раз на входе в настройки DevGram; внутри разделов
+    // (Основные и т.д.) уже не спрашиваем. Вышел и зашёл снова — код спросим опять (новый экземпляр).
+    private boolean modUnlocked;
+    private boolean modPrompting;
     private View headerView;
 
     // Категории (каждая открывает свой экран)
@@ -88,6 +92,32 @@ public class DevGramSettingsActivity extends BaseFragment {
         return fragmentView = contentView;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        maybePromptModLock();
+    }
+
+    // Гейт замка настроек мода — на входе в настройки DevGram (см. DevGram → Безопасность → «Замок настроек мода»).
+    private void maybePromptModLock() {
+        if (modUnlocked || modPrompting || !DevGramSettingsLock.hasCode()) {
+            return;
+        }
+        modPrompting = true;
+        DevGramSettingsLock.promptUnlock(this,
+                () -> {
+                    modUnlocked = true;
+                    modPrompting = false;
+                    if (listView != null && listView.adapter != null) {
+                        listView.adapter.update(false);
+                    }
+                },
+                () -> {
+                    modPrompting = false;
+                    finishFragment();
+                });
+    }
+
     private View createHeader(Context context) {
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -129,6 +159,10 @@ public class DevGramSettingsActivity extends BaseFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+        // Пока не разблокировано кодом — экран пустой (содержимое скрыто до ввода кода).
+        if (DevGramSettingsLock.hasCode() && !modUnlocked) {
+            return;
+        }
         if (headerView != null) {
             items.add(UItem.asCustom(headerView));
         }

@@ -561,9 +561,6 @@ public class DevGramCategoryActivity extends BaseFragment {
     private final int category;
     private UniversalRecyclerView listView;
     private boolean ghostModeExpanded;
-    // Замок настроек мода: пока не разблокировано — корневая панель (GENERAL) пустая и просит код.
-    private boolean modSettingsUnlocked;
-    private boolean modLockPrompting;
 
     public DevGramCategoryActivity(int category) {
         this.category = category;
@@ -637,10 +634,6 @@ public class DevGramCategoryActivity extends BaseFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        // Залочено кодом — не показываем содержимое корневой панели до разблокировки.
-        if (category == CATEGORY_GENERAL && DevGramSettingsLock.hasCode() && !modSettingsUnlocked) {
-            return;
-        }
         if (category == CATEGORY_GHOST) {
             org.telegram.messenger.DevGramGhostSettings.Settings ghost =
                     org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
@@ -1182,8 +1175,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             items.add(UItem.asButtonCheck(ID_RELATIVE_LAST_SEEN, "Относительное время последнего посещения",
                     org.telegram.messenger.LocaleController.formatDateOnline(fiveMinutesAgo, null))
                     .setChecked(DevGramGeneralConfig.isRelativeLastSeen()));
-            items.add(UItem.asCheck(ID_HIDE_PHONE, "Скрывать мой номер телефона")
-                    .setChecked(DevGramGeneralConfig.isHidePhoneNumber()));
+            // «Скрывать мой номер телефона» убрано отсюда — дубль с разделом Безопасность
+            // (там «Скрыть чувствительные данные» → телефон). Обработчик/конфиг оставлены.
             items.add(UItem.asButton(ID_SHOW_ID_DC, "Показывать ID и датацентр",
                     ID_DC_OPTIONS[DevGramGeneralConfig.getShowIdAndDc()]));
             items.add(UItem.asShadow("ID отображается в профиле; датацентр определяется по фотографии профиля."));
@@ -1906,26 +1899,6 @@ public class DevGramCategoryActivity extends BaseFragment {
         super.onResume();
         // Обновляем значения строк (Сервисы/Роли/…) при возврате с подэкранов.
         refreshList();
-        maybePromptModLock();
-    }
-
-    // Замок настроек мода: на корневой панели DevGram при установленном коде просим его ввести.
-    // Код задаётся в DevGram → Чаты → Безопасность → «Замок настроек мода».
-    private void maybePromptModLock() {
-        if (category != CATEGORY_GENERAL || modSettingsUnlocked || modLockPrompting || !DevGramSettingsLock.hasCode()) {
-            return;
-        }
-        modLockPrompting = true;
-        DevGramSettingsLock.promptUnlock(this,
-                () -> {
-                    modSettingsUnlocked = true;
-                    modLockPrompting = false;
-                    refreshListImmediately();
-                },
-                () -> {
-                    modLockPrompting = false;
-                    finishFragment();
-                });
     }
 
     private void refreshList() {
