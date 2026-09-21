@@ -1,0 +1,28 @@
+Build environment
+Generated: 2026-09-21T07:50:02Z
+Host OS: Linux
+Host arch: x86_64
+ABIs: armeabi-v7a arm64-v8a
+API: 21
+Jobs: 12
+Android SDK: /home/firedragoq/Android/Sdk
+Android NDK: /opt/android-sdk/ndk/27.2.12479018
+NDK version: 27.2.12479018
+NDK host tag: linux-x86_64
+Clang            Android (12470979, +pgo, +bolt, +lto, +mlgo, based on r522817c) clang version 18.0.3 (https://android.googlesource.com/toolchain/llvm-project d8003a456d14a3deb8054cdaa529ffbf02d9b262) | /opt/android-sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/clang
+CMake            cmake version 3.28.3 | /usr/bin/cmake
+Ninja            1.11.1 | /usr/bin/ninja
+Make             GNU Make 4.3 | /usr/bin/make
+NASM             <not installed>
+Yasm             yasm 1.3.0 | /usr/bin/yasm
+Meson            1.3.2 | /usr/bin/meson
+pkg-config       1.8.1 | /usr/bin/pkg-config
+gperf            GNU gperf 3.1 | /usr/bin/gperf
+Python           Python 3.12.3 | /usr/bin/python3
+Rust             rustc 1.80.0 (051478957 2024-07-21) | /home/firedragoq/.cargo/bin/rustc
+Cargo            cargo 1.80.0 (376290515 2024-07-16) | /home/firedragoq/.cargo/bin/cargo
+Go               go version go1.22.2 linux/amd64 | /usr/bin/go
+Perl              | /usr/bin/perl
+SOURCE_DATE_EPOCH: 1
+TZ: UTC
+LC_ALL: C
