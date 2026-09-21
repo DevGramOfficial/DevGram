@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -209,11 +210,22 @@ public class DevGramVoiceRecognizer {
                 loadedModels.put(language, new Model(modelsDir + "/" + language));
             }
             Model model = loadedModels.get(language);
-            DevGramVoiceConverter.LazyPcmInputStream pcm = DevGramVoiceConverter.extractAndConvertToPcm(path, false);
+            final DevGramVoiceConverter.LazyPcmInputStream pcm =
+                    DevGramVoiceConverter.extractAndConvertToPcm(path, false);
             // Частоту берём из РЕАЛЬНОГО выхода декодера (mono 16-бит), а не из контейнера —
             // иначе Vosk слышит не ту скорость и распознаёт «криво».
             float sampleRate = pcm.getOutputSampleRate();
-            final Recognizer recognizer = new Recognizer(model, sampleRate);
+            final Recognizer recognizer;
+            try {
+                recognizer = new Recognizer(model, sampleRate);
+            } catch (Throwable e) {
+                try {
+                    pcm.close();
+                } catch (Throwable ignore) {
+                }
+                throw e;
+            }
+            final AtomicBoolean resourcesClosed = new AtomicBoolean();
             new SpeechStreamService(recognizer, pcm, sampleRate).start(new RecognitionListener() {
                 @Override
                 public void onPartialResult(String hypothesis) {
@@ -229,15 +241,21 @@ public class DevGramVoiceRecognizer {
 
                 @Override
                 public void onFinalResult(String hypothesis) {
-                    callback.onCompleted(extractText(hypothesis));
-                    recognizer.close();
+                    try {
+                        callback.onCompleted(extractText(hypothesis));
+                    } finally {
+                        closeRecognitionResources(recognizer, pcm, resourcesClosed);
+                    }
                 }
 
                 @Override
                 public void onError(Exception e) {
                     FileLog.e(e);
-                    callback.onError(e);
-                    recognizer.close();
+                    try {
+                        callback.onError(e);
+                    } finally {
+                        closeRecognitionResources(recognizer, pcm, resourcesClosed);
+                    }
                 }
 
                 @Override
@@ -247,6 +265,22 @@ public class DevGramVoiceRecognizer {
         } catch (Throwable e) {
             FileLog.e(e);
             callback.onError(e instanceof Exception ? (Exception) e : new RuntimeException(e));
+        }
+    }
+
+    private static void closeRecognitionResources(Recognizer recognizer,
+                                                   DevGramVoiceConverter.LazyPcmInputStream pcm,
+                                                   AtomicBoolean closed) {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            recognizer.close();
+        } catch (Throwable ignore) {
+        }
+        try {
+            pcm.close();
+        } catch (Throwable ignore) {
         }
     }
 

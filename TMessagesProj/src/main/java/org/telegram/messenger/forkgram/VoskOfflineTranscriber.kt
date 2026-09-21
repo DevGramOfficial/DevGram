@@ -23,6 +23,17 @@ class VoskOfflineTranscriber : OfflineTranscriber {
     ): TranscriptionCancellable {
         val cancelled = AtomicBoolean(false)
         val language = DevGramConfig.getRecognitionLanguage()
+        val transcript = StringBuilder()
+
+        fun appendSegment(segment: String?): String {
+            val clean = segment?.trim()?.replace(Regex("\\s+"), " ").orEmpty()
+            if (clean.isNotEmpty()) {
+                if (transcript.isNotEmpty()) transcript.append(' ')
+                transcript.append(clean)
+            }
+            return transcript.toString()
+        }
+
         Thread({
             try {
                 DevGramVoiceRecognizer.getInstance().recognize(
@@ -30,13 +41,16 @@ class VoskOfflineTranscriber : OfflineTranscriber {
                     object : DevGramVoiceRecognizer.RecognitionCallback {
                         override fun onChunk(text: String?) {
                             if (!cancelled.get() && !text.isNullOrEmpty()) {
-                                onProgress.accept(text)
+                                // onResult содержит очередную завершённую фразу, а не всю
+                                // расшифровку. UI должен получать накопленный текст.
+                                onProgress.accept(appendSegment(text))
                             }
                         }
 
                         override fun onCompleted(text: String?) {
                             if (!cancelled.get()) {
-                                finish(text ?: "", cancelled, onFinal)
+                                // onFinalResult — только оставшийся хвост после всех onResult.
+                                finish(appendSegment(text), cancelled, onFinal)
                             }
                         }
 

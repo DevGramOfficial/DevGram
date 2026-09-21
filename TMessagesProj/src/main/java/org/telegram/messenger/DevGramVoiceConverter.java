@@ -67,7 +67,10 @@ public abstract class DevGramVoiceConverter {
         private int pcmEncoding = AudioFormat.ENCODING_PCM_16BIT;
 
         private ByteBuffer currentOutputBuffer; // уже сведённый в mono 16-бит
-        private boolean isEOS;
+        // EOS входа и выхода — разные состояния. После постановки input EOS MediaCodec ещё
+        // может отдать несколько PCM-буферов, поэтому завершаться можно только по output EOS.
+        private boolean inputEosQueued;
+        private boolean outputEosReached;
         private long totalDecodedDurationUs;
 
         public LazyPcmInputStream(String path, boolean limitToOneMinute) throws IOException {
@@ -126,7 +129,7 @@ public abstract class DevGramVoiceConverter {
 
         @Override
         public int read(byte[] out, int offset, int length) {
-            if (currentOutputBuffer == null && isEOS) {
+            if (currentOutputBuffer == null && outputEosReached) {
                 return -1;
             }
             int written = 0;
@@ -147,14 +150,17 @@ public abstract class DevGramVoiceConverter {
         // Возвращает следующий блок PCM, УЖЕ сведённый в mono 16-бит little-endian.
         private ByteBuffer nextOutputBuffer() {
             while (true) {
-                if (!isEOS) {
+                if (outputEosReached) {
+                    return null;
+                }
+                if (!inputEosQueued) {
                     int inIndex = codec.dequeueInputBuffer(10_000L);
                     if (inIndex >= 0) {
                         ByteBuffer inBuf = codec.getInputBuffer(inIndex);
                         int size = inBuf != null ? extractor.readSampleData(inBuf, 0) : -1;
                         if (size < 0) {
                             codec.queueInputBuffer(inIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                            isEOS = true;
+                            inputEosQueued = true;
                         } else {
                             codec.queueInputBuffer(inIndex, 0, size, extractor.getSampleTime(), 0);
                             extractor.advance();
@@ -186,20 +192,18 @@ public abstract class DevGramVoiceConverter {
                     codec.releaseOutputBuffer(outIndex, false);
                     totalDecodedDurationUs = bufferInfo.presentationTimeUs;
                     if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                        isEOS = true;
+                        outputEosReached = true;
                     }
                     if (limitToOneMinute && totalDecodedDurationUs >= ONE_MINUTE_US) {
-                        isEOS = true;
+                        outputEosReached = true;
                     }
                     if (mono16 != null && mono16.hasRemaining()) {
                         return mono16;
                     }
-                    if (isEOS) {
+                    if (outputEosReached) {
                         return null;
                     }
                     // пустой блок — продолжаем декодировать
-                } else if (isEOS) {
-                    return null;
                 }
             }
         }
