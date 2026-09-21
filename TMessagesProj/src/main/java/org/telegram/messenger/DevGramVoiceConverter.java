@@ -1,5 +1,6 @@
 package org.telegram.messenger;
 
+import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -7,12 +8,19 @@ import android.media.MediaFormat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 
-// DevGram: декодер голосового сообщения (ogg/opus и т.п.) в PCM для Vosk — порт FormatConverter exteraGram.
-// Чистый Android MediaCodec/MediaExtractor, без нативных зависимостей. Ленивый InputStream отдаёт PCM по мере декодирования.
+// DevGram: декодер голосового (ogg/opus и т.п.) в PCM для Vosk.
+// Vosk принимает ТОЛЬКО 16-бит signed mono little-endian PCM, поэтому конвертер:
+//   • читает реальный формат ВЫХОДА декодера (INFO_OUTPUT_FORMAT_CHANGED), а не контейнера;
+//   • сводит любое число каналов в моно (усреднением);
+//   • приводит PCM_FLOAT / 8-бит к 16-бит;
+//   • отдаёт только целые сэмплы (чётное число байт), без рассинхрона между чтениями.
+// Частоту дискретизации берём из выхода декодера (getOutputSampleRate) — её же передаём в Recognizer.
 public abstract class DevGramVoiceConverter {
 
-    // Частота дискретизации аудиодорожки файла (для создания Vosk-Recognizer). По умолчанию 48000.
+    // Частота дискретизации из контейнера (fallback, если реальный выход ещё неизвестен). По умолчанию 48000.
     public static int getSampleRate(String path) {
         MediaExtractor extractor = new MediaExtractor();
         int result = -1;
@@ -22,8 +30,8 @@ public abstract class DevGramVoiceConverter {
             for (int i = 0; i < tracks; i++) {
                 MediaFormat format = extractor.getTrackFormat(i);
                 String mime = format.getString("mime");
-                if (mime != null && mime.startsWith("audio/") && format.containsKey("sample-rate")) {
-                    result = format.getInteger("sample-rate");
+                if (mime != null && mime.startsWith("audio/") && format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+                    result = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
                     break;
                 }
             }
@@ -40,11 +48,11 @@ public abstract class DevGramVoiceConverter {
         return result == -1 ? 48000 : result;
     }
 
-    public static InputStream extractAndConvertToPcm(String path, boolean limitToOneMinute) throws IOException {
+    public static LazyPcmInputStream extractAndConvertToPcm(String path, boolean limitToOneMinute) throws IOException {
         return new LazyPcmInputStream(path, limitToOneMinute);
     }
 
-    // Ленивый поток PCM: декодирует аудио порциями через MediaCodec.
+    // Ленивый поток: декодирует аудио порциями через MediaCodec и на лету сводит в mono 16-бит PCM.
     public static class LazyPcmInputStream extends InputStream {
         private static final long ONE_MINUTE_US = 60_000_000L;
 
@@ -53,7 +61,12 @@ public abstract class DevGramVoiceConverter {
         private final boolean limitToOneMinute;
         private final MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
-        private ByteBuffer currentOutputBuffer;
+        // Реальный формат выхода декодера (обновляется по INFO_OUTPUT_FORMAT_CHANGED).
+        private int outputSampleRate;
+        private int outputChannels = 1;
+        private int pcmEncoding = AudioFormat.ENCODING_PCM_16BIT;
+
+        private ByteBuffer currentOutputBuffer; // уже сведённый в mono 16-бит
         private boolean isEOS;
         private long totalDecodedDurationUs;
 
@@ -61,15 +74,45 @@ public abstract class DevGramVoiceConverter {
             this.limitToOneMinute = limitToOneMinute;
             extractor = new MediaExtractor();
             extractor.setDataSource(path);
-            MediaFormat trackFormat = extractor.getTrackFormat(0);
-            String mime = trackFormat.getString("mime");
-            if (mime == null || !mime.startsWith("audio/")) {
+
+            int audioTrack = -1;
+            MediaFormat trackFormat = null;
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat f = extractor.getTrackFormat(i);
+                String mime = f.getString("mime");
+                if (mime != null && mime.startsWith("audio/")) {
+                    audioTrack = i;
+                    trackFormat = f;
+                    break;
+                }
+            }
+            if (audioTrack < 0 || trackFormat == null) {
+                try { extractor.release(); } catch (Throwable ignore) {}
                 throw new IOException("Not an audio file");
             }
+
+            // Стартовые значения из контейнера (уточним по реальному выходу декодера).
+            if (trackFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+                outputSampleRate = trackFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+            }
+            if (trackFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+                outputChannels = Math.max(1, trackFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
+            }
+
+            String mime = trackFormat.getString("mime");
             codec = MediaCodec.createDecoderByType(mime);
             codec.configure(trackFormat, null, null, 0);
             codec.start();
-            extractor.selectTrack(0);
+            extractor.selectTrack(audioTrack);
+
+            // Прогреваем декодер до первого PCM-чанка, чтобы знать реальный формат выхода
+            // (sample rate / каналы / encoding) ещё до создания Vosk-Recognizer.
+            currentOutputBuffer = nextOutputBuffer();
+        }
+
+        // Реальная частота дискретизации PCM на выходе (для Vosk-Recognizer).
+        public int getOutputSampleRate() {
+            return outputSampleRate > 0 ? outputSampleRate : 48000;
         }
 
         @Override
@@ -83,11 +126,11 @@ public abstract class DevGramVoiceConverter {
 
         @Override
         public int read(byte[] out, int offset, int length) {
-            if (isEOS) {
+            if (currentOutputBuffer == null && isEOS) {
                 return -1;
             }
             int written = 0;
-            while (written < length && !isEOS) {
+            while (written < length) {
                 if (currentOutputBuffer == null || !currentOutputBuffer.hasRemaining()) {
                     currentOutputBuffer = nextOutputBuffer();
                     if (currentOutputBuffer == null) {
@@ -101,37 +144,121 @@ public abstract class DevGramVoiceConverter {
             return written > 0 ? written : -1;
         }
 
+        // Возвращает следующий блок PCM, УЖЕ сведённый в mono 16-бит little-endian.
         private ByteBuffer nextOutputBuffer() {
-            while (!isEOS) {
-                int inIndex = codec.dequeueInputBuffer(10_000L);
-                if (inIndex >= 0) {
-                    ByteBuffer inBuf = codec.getInputBuffer(inIndex);
-                    int size = inBuf != null ? extractor.readSampleData(inBuf, 0) : -1;
-                    if (size < 0) {
-                        codec.queueInputBuffer(inIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                        isEOS = true;
-                    } else {
-                        codec.queueInputBuffer(inIndex, 0, size, extractor.getSampleTime(), 0);
-                        extractor.advance();
+            while (true) {
+                if (!isEOS) {
+                    int inIndex = codec.dequeueInputBuffer(10_000L);
+                    if (inIndex >= 0) {
+                        ByteBuffer inBuf = codec.getInputBuffer(inIndex);
+                        int size = inBuf != null ? extractor.readSampleData(inBuf, 0) : -1;
+                        if (size < 0) {
+                            codec.queueInputBuffer(inIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                            isEOS = true;
+                        } else {
+                            codec.queueInputBuffer(inIndex, 0, size, extractor.getSampleTime(), 0);
+                            extractor.advance();
+                        }
                     }
                 }
                 int outIndex = codec.dequeueOutputBuffer(bufferInfo, 10_000L);
+                if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    MediaFormat outFormat = codec.getOutputFormat();
+                    if (outFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+                        outputSampleRate = outFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+                    }
+                    if (outFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+                        outputChannels = Math.max(1, outFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
+                    }
+                    if (outFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                        pcmEncoding = outFormat.getInteger(MediaFormat.KEY_PCM_ENCODING);
+                    }
+                    continue;
+                }
                 if (outIndex >= 0) {
                     ByteBuffer outBuf = codec.getOutputBuffer(outIndex);
-                    ByteBuffer copy = ByteBuffer.allocate(bufferInfo.size);
-                    if (outBuf != null) {
-                        copy.put(outBuf);
+                    ByteBuffer mono16 = null;
+                    if (outBuf != null && bufferInfo.size > 0) {
+                        outBuf.position(bufferInfo.offset);
+                        outBuf.limit(bufferInfo.offset + bufferInfo.size);
+                        mono16 = toMono16(outBuf, pcmEncoding, outputChannels);
                     }
-                    copy.flip();
                     codec.releaseOutputBuffer(outIndex, false);
                     totalDecodedDurationUs = bufferInfo.presentationTimeUs;
+                    if ((bufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        isEOS = true;
+                    }
                     if (limitToOneMinute && totalDecodedDurationUs >= ONE_MINUTE_US) {
                         isEOS = true;
                     }
-                    return copy;
+                    if (mono16 != null && mono16.hasRemaining()) {
+                        return mono16;
+                    }
+                    if (isEOS) {
+                        return null;
+                    }
+                    // пустой блок — продолжаем декодировать
+                } else if (isEOS) {
+                    return null;
                 }
             }
-            return null;
+        }
+
+        // Приводит произвольный PCM (16-бит/float/8-бит, N каналов) к mono 16-бит signed little-endian.
+        private static ByteBuffer toMono16(ByteBuffer in, int encoding, int channels) {
+            in.order(ByteOrder.LITTLE_ENDIAN);
+            final int ch = Math.max(1, channels);
+            final ByteBuffer out;
+            switch (encoding) {
+                case AudioFormat.ENCODING_PCM_FLOAT: {
+                    int floats = in.remaining() / 4;
+                    int frames = floats / ch;
+                    out = ByteBuffer.allocate(frames * 2).order(ByteOrder.LITTLE_ENDIAN);
+                    for (int f = 0; f < frames; f++) {
+                        float acc = 0f;
+                        for (int c = 0; c < ch; c++) {
+                            acc += in.getFloat();
+                        }
+                        float v = acc / ch;
+                        if (v > 1f) v = 1f; else if (v < -1f) v = -1f;
+                        out.putShort((short) Math.round(v * 32767f));
+                    }
+                    break;
+                }
+                case AudioFormat.ENCODING_PCM_8BIT: {
+                    int frames = in.remaining() / ch;
+                    out = ByteBuffer.allocate(frames * 2).order(ByteOrder.LITTLE_ENDIAN);
+                    for (int f = 0; f < frames; f++) {
+                        int acc = 0;
+                        for (int c = 0; c < ch; c++) {
+                            acc += ((in.get() & 0xFF) - 128) << 8; // unsigned 8-бит -> signed 16-бит
+                        }
+                        out.putShort((short) (acc / ch));
+                    }
+                    break;
+                }
+                default: { // ENCODING_PCM_16BIT
+                    ShortBuffer shorts = in.asShortBuffer();
+                    int frames = shorts.remaining() / ch;
+                    out = ByteBuffer.allocate(frames * 2).order(ByteOrder.LITTLE_ENDIAN);
+                    if (ch == 1) {
+                        for (int f = 0; f < frames; f++) {
+                            out.putShort(shorts.get());
+                        }
+                    } else {
+                        for (int f = 0; f < frames; f++) {
+                            int acc = 0;
+                            for (int c = 0; c < ch; c++) {
+                                acc += shorts.get();
+                            }
+                            out.putShort((short) (acc / ch));
+                        }
+                    }
+                    break;
+                }
+            }
+            out.flip();
+            return out;
         }
 
         @Override

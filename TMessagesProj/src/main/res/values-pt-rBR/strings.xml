@@ -87,7 +87,7 @@
     <string name="formatterDay12HSec">h:mm:ss a</string>
     <string name="CopyWithoutProtocol">Copiar sem protocolo</string>
     <!--fork settings view-->
-    <string name="ForkSettingsTitle">Configurações do cliente Fork</string>
+    <string name="ForkSettingsTitle">Configurações do cliente DevGram</string>
     <string name="ForkCheckUpdate">Verificar atualizações</string>
     <string name="SquareAvatars">Avatares quadrados</string>
     <string name="AvatarShape">Forma do avatar</string>

@@ -174,7 +174,9 @@ public class ForkSettingsActivity extends BaseFragment {
 
     @Override
     public boolean onFragmentCreate() {
-        unlocked = !ForkSettingsLock.hasCode();
+        // DevGram: замок настроек перенесён на панель DevGram (Чаты → Безопасность),
+        // здесь скрытую dev-панель кодом больше не запираем.
+        unlocked = true;
         return super.onFragmentCreate();
     }
 
@@ -534,7 +536,7 @@ public class ForkSettingsActivity extends BaseFragment {
         if (HiddenAccountHelper.shouldShowSettingsEntry(currentAccount)) {
             items.add(UItem.asSettingsCell(ID_HIDDEN_ACCOUNTS, LocaleController.getString(R.string.HiddenAccounts), getHiddenAccountsText()));
         }
-        items.add(UItem.asSettingsCell(ID_FORK_SETTINGS_LOCK, LocaleController.getString(R.string.ForkSettingsLock), getForkSettingsLockText()));
+        // DevGram: «Замок настроек» перенесён на панель DevGram (Чаты → Безопасность).
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionAppearance)));

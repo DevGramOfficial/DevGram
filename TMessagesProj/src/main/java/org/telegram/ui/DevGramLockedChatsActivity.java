@@ -53,6 +53,23 @@ public class DevGramLockedChatsActivity extends BaseFragment {
     private static final int ID_BIO_SAVED = 8;
     private static final int ID_BIO_SECRET = 9;
     private static final int ID_BIO_DELETE = 10;
+    private static final int ID_MOD_SETTINGS_LOCK = 11; // замок на вход в настройки мода DevGram
+    // Приватность (перенос новых тумблеров 12.10.4 из скрытой Fork-панели)
+    private static final int ID_BLOCK_SCREENSHOTS = 20;
+    private static final int ID_HIDE_SENSITIVE = 21;
+    private static final int ID_HIDE_SENS_PHONE = 22;
+    private static final int ID_HIDE_SENS_USERNAME = 23;
+    private static final int ID_HIDE_SENS_BIO = 24;
+    private static final int ID_HIDE_SENS_ID = 25;
+
+    private static boolean gPref(String key, boolean def) {
+        return org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean(key, def);
+    }
+
+    private static void gToggle(String key, boolean def) {
+        org.telegram.messenger.MessagesController.getGlobalMainSettings()
+                .edit().putBoolean(key, !gPref(key, def)).apply();
+    }
     private static final int ID_CHAT_BASE = 1000;
 
     private UniversalRecyclerView listView;
@@ -101,6 +118,32 @@ public class DevGramLockedChatsActivity extends BaseFragment {
         items.add(UItem.asCustom(makeHero(getContext())));
 
         items.add(UItem.asShadow(null));
+
+        // — Замок настроек мода: 4-значный код на вход в панель настроек DevGram
+        //   (перенесён из скрытой Fork-панели; хранилище — DevGramSettingsLock/ForkSettingsLock).
+        items.add(UItem.asGraySection("Настройки мода"));
+        items.add(UItem.asButton(ID_MOD_SETTINGS_LOCK, R.drawable.outline_header_lock_24,
+                "Замок настроек мода", DevGramSettingsLock.label()));
+        items.add(UItem.asShadow("Спрашивает 4-значный код при входе в настройки DevGram. Защищает только меню мода."));
+
+        // — Приватность (перенос из скрытой Fork-панели)
+        items.add(UItem.asGraySection("Приватность"));
+        items.add(UItem.asCheck(ID_BLOCK_SCREENSHOTS, LocaleController.getString(R.string.ForceBlockScreenshots))
+                .setChecked(gPref("forceBlockScreenshots", false)));
+        items.add(UItem.asCheck(ID_HIDE_SENSITIVE, LocaleController.getString(R.string.HideSensitiveData))
+                .setChecked(gPref("hideSensitiveData", false)));
+        if (gPref("hideSensitiveData", false)) {
+            items.add(UItem.asCheck(ID_HIDE_SENS_PHONE, LocaleController.getString(R.string.HideSensitivePhone))
+                    .setChecked(gPref("hideSensitivePhone", true)));
+            items.add(UItem.asCheck(ID_HIDE_SENS_USERNAME, LocaleController.getString(R.string.HideSensitiveUsername))
+                    .setChecked(gPref("hideSensitiveUsername", true)));
+            items.add(UItem.asCheck(ID_HIDE_SENS_BIO, LocaleController.getString(R.string.HideSensitiveBio))
+                    .setChecked(gPref("hideSensitiveBio", true)));
+            items.add(UItem.asCheck(ID_HIDE_SENS_ID, LocaleController.getString(R.string.HideSensitiveId))
+                    .setChecked(gPref("hideSensitiveId", true)));
+        }
+        items.add(UItem.asShadow(LocaleController.getString(R.string.ForceBlockScreenshotsInfo)));
+
         items.add(UItem.asGraySection(LocaleController.getString(R.string.DevGramLockedChatsPasscode)));
         items.add(UItem.asButton(ID_SET_PASSCODE, R.drawable.outline_header_lock_24, hasPass
                 ? LocaleController.getString(R.string.DevGramLockedChatsChangePasscode)
@@ -226,7 +269,29 @@ public class DevGramLockedChatsActivity extends BaseFragment {
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
         int id = item.id;
-        if (id == ID_SET_PASSCODE) {
+        if (id == ID_MOD_SETTINGS_LOCK) {
+            DevGramSettingsLock.manage(this, () -> listView.adapter.update(true));
+        } else if (id == ID_BLOCK_SCREENSHOTS) {
+            gToggle("forceBlockScreenshots", false);
+            org.telegram.messenger.NotificationCenter.getGlobalInstance()
+                    .postNotificationName(org.telegram.messenger.NotificationCenter.didSetPasscode, false);
+            listView.adapter.update(true);
+        } else if (id == ID_HIDE_SENSITIVE) {
+            gToggle("hideSensitiveData", false);
+            listView.adapter.update(true);
+        } else if (id == ID_HIDE_SENS_PHONE) {
+            gToggle("hideSensitivePhone", true);
+            listView.adapter.update(true);
+        } else if (id == ID_HIDE_SENS_USERNAME) {
+            gToggle("hideSensitiveUsername", true);
+            listView.adapter.update(true);
+        } else if (id == ID_HIDE_SENS_BIO) {
+            gToggle("hideSensitiveBio", true);
+            listView.adapter.update(true);
+        } else if (id == ID_HIDE_SENS_ID) {
+            gToggle("hideSensitiveId", true);
+            listView.adapter.update(true);
+        } else if (id == ID_SET_PASSCODE) {
             DevGramPasscodeSheet.showSet(getContext(), pin -> {
                 DevGramLockedChats.setPasscode(pin);
                 listView.adapter.update(true);

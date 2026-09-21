@@ -13989,7 +13989,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 case VIEW_TYPE_HEADER:
                     HeaderCell headerCell = (HeaderCell) holder.itemView;
                     if (position == forkHeaderRow) {
-                        headerCell.setText("Fork");
+                        headerCell.setText("DevGram");
                     }
                     if (position == infoHeaderRow) {
                         if (ChatObject.isChannel(currentChat) && !currentChat.megagroup && channelInfoRow != -1) {
@@ -15082,6 +15082,30 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             this.currentAccount = fragment.getCurrentAccount();
             mContext = context;
             searchArray = onCreateSearchArray(fragment);
+            // DevGram: панель Fork-настроек доступна только пользователям с правами разработчика
+            // (команда проекта / разработчики плагинов). Для остальных убираем её пункты из поиска
+            // настроек — сама панель в меню и так скрыта, оставался лишь вход через поиск.
+            if (!org.telegram.messenger.DevGramBadges.hasDeveloperFeatures(UserConfig.getInstance(currentAccount).getClientUserId())) {
+                final String forkPath = LocaleController.getString(R.string.ForkSettingsTitle);
+                for (int a = 0; a < searchArray.length; a++) {
+                    SearchResult r = searchArray[a];
+                    if (r == null) {
+                        continue;
+                    }
+                    boolean isFork = forkPath.equals(r.searchTitle);
+                    if (!isFork && r.path != null) {
+                        for (String p : r.path) {
+                            if (forkPath.equals(p)) {
+                                isFork = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (isFork) {
+                        searchArray[a] = null;
+                    }
+                }
+            }
             updateSearchArray();
         }
 
@@ -15408,7 +15432,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     new SearchResult(1003, getString(R.string.ShowNotificationContent), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_SHOW_NOTIFICATION_CONTENT))),
                     new SearchResult(1004, getString(R.string.DropScreenshotCaption), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_DROP_SCREENSHOT_CAPTION))),
                     new SearchResult(1005, getString(R.string.HiddenAccounts), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_HIDDEN_ACCOUNTS))),
-                    new SearchResult(1058, getString(R.string.ForkSettingsLock), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_FORK_SETTINGS_LOCK))),
                     new SearchResult(1006, getString(R.string.HideInAppHints), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_HIDE_IN_APP_HINTS))),
                     new SearchResult(1007, getString(R.string.HideBottomButton), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_HIDE_BOTTOM_BUTTON))),
                     new SearchResult(1008, getString(R.string.EditAdminRank), getString(R.string.ForkSettingsTitle), R.drawable.menu_fork, () -> f.presentFragment(new ForkSettingsActivity().highlight(ForkSettingsActivity.ID_CUSTOM_TITLE))),

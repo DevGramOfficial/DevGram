@@ -104,6 +104,12 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_HIDE_ARCHIVE = 175;
     private static final int ID_ARCHIVE_ON_PULL = 176;
     private static final int ID_DISABLE_UNARCHIVE_SWIPE = 177;
+    // Перенос новых тумблеров 12.10.4 из скрытой Fork-панели
+    private static final int ID_SAT_SAVING = 810;
+    private static final int ID_MOTION_PHOTO = 811;
+    private static final int ID_TABLET_MODE = 812;
+    private static final int ID_LINK_REPLACE = 813;
+    private static final int ID_DEF_FOLDER = 814;
     // Внешний вид
     private static final int ID_DESIGN_MODE = 40; // общий пресет дизайна: DevGram/iOS/Старый
     private static final int ID_NUMBER_ROUNDING = 20;
@@ -555,6 +561,9 @@ public class DevGramCategoryActivity extends BaseFragment {
     private final int category;
     private UniversalRecyclerView listView;
     private boolean ghostModeExpanded;
+    // Замок настроек мода: пока не разблокировано — корневая панель (GENERAL) пустая и просит код.
+    private boolean modSettingsUnlocked;
+    private boolean modLockPrompting;
 
     public DevGramCategoryActivity(int category) {
         this.category = category;
@@ -628,6 +637,10 @@ public class DevGramCategoryActivity extends BaseFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+        // Залочено кодом — не показываем содержимое корневой панели до разблокировки.
+        if (category == CATEGORY_GENERAL && DevGramSettingsLock.hasCode() && !modSettingsUnlocked) {
+            return;
+        }
         if (category == CATEGORY_GHOST) {
             org.telegram.messenger.DevGramGhostSettings.Settings ghost =
                     org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
@@ -793,6 +806,7 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(gPref("dg_tabCounter", true)));
             items.add(UItem.asCheck(ID_HIDE_ALL_CHATS, "Скрыть вкладку «Все чаты»")
                     .setChecked(gPref("hideAllChatsTab", false)));
+            items.add(UItem.asButton(ID_DEF_FOLDER, "Папка по умолчанию", defaultFolderLabel()));
             items.add(UItem.asShadow("Иконки папок синхронизируются с вашим аккаунтом."));
 
             // — Внешний вид —
@@ -1194,6 +1208,18 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(DevGramConfig.streaksEnabled));
             items.add(UItem.asShadow("🔥N рядом с именем — сколько дней подряд вы общаетесь в личке "
                     + "(показывается от 3 дней). Выключишь — огоньки пропадут у всех."));
+
+            // — Дополнительно (перенос новых тумблеров 12.10.4 из скрытой Fork-панели)
+            items.add(UItem.asHeader("Дополнительно"));
+            items.add(UItem.asCheck(ID_MOTION_PHOTO, "Отключить motion photo")
+                    .setChecked(gPref("disableMotionPhoto", false)));
+            items.add(UItem.asCheck(ID_SAT_SAVING, "Экономия на спутниковых сетях")
+                    .setChecked(gPref("satelliteDataSaving", true)));
+            items.add(UItem.asButton(ID_LINK_REPLACE, "Замена ссылок при вставке"));
+            items.add(UItem.asCheck(ID_TABLET_MODE, "Отключить планшетный режим")
+                    .setChecked(org.telegram.messenger.SharedConfig.forceDisableTabletMode));
+            items.add(UItem.asShadow("Планшетный режим — двухколоночный интерфейс на широком экране; "
+                    + "его отключение перезапустит приложение."));
         }
     }
 
@@ -1534,6 +1560,27 @@ public class DevGramCategoryActivity extends BaseFragment {
             gToggle("hideAllChatsTab", false);
             refreshThenRebuildAppearanceScreens();
             return;
+        } else if (item.id == ID_DEF_FOLDER) {
+            showDefaultFolderPicker();
+            return;
+        } else if (item.id == ID_MOTION_PHOTO) {
+            gToggle("disableMotionPhoto", false);
+        } else if (item.id == ID_SAT_SAVING) {
+            gToggle("satelliteDataSaving", true);
+            org.telegram.messenger.ApplicationLoader.setSatelliteDataSavingEnabled(gPref("satelliteDataSaving", true));
+        } else if (item.id == ID_LINK_REPLACE) {
+            presentFragment(new LinkReplacementsActivity());
+            return;
+        } else if (item.id == ID_TABLET_MODE) {
+            org.telegram.messenger.SharedConfig.toggleForceDisableTabletMode();
+            refreshList();
+            android.app.Activity activity = getParentActivity();
+            if (activity != null) {
+                android.content.Intent intent = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+                activity.finishAffinity();
+                activity.startActivity(intent);
+            }
+            return;
         } else if (item.id == ID_MINI_AVATARS) {
             gToggle("disableThumbsInDialogList", false);
         } else if (item.id == ID_HIDE_CONTACTS_DIALOGS) {
@@ -1754,6 +1801,58 @@ public class DevGramCategoryActivity extends BaseFragment {
         refreshList();
     }
 
+    // Папка по умолчанию (перенос из скрытой Fork-панели): открываем этот фильтр при запуске.
+    private String defaultFolderLabel() {
+        final int id = org.telegram.messenger.MessagesController.getGlobalMainSettings().getInt("defaultFolderId", -1);
+        if (id != -1) {
+            java.util.ArrayList<org.telegram.messenger.MessagesController.DialogFilter> filters = getMessagesController().getDialogFilters();
+            for (int a = 0; a < filters.size(); a++) {
+                org.telegram.messenger.MessagesController.DialogFilter filter = filters.get(a);
+                if (!filter.isDefault() && filter.localId == id) {
+                    return filter.name;
+                }
+            }
+        }
+        return org.telegram.messenger.LocaleController.getString(R.string.FilterAllChats);
+    }
+
+    private void showDefaultFolderPicker() {
+        if (getParentActivity() == null) return;
+        java.util.ArrayList<org.telegram.messenger.MessagesController.DialogFilter> filters = getMessagesController().getDialogFilters();
+        java.util.ArrayList<CharSequence> names = new java.util.ArrayList<>();
+        java.util.ArrayList<Integer> ids = new java.util.ArrayList<>();
+        for (int a = 0; a < filters.size(); a++) {
+            org.telegram.messenger.MessagesController.DialogFilter filter = filters.get(a);
+            if (filter.isDefault()) {
+                names.add(org.telegram.messenger.LocaleController.getString(R.string.FilterAllChats));
+                ids.add(-1);
+            } else {
+                names.add(filter.name);
+                ids.add(filter.localId);
+            }
+        }
+        if (names.isEmpty()) {
+            names.add(org.telegram.messenger.LocaleController.getString(R.string.FilterAllChats));
+            ids.add(-1);
+        }
+        final int currentId = org.telegram.messenger.MessagesController.getGlobalMainSettings().getInt("defaultFolderId", -1);
+        final java.util.ArrayList<Integer> idsF = ids;
+        CharSequence[] labels = new CharSequence[names.size()];
+        for (int a = 0; a < names.size(); a++) {
+            labels[a] = (idsF.get(a) == currentId ? "✓ " : "") + names.get(a).toString();
+        }
+        org.telegram.ui.ActionBar.AlertDialog.Builder b =
+                new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
+        b.setTitle("Папка по умолчанию");
+        b.setItems(labels, (dlg, which) -> {
+            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
+                    .putInt("defaultFolderId", idsF.get(which)).apply();
+            refreshList();
+        });
+        b.setNegativeButton(org.telegram.messenger.LocaleController.getString(R.string.Cancel), null);
+        showDialog(b.create());
+    }
+
     private void showRestartRequiredBulletin() {
         BulletinFactory.of(this).createSimpleBulletin(
                 R.raw.info,
@@ -1807,6 +1906,26 @@ public class DevGramCategoryActivity extends BaseFragment {
         super.onResume();
         // Обновляем значения строк (Сервисы/Роли/…) при возврате с подэкранов.
         refreshList();
+        maybePromptModLock();
+    }
+
+    // Замок настроек мода: на корневой панели DevGram при установленном коде просим его ввести.
+    // Код задаётся в DevGram → Чаты → Безопасность → «Замок настроек мода».
+    private void maybePromptModLock() {
+        if (category != CATEGORY_GENERAL || modSettingsUnlocked || modLockPrompting || !DevGramSettingsLock.hasCode()) {
+            return;
+        }
+        modLockPrompting = true;
+        DevGramSettingsLock.promptUnlock(this,
+                () -> {
+                    modSettingsUnlocked = true;
+                    modLockPrompting = false;
+                    refreshListImmediately();
+                },
+                () -> {
+                    modLockPrompting = false;
+                    finishFragment();
+                });
     }
 
     private void refreshList() {

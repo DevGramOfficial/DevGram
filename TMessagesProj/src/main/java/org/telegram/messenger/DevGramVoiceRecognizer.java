@@ -209,8 +209,10 @@ public class DevGramVoiceRecognizer {
                 loadedModels.put(language, new Model(modelsDir + "/" + language));
             }
             Model model = loadedModels.get(language);
-            InputStream pcm = DevGramVoiceConverter.extractAndConvertToPcm(path, false);
-            float sampleRate = DevGramVoiceConverter.getSampleRate(path);
+            DevGramVoiceConverter.LazyPcmInputStream pcm = DevGramVoiceConverter.extractAndConvertToPcm(path, false);
+            // Частоту берём из РЕАЛЬНОГО выхода декодера (mono 16-бит), а не из контейнера —
+            // иначе Vosk слышит не ту скорость и распознаёт «криво».
+            float sampleRate = pcm.getOutputSampleRate();
             final Recognizer recognizer = new Recognizer(model, sampleRate);
             new SpeechStreamService(recognizer, pcm, sampleRate).start(new RecognitionListener() {
                 @Override
