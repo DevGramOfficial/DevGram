@@ -15,10 +15,10 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Обнаруживает вызовы плагинов, которые блокируют поток дольше пяти секунд. */
+/** Обнаруживает вызовы плагинов, которые слишком долго блокируют поток. */
 public final class DevGramPluginWatchdog {
 
-    private static final long TIMEOUT_SECONDS = 5L;
+    private static final long DEFAULT_TIMEOUT_SECONDS = 5L;
     private static final AtomicLong nextToken = new AtomicLong();
     private static final Map<Thread, Execution> executions = new ConcurrentHashMap<>();
     private static final Set<String> reportedPlugins = ConcurrentHashMap.newKeySet();
@@ -41,30 +41,39 @@ public final class DevGramPluginWatchdog {
         final String pluginId;
         final String pluginName;
         final String fileName;
+        final long timeoutSeconds;
         volatile ScheduledFuture<?> check;
 
-        Execution(long token, String pluginId, String pluginName, String fileName) {
+        Execution(long token, String pluginId, String pluginName, String fileName, long timeoutSeconds) {
             this.token = token;
             this.pluginId = pluginId;
             this.pluginName = pluginName;
             this.fileName = fileName;
+            this.timeoutSeconds = timeoutSeconds;
         }
     }
 
     public static long onExecutionStarted(String pluginId, String pluginName, String fileName) {
+        return onExecutionStarted(pluginId, pluginName, fileName, DEFAULT_TIMEOUT_SECONDS);
+    }
+
+    /** Lifecycle запуска может законно ждать сеть/сервис дольше обычного callback. */
+    public static long onExecutionStarted(String pluginId, String pluginName, String fileName,
+                                          long timeoutSeconds) {
         if (pluginId == null || pluginId.isEmpty()) {
             return 0L;
         }
+        timeoutSeconds = Math.max(1L, Math.min(timeoutSeconds, 120L));
         Thread thread = Thread.currentThread();
         Execution execution = new Execution(nextToken.incrementAndGet(), pluginId,
                 pluginName == null || pluginName.isEmpty() ? pluginId : pluginName,
-                fileName == null ? "" : fileName);
+                fileName == null ? "" : fileName, timeoutSeconds);
         Execution previous = executions.put(thread, execution);
         if (previous != null && previous.check != null) {
             previous.check.cancel(false);
         }
         execution.check = scheduler.schedule(() -> onTimeout(thread, execution),
-                TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                timeoutSeconds, TimeUnit.SECONDS);
         return execution.token;
     }
 
@@ -121,7 +130,8 @@ public final class DevGramPluginWatchdog {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity, fragment.getResourceProvider());
         builder.setTitle("Плагин не отвечает");
         builder.setMessage("Плагин «" + execution.pluginName
-                + "» выполняется дольше пяти секунд и может блокировать DevGram.");
+                + "» выполняется дольше " + execution.timeoutSeconds
+                + " секунд и может блокировать DevGram.");
         builder.setPositiveButton("Подождать", null);
         builder.setNegativeButton("Отключить", (dialog, which) -> {
             DevGramPlugins.forceDisableWithoutPython(execution.pluginId);

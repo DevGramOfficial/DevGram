@@ -480,8 +480,9 @@ def _release_plugin_imports(plugin_id):
 
 
 class _PluginExecution:
-    def __init__(self, plugin):
+    def __init__(self, plugin, timeout_seconds=5):
         self.plugin = plugin
+        self.timeout_seconds = timeout_seconds
         self.token = 0
 
     def __enter__(self):
@@ -489,7 +490,8 @@ class _PluginExecution:
             self.token = _PluginWatchdog.onExecutionStarted(
                 str(getattr(self.plugin, "id", "")),
                 str(getattr(self.plugin, "name", "")),
-                str(getattr(self.plugin, "_filename", "")))
+                str(getattr(self.plugin, "_filename", "")),
+                int(self.timeout_seconds))
         except Exception:
             self.token = 0
         return self
@@ -502,8 +504,8 @@ class _PluginExecution:
         return False
 
 
-def _watch(plugin):
-    return _PluginExecution(plugin)
+def _watch(plugin, timeout_seconds=5):
+    return _PluginExecution(plugin, timeout_seconds)
 
 
 def _invoke_load(plugin):
@@ -512,7 +514,9 @@ def _invoke_load(plugin):
         return
     plugin._runtime_loaded = True
     try:
-        with _watch(plugin):
+        # Запуск может синхронно поднимать локальный VPN/прокси или ждать Android Service.
+        # Для обычных хуков остаётся строгий лимит 5 секунд, lifecycle получает 30 секунд.
+        with _watch(plugin, 30):
             modern = getattr(plugin, "on_plugin_load", None)
             if modern is not None and "on_plugin_load" in type(plugin).__dict__:
                 modern()
@@ -531,7 +535,7 @@ def _invoke_unload(plugin):
     if not bool(getattr(plugin, "_runtime_loaded", False)):
         return
     try:
-        with _watch(plugin):
+        with _watch(plugin, 30):
             modern = getattr(plugin, "on_plugin_unload", None)
             if modern is not None and "on_plugin_unload" in type(plugin).__dict__:
                 modern()
