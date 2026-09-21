@@ -469,4 +469,14 @@
     <string name="LinkReplacementReplaceWith">Заменить на</string>
     <string name="LinkReplacementInvalid">Неверное выражение</string>
     <string name="FilterAllChats">Все чаты</string>
+    <string name="ForkSettingsLock">Замок настроек</string>
+    <string name="ForkSettingsLockInfo">Отдельный 4-значный код для входа в настройки DevGram. Код защищает только этот экран настроек: очистка данных приложения или установка другой сборки его сбрасывают.</string>
+    <string name="ForkSettingsLockUnlockInfo">Введите код, чтобы открыть настройки DevGram.</string>
+    <string name="ForkSettingsLockConfirmCurrentCodeInfo">Введите текущий код, чтобы изменить или снять его.</string>
+    <string name="ForkSettingsLockConfirmCodeInfo">Введите код ещё раз для подтверждения.</string>
+    <string name="ForkSettingsLockCodesDoNotMatch">Коды не совпадают. Введите код заново.</string>
+    <string name="ForkSettingsLockSetCode">Задать код</string>
+    <string name="ForkSettingsLockChangeCode">Изменить код</string>
+    <string name="ForkSettingsLockRemoveCode">Снять код</string>
+    <string name="ForkSettingsLockRemoveCodeConfirm">Настройки DevGram будут открываться без кода.</string>
 </resources>
