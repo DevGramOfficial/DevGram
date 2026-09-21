@@ -703,8 +703,12 @@ public class DevGramPlugins {
         AndroidUtilities.runOnUIThread(() -> {
             try {
                 AccountInstance ai = AccountInstance.getInstance(UserConfig.selectedAccount);
-                // 12.9.7: 17-арг (…, String mime, String caption, long dialogId, …, InputContentInfoCompat, SendMessageChatArguments, boolean)
-                SendMessagesHelper.prepareSendingDocument(ai, path, path, null, null, caption, dialogId,
+                // Порядок аргументов: (…, Uri uri, String caption, String mime, long dialogId, …).
+                // РАНЬШЕ caption и mime были перепутаны → "dgpkg:<id>" уходил в mime, а подпись
+                // терялась. modbot видел файл «без подписи», клал в uid:<id>, и при нескольких
+                // пакетах от одного автора они коллизировали — часть плагинов не архивировалась
+                // и не устанавливалась. Теперь caption на своём месте (5-й аргумент).
+                SendMessagesHelper.prepareSendingDocument(ai, path, path, null, caption, null, dialogId,
                         null, null, null, null, null, true, 0, null, null, false);
             } catch (Throwable e) {
                 FileLog.e(e);

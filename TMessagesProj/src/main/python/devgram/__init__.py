@@ -1,5 +1,5 @@
 """
-DevGram: Python API плагинов (аналог base_plugin у exteraGram).
+DevGram: публичный Python API плагинов.
 
 Плагин — это .py-файл, который определяет класс-наследник BasePlugin.
 Загрузчик (Java: DevGramPlugins) импортирует файл, находит наследника BasePlugin,
@@ -525,7 +525,7 @@ class BasePlugin:
         the tab stays up to date, e.g. showing the currently playing track). dialog_id is
         the chat the panel is currently attached to.
         on_action(anchor_view, dialog_id), if given, wires a ready-made button in the same
-        corner of the panel as the built-in tab buttons (like reSwaga's send arrow) — no
+        corner of the panel next to the built-in tab buttons — no
         core changes needed for this, it's a generic slot. If you want your own button(s)
         inside the tab instead (any position, any look), just add them in build_view and
         skip on_action entirely.
@@ -573,7 +573,7 @@ class BasePlugin:
         param_types — типы аргументов: 'int','long','boolean','java.lang.String' и т.п.
         method_name='<init>' — конструктор.
 
-        Два режима (как у exteraGram):
+        Два режима:
         • Per-hook колбэки: hook(cls, m, ...types, before=fn, after=fn, replace=fn, priority=0)
           — своя функция на ЭТОТ хук. fn(frame): frame.args/thisObject/getResult/setResult/method.
           replace=fn — ПОЛНАЯ подмена метода (оригинал не вызывается, вернёшь результат из fn).
