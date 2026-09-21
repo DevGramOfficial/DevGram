@@ -861,17 +861,22 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         if (user != null && !user.self && user.status != null) {
             final int diff = user.status.expires - currentTime;
             if (diff > 0) {
-                cachedColorOnline = Theme.getColor(Theme.key_chats_onlineCircle);
+                // «В сети» — свой цвет, если задан, иначе цвет темы.
+                int c = MessagesController.getGlobalMainSettings().getInt("lastSeenColorOnline", 0);
+                cachedColorOnline = c != 0 ? c : Theme.getColor(Theme.key_chats_onlineCircle);
             } else if (MessagesController.getGlobalMainSettings().getBoolean("enableLastSeenDots", true)) {
-                final int customLastSeen = MessagesController.getGlobalMainSettings().getInt("lastSeenDotsColor", 0);
-                if (customLastSeen != 0) {
-                    // Пользовательский единый цвет точек (окно 1 час, как у стандартного градиента).
-                    cachedColorOnline = diff > -60 * 60 ? customLastSeen : 0;
+                // 3 уровня «был(а) недавно» — у каждого свой цвет (0 = дефолт-константа).
+                if (diff > -15 * 60) {
+                    int c = MessagesController.getGlobalMainSettings().getInt("lastSeenColor15", 0);
+                    cachedColorOnline = c != 0 ? c : COLOR_LAST_SEEN_RECENT;
+                } else if (diff > -30 * 60) {
+                    int c = MessagesController.getGlobalMainSettings().getInt("lastSeenColor30", 0);
+                    cachedColorOnline = c != 0 ? c : COLOR_LAST_SEEN_MODERATE;
+                } else if (diff > -60 * 60) {
+                    int c = MessagesController.getGlobalMainSettings().getInt("lastSeenColor60", 0);
+                    cachedColorOnline = c != 0 ? c : COLOR_LAST_SEEN_STALE;
                 } else {
-                    cachedColorOnline = diff > -15 * 60 ? COLOR_LAST_SEEN_RECENT
-                        : diff > -30 * 60 ? COLOR_LAST_SEEN_MODERATE
-                        : diff > -60 * 60 ? COLOR_LAST_SEEN_STALE
-                        : 0;
+                    cachedColorOnline = 0;
                 }
             }
             if (cachedColorOnline != 0) {

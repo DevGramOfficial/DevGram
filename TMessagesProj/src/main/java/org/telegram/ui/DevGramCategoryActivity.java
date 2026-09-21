@@ -1181,7 +1181,7 @@ public class DevGramCategoryActivity extends BaseFragment {
             items.add(UItem.asCheck(ID_LAST_SEEN_DOTS, "Точки последнего захода")
                     .setChecked(gPref("enableLastSeenDots", true)));
             if (gPref("enableLastSeenDots", true)) {
-                items.add(UItem.asButton(ID_LAST_SEEN_DOTS_COLOR, "Цвет точек", lastSeenDotsColorLabel()));
+                items.add(UItem.asButton(ID_LAST_SEEN_DOTS_COLOR, "Цвет точек"));
             }
             // «Скрывать мой номер телефона» убрано отсюда — дубль с разделом Безопасность
             // (там «Скрыть чувствительные данные» → телефон). Обработчик/конфиг оставлены.
@@ -1593,7 +1593,7 @@ public class DevGramCategoryActivity extends BaseFragment {
             refreshList();
             return;
         } else if (item.id == ID_LAST_SEEN_DOTS_COLOR) {
-            showLastSeenDotsColorPicker();
+            presentFragment(new DevGramLastSeenColorsActivity());
             return;
         } else if (item.id == ID_DISABLE_MARKDOWN) {
             DevGramConfig.setDisableMarkdown(!DevGramConfig.disableMarkdown);
@@ -1855,45 +1855,6 @@ public class DevGramCategoryActivity extends BaseFragment {
         b.setItems(labels, (dlg, which) -> {
             org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
                     .putInt("defaultFolderId", idsF.get(which)).apply();
-            refreshList();
-        });
-        b.setNegativeButton(org.telegram.messenger.LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
-    }
-
-    // Точки последнего захода: пресеты цвета (0 = стандартный градиент жёлтый→оранжевый→красный).
-    private static final int[] LAST_SEEN_DOT_COLORS = {
-        0, 0xFFEA841E, 0xFFEAEA1E, 0xFFEA1E1E, 0xFF4CAF50, 0xFF2196F3, 0xFF9C27B0, 0xFF00BCD4
-    };
-    private static final String[] LAST_SEEN_DOT_NAMES = {
-        "По умолчанию (градиент)", "Оранжевый", "Жёлтый", "Красный", "Зелёный", "Синий", "Фиолетовый", "Бирюзовый"
-    };
-
-    private String lastSeenDotsColorLabel() {
-        int c = gInt("lastSeenDotsColor", 0);
-        for (int i = 0; i < LAST_SEEN_DOT_COLORS.length; i++) {
-            if (LAST_SEEN_DOT_COLORS[i] == c) {
-                return LAST_SEEN_DOT_NAMES[i];
-            }
-        }
-        return LAST_SEEN_DOT_NAMES[0];
-    }
-
-    private void showLastSeenDotsColorPicker() {
-        if (getParentActivity() == null) return;
-        final int current = gInt("lastSeenDotsColor", 0);
-        CharSequence[] labels = new CharSequence[LAST_SEEN_DOT_NAMES.length];
-        for (int i = 0; i < LAST_SEEN_DOT_NAMES.length; i++) {
-            labels[i] = (LAST_SEEN_DOT_COLORS[i] == current ? "✓ " : "") + LAST_SEEN_DOT_NAMES[i];
-        }
-        org.telegram.ui.ActionBar.AlertDialog.Builder b =
-                new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Цвет точек последнего захода");
-        b.setItems(labels, (dlg, which) -> {
-            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
-                    .putInt("lastSeenDotsColor", LAST_SEEN_DOT_COLORS[which]).apply();
-            org.telegram.messenger.NotificationCenter.getInstance(currentAccount)
-                    .postNotificationName(org.telegram.messenger.NotificationCenter.dialogsNeedReload);
             refreshList();
         });
         b.setNegativeButton(org.telegram.messenger.LocaleController.getString(R.string.Cancel), null);
