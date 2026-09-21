@@ -103,8 +103,10 @@ public class DevGramPlugins {
     public static String startRemoteDebugger(String platform, String host, int port) {
         try {
             loader();
-            return Python.getInstance().getModule("devgram.dev_server")
-                    .callAttr("start_debugger", platform, host, port, false).toString();
+            try (PyObject result = Python.getInstance().getModule("devgram.dev_server")
+                    .callAttr("start_debugger", platform, host, port, false)) {
+                return result == null ? "unavailable" : result.toString();
+            }
         } catch (Throwable e) {
             FileLog.e(e);
             return "error:" + e.getClass().getSimpleName();
@@ -113,7 +115,8 @@ public class DevGramPlugins {
 
     public static String stopRemoteDebugger() {
         try {
-            Python.getInstance().getModule("devgram.dev_server").callAttr("stop_debugger");
+            try (PyObject ignored = Python.getInstance().getModule("devgram.dev_server").callAttr("stop_debugger")) {
+            }
             return "stopped";
         } catch (Throwable e) {
             FileLog.e(e);
@@ -123,7 +126,9 @@ public class DevGramPlugins {
 
     public static String remoteDebuggerStatus() {
         try {
-            return Python.getInstance().getModule("devgram.dev_server").callAttr("debugger_status").toString();
+            try (PyObject result = Python.getInstance().getModule("devgram.dev_server").callAttr("debugger_status")) {
+                return result == null ? "unavailable" : result.toString();
+            }
         } catch (Throwable e) {
             return "unavailable";
         }
@@ -192,15 +197,66 @@ public class DevGramPlugins {
         return loaderModule;
     }
 
+    // Каждый callAttr создаёт временную Java-обёртку PyObject. Колбэки сообщений, апдейтов и
+    // запросов вызываются часто, поэтому финализатор не успевает освобождать их вслед за нами.
+    private static void callPythonVoid(String name, Object... args) {
+        try (PyObject ignored = loader().callAttr(name, args)) {
+        }
+    }
+
+    private static int callPythonInt(String name, Object... args) {
+        try (PyObject result = loader().callAttr(name, args)) {
+            return result == null ? 0 : result.toInt();
+        }
+    }
+
+    private static boolean callPythonBoolean(String name, Object... args) {
+        try (PyObject result = loader().callAttr(name, args)) {
+            return result != null && result.toBoolean();
+        }
+    }
+
+    private static String callPythonString(String name, Object... args) {
+        try (PyObject result = loader().callAttr(name, args)) {
+            return result == null ? "" : result.toString();
+        }
+    }
+
+    private static List<String> callPythonStringList(String name, Object... args) {
+        List<String> result = new ArrayList<>();
+        try (PyObject list = loader().callAttr(name, args)) {
+            if (list == null) {
+                return result;
+            }
+            java.util.Set<PyObject> wrappers = java.util.Collections.newSetFromMap(
+                    new java.util.IdentityHashMap<>());
+            try {
+                for (PyObject item : list.asList()) {
+                    wrappers.add(item);
+                    result.add(item.toString());
+                }
+            } finally {
+                for (PyObject item : wrappers) {
+                    try {
+                        item.close();
+                    } catch (Throwable ignore) {
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     // ===== Встроенный WebSocket-прокси (dgws.py) — локальный, без внешнего сервера =====
     public static boolean startWsProxy(String secretHex, String fakeTlsDomain, String host, int port) {
         try {
             if (!Python.isStarted()) {
                 Python.start(new AndroidPlatform(ApplicationLoader.applicationContext));
             }
-            Object r = Python.getInstance().getModule("dgws")
-                    .callAttr("start", secretHex, fakeTlsDomain, host, port);
-            return r != null && ((PyObject) r).toBoolean();
+            try (PyObject result = Python.getInstance().getModule("dgws")
+                    .callAttr("start", secretHex, fakeTlsDomain, host, port)) {
+                return result != null && result.toBoolean();
+            }
         } catch (Throwable e) {
             FileLog.e(e);
             return false;
@@ -210,7 +266,8 @@ public class DevGramPlugins {
     public static void stopWsProxy() {
         try {
             if (Python.isStarted()) {
-                Python.getInstance().getModule("dgws").callAttr("stop");
+                try (PyObject ignored = Python.getInstance().getModule("dgws").callAttr("stop")) {
+                }
             }
         } catch (Throwable e) {
             FileLog.e(e);
@@ -222,8 +279,9 @@ public class DevGramPlugins {
             if (!Python.isStarted()) {
                 return "python не запущен";
             }
-            Object r = Python.getInstance().getModule("dgws").callAttr("last_error");
-            return r == null ? "" : r.toString();
+            try (PyObject result = Python.getInstance().getModule("dgws").callAttr("last_error")) {
+                return result == null ? "" : result.toString();
+            }
         } catch (Throwable e) {
             return "мост: " + e;
         }
@@ -234,8 +292,9 @@ public class DevGramPlugins {
             if (!Python.isStarted()) {
                 return false;
             }
-            Object r = Python.getInstance().getModule("dgws").callAttr("is_running");
-            return r != null && ((PyObject) r).toBoolean();
+            try (PyObject result = Python.getInstance().getModule("dgws").callAttr("is_running")) {
+                return result != null && result.toBoolean();
+            }
         } catch (Throwable e) {
             return false;
         }
@@ -276,7 +335,7 @@ public class DevGramPlugins {
                 //noinspection ResultOfMethodCallIgnored
                 sample.delete();
             }
-            int n = loader().callAttr("load_dir", dir.getAbsolutePath()).toInt();
+            int n = callPythonInt("load_dir", dir.getAbsolutePath());
             applySavedEnabled();    // восстановить вкл/выкл, сохранённые пользователем
             refreshWantsUpdates();
             refreshRequestHooks();  // повесить хук TL-запросов, если плагины их используют
@@ -307,9 +366,8 @@ public class DevGramPlugins {
         if (text == null || !loaded || isSafeMode()) {
             return text;
         }
-        try {
-            PyObject r = loader().callAttr("dispatch_send", account, text.toString());
-            return r == null ? text : r.toString();
+        try (PyObject result = loader().callAttr("dispatch_send", account, text.toString())) {
+            return result == null ? text : result.toString();
         } catch (Throwable e) {
             FileLog.e(e);
             return text;
@@ -321,7 +379,7 @@ public class DevGramPlugins {
             return;
         }
         try {
-            loader().callAttr("dispatch_receive", text.toString());
+            callPythonVoid("dispatch_receive", text.toString());
         } catch (Throwable ignore) {
         }
     }
@@ -333,14 +391,14 @@ public class DevGramPlugins {
             return;
         }
         try {
-            loader().callAttr("dg_log", msg);
+            callPythonVoid("dg_log", msg);
         } catch (Throwable ignore) {
         }
     }
 
     public static String pluginLogs() {
         try {
-            String s = loader().callAttr("get_logs").toString();
+            String s = callPythonString("get_logs");
             return s == null ? "" : s;
         } catch (Throwable e) {
             return "";
@@ -349,7 +407,7 @@ public class DevGramPlugins {
 
     public static void clearPluginLogs() {
         try {
-            loader().callAttr("clear_logs");
+            callPythonVoid("clear_logs");
         } catch (Throwable ignore) {
         }
     }
@@ -360,10 +418,7 @@ public class DevGramPlugins {
             loadAll();
         }
         try {
-            PyObject list = loader().callAttr("list_plugins");
-            for (PyObject o : list.asList()) {
-                res.add(o.toString());
-            }
+            res.addAll(callPythonStringList("list_plugins"));
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -373,7 +428,7 @@ public class DevGramPlugins {
     public static void setEnabled(String id, boolean enabled) {
         try {
             prefs().edit().putBoolean("enabled_" + id, enabled).apply(); // персистим состояние
-            loader().callAttr("set_enabled", id, enabled);
+            callPythonVoid("set_enabled", id, enabled);
             refreshWantsUpdates();
             refreshRequestHooks();
             logLine((enabled ? "включён плагин: " : "выключен плагин: ") + id);
@@ -392,7 +447,7 @@ public class DevGramPlugins {
                 }
                 boolean en = prefs().getBoolean("enabled_" + id, true);
                 if (!en) {
-                    loader().callAttr("set_enabled", id, false);
+                    callPythonVoid("set_enabled", id, false);
                 }
             }
         } catch (Throwable ignore) {
@@ -418,9 +473,27 @@ public class DevGramPlugins {
         return flag("safe_mode", false);
     }
 
+    /** Немедленно остановить плагины, не изменяя сохранённые состояния их тумблеров. */
+    public static void enterSafeMode() {
+        try {
+            callPythonVoid("enter_safe_mode");
+        } catch (Throwable e) {
+            FileLog.e(e);
+        } finally {
+            DevGramPillStack.unregisterAllPluginPills();
+            DevGramPanelTabs.clear();
+            for (String pluginId : new ArrayList<>(pluginUnhooks.keySet())) {
+                unhookPlugin(pluginId);
+            }
+            wantsUpdatesFlag = false;
+            wantsRequestHooksFlag = false;
+        }
+    }
+
     public static String pythonVersion() {
         try {
-            return loader().callAttr("python_version").toString();
+            String version = callPythonString("python_version");
+            return version.isEmpty() ? "3.11" : version;
         } catch (Throwable e) {
             return "3.11";
         }
@@ -450,10 +523,8 @@ public class DevGramPlugins {
     }
 
     public static List<String> panelTabPluginIds() {
-        // DevGram: register_panel_tab() зовётся один раз в on_load() и не отписывается при
-        // выключении плагина тумблером (set_enabled лишь ставит флаг p.enabled, сам плагин
-        // остаётся «загружен» — тот же принцип, что у menu_items()/пилюль). Поэтому фильтруем
-        // тут же, по факту чтения списка, а не полагаемся на unregisterPanelTab().
+        // Дополнительно фильтруем по сохранённому состоянию: cleanup при выключении удаляет
+        // вкладку, а эта проверка закрывает короткое окно между нажатием тумблера и очисткой.
         List<String> res = new ArrayList<>();
         for (String id : DevGramPanelTabs.pluginIds()) {
             if (prefs().getBoolean("enabled_" + id, true)) {
@@ -771,8 +842,7 @@ public class DevGramPlugins {
             return org.telegram.tgnet.ConnectionsManager.getInstance(account).sendRequest((org.telegram.tgnet.TLObject) request,
                     (response, error) -> {
                         if (callback == null) return;
-                        try {
-                            callback.call(response, error != null ? error.text : null);
+                        try (PyObject ignored = callback.call(response, error != null ? error.text : null)) {
                         } catch (Throwable e) {
                             FileLog.e(e);
                         }
@@ -788,8 +858,7 @@ public class DevGramPlugins {
     public static void runOnUi(final com.chaquo.python.PyObject fn, long delayMs) {
         if (fn == null) return;
         Runnable r = () -> {
-            try {
-                fn.call();
+            try (PyObject ignored = fn.call()) {
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -805,8 +874,7 @@ public class DevGramPlugins {
     public static void runOnQueue(final com.chaquo.python.PyObject fn) {
         if (fn == null) return;
         NET_QUEUE.execute(() -> {
-            try {
-                fn.call();
+            try (PyObject ignored = fn.call()) {
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -967,10 +1035,7 @@ public class DevGramPlugins {
             return res;
         }
         try {
-            PyObject list = loader().callAttr("menu_items");
-            for (PyObject o : list.asList()) {
-                res.add(o.toString());
-            }
+            res.addAll(callPythonStringList("menu_items"));
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -979,7 +1044,7 @@ public class DevGramPlugins {
 
     public static void menuClick(String pluginId, String label, String messageText, long dialogId) {
         try {
-            loader().callAttr("menu_click", pluginId, label, messageText == null ? "" : messageText, dialogId);
+            callPythonVoid("menu_click", pluginId, label, messageText == null ? "" : messageText, dialogId);
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -992,10 +1057,7 @@ public class DevGramPlugins {
             return res;
         }
         try {
-            PyObject list = loader().callAttr("link_menu_items", url == null ? "" : url);
-            for (PyObject o : list.asList()) {
-                res.add(o.toString());
-            }
+            res.addAll(callPythonStringList("link_menu_items", url == null ? "" : url));
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -1004,7 +1066,7 @@ public class DevGramPlugins {
 
     public static void linkMenuClick(String pluginId, String label, String url, long dialogId) {
         try {
-            loader().callAttr("link_menu_click", pluginId, label, url == null ? "" : url, dialogId);
+            callPythonVoid("link_menu_click", pluginId, label, url == null ? "" : url, dialogId);
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -1017,7 +1079,7 @@ public class DevGramPlugins {
 
     public static void refreshWantsUpdates() {
         try {
-            wantsUpdatesFlag = loader().callAttr("wants_updates").toBoolean();
+            wantsUpdatesFlag = callPythonBoolean("wants_updates");
         } catch (Throwable e) {
             wantsUpdatesFlag = false;
         }
@@ -1025,16 +1087,16 @@ public class DevGramPlugins {
 
     public static void onUpdate(int account, Object update) {
         try {
-            loader().callAttr("dispatch_update", account, update);
+            callPythonVoid("dispatch_update", account, update);
         } catch (Throwable ignore) {
         }
     }
 
     public static boolean onIntent(android.content.Intent intent) {
         if (intent == null || !loaded || isSafeMode()) return false;
-        try {
-            return Python.getInstance().getModule("devgram.intents")
-                    .callAttr("dispatch", intent).toBoolean();
+        try (PyObject result = Python.getInstance().getModule("devgram.intents")
+                .callAttr("dispatch", intent)) {
+            return result != null && result.toBoolean();
         } catch (Throwable e) {
             FileLog.e(e);
             return false;
@@ -1172,8 +1234,7 @@ public class DevGramPlugins {
 
     private static void callPythonCallback(PyObject callback) {
         if (callback == null || isSafeMode()) return;
-        try {
-            callback.call();
+        try (PyObject ignored = callback.call()) {
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -1183,10 +1244,7 @@ public class DevGramPlugins {
     public static List<String> pluginSettings(String pluginId) {
         List<String> res = new ArrayList<>();
         try {
-            PyObject list = loader().callAttr("plugin_settings", pluginId);
-            for (PyObject o : list.asList()) {
-                res.add(o.toString());
-            }
+            res.addAll(callPythonStringList("plugin_settings", pluginId));
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -1200,8 +1258,7 @@ public class DevGramPlugins {
     // Живой View для строки devgram.ui.Custom (index — позиция в списке из pluginSettings,
     // который нужно звать первым, чтобы Python-сторона успела закэшировать сырые объекты).
     public static android.view.View pluginSettingsCustomView(String pluginId, int index) {
-        try {
-            PyObject view = loader().callAttr("plugin_settings_custom_view", pluginId, index);
+        try (PyObject view = loader().callAttr("plugin_settings_custom_view", pluginId, index)) {
             if (view == null) return null;
             return view.toJava(android.view.View.class);
         } catch (Throwable e) {
@@ -1212,14 +1269,14 @@ public class DevGramPlugins {
 
     public static void pluginSettingClick(String pluginId, String key) {
         try {
-            loader().callAttr("plugin_setting_click", pluginId, key);
+            callPythonVoid("plugin_setting_click", pluginId, key);
         } catch (Throwable e) {
             FileLog.e(e);
         }
     }
 
     public static void pluginSettingChanged(String pluginId, String key, String value) {
-        try { loader().callAttr("plugin_setting_changed", pluginId, key, value); }
+        try { callPythonVoid("plugin_setting_changed", pluginId, key, value); }
         catch (Throwable e) { FileLog.e(e); }
     }
 
@@ -1477,7 +1534,7 @@ public class DevGramPlugins {
             org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
             String stats = "";
             try {
-                stats = loader().callAttr("log_stats").toString();
+                stats = callPythonString("log_stats");
             } catch (Throwable ignore) {
             }
             b.setTitle(stats == null || stats.isEmpty() ? "Логи плагинов" : "Логи плагинов · " + stats);
@@ -1551,6 +1608,20 @@ public class DevGramPlugins {
             } catch (Throwable ignore) {
             }
         }
+    }
+
+    /**
+     * Централизованная очистка: ни один колбэк старого экземпляра не должен пережить
+     * выключение, замену или удаление плагина. Метод публичный, потому что Python-загрузчик
+     * вызывает его между выгрузкой и повторной загрузкой.
+     */
+    public static void cleanupPluginRuntime(String pluginId) {
+        if (pluginId == null || pluginId.isEmpty()) {
+            return;
+        }
+        unhookPlugin(pluginId);
+        DevGramPillStack.unregisterPluginPills(pluginId);
+        DevGramPanelTabs.unregister(pluginId);
     }
 
     public static synchronized boolean initHooks() {
@@ -1663,7 +1734,7 @@ public class DevGramPlugins {
             FileLog.e(t);
             try {
                 String where = (param != null && param.method != null) ? param.method.getName() : "?";
-                loader().callAttr("dg_log", "hook " + where + ": " + t, "ERROR", pluginId);
+                callPythonVoid("dg_log", "hook " + where + ": " + t, "ERROR", pluginId);
             } catch (Throwable ignore) {
             }
         }
@@ -1676,13 +1747,15 @@ public class DevGramPlugins {
             try {
                 if (replace != null) {
                     // Полная подмена: результат из python, оригинал не вызывается.
-                    com.chaquo.python.PyObject r = replace.call(param);
-                    param.setResult(r == null ? null : r.toJava(Object.class));
+                    try (com.chaquo.python.PyObject r = replace.call(param)) {
+                        param.setResult(r == null ? null : r.toJava(Object.class));
+                    }
                     coerceResult(param);
                     return;
                 }
                 if (before != null) {
-                    before.call(param);
+                    try (com.chaquo.python.PyObject ignored = before.call(param)) {
+                    }
                     coerceArgs(param);
                 }
             } catch (Throwable t) {
@@ -1696,7 +1769,8 @@ public class DevGramPlugins {
                 return;
             }
             try {
-                after.call(param);
+                try (com.chaquo.python.PyObject ignored = after.call(param)) {
+                }
                 coerceResult(param);
             } catch (Throwable t) {
                 hookError(param, t);
@@ -1817,7 +1891,7 @@ public class DevGramPlugins {
 
     public static void refreshRequestHooks() {
         try {
-            wantsRequestHooksFlag = loader().callAttr("wants_request_hooks").toBoolean();
+            wantsRequestHooksFlag = callPythonBoolean("wants_request_hooks");
         } catch (Throwable e) {
             wantsRequestHooksFlag = false;
         }
@@ -1845,7 +1919,7 @@ public class DevGramPlugins {
                         final String name = req != null ? req.getClass().getSimpleName() : "";
                         final int account = accountOfController(frame.thisObject);
                         // pre-хук: плагины видят исходящий запрос (могут менять поля объекта на месте)
-                        try { loader().callAttr("dispatch_request", account, name, req); } catch (Throwable ignore) {}
+                        try { callPythonVoid("dispatch_request", account, name, req); } catch (Throwable ignore) {}
                         // оборачиваем делегат ответа, чтобы поймать ответ/ошибку
                         final Object origDelegate = frame.args != null && frame.args.length > 1 ? frame.args[1] : null;
                         Object proxy = java.lang.reflect.Proxy.newProxyInstance(
@@ -1859,7 +1933,7 @@ public class DevGramPlugins {
                                             if (err != null) {
                                                 try { errText = String.valueOf(err.getClass().getField("text").get(err)); } catch (Throwable ignore) {}
                                             }
-                                            loader().callAttr("dispatch_response", account, name, resp, errText);
+                                            callPythonVoid("dispatch_response", account, name, resp, errText);
                                         } catch (Throwable ignore) {}
                                     }
                                     if (origDelegate != null) {
@@ -1950,12 +2024,13 @@ public class DevGramPlugins {
                         callArgs[0] = proxy;
                         System.arraycopy(mArgs, 0, callArgs, 1, mArgs.length);
                     }
-                    com.chaquo.python.PyObject r = logic.callAttr(name, callArgs);
-                    Class<?> rt = method.getReturnType();
-                    if (rt == void.class) {
-                        return null;
+                    try (com.chaquo.python.PyObject r = logic.callAttr(name, callArgs)) {
+                        Class<?> rt = method.getReturnType();
+                        if (rt == void.class) {
+                            return null;
+                        }
+                        return r == null ? defaultValue(rt) : r.toJava(rt);
                     }
-                    return r == null ? defaultValue(rt) : r.toJava(rt);
                 } catch (Throwable e) {
                     FileLog.e(e);
                     try {
@@ -2167,7 +2242,7 @@ public class DevGramPlugins {
             return; // безопасный режим — глушим хуки
         }
         try {
-            loader().callAttr("dispatch_hook", pluginId, phase, frame);
+            callPythonVoid("dispatch_hook", pluginId, phase, frame);
             // Chaquopy боксит python-int как Long, а метод может ждать int/short/float и т.п.
             // Приводим аргументы (после before) и результат (после after) к нужным типам —
             // иначе падает на вызове оригинала: "argument has type int, got java.lang.Long".
@@ -2243,19 +2318,21 @@ public class DevGramPlugins {
     // Перезагрузить все плагины из папки (без перезапуска приложения). Возвращает число плагинов.
     public static int reload() {
         try {
-            // Plugin pills belong to the current Python runtime and must not survive reload.
-            for (String row : listPlugins()) {
-                String[] parts = row.split("\u001f", -1);
-                if (parts.length > 0) DevGramPillStack.unregisterPluginPills(parts[0]);
-            }
+            // UI-колбэки принадлежат текущему Python runtime и не должны переживать reload.
+            DevGramPillStack.unregisterAllPluginPills();
+            DevGramPanelTabs.clear();
             // Снять все хуки плагинов перед перезагрузкой — AliuHook требует явного unhook
             // (иначе останутся висеть старые колбэки от предыдущей версии плагина).
             for (String pid : new java.util.ArrayList<>(pluginUnhooks.keySet())) {
                 unhookPlugin(pid);
             }
             loaded = true;
-            int n = loader().callAttr("reload_all", pluginsDir().getAbsolutePath()).toInt();
+            int n;
+            try (PyObject result = loader().callAttr("reload_all", pluginsDir().getAbsolutePath())) {
+                n = result.toInt();
+            }
             refreshWantsUpdates();
+            refreshRequestHooks();
             return n;
         } catch (Throwable e) {
             FileLog.e(e);
@@ -2266,8 +2343,10 @@ public class DevGramPlugins {
     /** Hot-reload one plugin, matching the development workflow of the Python SDK. */
     public static int reloadPlugin(String pluginId) {
         try {
-            DevGramPillStack.unregisterPluginPills(pluginId);
-            int n = loader().callAttr("reload_plugin", pluginId).toInt();
+            int n;
+            try (PyObject result = loader().callAttr("reload_plugin", pluginId)) {
+                n = result.toInt();
+            }
             if (n > 0) {
                 refreshWantsUpdates();
                 refreshRequestHooks();
@@ -2282,18 +2361,23 @@ public class DevGramPlugins {
     // Удалить плагин: файл + из реестра.
     public static boolean delete(String pluginId, String fileName) {
         try {
-            DevGramPillStack.unregisterPluginPills(pluginId);
             if (fileName != null && !fileName.isEmpty()) {
                 File f = new File(pluginsDir(), fileName);
                 if (f.exists()) {
                     f.delete();
                 }
             }
-            loader().callAttr("unload_plugin", pluginId);
+            try (PyObject ignored = loader().callAttr("unload_plugin", pluginId)) {
+            }
             // Для .dgplugin дочищаем распакованные файлы (.devgram/<id>); для .py — no-op.
-            loader().callAttr("delete_package_files", pluginId);
+            try (PyObject ignored = loader().callAttr("delete_package_files", pluginId)) {
+            }
+            cleanupPluginRuntime(pluginId);
+            refreshWantsUpdates();
+            refreshRequestHooks();
             return true;
         } catch (Throwable e) {
+            cleanupPluginRuntime(pluginId);
             FileLog.e(e);
             return false;
         }
@@ -3927,8 +4011,7 @@ public class DevGramPlugins {
             return "";
         }
         try {
-            PyObject r = loader().callAttr("parse_meta", source);
-            return r == null ? "" : r.toString();
+            return callPythonString("parse_meta", source);
         } catch (Throwable e) {
             FileLog.e(e);
             return "";
@@ -3950,9 +4033,9 @@ public class DevGramPlugins {
             w.write(source);
             w.close();
             loaded = true; // реестр активен
-            int n = loader().callAttr("load_from_file", f.getAbsolutePath()).toInt();
+            int n = callPythonInt("load_from_file", f.getAbsolutePath());
             if (n > 0 && !enable && pluginId != null && !pluginId.isEmpty()) {
-                loader().callAttr("set_enabled", pluginId, false);
+                callPythonVoid("set_enabled", pluginId, false);
             }
             return n > 0;
         } catch (Throwable e) {
@@ -3968,11 +4051,10 @@ public class DevGramPlugins {
         File dst = null;
         try {
             File src = new File(sourcePath);
-            PyObject validation = loader().callAttr("validate_package", sourcePath);
-            if (validation != null && !validation.toString().isEmpty()) return false;
+            String validation = callPythonString("validate_package", sourcePath);
+            if (!validation.isEmpty()) return false;
             if (pluginId == null || pluginId.isEmpty()) {
-                PyObject meta = loader().callAttr("package_meta", sourcePath);
-                String raw = meta == null ? "" : meta.toString();
+                String raw = callPythonString("package_meta", sourcePath);
                 pluginId = raw.isEmpty() ? "package" : raw.split("\u001f", -1)[0];
             }
             String safe = pluginId.replaceAll("[^a-zA-Z0-9_\\-]", "_");
@@ -3994,16 +4076,16 @@ public class DevGramPlugins {
                 return false;
             }
             loaded = true;
-            int count = loader().callAttr("load_from_file", dst.getAbsolutePath()).toInt();
+            int count = callPythonInt("load_from_file", dst.getAbsolutePath());
             if (count <= 0) {
                 dst.delete();
                 if (backup.exists() && backup.renameTo(dst)) {
-                    try { loader().callAttr("load_from_file", dst.getAbsolutePath()); } catch (Throwable restoreError) { FileLog.e(restoreError); }
+                    try { callPythonVoid("load_from_file", dst.getAbsolutePath()); } catch (Throwable restoreError) { FileLog.e(restoreError); }
                 }
                 return false;
             }
             if (backup.exists()) backup.delete();
-            if (count > 0 && !enable && pluginId != null) loader().callAttr("set_enabled", pluginId, false);
+            if (count > 0 && !enable && pluginId != null) callPythonVoid("set_enabled", pluginId, false);
             return count > 0;
         } catch (Throwable e) {
             FileLog.e(e);
@@ -4011,7 +4093,7 @@ public class DevGramPlugins {
             if (backup != null && backup.exists()) {
                 if (dst != null) dst.delete();
                 if (backup.renameTo(dst)) {
-                    try { loader().callAttr("load_from_file", dst.getAbsolutePath()); } catch (Throwable restoreError) { FileLog.e(restoreError); }
+                    try { callPythonVoid("load_from_file", dst.getAbsolutePath()); } catch (Throwable restoreError) { FileLog.e(restoreError); }
                 }
             }
             return false;
@@ -4020,8 +4102,7 @@ public class DevGramPlugins {
 
     public static String packageValidationError(String sourcePath) {
         try {
-            PyObject result = loader().callAttr("validate_package", sourcePath);
-            return result == null ? "Пакет повреждён" : result.toString();
+            return callPythonString("validate_package", sourcePath);
         } catch (Throwable e) {
             FileLog.e(e);
             return "Не удалось проверить пакет";
@@ -4030,8 +4111,7 @@ public class DevGramPlugins {
 
     public static String packageMeta(String sourcePath) {
         try {
-            PyObject result = loader().callAttr("package_meta", sourcePath);
-            return result == null ? "" : result.toString();
+            return callPythonString("package_meta", sourcePath);
         } catch (Throwable e) { FileLog.e(e); return ""; }
     }
 

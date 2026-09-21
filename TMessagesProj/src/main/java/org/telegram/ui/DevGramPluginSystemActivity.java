@@ -97,6 +97,7 @@ public class DevGramPluginSystemActivity extends BaseFragment {
             DevGramPlugins.logLine(safeMode ? "включён безопасный режим" : "выключен безопасный режим");
             if (safeMode) {
                 DevGramPlugins.setDevServerEnabled(false);
+                DevGramPlugins.enterSafeMode();
             } else {
                 int n = DevGramPlugins.reload();
                 if (DevGramPlugins.flag("dev_mode", false)) {

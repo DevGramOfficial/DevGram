@@ -27,6 +27,8 @@ public final class DevGramPanelTabs {
         final PyObject buildView;
         final PyObject actionClick;
         final String iconPath; // абсолютный путь к PNG (asset_path плагина) или null
+        volatile Bitmap iconBitmap;
+
         Entry(String title, PyObject buildView, PyObject actionClick, String iconPath) {
             this.title = title;
             this.buildView = buildView;
@@ -53,6 +55,13 @@ public final class DevGramPanelTabs {
         }
     }
 
+    /** Удалить все вкладки плагинов перед пересозданием Python runtime. */
+    public static void clear() {
+        synchronized (lock) {
+            tabs.clear();
+        }
+    }
+
     public static List<String> pluginIds() {
         synchronized (lock) {
             return new ArrayList<>(tabs.keySet());
@@ -73,8 +82,7 @@ public final class DevGramPanelTabs {
             cb = e == null ? null : e.buildView;
         }
         if (cb == null) return null;
-        try {
-            PyObject v = cb.call(context, dialogId);
+        try (PyObject v = cb.call(context, dialogId)) {
             return v == null ? null : v.toJava(View.class);
         } catch (Throwable e) {
             FileLog.e(e);
@@ -96,8 +104,7 @@ public final class DevGramPanelTabs {
             cb = e == null ? null : e.actionClick;
         }
         if (cb == null) return;
-        try {
-            cb.call(anchor, dialogId);
+        try (PyObject ignored = cb.call(anchor, dialogId)) {
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -107,18 +114,53 @@ public final class DevGramPanelTabs {
     // не колбэк — картинка не зависит от контекста чата и грузится/масштабируется целиком тут,
     // без обратного похода в Python на каждую перестройку EmojiView (та вызывается часто).
     public static Drawable icon(String pluginId, Context context) {
-        String path;
+        if (context == null) return null;
+        Entry entry;
         synchronized (lock) {
-            Entry e = tabs.get(pluginId);
-            path = e == null ? null : e.iconPath;
+            entry = tabs.get(pluginId);
         }
+        String path = entry == null ? null : entry.iconPath;
         if (path == null || path.isEmpty()) return null;
         try {
-            Bitmap raw = BitmapFactory.decodeFile(path);
-            if (raw == null) return null;
+            Bitmap bitmap = entry.iconBitmap;
+            if (bitmap != null && !bitmap.isRecycled()) {
+                return new BitmapDrawable(context.getResources(), bitmap);
+            }
+
             int size = AndroidUtilities.dp(24);
-            Bitmap scaled = Bitmap.createScaledBitmap(raw, size, size, true);
-            return new BitmapDrawable(context.getResources(), scaled);
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, bounds);
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+
+            int sample = 1;
+            while (bounds.outWidth / (sample * 2) >= size && bounds.outHeight / (sample * 2) >= size) {
+                sample *= 2;
+            }
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = sample;
+            Bitmap raw = BitmapFactory.decodeFile(path, options);
+            if (raw == null) return null;
+            Bitmap decoded = raw.getWidth() == size && raw.getHeight() == size
+                    ? raw : Bitmap.createScaledBitmap(raw, size, size, true);
+            if (decoded != raw) {
+                raw.recycle();
+            }
+
+            synchronized (lock) {
+                if (tabs.get(pluginId) != entry) {
+                    decoded.recycle();
+                    return null;
+                }
+                bitmap = entry.iconBitmap;
+                if (bitmap == null || bitmap.isRecycled()) {
+                    entry.iconBitmap = decoded;
+                    bitmap = decoded;
+                } else if (bitmap != decoded) {
+                    decoded.recycle();
+                }
+            }
+            return new BitmapDrawable(context.getResources(), bitmap);
         } catch (Throwable e) {
             FileLog.e(e);
             return null;

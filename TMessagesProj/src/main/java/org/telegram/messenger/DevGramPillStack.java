@@ -32,14 +32,14 @@ public final class DevGramPillStack {
         final String pillName = (name == null || name.isEmpty()) ? pillId : name;
 
         final PluginPill.ValueProvider valueProvider = valueCallback == null ? null : () -> {
-            try { PyObject r = valueCallback.call(); return r == null ? null : r.toString(); }
+            try (PyObject r = valueCallback.call()) { return r == null ? null : r.toString(); }
             catch (Throwable e) { FileLog.e(e); return null; }
         };
         final Runnable clickRunnable = clickCallback == null ? null : () -> {
-            try { clickCallback.call(); } catch (Throwable e) { FileLog.e(e); }
+            try (PyObject ignored = clickCallback.call()) { } catch (Throwable e) { FileLog.e(e); }
         };
         final Runnable longClickRunnable = longClickCallback == null ? null : () -> {
-            try { longClickCallback.call(); } catch (Throwable e) { FileLog.e(e); }
+            try (PyObject ignored = longClickCallback.call()) { } catch (Throwable e) { FileLog.e(e); }
         };
 
         synchronized (lock) {
@@ -66,6 +66,13 @@ public final class DevGramPillStack {
         ArrayList<Integer> ids;
         synchronized (lock) { ids = pluginPills.remove(pluginId); }
         if (ids != null) for (int id : ids) PillStackConfig.unregister(id);
+    }
+
+    /** Удалить колбэки всех Python-плагинов перед полной перезагрузкой runtime. */
+    public static void unregisterAllPluginPills() {
+        List<String> pluginIds;
+        synchronized (lock) { pluginIds = new ArrayList<>(pluginPills.keySet()); }
+        for (String pluginId : pluginIds) unregisterPluginPills(pluginId);
     }
 
     public static List<Integer> getActive() { return PillStackConfig.getActivePills(); }

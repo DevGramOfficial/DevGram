@@ -130,14 +130,20 @@ def _validate_package_manifest(manifest, names):
 import time as _time
 
 _LOG_BUF = []      # кольцевой буфер полных логов плагинов (экран «Логи плагинов»)
-_LOG_MAX = 2000    # сколько строк держим
+_LOG_MAX = 1000    # сколько строк держим
+_LOG_MAX_ENTRY = 16384
+_LOG_MAX_CHARS = 2 * 1024 * 1024
+_log_chars = 0
 
 
 def _log(msg, level="INFO", plugin=None):
     """Записать строку в общий лог плагинов.
     level: INFO/LIFE/EVENT/REQUEST/HOOK/API/ERROR/NET (для фильтра и наглядности).
     plugin: id плагина (тег), если известен."""
+    global _log_chars
     line = str(msg)
+    if len(line) > _LOG_MAX_ENTRY:
+        line = line[:_LOG_MAX_ENTRY] + "\n… [запись обрезана]"
     try:
         ts = _time.strftime("%H:%M:%S")
     except Exception:
@@ -146,9 +152,9 @@ def _log(msg, level="INFO", plugin=None):
     entry = "[%s] %-7s %s%s" % (ts, str(level), tag, line)
     try:
         _LOG_BUF.append(entry)
-        extra = len(_LOG_BUF) - _LOG_MAX
-        if extra > 0:
-            del _LOG_BUF[:extra]
+        _log_chars += len(entry)
+        while _LOG_BUF and (len(_LOG_BUF) > _LOG_MAX or _log_chars > _LOG_MAX_CHARS):
+            _log_chars -= len(_LOG_BUF.pop(0))
     except Exception:
         pass
     try:
@@ -193,8 +199,10 @@ def log_stats():
 
 
 def clear_logs():
+    global _log_chars
     try:
         del _LOG_BUF[:]
+        _log_chars = 0
     except Exception:
         pass
 
@@ -232,14 +240,23 @@ def unload_plugin(plugin_id):
     return True
 
 
+def enter_safe_mode():
+    """Остановить активные плагины, сохранив пользовательские состояния тумблеров."""
+    for plugin in list(_plugins):
+        plugin_id = str(getattr(plugin, "id", ""))
+        try:
+            _invoke_unload(plugin)
+        except Exception:
+            _err("safe mode unload", plugin=plugin_id)
+        finally:
+            _cleanup_java_runtime(plugin_id)
+    return True
+
+
 def reload_all(dir_path):
     """Выгрузить все плагины и загрузить папку заново (без перезапуска приложения)."""
     for p in list(_plugins):
-        try:
-            p.on_unload()
-        except Exception:
-            pass
-    _plugins.clear()
+        _unload_id(getattr(p, "id", ""))
     for name in list(sys.modules):
         if name.startswith("devgram_plugin_") or name.startswith("devgram_package_"):
             sys.modules.pop(name, None)
@@ -252,6 +269,7 @@ def reload_all(dir_path):
                     sys.path.remove(wheel_path)
     _package_roots.clear()
     _package_manifests.clear()
+    _package_archives.clear()
     _log("── перезагрузка плагинов ──")
     n = load_dir(dir_path)
     _log("перезагрузка завершена: активно %d плагинов" % n)
@@ -264,7 +282,7 @@ def reload_plugin(plugin_id):
     plugin = next((item for item in _plugins if str(item.id) == plugin_id), None)
     if plugin is None:
         return -1
-    path = getattr(plugin, "_path", "")
+    path = getattr(plugin, "_archive_path", "") or getattr(plugin, "_path", "")
     package_root = getattr(plugin, "_package_root", "")
     if not path or not os.path.isfile(path):
         return -1
@@ -305,15 +323,60 @@ def parse_meta(source):
 
 def _unload_id(plugin_id):
     """Выгрузить уже загруженный плагин с таким id (для переустановки)."""
-    for p in list(_plugins):
-        if str(p.id) == str(plugin_id):
-            try:
-                modern = getattr(p, "on_plugin_unload", None)
-                if modern is not None and "on_plugin_unload" in type(p).__dict__: modern()
-                else: p.on_unload()
-            except Exception:
-                pass
-            _plugins.remove(p)
+    plugin_id = str(plugin_id or "")
+    try:
+        for p in list(_plugins):
+            if str(p.id) == plugin_id:
+                try:
+                    _invoke_unload(p)
+                except Exception:
+                    _err("on_unload", plugin=plugin_id)
+                _plugins.remove(p)
+    finally:
+        _cleanup_java_runtime(plugin_id)
+
+
+def _cleanup_java_runtime(plugin_id):
+    """Снять все Java-хуки и UI-колбэки, даже если on_unload плагина упал."""
+    if not plugin_id:
+        return
+    try:
+        jclass("org.telegram.messenger.DevGramPlugins").cleanupPluginRuntime(plugin_id)
+    except Exception:
+        _err("cleanup runtime", plugin=plugin_id)
+
+
+def _invoke_load(plugin):
+    """Запустить экземпляр ровно один раз и отметить успешный lifecycle."""
+    if bool(getattr(plugin, "_runtime_loaded", False)):
+        return
+    plugin._runtime_loaded = True
+    try:
+        modern = getattr(plugin, "on_plugin_load", None)
+        if modern is not None and "on_plugin_load" in type(plugin).__dict__:
+            modern()
+        else:
+            plugin.on_load()
+    except Exception:
+        try:
+            _invoke_unload(plugin)
+        except Exception:
+            _err("rollback on_load", plugin=str(getattr(plugin, "id", "")))
+        raise
+
+
+def _invoke_unload(plugin):
+    """Не вызывать on_unload повторно для уже остановленного экземпляра."""
+    if not bool(getattr(plugin, "_runtime_loaded", False)):
+        return
+    try:
+        modern = getattr(plugin, "on_plugin_unload", None)
+        if modern is not None and "on_plugin_unload" in type(plugin).__dict__:
+            modern()
+        else:
+            plugin.on_unload()
+    finally:
+        plugin._runtime_loaded = False
 
 
 def load_from_file(path):
@@ -364,15 +427,14 @@ def load_from_file(path):
                     _log("несовместимый плагин пропущен %s: %s" % (getattr(inst, 'id', '?'), _cerr))
                     continue
                 _unload_id(inst.id)  # если уже загружен такой id — заменяем (переустановка)
+                inst._runtime_loaded = False
                 _plugins.append(inst)
-                try:
-                    modern = getattr(inst, "on_plugin_load", None)
-                    if modern is not None and "on_plugin_load" in type(inst).__dict__:
-                        modern()
-                    else:
-                        inst.on_load()
-                except Exception:
-                    _err("on_load " + str(getattr(inst, "id", "?")), plugin=getattr(inst, "id", None))
+                if not jclass("org.telegram.messenger.DevGramPlugins").isSafeMode():
+                    try:
+                        _invoke_load(inst)
+                    except Exception:
+                        _cleanup_java_runtime(str(getattr(inst, "id", "")))
+                        _err("on_load " + str(getattr(inst, "id", "?")), plugin=getattr(inst, "id", None))
                 found += 1
                 _log("загружен: %s" % inst.name, level="LIFE", plugin=inst.id)
     except Exception:
@@ -395,6 +457,8 @@ def load_package(path):
                 _log('missing manifest.json'); return 0
             manifest = json.loads(archive.read('manifest.json').decode('utf-8'))
             plugin_id, main = _validate_package_manifest(manifest, names)
+            # Старый экземпляр должен получить on_unload, пока его assets/wheels ещё существуют.
+            _unload_id(plugin_id)
             _remove_package_paths(plugin_id, True)
             root = os.path.join(os.path.dirname(path), '.devgram', plugin_id)
             if os.path.isdir(root): shutil.rmtree(root)
@@ -756,11 +820,19 @@ def set_enabled(plugin_id, enabled):
             # фоновые сервисы/ядро/прокси), при включении — on_load. Иначе disabled-плагин
             # продолжает работать (потоки/нативка/хуки не гейтятся флагом enabled).
             try:
-                if was and not enabled and "on_unload" in type(p).__dict__:
-                    p.on_unload()
-                elif not was and enabled and "on_load" in type(p).__dict__:
-                    p.on_load()
+                if was and not enabled:
+                    try:
+                        _invoke_unload(p)
+                    finally:
+                        _cleanup_java_runtime(str(plugin_id))
+                elif enabled and not bool(getattr(p, "_runtime_loaded", False)):
+                    if jclass("org.telegram.messenger.DevGramPlugins").isSafeMode():
+                        return True
+                    _cleanup_java_runtime(str(plugin_id))
+                    _invoke_load(p)
             except Exception:
+                if enabled:
+                    _cleanup_java_runtime(str(plugin_id))
                 _err("set_enabled lifecycle", plugin=plugin_id)
             _log("включён" if enabled else "выключен", level="LIFE", plugin=plugin_id)
             return True
