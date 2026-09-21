@@ -80,6 +80,23 @@ static std::string webSocketBase64(const uint8_t *data, size_t length) {
     return result;
 }
 
+static const size_t webSocketHeaderReserve = 14;
+
+static void webSocketMaskPayload(uint8_t *payload, size_t length, const uint8_t *mask) {
+    uint32_t maskWord;
+    memcpy(&maskWord, mask, 4);
+    size_t i = 0;
+    for (; i + 4 <= length; i += 4) {
+        uint32_t chunk;
+        memcpy(&chunk, payload + i, 4);
+        chunk ^= maskWord;
+        memcpy(payload + i, &chunk, 4);
+    }
+    for (; i < length; i++) {
+        payload[i] ^= mask[i & 3];
+    }
+}
+
 static void webSocketAppendFrameHeader(std::string &out, uint8_t opcode, uint64_t length, const uint8_t *mask) {
     out.push_back((char) (0x80 | opcode));
     if (length < 126) {
@@ -374,6 +391,9 @@ void ConnectionSocket::closeSocket(int32_t reason, int32_t error) {
     onConnectedSent = false;
     outgoingByteStream->clean();
     webSocketFreeSsl();
+    wsInBuffer.clear();
+    wsOutQueue.clear();
+    webSocketResetFrameState();
     if (tlsBuffer != nullptr) {
         tlsBuffer->reuse();
         tlsBuffer = nullptr;
@@ -624,13 +644,13 @@ void ConnectionSocket::onEvent(uint32_t events) {
                         closeSocket(1, -1);
                         return;
                     }
+                    adjustWriteOp();
                 } else {
                     if (webSocketDriveHandshake() < 0) {
                         closeSocket(1, -1);
                         return;
                     }
                 }
-                adjustWriteOp();
             } else if (proxyAuthState != 0) {
                 if (proxyAuthState >= 10) {
                     if (proxyAuthState == 10) {
@@ -834,6 +854,11 @@ time_t ConnectionSocket::getTimeout() {
 }
 
 bool ConnectionSocket::checkTimeout(int64_t now) {
+    if (webSocket && webSocketState != WebSocketStateReady && (now - lastEventTime) > 6000) {
+        if (LOGS_ENABLED) DEBUG_D("connection(%p) WSS handshake timeout", this);
+        closeSocket(2, 0);
+        return true;
+    }
     if (timeout != 0 && (now - lastEventTime) > (int64_t) timeout * 1000) {
         if (!onConnectedSent || hasPendingRequests()) {
             closeSocket(2, 0);
@@ -855,7 +880,7 @@ void ConnectionSocket::resetLastEventTime() {
 }
 
 bool ConnectionSocket::isDisconnected() {
-    return socketFd < 0;
+    return socketFd < 0 && waitingForHostResolve.empty();
 }
 
 void ConnectionSocket::dropConnection() {
@@ -876,8 +901,18 @@ void ConnectionSocket::setWebSocket(bool enabled, std::string host, std::string 
     webSocketPath = std::move(path);
 }
 
-void ConnectionSocket::queueWebSocketMessage(const uint8_t *data, size_t length) {
-    wsOutQueue.emplace_back((const char *) data, length);
+void ConnectionSocket::queueWebSocketMessage(const uint8_t *data, size_t length, const uint8_t *data2, size_t length2, const uint8_t *data3, size_t length3) {
+    std::string message;
+    message.reserve(webSocketHeaderReserve + length + length2 + length3);
+    message.append(webSocketHeaderReserve, '\0');
+    message.append((const char *) data, length);
+    if (data2 != nullptr) {
+        message.append((const char *) data2, length2);
+    }
+    if (data3 != nullptr) {
+        message.append((const char *) data3, length3);
+    }
+    wsOutQueue.push_back(std::move(message));
     adjustWriteOp();
 }
 
@@ -907,8 +942,6 @@ void ConnectionSocket::webSocketFreeSsl() {
     sslWriteBio = nullptr;
     tlsPendingWrite.clear();
     tlsPendingSent = 0;
-    wsInBuffer.clear();
-    wsOutQueue.clear();
     webSocketState = WebSocketStateNone;
 }
 
@@ -944,6 +977,9 @@ int32_t ConnectionSocket::webSocketFlushCiphertext() {
     }
     if (tlsPendingSent >= tlsPendingWrite.size()) {
         tlsPendingWrite.clear();
+        tlsPendingSent = 0;
+    } else if (tlsPendingSent >= 64 * 1024) {
+        tlsPendingWrite.erase(0, tlsPendingSent);
         tlsPendingSent = 0;
     }
     return 0;
@@ -1019,107 +1055,178 @@ int32_t ConnectionSocket::webSocketOnNetworkData(uint8_t *data, size_t length) {
         if (ConnectionsManager::getInstance(instanceNum).delegate != nullptr) {
             ConnectionsManager::getInstance(instanceNum).delegate->onBytesReceived(n, currentNetworkType, instanceNum);
         }
-        wsInBuffer.append((const char *) plain, (size_t) n);
-    }
-    if (webSocketState == WebSocketStateHttp) {
-        size_t headerEnd = wsInBuffer.find("\r\n\r\n");
-        if (headerEnd == std::string::npos) {
-            if (wsInBuffer.size() > 16 * 1024) {
+        int32_t gen = socketGeneration;
+        if (webSocketState == WebSocketStateHttp) {
+            wsInBuffer.append((const char *) plain, (size_t) n);
+            int32_t upgrade = webSocketCheckHttpUpgrade();
+            if (upgrade < 0) {
                 return -1;
             }
-            return webSocketFlushCiphertext();
-        }
-        if (wsInBuffer.compare(0, 7, "HTTP/1.") != 0 || wsInBuffer.find(" 101") == std::string::npos) {
-            if (LOGS_ENABLED) DEBUG_E("connection(%p) WSS handshake not accepted", this);
-            return -1;
-        }
-        wsInBuffer.erase(0, headerEnd + 4);
-        webSocketBecameReady();
-    }
-    if (webSocketState == WebSocketStateReady) {
-        int32_t gen = socketGeneration;
-        if (webSocketParseFrames() < 0) {
+            if (upgrade == 0) {
+                continue;
+            }
+            if (gen != socketGeneration) {
+                return 0;
+            }
+            std::string leftover;
+            leftover.swap(wsInBuffer);
+            if (!leftover.empty() && webSocketConsumePlain((uint8_t *) &leftover[0], leftover.size()) < 0) {
+                return -1;
+            }
+        } else if (webSocketConsumePlain(plain, (size_t) n) < 0) {
             return -1;
         }
         if (gen != socketGeneration) {
             return 0;
         }
     }
-    return webSocketFlushCiphertext();
+    if (webSocketFlushCiphertext() < 0) {
+        return -1;
+    }
+    if (tlsPendingSent < tlsPendingWrite.size()) {
+        adjustWriteOp();
+    }
+    return 0;
 }
 
-int32_t ConnectionSocket::webSocketParseFrames() {
+int32_t ConnectionSocket::webSocketCheckHttpUpgrade() {
+    size_t headerEnd = wsInBuffer.find("\r\n\r\n");
+    if (headerEnd == std::string::npos) {
+        return wsInBuffer.size() > 16 * 1024 ? -1 : 0;
+    }
+    size_t statusEnd = wsInBuffer.find("\r\n");
+    if (wsInBuffer.compare(0, 7, "HTTP/1.") != 0 || statusEnd < 12 || wsInBuffer.compare(9, 3, "101") != 0) {
+        if (LOGS_ENABLED) DEBUG_E("connection(%p) WSS handshake not accepted", this);
+        return -1;
+    }
+    wsInBuffer.erase(0, headerEnd + 4);
+    webSocketBecameReady();
+    return 1;
+}
+
+void ConnectionSocket::webSocketResetFrameState() {
+    wsFrameHeaderSize = 0;
+    wsFrameOpcode = 0;
+    wsFrameMasked = false;
+    wsFramePayloadLeft = 0;
+    wsFrameMaskOffset = 0;
+    wsControlPayload.clear();
+}
+
+static size_t webSocketHeaderSizeFor(const uint8_t *header, size_t have) {
+    if (have < 2) {
+        return 2;
+    }
+    uint8_t lengthByte = header[1] & 0x7f;
+    size_t size = 2;
+    if (lengthByte == 126) {
+        size += 2;
+    } else if (lengthByte == 127) {
+        size += 8;
+    }
+    if ((header[1] & 0x80) != 0) {
+        size += 4;
+    }
+    return size;
+}
+
+int32_t ConnectionSocket::webSocketConsumePlain(uint8_t *data, size_t length) {
     size_t offset = 0;
-    size_t total = wsInBuffer.size();
-    while (true) {
-        if (total - offset < 2) {
-            break;
-        }
-        const uint8_t *frame = (const uint8_t *) &wsInBuffer[offset];
-        uint8_t opcode = frame[0] & 0x0f;
-        bool masked = (frame[1] & 0x80) != 0;
-        uint64_t payloadLen = frame[1] & 0x7f;
-        size_t headerSize = 2;
-        if (payloadLen == 126) {
-            if (total - offset < 4) {
-                break;
+    while (offset < length) {
+        if (wsFramePayloadLeft == 0) {
+            size_t need = webSocketHeaderSizeFor(wsFrameHeader, wsFrameHeaderSize);
+            while (wsFrameHeaderSize < need && offset < length) {
+                wsFrameHeader[wsFrameHeaderSize++] = data[offset++];
+                need = webSocketHeaderSizeFor(wsFrameHeader, wsFrameHeaderSize);
             }
-            payloadLen = ((uint64_t) frame[2] << 8) | frame[3];
-            headerSize = 4;
-        } else if (payloadLen == 127) {
-            if (total - offset < 10) {
-                break;
+            if (wsFrameHeaderSize < need) {
+                return 0;
             }
-            payloadLen = 0;
-            for (int32_t i = 0; i < 8; i++) {
-                payloadLen = (payloadLen << 8) | frame[2 + i];
+            uint8_t lengthByte = wsFrameHeader[1] & 0x7f;
+            size_t cursor = 2;
+            uint64_t payloadLength = lengthByte;
+            if (lengthByte == 126) {
+                payloadLength = ((uint64_t) wsFrameHeader[2] << 8) | wsFrameHeader[3];
+                cursor = 4;
+            } else if (lengthByte == 127) {
+                payloadLength = 0;
+                for (int32_t i = 0; i < 8; i++) {
+                    payloadLength = (payloadLength << 8) | wsFrameHeader[2 + i];
+                }
+                cursor = 10;
             }
-            headerSize = 10;
-        }
-        size_t maskOffset = headerSize;
-        if (masked) {
-            headerSize += 4;
-        }
-        if (payloadLen > 2 * 1024 * 1024) {
-            if (LOGS_ENABLED) DEBUG_E("connection(%p) WSS oversized frame", this);
-            return -1;
-        }
-        if (total - offset < headerSize + payloadLen) {
-            break;
-        }
-        uint8_t *payload = (uint8_t *) &wsInBuffer[offset + headerSize];
-        if (masked) {
-            const uint8_t *mask = (const uint8_t *) &wsInBuffer[offset + maskOffset];
-            for (uint64_t i = 0; i < payloadLen; i++) {
-                payload[i] ^= mask[i & 3];
+            wsFrameOpcode = wsFrameHeader[0] & 0x0f;
+            wsFrameMasked = (wsFrameHeader[1] & 0x80) != 0;
+            if (wsFrameMasked) {
+                memcpy(wsFrameMask, wsFrameHeader + cursor, 4);
             }
-        }
-        if (opcode == 0x0 || opcode == 0x2) {
-            if (payloadLen > 0) {
+            bool control = (wsFrameOpcode & 0x08) != 0;
+            if (control ? payloadLength > 125 : payloadLength > 2 * 1024 * 1024) {
+                if (LOGS_ENABLED) DEBUG_E("connection(%p) WSS oversized frame", this);
+                return -1;
+            }
+            wsFrameHeaderSize = 0;
+            wsFrameMaskOffset = 0;
+            wsFramePayloadLeft = payloadLength;
+            wsControlPayload.clear();
+            if (payloadLength == 0) {
                 int32_t gen = socketGeneration;
-                NativeByteBuffer *buffer = BuffersStorage::getInstance().getFreeBuffer((uint32_t) payloadLen);
-                buffer->writeBytes(payload, (uint32_t) payloadLen);
-                buffer->rewind();
-                onReceivedData(buffer);
-                buffer->reuse();
+                if (webSocketFinishFrame() < 0) {
+                    return -1;
+                }
                 if (gen != socketGeneration) {
                     return 0;
                 }
-            }
-        } else if (opcode == 0x8) {
-            int32_t closeCode = payloadLen >= 2 ? ((payload[0] << 8) | payload[1]) : 0;
-            std::string reason = payloadLen > 2 ? std::string((const char *) payload + 2, (size_t) (payloadLen - 2)) : "";
-            if (LOGS_ENABLED) DEBUG_D("connection(%p) WSS close code %d reason '%s'", this, closeCode, reason.c_str());
-            return -1;
-        } else if (opcode == 0x9) {
-            if (webSocketWriteFrame(0xA, payload, (size_t) payloadLen) < 0) {
-                return -1;
+                continue;
             }
         }
-        offset += headerSize + (size_t) payloadLen;
+        size_t available = length - offset;
+        size_t chunk = wsFramePayloadLeft < available ? (size_t) wsFramePayloadLeft : available;
+        uint8_t *payload = data + offset;
+        if (wsFrameMasked) {
+            for (size_t i = 0; i < chunk; i++) {
+                payload[i] ^= wsFrameMask[(wsFrameMaskOffset + i) & 3];
+            }
+            wsFrameMaskOffset += chunk;
+        }
+        offset += chunk;
+        wsFramePayloadLeft -= chunk;
+        if ((wsFrameOpcode & 0x08) != 0) {
+            wsControlPayload.append((const char *) payload, chunk);
+        } else if (wsFrameOpcode == 0x0 || wsFrameOpcode == 0x2) {
+            int32_t gen = socketGeneration;
+            NativeByteBuffer *buffer = BuffersStorage::getInstance().getFreeBuffer((uint32_t) chunk);
+            buffer->writeBytes(payload, (uint32_t) chunk);
+            buffer->rewind();
+            onReceivedData(buffer);
+            buffer->reuse();
+            if (gen != socketGeneration) {
+                return 0;
+            }
+        }
+        if (wsFramePayloadLeft == 0) {
+            int32_t gen = socketGeneration;
+            if (webSocketFinishFrame() < 0) {
+                return -1;
+            }
+            if (gen != socketGeneration) {
+                return 0;
+            }
+        }
     }
-    if (offset > 0) {
-        wsInBuffer.erase(0, offset);
+    return 0;
+}
+
+int32_t ConnectionSocket::webSocketFinishFrame() {
+    if (wsFrameOpcode == 0x8) {
+        size_t size = wsControlPayload.size();
+        int32_t closeCode = size >= 2 ? (((uint8_t) wsControlPayload[0] << 8) | (uint8_t) wsControlPayload[1]) : 0;
+        std::string reason = size > 2 ? wsControlPayload.substr(2) : "";
+        if (LOGS_ENABLED) DEBUG_D("connection(%p) WSS close code %d reason '%s'", this, closeCode, reason.c_str());
+        return -1;
+    }
+    if (wsFrameOpcode == 0x9) {
+        return webSocketWriteFrame(0xA, (const uint8_t *) wsControlPayload.data(), wsControlPayload.size());
     }
     return 0;
 }
@@ -1131,11 +1238,29 @@ int32_t ConnectionSocket::webSocketWriteFrame(uint8_t opcode, const uint8_t *pay
     frame.reserve(length + 14);
     webSocketAppendFrameHeader(frame, opcode, length, mask);
     size_t headerSize = frame.size();
-    frame.resize(headerSize + length);
-    for (size_t i = 0; i < length; i++) {
-        frame[headerSize + i] = (char) (payload[i] ^ mask[i & 3]);
-    }
+    frame.append((const char *) payload, length);
+    webSocketMaskPayload((uint8_t *) &frame[headerSize], length, mask);
     int32_t w = SSL_write(ssl, frame.data(), (int32_t) frame.size());
+    if (w <= 0) {
+        if (LOGS_ENABLED) DEBUG_E("connection(%p) WSS SSL_write frame failed", this);
+        return -1;
+    }
+    return 0;
+}
+
+int32_t ConnectionSocket::webSocketWriteQueuedFrame(std::string &message) {
+    size_t length = message.size() - webSocketHeaderReserve;
+    uint8_t mask[4];
+    RAND_bytes(mask, sizeof(mask));
+    std::string header;
+    header.reserve(webSocketHeaderReserve);
+    webSocketAppendFrameHeader(header, 0x2, length, mask);
+    size_t offset = webSocketHeaderReserve - header.size();
+    memcpy(&message[offset], header.data(), header.size());
+    if (length > 0) {
+        webSocketMaskPayload((uint8_t *) &message[webSocketHeaderReserve], length, mask);
+    }
+    int32_t w = SSL_write(ssl, message.data() + offset, (int32_t) (header.size() + length));
     if (w <= 0) {
         if (LOGS_ENABLED) DEBUG_E("connection(%p) WSS SSL_write frame failed", this);
         return -1;
@@ -1147,7 +1272,7 @@ int32_t ConnectionSocket::webSocketSendOutgoing() {
     while (!wsOutQueue.empty()) {
         std::string message = std::move(wsOutQueue.front());
         wsOutQueue.erase(wsOutQueue.begin());
-        if (webSocketWriteFrame(0x2, (const uint8_t *) message.data(), message.size()) < 0) {
+        if (webSocketWriteQueuedFrame(message) < 0) {
             return -1;
         }
         if (webSocketFlushCiphertext() < 0) {
@@ -1188,6 +1313,9 @@ void ConnectionSocket::onHostNameResolved(std::string host, std::string ip, bool
                 return;
             }
             if (LOGS_ENABLED) DEBUG_D("connection(%p) resolved host %s address %s via delegate", this, host.c_str(), ip.c_str());
+            if (webSocket) {
+                lastEventTime = ConnectionsManager::getInstance(instanceNum).getCurrentTimeMonotonicMillis();
+            }
             openConnectionInternal(resolvedIpv6);
         }
     });
