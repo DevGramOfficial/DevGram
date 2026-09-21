@@ -254,13 +254,7 @@ def enter_safe_mode():
         _unload_id(plugin_id)
         _release_plugin_imports(plugin_id)
     _last_settings_objects.clear()
-    # Как shutdown движка в Extera: SDK-модули не нужны, пока плагины остановлены.
-    # Метаданные карточек остаются в _known_plugins и не требуют BasePlugin.
-    for name in list(sys.modules):
-        if name == "devgram" or name.startswith("devgram."):
-            sys.modules.pop(name, None)
-    importlib.invalidate_caches()
-    gc.collect()
+    _release_sdk_modules()
     return True
 
 
@@ -283,10 +277,21 @@ def reload_all(dir_path):
     _package_roots.clear()
     _package_manifests.clear()
     _package_archives.clear()
+    _release_sdk_modules()
     _log("── перезагрузка плагинов ──")
     n = load_dir(dir_path)
     _log("перезагрузка завершена: активно %d плагинов" % n)
     return n
+
+
+def _release_sdk_modules():
+    """Выгрузить публичный SDK и его реестры между полными перезапусками движка."""
+    # Метаданные карточек остаются в _known_plugins и не требуют BasePlugin.
+    for name in list(sys.modules):
+        if name == "devgram" or name.startswith("devgram."):
+            sys.modules.pop(name, None)
+    importlib.invalidate_caches()
+    gc.collect()
 
 
 def reload_plugin(plugin_id):
