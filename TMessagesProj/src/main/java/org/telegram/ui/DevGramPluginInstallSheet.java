@@ -106,6 +106,9 @@ public class DevGramPluginInstallSheet {
         }
         final boolean fromDevChannel = org.telegram.messenger.DevGramBadges.isPluginDevChannel(sourceDialogId);
         final boolean verified = fromDevChannel || (verifyHash != null && !verifyHash.isEmpty() && DevGramPlugins.isVerifiedByHash(verifyHash));
+        final DevGramPluginBlocks.Fingerprint blockFingerprint = packagePath != null
+                ? DevGramPluginBlocks.fingerprintPackage(packagePath)
+                : DevGramPluginBlocks.fingerprintSource(verifySource);
         final boolean installed = DevGramPlugins.isInstalled(id);
         if (fromDevChannel && verifyHash != null && !verifyHash.isEmpty()) {
             DevGramPlugins.trustFromChannelByHash(verifyHash);
@@ -306,7 +309,7 @@ public class DevGramPluginInstallSheet {
         refreshBlock[0] = () -> {
             blockKnown[0] = false;
             applyBlock.run();
-            DevGramPluginBlocks.check(id, verifyHash, status -> {
+            DevGramPluginBlocks.check(id, verifyHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
                 blockState[0] = status.success && status.blocked;
                 applyBlock.run();
@@ -356,7 +359,7 @@ public class DevGramPluginInstallSheet {
                 manageBlock.setEnabled(false);
                 manageBlock.setText("Сохраняю…");
                 boolean next = !blockState[0];
-                DevGramPluginBlocks.setBlocked(account, id, verifyHash, name, next, status -> {
+                DevGramPluginBlocks.setBlocked(account, id, verifyHash, name, blockFingerprint, next, status -> {
                     if (status.success) {
                         blockKnown[0] = true;
                         blockState[0] = status.blocked;
@@ -577,7 +580,7 @@ public class DevGramPluginInstallSheet {
         install.setOnClickListener(v -> {
             install.setEnabled(false);
             install.setText("Проверяю блокировку…");
-            DevGramPluginBlocks.check(id, verifyHash, status -> {
+            DevGramPluginBlocks.check(id, verifyHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
                 blockState[0] = status.success && status.blocked;
                 if (!status.success || status.blocked) {

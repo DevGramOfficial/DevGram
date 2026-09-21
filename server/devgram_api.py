@@ -65,6 +65,9 @@ def _init_blocks_db():
                 block_key TEXT PRIMARY KEY,
                 plugin_id TEXT NOT NULL DEFAULT '',
                 sha256 TEXT NOT NULL DEFAULT '',
+                structure TEXT NOT NULL DEFAULT '',
+                simhash TEXT NOT NULL DEFAULT '',
+                feature_count INTEGER NOT NULL DEFAULT 0,
                 name TEXT NOT NULL DEFAULT '',
                 reason TEXT NOT NULL DEFAULT '',
                 blocked_by INTEGER NOT NULL,
@@ -73,6 +76,20 @@ def _init_blocks_db():
         """)
         db.execute("CREATE INDEX IF NOT EXISTS idx_plugin_blocks_id ON plugin_blocks(plugin_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_plugin_blocks_sha ON plugin_blocks(sha256)")
+        columns = {row[1] for row in db.execute("PRAGMA table_info(plugin_blocks)")}
+        for name, definition in (
+            ("structure", "TEXT NOT NULL DEFAULT ''"),
+            ("simhash", "TEXT NOT NULL DEFAULT ''"),
+            ("feature_count", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            if name not in columns:
+                try:
+                    db.execute("ALTER TABLE plugin_blocks ADD COLUMN %s %s" % (name, definition))
+                except sqlite3.OperationalError as error:
+                    # Несколько gunicorn-worker'ов могут одновременно увидеть старую схему.
+                    if "duplicate column name" not in str(error).lower():
+                        raise
+        db.execute("CREATE INDEX IF NOT EXISTS idx_plugin_blocks_structure ON plugin_blocks(structure)")
 
 
 _init_blocks_db()
@@ -180,12 +197,22 @@ def _plugin_identity(data):
         plugin_id = ""  # старые плагины с необычным id всё ещё проверяются по SHA-256
     if sha256 and not SHA256_RE.fullmatch(sha256):
         abort(400, "invalid sha256")
+    structure = str(data.get("structure") or "").strip().lower()
+    simhash = str(data.get("simhash") or "").strip().lower()
+    try:
+        feature_count = max(0, int(data.get("featureCount") or 0))
+    except Exception:
+        feature_count = 0
+    if structure and not SHA256_RE.fullmatch(structure):
+        abort(400, "invalid structure fingerprint")
+    if simhash and not re.fullmatch(r"[0-9a-f]{16}", simhash):
+        abort(400, "invalid simhash")
     if not plugin_id and not sha256:
         abort(400, "plugin id or sha256 is required")
-    return plugin_id, sha256
+    return plugin_id, sha256, structure, simhash, feature_count
 
 
-def _find_plugin_block(plugin_id, sha256):
+def _find_plugin_block(plugin_id, sha256, structure="", simhash="", feature_count=0):
     clauses, args = [], []
     if plugin_id:
         clauses.append("plugin_id = ?")
@@ -193,14 +220,37 @@ def _find_plugin_block(plugin_id, sha256):
     if sha256:
         clauses.append("sha256 = ?")
         args.append(sha256)
+    if structure:
+        clauses.append("structure = ?")
+        args.append(structure)
     if not clauses:
         return None
     with _blocks_db() as db:
-        return db.execute(
-            "SELECT plugin_id, sha256, name, reason, blocked_by, blocked_at "
+        row = db.execute(
+            "SELECT plugin_id, sha256, structure, simhash, feature_count, name, reason, blocked_by, blocked_at "
             "FROM plugin_blocks WHERE " + " OR ".join(clauses) + " ORDER BY blocked_at DESC LIMIT 1",
             args,
         ).fetchone()
+        if row is not None or not simhash or feature_count < 12:
+            return row
+        candidates = db.execute(
+            "SELECT plugin_id, sha256, structure, simhash, feature_count, name, reason, blocked_by, blocked_at "
+            "FROM plugin_blocks WHERE simhash != '' AND feature_count >= 12"
+        ).fetchall()
+    current = int(simhash, 16)
+    best = None
+    best_distance = 65
+    for candidate in candidates:
+        count = int(candidate["feature_count"] or 0)
+        ratio = count / float(feature_count)
+        if ratio < 0.40 or ratio > 2.50:
+            continue
+        distance = (current ^ int(candidate["simhash"], 16)).bit_count()
+        limit = 3 if min(count, feature_count) < 24 else 5
+        if distance <= limit and distance < best_distance:
+            best = candidate
+            best_distance = distance
+    return best
 
 
 def _block_json(row):
@@ -210,6 +260,8 @@ def _block_json(row):
         "blocked": True,
         "pluginId": row["plugin_id"],
         "sha256": row["sha256"],
+        "structure": row["structure"],
+        "simhash": row["simhash"],
         "name": row["name"],
         "reason": row["reason"],
         "blockedBy": row["blocked_by"],
@@ -255,8 +307,9 @@ def download():
 
 @app.route("/api/plugins/block-status")
 def plugin_block_status():
-    plugin_id, sha256 = _plugin_identity(request.args)
-    response = jsonify(_block_json(_find_plugin_block(plugin_id, sha256)))
+    plugin_id, sha256, structure, simhash, feature_count = _plugin_identity(request.args)
+    response = jsonify(_block_json(_find_plugin_block(
+        plugin_id, sha256, structure, simhash, feature_count)))
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -275,7 +328,7 @@ def set_plugin_block():
         abort(403)
     if not _has_developer(uid):
         abort(403)
-    plugin_id, sha256 = _plugin_identity(data)
+    plugin_id, sha256, structure, simhash, feature_count = _plugin_identity(data)
     blocked = bool(data.get("blocked", True))
     if not blocked:
         clauses, args = [], []
@@ -295,13 +348,16 @@ def set_plugin_block():
     now = int(time.time() * 1000)
     with _blocks_db() as db:
         db.execute(
-            "INSERT INTO plugin_blocks(block_key, plugin_id, sha256, name, reason, blocked_by, blocked_at) "
-            "VALUES(?,?,?,?,?,?,?) ON CONFLICT(block_key) DO UPDATE SET "
-            "sha256=excluded.sha256, name=excluded.name, reason=excluded.reason, "
+            "INSERT INTO plugin_blocks(block_key, plugin_id, sha256, structure, simhash, feature_count, "
+            "name, reason, blocked_by, blocked_at) VALUES(?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(block_key) DO UPDATE SET sha256=excluded.sha256, structure=excluded.structure, "
+            "simhash=excluded.simhash, feature_count=excluded.feature_count, "
+            "name=excluded.name, reason=excluded.reason, "
             "blocked_by=excluded.blocked_by, blocked_at=excluded.blocked_at",
-            (key, plugin_id, sha256, name, reason, uid, now),
+            (key, plugin_id, sha256, structure, simhash, feature_count, name, reason, uid, now),
         )
-    return jsonify({"ok": True, **_block_json(_find_plugin_block(plugin_id, sha256))})
+    return jsonify({"ok": True, **_block_json(_find_plugin_block(
+        plugin_id, sha256, structure, simhash, feature_count))})
 
 
 @app.route("/api/beta/health")

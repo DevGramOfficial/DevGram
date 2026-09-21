@@ -574,7 +574,10 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         installing.add(e.id);
         if (adapter != null) adapter.notifyDataSetChanged();
         String hash = e.isPackage ? e.packageSha : DevGramPlugins.sha256(e.source);
-        org.telegram.messenger.DevGramPluginBlocks.check(e.id, hash, status -> {
+        org.telegram.messenger.DevGramPluginBlocks.Fingerprint fingerprint = e.isPackage
+                ? org.telegram.messenger.DevGramPluginBlocks.Fingerprint.EMPTY
+                : org.telegram.messenger.DevGramPluginBlocks.fingerprintSource(e.source);
+        org.telegram.messenger.DevGramPluginBlocks.check(e.id, hash, fingerprint, status -> {
             if (!status.success || status.blocked) {
                 installing.remove(e.id);
                 if (adapter != null) adapter.notifyDataSetChanged();

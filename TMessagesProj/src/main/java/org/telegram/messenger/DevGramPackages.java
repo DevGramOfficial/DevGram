@@ -146,8 +146,19 @@ public final class DevGramPackages {
         Utilities.globalQueue.postRunnable(() -> {
             boolean ok = false;
             try {
-                if (expectedSha == null || expectedSha.isEmpty() || expectedSha.equalsIgnoreCase(sha256File(file))) {
-                    ok = DevGramPlugins.installPackage(file.getAbsolutePath(), pluginId, true);
+                String actualSha = sha256File(file);
+                if (expectedSha == null || expectedSha.isEmpty() || expectedSha.equalsIgnoreCase(actualSha)) {
+                    DevGramPluginBlocks.Fingerprint fingerprint =
+                            DevGramPluginBlocks.fingerprintPackage(file.getAbsolutePath());
+                    DevGramPluginBlocks.Status block =
+                            DevGramPluginBlocks.checkBlocking(pluginId, actualSha, fingerprint);
+                    if (block.success && !block.blocked) {
+                        ok = DevGramPlugins.installPackage(file.getAbsolutePath(), pluginId, true);
+                    } else if (!block.success) {
+                        FileLog.e("DevGramPackages: plugin block status unavailable for " + pluginId);
+                    } else {
+                        FileLog.e("DevGramPackages: blocked plugin " + pluginId);
+                    }
                 } else {
                     FileLog.e("DevGramPackages: sha mismatch for " + pluginId);
                 }

@@ -72,6 +72,8 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
 
         final String installLabel = DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин";
         final String blockHash = entry.isPackage ? entry.packageSha : DevGramPlugins.sha256(entry.source);
+        final DevGramPluginBlocks.Fingerprint blockFingerprint = entry.isPackage
+                ? DevGramPluginBlocks.Fingerprint.EMPTY : DevGramPluginBlocks.fingerprintSource(entry.source);
         final boolean[] blockKnown = {false};
         final boolean[] blockState = {false};
         TextView install = button(context, "Проверяю блокировку…");
@@ -110,7 +112,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         install.setOnClickListener(v -> {
             install.setEnabled(false);
             install.setText("Проверяю блокировку…");
-            DevGramPluginBlocks.check(entry.id, blockHash, status -> {
+            DevGramPluginBlocks.check(entry.id, blockHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
                 blockState[0] = status.success && status.blocked;
                 if (!status.success || status.blocked) {
@@ -145,7 +147,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                         : (blockState[0] ? "Разблокировать установку  ›" : "Заблокировать установку  ›"));
             }
         };
-        Runnable refreshBlock = () -> DevGramPluginBlocks.check(entry.id, blockHash, status -> {
+        Runnable refreshBlock = () -> DevGramPluginBlocks.check(entry.id, blockHash, blockFingerprint, status -> {
             blockKnown[0] = status.success;
             blockState[0] = status.success && status.blocked;
             applyBlockState.run();
@@ -163,7 +165,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                 }
                 manageBlock.setEnabled(false);
                 manageBlock.setText("Сохраняю…");
-                DevGramPluginBlocks.setBlocked(getCurrentAccount(), entry.id, blockHash, entry.name,
+                DevGramPluginBlocks.setBlocked(getCurrentAccount(), entry.id, blockHash, entry.name, blockFingerprint,
                         !blockState[0], status -> {
                             if (status.success) {
                                 blockKnown[0] = true;

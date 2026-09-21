@@ -69,7 +69,10 @@ public final class DevGramDevServer extends NanoHTTPD {
                 String[] meta = DevGramPlugins.packageMeta(upload.getAbsolutePath()).split("\u001f", -1);
                 String pluginId = meta.length > 0 ? meta[0] : "";
                 String sha256 = DevGramPackages.sha256File(upload);
-                DevGramPluginBlocks.Status block = DevGramPluginBlocks.checkBlocking(pluginId, sha256);
+                DevGramPluginBlocks.Fingerprint fingerprint =
+                        DevGramPluginBlocks.fingerprintPackage(upload.getAbsolutePath());
+                DevGramPluginBlocks.Status block =
+                        DevGramPluginBlocks.checkBlocking(pluginId, sha256, fingerprint);
                 if (!block.success) {
                     return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT,
                             "plugin block status unavailable");
