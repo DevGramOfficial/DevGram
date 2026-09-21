@@ -61,6 +61,7 @@ public class DevGramLockedChatsActivity extends BaseFragment {
     private static final int ID_HIDE_SENS_USERNAME = 23;
     private static final int ID_HIDE_SENS_BIO = 24;
     private static final int ID_HIDE_SENS_ID = 25;
+    private static final int ID_HIDDEN_ACCOUNTS = 26; // скрытые аккаунты (перенос из Fork-панели)
 
     private static boolean gPref(String key, boolean def) {
         return org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean(key, def);
@@ -125,6 +126,13 @@ public class DevGramLockedChatsActivity extends BaseFragment {
         items.add(UItem.asButton(ID_MOD_SETTINGS_LOCK, R.drawable.outline_header_lock_24,
                 "Замок настроек мода", DevGramSettingsLock.label()));
         items.add(UItem.asShadow("Спрашивает 4-значный код при входе в настройки DevGram. Защищает только меню мода."));
+
+        // — Скрытые аккаунты (перенос из скрытой Fork-панели)
+        items.add(UItem.asGraySection(LocaleController.getString(R.string.HiddenAccounts)));
+        items.add(UItem.asButton(ID_HIDDEN_ACCOUNTS, R.drawable.msg_secret,
+                LocaleController.getString(R.string.HiddenAccounts)));
+        items.add(UItem.asShadow("Прячет выбранные аккаунты за отдельным 4-значным кодом. "
+                + "Открыть скрытый аккаунт можно вводом его кода на экране код-пароля или в поиске (скрытный режим)."));
 
         // — Приватность (перенос из скрытой Fork-панели)
         items.add(UItem.asGraySection("Приватность"));
@@ -271,6 +279,8 @@ public class DevGramLockedChatsActivity extends BaseFragment {
         int id = item.id;
         if (id == ID_MOD_SETTINGS_LOCK) {
             DevGramSettingsLock.manage(this, () -> listView.adapter.update(true));
+        } else if (id == ID_HIDDEN_ACCOUNTS) {
+            presentFragment(new HiddenAccountsActivity());
         } else if (id == ID_BLOCK_SCREENSHOTS) {
             gToggle("forceBlockScreenshots", false);
             org.telegram.messenger.NotificationCenter.getGlobalInstance()
