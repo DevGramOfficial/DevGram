@@ -261,7 +261,11 @@ def enter_safe_mode():
 def reload_all(dir_path):
     """Выгрузить все плагины и загрузить папку заново (без перезапуска приложения)."""
     for p in list(_plugins):
-        _unload_id(getattr(p, "id", ""))
+        plugin_id = str(getattr(p, "id", ""))
+        _unload_id(plugin_id)
+        # Простого удаления wheel из sys.path недостаточно: уже импортированные модули
+        # остаются в sys.modules и удерживают старые классы/нативные объекты после reload.
+        _release_plugin_imports(plugin_id)
     _known_plugins.clear()
     _last_settings_objects.clear()
     for name in list(sys.modules):
