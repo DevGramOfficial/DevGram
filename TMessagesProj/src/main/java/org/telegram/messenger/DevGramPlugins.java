@@ -890,14 +890,8 @@ public class DevGramPlugins {
             return org.telegram.tgnet.ConnectionsManager.getInstance(account).sendRequest((org.telegram.tgnet.TLObject) request,
                     (response, error) -> {
                         if (callback == null) return;
-                        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
-                        try (PyObject ignored = callback.call(response, error != null ? error.text : null)) {
-                        } catch (Throwable e) {
-                            FileLog.e(e);
-                        } finally {
-                            DevGramPluginWatchdog.onExecutionFinished(token);
-                            finishPendingCallback(pluginId, callback);
-                        }
+                        callPendingPythonCallback(pluginId, callback,
+                                response, error != null ? error.text : null);
                     });
         } catch (Throwable e) {
             finishPendingCallback(pluginId, callback);
@@ -915,16 +909,7 @@ public class DevGramPlugins {
     public static void runOnUiForPlugin(final String pluginId, final com.chaquo.python.PyObject fn, long delayMs) {
         if (fn == null) return;
         if (!trackPendingCallback(pluginId, fn)) return;
-        Runnable r = () -> {
-            long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
-            try (PyObject ignored = fn.call()) {
-            } catch (Throwable e) {
-                FileLog.e(e);
-            } finally {
-                DevGramPluginWatchdog.onExecutionFinished(token);
-                finishPendingCallback(pluginId, fn);
-            }
-        };
+        Runnable r = () -> callPendingPythonCallback(pluginId, fn);
         try {
             if (delayMs > 0) {
                 AndroidUtilities.runOnUIThread(r, delayMs);
@@ -946,16 +931,7 @@ public class DevGramPlugins {
         if (fn == null) return;
         if (!trackPendingCallback(pluginId, fn)) return;
         try {
-            NET_QUEUE.execute(() -> {
-                long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
-                try (PyObject ignored = fn.call()) {
-                } catch (Throwable e) {
-                    FileLog.e(e);
-                } finally {
-                    DevGramPluginWatchdog.onExecutionFinished(token);
-                    finishPendingCallback(pluginId, fn);
-                }
-            });
+            NET_QUEUE.execute(() -> callPendingPythonCallback(pluginId, fn));
         } catch (Throwable e) {
             finishPendingCallback(pluginId, fn);
             FileLog.e(e);
@@ -1362,19 +1338,55 @@ public class DevGramPlugins {
 
     private static boolean trackPendingCallback(String pluginId, PyObject callback) {
         if (callback == null || pluginId == null || pluginId.isEmpty()) return true;
-        if (isSafeMode() || !isPluginEnabled(pluginId)) {
-            closePyObjects(callback);
-            return false;
-        }
+        java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean();
         pendingPluginCallbacks.compute(pluginId, (ignored, callbacks) -> {
+            // Проверяем состояние внутри атомарной операции: выключение плагина не должно
+            // успеть очистить реестр, после чего запоздалый поток снова добавит в него колбэк.
+            if (isSafeMode() || !isPluginEnabled(pluginId)) return callbacks;
             if (callbacks == null) {
                 callbacks = java.util.Collections.synchronizedSet(
                         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
             }
             callbacks.add(callback);
+            accepted.set(true);
             return callbacks;
         });
-        return true;
+        if (!accepted.get()) closePyObjects(callback);
+        return accepted.get();
+    }
+
+    /**
+     * Забрать одноразовый колбэк из реестра перед вызовом. После этого очистка плагина
+     * уже не закроет PyObject посреди исполнения: владельцем обёртки становится этот вызов.
+     */
+    private static boolean claimPendingCallback(String pluginId, PyObject callback) {
+        if (callback == null) return false;
+        if (pluginId == null || pluginId.isEmpty()) return true;
+        java.util.Set<PyObject> callbacks = pendingPluginCallbacks.get(pluginId);
+        if (callbacks == null) return false;
+        synchronized (callbacks) {
+            if (pendingPluginCallbacks.get(pluginId) != callbacks
+                    || isSafeMode() || !isPluginEnabled(pluginId)
+                    || !callbacks.remove(callback)) {
+                return false;
+            }
+            if (callbacks.isEmpty()) pendingPluginCallbacks.remove(pluginId, callbacks);
+            return true;
+        }
+    }
+
+    private static void callPendingPythonCallback(String pluginId, PyObject callback, Object... args) {
+        if (!claimPendingCallback(pluginId, callback)) return;
+        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
+        try (PyObject ignored = callback.call(args)) {
+        } catch (Throwable e) {
+            FileLog.e(e);
+        } finally {
+            DevGramPluginWatchdog.onExecutionFinished(token);
+            // claimPendingCallback передал владение вызывающему коду, поэтому закрываем
+            // напрямую, а не ищем уже удалённую запись в pendingPluginCallbacks.
+            closePyObjects(callback);
+        }
     }
 
     private static void finishPendingCallback(String pluginId, PyObject callback) {
@@ -1430,14 +1442,7 @@ public class DevGramPlugins {
     }
 
     private static void callPythonCallback(String pluginId, PyObject callback) {
-        if (callback == null || isSafeMode()) return;
-        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
-        try (PyObject ignored = callback.call()) {
-        } catch (Throwable e) {
-            FileLog.e(e);
-        } finally {
-            DevGramPluginWatchdog.onExecutionFinished(token);
-        }
+        callPendingPythonCallback(pluginId, callback);
     }
 
     // ---- настройки плагина (UI-страница) ----
