@@ -127,9 +127,10 @@ void Connection::onReceivedData(NativeByteBuffer *buffer) {
     while (buffer->hasRemaining()) {
         if (!hasSomeDataSinceLastConnect) {
             if (wsConnectionActive) {
-                ConnectionsManager::getInstance(currentDatacenter->instanceNum).markWebSocketDomainResult(currentDatacenter->getDatacenterId(), currentWebSocketDomain, true);
+                ConnectionsManager::getInstance(currentDatacenter->instanceNum).markWebSocketDomainResult(currentDatacenter->getDatacenterId(), isMediaConnection, currentWebSocketDomain, currentWebSocketDash1, true);
+            } else {
+                currentDatacenter->storeCurrentAddressAndPortNum();
             }
-            currentDatacenter->storeCurrentAddressAndPortNum();
             isTryingNextPort = false;
             if (connectionType == ConnectionTypeProxy) {
                 setTimeout(5);
@@ -368,19 +369,22 @@ void Connection::connect() {
     wasConnected = false;
     hasSomeDataSinceLastConnect = false;
     uint32_t webDatacenterId = currentDatacenter->getDatacenterId();
-    bool useWebSocket = ConnectionsManager::getInstance(currentDatacenter->instanceNum).useWebSocket && connectionType != ConnectionTypeProxy && webDatacenterId >= 1 && webDatacenterId <= 5 && !ConnectionsManager::getInstance(currentDatacenter->instanceNum).isWebSocketSuppressed();
+    bool useWebSocket = ConnectionsManager::getInstance(currentDatacenter->instanceNum).useWebSocket && connectionType != ConnectionTypeProxy && webDatacenterId >= 1 && webDatacenterId <= 5 && ConnectionsManager::getInstance(currentDatacenter->instanceNum).proxyAddress.empty() && !ConnectionsManager::getInstance(currentDatacenter->instanceNum).isWebSocketSuppressed();
     wsConnectionActive = useWebSocket;
     if (useWebSocket) {
-        currentWebSocketDomain = ConnectionsManager::getInstance(currentDatacenter->instanceNum).getWebSocketDomainForDc(webDatacenterId);
+        secret = "";
+        currentWebSocketDomain = ConnectionsManager::getInstance(currentDatacenter->instanceNum).getWebSocketDomainForDc(webDatacenterId, isMediaConnection);
         bool directWebEndpoint = currentWebSocketDomain.empty();
+        currentWebSocketDash1 = isMediaConnection && directWebEndpoint && ConnectionsManager::getInstance(currentDatacenter->instanceNum).webSocketMediaDirectDash1Available(webDatacenterId);
         std::string webBaseDomain = directWebEndpoint ? "web.telegram.org" : currentWebSocketDomain;
-        std::string webHost = std::string("kws") + to_string_int32((int32_t) webDatacenterId) + (isMediaConnection && directWebEndpoint ? "-1" : "") + "." + webBaseDomain;
+        std::string webHost = std::string("kws") + to_string_int32((int32_t) webDatacenterId) + (currentWebSocketDash1 ? "-1" : "") + "." + webBaseDomain;
         std::string webPath = ConnectionsManager::getInstance(currentDatacenter->instanceNum).testBackend ? "/apiws_test" : "/apiws";
         setWebSocket(true, webHost, webPath);
         if (LOGS_ENABLED) DEBUG_D("connection(%p, account%u, dc%u, type %d) connecting via websocket %s%s", this, currentDatacenter->instanceNum, currentDatacenter->getDatacenterId(), connectionType, webHost.c_str(), webPath.c_str());
         openConnection(webHost, 443, "", false, ConnectionsManager::getInstance(currentDatacenter->instanceNum).currentNetworkType);
     } else {
         currentWebSocketDomain = "";
+        currentWebSocketDash1 = false;
         setWebSocket(false, "", "");
         openConnection(hostAddress, hostPort, secret, ipv6 != 0, ConnectionsManager::getInstance(currentDatacenter->instanceNum).currentNetworkType);
     }
@@ -511,7 +515,14 @@ void Connection::sendData(NativeByteBuffer *buff, bool reportAck, bool encrypted
             }
             packetLength += additinalPacketSize;
         } else {
-            additinalPacketSize = 0;
+            RAND_bytes((uint8_t *) &additinalPacketSize, 4);
+            if (!encrypted) {
+                additinalPacketSize = additinalPacketSize % 257;
+                uint32_t additionalSize = additinalPacketSize % 4;
+                if (additionalSize != 0) {
+                    additinalPacketSize += (4 - additionalSize);
+                }
+            }
             packetLength += additinalPacketSize;
         }
         bufferLen += 4;
@@ -635,14 +646,7 @@ void Connection::sendData(NativeByteBuffer *buff, bool reportAck, bool encrypted
             queueWebSocketMessage(buffer->bytes(), 64);
             prefixOffset = 64;
         }
-        std::string frame;
-        frame.reserve((buffer->limit() - prefixOffset) + buff->limit() + (buffer2 != nullptr ? buffer2->limit() : 0));
-        frame.append((const char *) buffer->bytes() + prefixOffset, buffer->limit() - prefixOffset);
-        frame.append((const char *) buff->bytes(), buff->limit());
-        if (buffer2 != nullptr) {
-            frame.append((const char *) buffer2->bytes(), buffer2->limit());
-        }
-        queueWebSocketMessage((const uint8_t *) frame.data(), frame.size());
+        queueWebSocketMessage(buffer->bytes() + prefixOffset, buffer->limit() - prefixOffset, buff->bytes(), buff->limit(), buffer2 != nullptr ? buffer2->bytes() : nullptr, buffer2 != nullptr ? buffer2->limit() : 0);
         buffer->reuse();
         buff->reuse();
         if (buffer2 != nullptr) {
@@ -692,8 +696,10 @@ inline void Connection::encryptKeyWithSecret(uint8_t *bytes, uint8_t secretType)
 
 void Connection::onDisconnectedInternal(int32_t reason, int32_t error) {
     reconnectTimer->stop();
-    if (wsConnectionActive && !hasSomeDataSinceLastConnect) {
-        ConnectionsManager::getInstance(currentDatacenter->instanceNum).markWebSocketDomainResult(currentDatacenter->getDatacenterId(), currentWebSocketDomain, false);
+    bool wasWebSocketAttempt = wsConnectionActive;
+    wsConnectionActive = false;
+    if (wasWebSocketAttempt && reason != 0 && !hasSomeDataSinceLastConnect) {
+        ConnectionsManager::getInstance(currentDatacenter->instanceNum).markWebSocketDomainResult(currentDatacenter->getDatacenterId(), isMediaConnection, currentWebSocketDomain, currentWebSocketDash1, false);
     }
     if (LOGS_ENABLED) DEBUG_D("connection(%p, account%u, dc%u, type %d) disconnected with reason %d", this, currentDatacenter->instanceNum, currentDatacenter->getDatacenterId(), connectionType, reason);
     bool switchToNextPort = reason == 2 && wasConnected && (!hasSomeDataSinceLastConnect || currentDatacenter->isCustomPort(currentAddressFlags)) || forceNextPort;
@@ -731,10 +737,12 @@ void Connection::onDisconnectedInternal(int32_t reason, int32_t error) {
         if (ConnectionsManager::getInstance(currentDatacenter->instanceNum).isNetworkAvailable() && connectionType != ConnectionTypeProxy) {
             isTryingNextPort = true;
             if (failedConnectionCount > willRetryConnectCount || switchToNextPort) {
-                currentDatacenter->nextAddressOrPort(currentAddressFlags);
-                if (currentDatacenter->isRepeatCheckingAddresses() && (ConnectionsManager::getInstance(currentDatacenter->instanceNum).getIpStratagy() == USE_IPV4_ONLY || ConnectionsManager::getInstance(currentDatacenter->instanceNum).getIpStratagy() == USE_IPV6_ONLY)) {
-                    if (LOGS_ENABLED) DEBUG_D("started retrying connection, set ipv4 ipv6 random strategy");
-                    ConnectionsManager::getInstance(currentDatacenter->instanceNum).setIpStrategy(USE_IPV4_IPV6_RANDOM);
+                if (!wasWebSocketAttempt) {
+                    currentDatacenter->nextAddressOrPort(currentAddressFlags);
+                    if (currentDatacenter->isRepeatCheckingAddresses() && (ConnectionsManager::getInstance(currentDatacenter->instanceNum).getIpStratagy() == USE_IPV4_ONLY || ConnectionsManager::getInstance(currentDatacenter->instanceNum).getIpStratagy() == USE_IPV6_ONLY)) {
+                        if (LOGS_ENABLED) DEBUG_D("started retrying connection, set ipv4 ipv6 random strategy");
+                        ConnectionsManager::getInstance(currentDatacenter->instanceNum).setIpStrategy(USE_IPV4_IPV6_RANDOM);
+                    }
                 }
                 failedConnectionCount = 0;
             }

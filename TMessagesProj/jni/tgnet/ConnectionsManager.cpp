@@ -233,7 +233,7 @@ void ConnectionsManager::select() {
             lastPushPingTime = now;
             uint8_t offset;
             RAND_bytes(&offset, 1);
-            nextPingTimeOffset = 60000 * 3 + (offset % 40) - 20;
+            nextPingTimeOffset = (useWebSocket && !isWebSocketSuppressed() ? 60000 : 60000 * 3) + (offset % 40) - 20;
             if (datacenter != nullptr) {
                 sendPing(datacenter, true);
             }
@@ -3753,11 +3753,7 @@ void ConnectionsManager::setWebSocketConfig(bool value, std::string userDomain, 
         useWebSocket = value;
         webSocketUserDomain = userDomain;
         webSocketDomainPool = pool;
-        webSocketDcDomain.clear();
-        webSocketDomainCooldownUntil.clear();
-        webSocketDomainStrikes.clear();
-        webSocketConsecutiveFailures = 0;
-        webSocketSuppressedUntil = 0;
+        resetWebSocketHealth();
         if (LOGS_ENABLED) DEBUG_D("websocket transport %s, %d pool domains, user domain '%s'", value ? "enabled" : "disabled", (int) pool.size(), userDomain.c_str());
         if (!endpointChanged) {
             return;
@@ -3773,14 +3769,35 @@ void ConnectionsManager::setWebSocketConfig(bool value, std::string userDomain, 
     });
 }
 
-std::string ConnectionsManager::getWebSocketDomainForDc(uint32_t datacenterId) {
+static int64_t webSocketEscalatedCooldown(int32_t strikes) {
+    int64_t cooldown = 45000;
+    for (int32_t i = 1; i < strikes && cooldown < 300000; i++) {
+        cooldown *= 2;
+    }
+    return cooldown > 300000 ? 300000 : cooldown;
+}
+
+bool ConnectionsManager::webSocketMediaDirectDash1Available(uint32_t datacenterId) {
+    if (!webSocketUserDomain.empty()) {
+        return false;
+    }
+    auto it = webSocketDirectDash1Cooldown.find(datacenterId);
+    return it == webSocketDirectDash1Cooldown.end() || it->second <= getCurrentTimeMonotonicMillis();
+}
+
+std::string ConnectionsManager::getWebSocketDomainForDc(uint32_t datacenterId, bool isMedia) {
     if (!webSocketUserDomain.empty()) {
         return webSocketUserDomain;
+    }
+    int64_t now = getCurrentTimeMonotonicMillis();
+    uint32_t slot = datacenterId * 2 + (isMedia ? 1 : 0);
+    auto directCooldown = webSocketDirectCooldownUntil.find(slot);
+    if (directCooldown == webSocketDirectCooldownUntil.end() || directCooldown->second <= now) {
+        return "";
     }
     if (webSocketDomainPool.empty()) {
         return "";
     }
-    int64_t now = getCurrentTimeMonotonicMillis();
     auto current = webSocketDcDomain.find(datacenterId);
     if (current != webSocketDcDomain.end()) {
         auto cooldown = webSocketDomainCooldownUntil.find(current->second);
@@ -3808,36 +3825,71 @@ std::string ConnectionsManager::getWebSocketDomainForDc(uint32_t datacenterId) {
     return picked;
 }
 
-void ConnectionsManager::markWebSocketDomainResult(uint32_t datacenterId, std::string domain, bool success) {
+void ConnectionsManager::markWebSocketDomainResult(uint32_t datacenterId, bool isMedia, std::string domain, bool dash1, bool success) {
+    uint32_t slot = datacenterId * 2 + (isMedia ? 1 : 0);
     if (success) {
         webSocketConsecutiveFailures = 0;
         webSocketSuppressedUntil = 0;
-        if (!domain.empty()) {
-            webSocketDomainCooldownUntil.erase(domain);
-            webSocketDomainStrikes.erase(domain);
+        if (webSocketUserDomain.empty()) {
+            if (domain.empty()) {
+                webSocketDirectCooldownUntil.erase(slot);
+                webSocketDirectStrikes.erase(slot);
+            } else {
+                webSocketDomainCooldownUntil.erase(domain);
+                webSocketDomainStrikes.erase(domain);
+            }
+            if (dash1) {
+                webSocketDirectDash1Cooldown.erase(datacenterId);
+                webSocketDirectDash1Strikes.erase(datacenterId);
+            }
         }
         return;
     }
-    if (!domain.empty() && webSocketUserDomain.empty()) {
-        int32_t strikes = ++webSocketDomainStrikes[domain];
-        int64_t cooldown = 45000;
-        for (int32_t i = 1; i < strikes && cooldown < 300000; i++) {
-            cooldown *= 2;
+    if (webSocketUserDomain.empty()) {
+        if (domain.empty() && dash1) {
+            int32_t strikes = ++webSocketDirectDash1Strikes[datacenterId];
+            int64_t cooldown = webSocketEscalatedCooldown(strikes);
+            webSocketDirectDash1Cooldown[datacenterId] = getCurrentTimeMonotonicMillis() + cooldown;
+            if (LOGS_ENABLED) DEBUG_D("websocket dc%u media-1 direct cooldown %lld ms (strike %d)", datacenterId, (long long) cooldown, strikes);
+            return;
         }
-        if (cooldown > 300000) {
-            cooldown = 300000;
+        if (domain.empty()) {
+            int32_t strikes = ++webSocketDirectStrikes[slot];
+            int64_t cooldown = webSocketEscalatedCooldown(strikes);
+            webSocketDirectCooldownUntil[slot] = getCurrentTimeMonotonicMillis() + cooldown;
+            if (LOGS_ENABLED) DEBUG_D("websocket dc%u%s direct cooldown %lld ms (strike %d)", datacenterId, isMedia ? " media" : "", (long long) cooldown, strikes);
+        } else {
+            int64_t now = getCurrentTimeMonotonicMillis();
+            auto existingCooldown = webSocketDomainCooldownUntil.find(domain);
+            if (existingCooldown == webSocketDomainCooldownUntil.end() || existingCooldown->second <= now) {
+                int32_t strikes = ++webSocketDomainStrikes[domain];
+                int64_t cooldown = webSocketEscalatedCooldown(strikes);
+                webSocketDomainCooldownUntil[domain] = now + cooldown;
+                if (LOGS_ENABLED) DEBUG_D("websocket domain %s cooldown %lld ms (strike %d)", domain.c_str(), (long long) cooldown, strikes);
+            }
+            auto current = webSocketDcDomain.find(datacenterId);
+            if (current != webSocketDcDomain.end() && current->second == domain) {
+                webSocketDcDomain.erase(current);
+            }
         }
-        webSocketDomainCooldownUntil[domain] = getCurrentTimeMonotonicMillis() + cooldown;
-        auto current = webSocketDcDomain.find(datacenterId);
-        if (current != webSocketDcDomain.end() && current->second == domain) {
-            webSocketDcDomain.erase(current);
-        }
-        if (LOGS_ENABLED) DEBUG_D("websocket domain %s cooldown %lld ms (strike %d)", domain.c_str(), (long long) cooldown, strikes);
     }
-    if (++webSocketConsecutiveFailures >= 6) {
+    bool directProbeWithPoolAvailable = domain.empty() && webSocketUserDomain.empty() && !webSocketDomainPool.empty();
+    if (!directProbeWithPoolAvailable && ++webSocketConsecutiveFailures >= 6) {
         webSocketSuppressedUntil = getCurrentTimeMonotonicMillis() + 60000;
         if (LOGS_ENABLED) DEBUG_D("websocket suppressed, falling back to tcp for 60s (%d consecutive failures)", webSocketConsecutiveFailures);
     }
+}
+
+void ConnectionsManager::resetWebSocketHealth() {
+    webSocketDcDomain.clear();
+    webSocketDomainCooldownUntil.clear();
+    webSocketDomainStrikes.clear();
+    webSocketDirectCooldownUntil.clear();
+    webSocketDirectStrikes.clear();
+    webSocketDirectDash1Cooldown.clear();
+    webSocketDirectDash1Strikes.clear();
+    webSocketConsecutiveFailures = 0;
+    webSocketSuppressedUntil = 0;
 }
 
 bool ConnectionsManager::isWebSocketSuppressed() {
@@ -3939,9 +3991,14 @@ void ConnectionsManager::pauseNetwork() {
 
 void ConnectionsManager::setNetworkAvailable(bool value, int32_t type, bool slow) {
     scheduleTask([&, value, type, slow] {
+        bool networkPathChanged = currentNetworkType != type || (!networkAvailable && value);
         networkAvailable = value;
         currentNetworkType = type;
         networkSlow = slow;
+        if (useWebSocket && networkPathChanged) {
+            resetWebSocketHealth();
+            if (LOGS_ENABLED) DEBUG_D("websocket health reset after network change");
+        }
         if (!networkAvailable) {
             connectionState = ConnectionStateWaitingForNetwork;
         } else {

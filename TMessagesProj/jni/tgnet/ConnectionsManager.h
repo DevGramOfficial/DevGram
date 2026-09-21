@@ -70,9 +70,11 @@ public:
     void init(uint32_t version, int32_t layer, int32_t apiId, std::string deviceModel, std::string systemVersion, std::string appVersion, std::string langCode, std::string systemLangCode, std::string configPath, std::string logPath, std::string regId, std::string cFingerprint, std::string installerId, std::string packageId, int32_t timezoneOffset, int64_t userId, bool userPremium, bool isPaused, bool enablePushConnection, bool hasNetwork, int32_t networkType, int32_t performanceClass);
     void setProxySettings(std::string address, uint16_t port, std::string username, std::string password, std::string secret);
     void setWebSocketConfig(bool value, std::string userDomain, std::vector<std::string> pool);
-    std::string getWebSocketDomainForDc(uint32_t datacenterId);
-    void markWebSocketDomainResult(uint32_t datacenterId, std::string domain, bool success);
+    std::string getWebSocketDomainForDc(uint32_t datacenterId, bool isMedia);
+    bool webSocketMediaDirectDash1Available(uint32_t datacenterId);
+    void markWebSocketDomainResult(uint32_t datacenterId, bool isMedia, std::string domain, bool dash1, bool success);
     bool isWebSocketSuppressed();
+    void resetWebSocketHealth();
     void setLangCode(std::string langCode);
     void setRegId(std::string regId);
     void setSystemLangCode(std::string langCode);
@@ -200,6 +202,10 @@ private:
     std::map<std::string, int64_t> webSocketDomainCooldownUntil;
     std::map<std::string, int32_t> webSocketDomainStrikes;
     std::map<uint32_t, std::string> webSocketDcDomain;
+    std::map<uint32_t, int64_t> webSocketDirectCooldownUntil;
+    std::map<uint32_t, int32_t> webSocketDirectStrikes;
+    std::map<uint32_t, int64_t> webSocketDirectDash1Cooldown;
+    std::map<uint32_t, int32_t> webSocketDirectDash1Strikes;
     uint32_t webSocketRotation = 0;
     int32_t webSocketConsecutiveFailures = 0;
     int64_t webSocketSuppressedUntil = 0;

@@ -45,7 +45,7 @@ public:
     void dropConnection();
     void setOverrideProxy(std::string address, uint16_t port, std::string username, std::string password, std::string secret);
     void setWebSocket(bool enabled, std::string host, std::string path);
-    void queueWebSocketMessage(const uint8_t *data, size_t length);
+    void queueWebSocketMessage(const uint8_t *data, size_t length, const uint8_t *data2 = nullptr, size_t length2 = 0, const uint8_t *data3 = nullptr, size_t length3 = 0);
     void onHostNameResolved(std::string host, std::string ip, bool ipv6);
 
 protected:
@@ -106,6 +106,14 @@ private:
     size_t tlsPendingSent = 0;
     std::string wsInBuffer;
     std::vector<std::string> wsOutQueue;
+    uint8_t wsFrameHeader[14];
+    size_t wsFrameHeaderSize = 0;
+    uint8_t wsFrameOpcode = 0;
+    uint8_t wsFrameMask[4];
+    bool wsFrameMasked = false;
+    uint64_t wsFramePayloadLeft = 0;
+    uint64_t wsFrameMaskOffset = 0;
+    std::string wsControlPayload;
     int32_t socketGeneration = 0;
 
     bool webSocketInitSsl();
@@ -113,8 +121,12 @@ private:
     int32_t webSocketDriveHandshake();
     int32_t webSocketSendHttpUpgrade();
     int32_t webSocketOnNetworkData(uint8_t *data, size_t length);
-    int32_t webSocketParseFrames();
+    int32_t webSocketCheckHttpUpgrade();
+    int32_t webSocketConsumePlain(uint8_t *data, size_t length);
+    int32_t webSocketFinishFrame();
+    void webSocketResetFrameState();
     int32_t webSocketWriteFrame(uint8_t opcode, const uint8_t *payload, size_t length);
+    int32_t webSocketWriteQueuedFrame(std::string &message);
     int32_t webSocketSendOutgoing();
     int32_t webSocketFlushCiphertext();
     void webSocketBecameReady();

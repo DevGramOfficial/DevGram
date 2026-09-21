@@ -79,6 +79,7 @@ private:
     std::string hostAddress;
     std::string secret;
     std::string currentWebSocketDomain;
+    bool currentWebSocketDash1 = false;
     uint16_t hostPort;
     uint16_t failedConnectionCount;
     Datacenter *currentDatacenter;
