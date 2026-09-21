@@ -56,8 +56,43 @@ public class DevGramPlugins {
     private static volatile java.util.Set<String> verifiedHashes = new java.util.HashSet<>();
     private static final java.util.Map<String, java.util.Set<PyObject>> pendingPluginCallbacks =
             new java.util.concurrent.ConcurrentHashMap<>();
-    private static final java.util.Map<String, java.util.Set<PyObject>> persistentPluginCallbacks =
+    private static final java.util.Map<String, java.util.Set<PersistentCallbackRef>> persistentPluginCallbacks =
             new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Ссылка на многократный callback Java-proxy с безопасной отложенной очисткой. */
+    private static final class PersistentCallbackRef {
+        final PyObject callback;
+        private int activeCalls;
+        private boolean active = true;
+        private boolean closed;
+
+        PersistentCallbackRef(PyObject callback) {
+            this.callback = callback;
+        }
+
+        synchronized boolean acquire() {
+            if (!active || closed) return false;
+            activeCalls++;
+            return true;
+        }
+
+        synchronized void release() {
+            if (activeCalls > 0) activeCalls--;
+            closeIfIdle();
+        }
+
+        synchronized void deactivate() {
+            active = false;
+            closeIfIdle();
+        }
+
+        private void closeIfIdle() {
+            if (!active && activeCalls == 0 && !closed) {
+                closed = true;
+                closePyObjects(callback);
+            }
+        }
+    }
 
     public static boolean startDevServer(int port, String token) { return DevGramDevServer.start(port, token); }
     public static void stopDevServer() { DevGramDevServer.stopServer(); }
@@ -1418,27 +1453,31 @@ public class DevGramPlugins {
         closePyObjects(snapshot);
     }
 
-    private static void trackPersistentCallback(String pluginId, PyObject callback) {
+    private static void trackPersistentCallback(String pluginId, PersistentCallbackRef callback) {
         if (callback == null || pluginId == null || pluginId.isEmpty()) return;
+        java.util.concurrent.atomic.AtomicBoolean accepted = new java.util.concurrent.atomic.AtomicBoolean();
         persistentPluginCallbacks.compute(pluginId, (ignored, callbacks) -> {
+            if (isSafeMode() || !isPluginEnabled(pluginId)) return callbacks;
             if (callbacks == null) {
                 callbacks = java.util.Collections.synchronizedSet(
                         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
             }
             callbacks.add(callback);
+            accepted.set(true);
             return callbacks;
         });
+        if (!accepted.get()) callback.deactivate();
     }
 
     private static void closePersistentCallbacks(String pluginId) {
-        java.util.Set<PyObject> callbacks = persistentPluginCallbacks.remove(pluginId);
+        java.util.Set<PersistentCallbackRef> callbacks = persistentPluginCallbacks.remove(pluginId);
         if (callbacks == null) return;
-        PyObject[] snapshot;
+        PersistentCallbackRef[] snapshot;
         synchronized (callbacks) {
-            snapshot = callbacks.toArray(new PyObject[0]);
+            snapshot = callbacks.toArray(new PersistentCallbackRef[0]);
             callbacks.clear();
         }
-        closePyObjects(snapshot);
+        for (PersistentCallbackRef callback : snapshot) callback.deactivate();
     }
 
     private static void callPythonCallback(String pluginId, PyObject callback) {
@@ -2283,10 +2322,12 @@ public class DevGramPlugins {
                                   java.util.List<String> overrideNames,
                                   java.util.List<String> argTypeNames,
                                   java.util.List<Object> args) {
-        if (isSafeMode()) {
+        if (isSafeMode() || (pluginId != null && !pluginId.isEmpty() && !isPluginEnabled(pluginId))) {
             if (pluginId != null && !pluginId.isEmpty()) closePyObjects(logic);
             return null;
         }
+        final PersistentCallbackRef callbackRef = pluginId == null || pluginId.isEmpty()
+                ? null : new PersistentCallbackRef(logic);
         try {
             final Class<?> base = ApplicationLoader.applicationContext.getClassLoader().loadClass(baseName);
             final java.util.HashSet<String> overrides = new java.util.HashSet<>(
@@ -2302,6 +2343,14 @@ public class DevGramPlugins {
                 String name = method.getName();
                 if (!overrides.contains(name)) {
                     return com.android.dx.stock.ProxyBuilder.callSuper(proxy, method, mArgs);
+                }
+                if (callbackRef != null && !callbackRef.acquire()) {
+                    try {
+                        return com.android.dx.stock.ProxyBuilder.callSuper(proxy, method, mArgs);
+                    } catch (Throwable ignored) {
+                        Class<?> rt = method.getReturnType();
+                        return rt == void.class ? null : defaultValue(rt);
+                    }
                 }
                 currentSuper.get().push(new Object[]{proxy, method, mArgs});
                 long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
@@ -2332,6 +2381,7 @@ public class DevGramPlugins {
                 } finally {
                     DevGramPluginWatchdog.onExecutionFinished(token);
                     currentSuper.get().pop();
+                    if (callbackRef != null) callbackRef.release();
                 }
             };
 
@@ -2341,10 +2391,10 @@ public class DevGramPlugins {
                     .constructorArgValues(ctorArgs)
                     .handler(handler)
                     .build();
-            trackPersistentCallback(pluginId, logic);
+            trackPersistentCallback(pluginId, callbackRef);
             return proxy;
         } catch (Throwable e) {
-            if (pluginId != null && !pluginId.isEmpty()) closePyObjects(logic);
+            if (callbackRef != null) callbackRef.deactivate();
             FileLog.e(e);
             return null;
         }
