@@ -45,13 +45,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.Insets;
-import androidx.core.math.MathUtils;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.viewpager.widget.ViewPager;
 
-import com.google.android.exoplayer2.ExoPlayer;
-import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
+import androidx.media3.exoplayer.ExoPlayer;
+import org.telegram.ui.AspectRatioFrameLayout;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.AnimationNotificationsLocker;
@@ -71,11 +70,9 @@ import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.pip.PipSource;
 import org.telegram.messenger.pip.source.IPipSourceDelegate;
-import org.telegram.messenger.pip.utils.PipPermissions;
 import org.telegram.messenger.pip.utils.PipUtils;
 import org.telegram.messenger.support.LongSparseIntArray;
 import org.telegram.messenger.video.VideoPlayerHolderBase;
-import org.telegram.messenger.voip.VoIPService;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stories;
 import org.telegram.ui.ActionBar.AdjustPanLayoutHelper;
@@ -90,14 +87,12 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RadialProgress;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
-import org.telegram.ui.Stories.LiveStoryPipOverlay;
 import org.telegram.ui.LaunchActivity;
 import org.telegram.ui.Stories.recorder.LivePlayerView;
 
 import java.util.ArrayList;
 
 public class StoryViewer implements NotificationCenter.NotificationCenterDelegate, BaseFragment.AttachedSheet, IPipSourceDelegate {
-    private boolean devGramBypassGhostPrompt;
 
     public static boolean animationInProgress;
 
@@ -378,26 +373,6 @@ public class StoryViewer implements NotificationCenter.NotificationCenterDelegat
         open(UserConfig.selectedAccount, context, storyItem, peerIds, position, storiesList, userStories, placeProvider, reversed);
     }
     public void open(int account, Context context, TL_stories.StoryItem storyItem, ArrayList<Long> peerIds, int position, StoriesController.StoriesList storiesList, TL_stories.PeerStories userStories, PlaceProvider placeProvider, boolean reversed) {
-        org.telegram.messenger.DevGramGhostSettings.Settings ghost =
-                org.telegram.messenger.DevGramGhostSettings.get(account);
-        if (!devGramBypassGhostPrompt && context != null && ghost.suggestBeforeStory && ghost.sendReadStories) {
-            new org.telegram.ui.ActionBar.AlertDialog.Builder(context)
-                    .setTitle("Режим призрака")
-                    .setMessage("Включить режим призрака перед просмотром истории, чтобы просмотр не был отправлен?")
-                    .setNegativeButton("Смотреть обычно", (dialog, which) -> {
-                        devGramBypassGhostPrompt = true;
-                        open(account, context, storyItem, peerIds, position, storiesList, userStories, placeProvider, reversed);
-                        devGramBypassGhostPrompt = false;
-                    })
-                    .setPositiveButton("Включить", (dialog, which) -> {
-                        org.telegram.messenger.DevGramGhostSettings.setActive(account, true);
-                        devGramBypassGhostPrompt = true;
-                        open(account, context, storyItem, peerIds, position, storiesList, userStories, placeProvider, reversed);
-                        devGramBypassGhostPrompt = false;
-                    })
-                    .show();
-            return;
-        }
         if (!isContextSafe(context)) {
             doOnAnimationReadyRunnables.clear();
             return;

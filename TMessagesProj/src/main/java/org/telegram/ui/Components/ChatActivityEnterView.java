@@ -66,7 +66,6 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.style.ImageSpan;
-import android.util.Log;
 import android.util.Property;
 import android.util.TypedValue;
 import android.view.ActionMode;
@@ -137,6 +136,7 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.forkgram.ExtractMediaFromPreview;
+import org.telegram.messenger.forkgram.LinkReplacements;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.RichMessageLayout;
 import org.telegram.messenger.MessageSuggestionParams;
@@ -1058,7 +1058,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         public RecordDot(Context context) {
             super(context);
             int resId = R.raw.chat_audio_record_delete_2;
-            drawable = new RLottieDrawable(resId, "" + resId, dp(28), dp(28), false, null);
+            drawable = new RLottieDrawable(resId, dp(28), dp(28), false, null);
             drawable.setInvalidateOnProgressSet(true);
             updateColors();
         }
@@ -8102,6 +8102,12 @@ public class ChatActivityEnterView extends FrameLayout implements
         return false;
     }
 
+    private boolean forkExtractMediaReadyToSend() {
+        return parentFragment != null
+            && parentFragment.forkIsExtractMediaActive()
+            && ExtractMediaFromPreview.hasMedia(parentFragment.forkExtractMediaFrozenWebPage);
+    }
+
     private boolean forkTrySendExtractedMedia(CharSequence message, boolean notify, int scheduleDate, int scheduleRepeatPeriod, long payStars) {
         if (parentFragment == null) {
             return false;
@@ -8360,7 +8366,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                     }
                 }
             }
-        } else if (message.length() > 0 || forceShowSendButton || richDraftActive || audioToSend != null || videoToSendMessageObject != null || slowModeTimer == Integer.MAX_VALUE && !isSlowModeIgnored() || isLiveComment && getStarsPrice() > 0 || animatorIsBlockedByStreaming.getValue()) {
+        } else if (message.length() > 0 || forkExtractMediaReadyToSend() || forceShowSendButton || richDraftActive || audioToSend != null || videoToSendMessageObject != null || slowModeTimer == Integer.MAX_VALUE && !isSlowModeIgnored() || isLiveComment && getStarsPrice() > 0 || animatorIsBlockedByStreaming.getValue()) {
             shownSendButton = true;
             final String caption = messageEditText == null ? null : messageEditText.getCaption();
             boolean showBotButton = caption != null && (getSendButtonInternal().getVisibility() == VISIBLE || expandStickersButton != null && expandStickersButton.getVisibility() == VISIBLE);
@@ -10952,8 +10958,10 @@ public class ChatActivityEnterView extends FrameLayout implements
             } else {
                 QuoteSpan.normalizeQuotes(pasted);
             }
-            messageEditText.setText(messageEditText.getText().replace(start, end, pasted));
-            messageEditText.setSelection(Math.min(start + pasted.length(), messageEditText.getText().length()));
+            if (!LinkReplacements.pasteWithReplacements(messageEditText, pasted)) {
+                messageEditText.setText(messageEditText.getText().replace(start, end, pasted));
+                messageEditText.setSelection(Math.min(start + pasted.length(), messageEditText.getText().length()));
+            }
             return true;
         } catch (Exception e) {
             FileLog.e(e);

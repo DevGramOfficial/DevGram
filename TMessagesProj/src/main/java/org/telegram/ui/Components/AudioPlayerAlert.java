@@ -67,7 +67,7 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.exoplayer2.C;
+import androidx.media3.common.C;
 //import com.google.android.gms.cast.framework.CastContext;
 
 import org.telegram.messenger.AndroidUtilities;
@@ -127,8 +127,11 @@ import java.util.List;
 
 public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.NotificationCenterDelegate, DownloadController.FileDownloadProgressListener {
     
+    private static final int SEEK_REPEAT_DELAY_MS = 300;
+
     private TextView forwardButton;
     private TextView backwardButton;
+    private Runnable seekRepeatRunnable;
 
     public static AudioPlayerAlert instance;
 
@@ -803,6 +806,9 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             backwardButton.setOnClickListener(view -> {
                 MediaController.getInstance().seekShift(-s * 1000);
             });
+
+            setupSeekRepeatOnHold(forwardButton, s * 1000);
+            setupSeekRepeatOnHold(backwardButton, -s * 1000);
         }
 
         playerLayout.addView(bottomView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 66, Gravity.TOP | Gravity.LEFT, 0, 111, 0, 0));
@@ -1552,6 +1558,43 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         }
     }
 
+    private void setupSeekRepeatOnHold(View button, int shiftMs) {
+        button.setOnLongClickListener(view -> {
+            final MessageObject pressedObject = MediaController.getInstance().getPlayingMessageObject();
+            if (pressedObject == null) {
+                return false;
+            }
+            cancelSeekRepeat();
+            seekRepeatRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (MediaController.getInstance().getPlayingMessageObject() != pressedObject) {
+                        cancelSeekRepeat();
+                        return;
+                    }
+                    MediaController.getInstance().seekShift(shiftMs);
+                    AndroidUtilities.runOnUIThread(this, SEEK_REPEAT_DELAY_MS);
+                }
+            };
+            seekRepeatRunnable.run();
+            return true;
+        });
+        button.setOnTouchListener((view, event) -> {
+            final int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                cancelSeekRepeat();
+            }
+            return false;
+        });
+    }
+
+    private void cancelSeekRepeat() {
+        if (seekRepeatRunnable != null) {
+            AndroidUtilities.cancelRunOnUIThread(seekRepeatRunnable);
+            seekRepeatRunnable = null;
+        }
+    }
+
     private void startForwardRewindingSeek() {
         if (rewindingState == 1) {
             lastRewindingTime = System.currentTimeMillis();
@@ -1768,16 +1811,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         } else if (id == 7) {
             saveToProfile(messageObject, false, () -> {
                 if (savedMusicList != null) {
-                    // DevGram: удаляем через MediaController — он вычистит трек из активного
-                    // плейлиста по document.id и, если он играл, переключит на следующий
-                    // (раньше удалённый трек продолжал играть и другой выбрать было нельзя).
-                    MediaController.getInstance().removeFromSavedMusic(messageObject);
+                    savedMusicList.remove(messageObject);
                     if (savedMusicList.list.isEmpty()) {
+                        MediaController.getInstance().cleanup();
                         dismiss();
                     } else {
-                        // removeFromSavedMusic уже вычистил внутренний playlist MediaController
-                        // (playlist здесь — та же ссылка) и переключил трек — только обновляем UI.
-                        listAdapter.notifyDataSetChanged();
                         NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.musicListLoaded, savedMusicList);
                     }
                 }
@@ -2115,6 +2153,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     @Override
     public void dismiss() {
         super.dismiss();
+        cancelSeekRepeat();
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidReset);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.messagePlayingDidStart);
@@ -2955,7 +2994,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             castItem.setTextAndIcon(getString(R.string.VideoPlayerChromecast), R.drawable.menu_video_chromecast);
             castItem.setOnClickListener(v2 -> {
                 o.dismiss();
-                onSubItemClick(7);
+                onSubItemClick(6);
             });
             AndroidUtilities.removeFromParent(castItemButton);
             castItem.addView(castItemButton, 0, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));

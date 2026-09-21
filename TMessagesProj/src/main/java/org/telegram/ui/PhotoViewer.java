@@ -125,6 +125,7 @@ import android.window.OnBackInvokedDispatcher;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.annotation.RequiresApi;
 import androidx.collection.LongSparseArray;
 import androidx.core.content.ContextCompat;
@@ -138,18 +139,18 @@ import androidx.dynamicanimation.animation.DynamicAnimation;
 import androidx.dynamicanimation.animation.FloatValueHolder;
 import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
+import androidx.media3.common.util.UnstableApi;
 import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import org.telegram.ui.recyclerview.LinearSmoothScrollerEnd;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.ExoPlayer;
-import com.google.android.exoplayer2.Format;
-import com.google.android.exoplayer2.analytics.AnalyticsListener;
-import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
-import com.google.android.exoplayer2.video.VideoFrameMetadataListener;
-import com.google.android.exoplayer2.video.VideoSize;
+import androidx.media3.common.C;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.common.Format;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
+import androidx.media3.common.VideoSize;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.AnimationNotificationsLocker;
@@ -191,6 +192,7 @@ import org.telegram.messenger.VideoEditedInfo;
 import org.telegram.messenger.WebFile;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.messenger.camera.Size;
+import org.telegram.messenger.forkgram.PhotoCollage;
 //import org.telegram.messenger.chromecast.ChromecastController;
 import org.telegram.messenger.chromecast.ChromecastMedia;
 import org.telegram.messenger.chromecast.ChromecastMediaVariations;
@@ -343,6 +345,7 @@ import me.vkryl.core.reference.ReferenceList;
 
 @SuppressLint("WrongConstant")
 @SuppressWarnings("unchecked")
+@OptIn(markerClass = UnstableApi.class)
 public class PhotoViewer implements NotificationCenter.NotificationCenterDelegate, GestureDetector2.OnGestureListener, GestureDetector2.OnDoubleTapListener, IPipSourceDelegate, FactorAnimator.Target {
 
     private static final int ANIMATOR_ID_POLL_ATTACH_BUTTONS_VISIBLE = 0;
@@ -7448,6 +7451,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             final boolean showWithoutSound = !(canEdit && canReplace) && !userIsSelf;
             final boolean multipleSelected = placeProvider != null && placeProvider.getSelectedCount() > 1;
             final boolean showSendAsRound = isCurrentVideo && !multipleSelected && !canEdit && !canReplace && sendPhotoType == 0 && (parentChatActivity != null || (placeProvider != null && placeProvider.getDialogId() != 0));
+            final ArrayList<MediaController.PhotoEntry> collagePhotos = placeProvider == null ? null : PhotoCollage.collect(placeProvider.getSelectedPhotos(), placeProvider.getSelectedPhotosOrder());
+            final boolean showSendAsCollage = collagePhotos != null && !isCurrentVideo && !canEdit && !canReplace && !hasTtl && sendPhotoType == 0;
 
             final ItemOptions options = ItemOptions.makeOptions(containerView, new DarkThemeResourceProvider(), view)
                 .addIf(showSendAsFile, R.drawable.msg_sendfile, getString(multipleSelected ? R.string.SendAsFiles : R.string.SendAsFile), () -> sendPressed(true, 0, 0, false, true, false))
@@ -7458,7 +7463,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 .addIf(showSendAsRound, R.drawable.msg_video, getString(R.string.SendAsRoundVideo), () -> {
                     applyRoundVideo = true;
                     sendPressed(true, 0, 0);
-                });
+                })
+                .addIf(showSendAsCollage, R.drawable.msg_photos, getString(R.string.SendAsSinglePhoto), () -> sendAsSinglePhoto(collagePhotos));
 
             if (options.getItemsCount() == 0) return false;
 
@@ -7991,6 +7997,49 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
     private void replacePressed() {
         sendPressed(false, 0, 0, true, false, false);
+    }
+
+    private void sendAsSinglePhoto(ArrayList<MediaController.PhotoEntry> photos) {
+        if (placeProvider == null || photos == null) {
+            return;
+        }
+        applyCaption();
+        CharSequence collageCaption = null;
+        ArrayList<TLRPC.MessageEntity> collageEntities = null;
+        for (int a = 0; a < photos.size(); a++) {
+            if (!TextUtils.isEmpty(photos.get(a).caption)) {
+                collageCaption = photos.get(a).caption;
+                collageEntities = photos.get(a).entities;
+                break;
+            }
+        }
+        final CharSequence caption = collageCaption;
+        final ArrayList<TLRPC.MessageEntity> entities = collageEntities;
+        Utilities.globalQueue.postRunnable(() -> {
+            final MediaController.PhotoEntry collage = PhotoCollage.create(photos);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (placeProvider == null || !isVisible()) {
+                    return;
+                }
+                if (collage == null) {
+                    BulletinFactory.of(containerView, resourcesProvider).createErrorBulletin(getString(R.string.UnknownError)).show();
+                    return;
+                }
+                final HashMap<Object, Object> selectedPhotos = placeProvider.getSelectedPhotos();
+                final ArrayList<Object> selectedPhotosOrder = placeProvider.getSelectedPhotosOrder();
+                if (selectedPhotos == null || selectedPhotosOrder == null) {
+                    return;
+                }
+                collage.caption = caption;
+                collage.entities = entities;
+                selectedPhotos.clear();
+                selectedPhotosOrder.clear();
+                selectedPhotos.put(collage.imageId, collage);
+                selectedPhotosOrder.add(collage.imageId);
+                hasCaptionForAllMedia = false;
+                sendPressed(true, 0, 0);
+            });
+        });
     }
 
     private void sendPressed(boolean notify, int scheduleDate, int scheduleRepeatPeriod, boolean replace, boolean forceDocument, boolean confirmed) {

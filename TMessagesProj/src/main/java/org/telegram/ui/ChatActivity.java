@@ -131,7 +131,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 
-import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
 import com.google.zxing.common.detector.MathUtils;
 
 import org.telegram.PhoneFormat.PhoneFormat;
@@ -193,6 +192,7 @@ import org.telegram.messenger.camera.CameraView;
 import org.telegram.messenger.forkgram.ForkUtils;
 import org.telegram.messenger.forkgram.ExtractMediaFromPreview;
 import org.telegram.messenger.forkgram.FormattingMenu;
+import org.telegram.messenger.forkgram.MediaSpoiler;
 import org.telegram.messenger.support.LongSparseIntArray;
 import org.telegram.messenger.utils.FBool;
 import org.telegram.messenger.utils.OnPostDrawView;
@@ -871,6 +871,8 @@ public class ChatActivity extends BaseFragment implements
     private int cantForwardMessagesCount;
     private int canForwardMessagesCount;
     private int canEditMessagesCount;
+    private int canSpoilerMessagesCount;
+    private int spoileredMessagesCount;
     private int cantSaveMessagesCount;
     private int canSaveMusicCount;
     private int canSaveDocumentsCount;
@@ -1984,6 +1986,8 @@ public class ChatActivity extends BaseFragment implements
     private final static int charge_fee = 72;
 
     private final static int chat_menu_topic_create = 73;
+
+    private final static int media_spoiler = 75;
 
     private final static int id_chat_compose_panel = 1000;
 
@@ -4004,6 +4008,8 @@ public class ChatActivity extends BaseFragment implements
         dummyMessageCell = null;
         cantDeleteMessagesCount = 0;
         canEditMessagesCount = 0;
+        canSpoilerMessagesCount = 0;
+        spoileredMessagesCount = 0;
         cantForwardMessagesCount = 0;
         canForwardMessagesCount = 0;
         cantSaveMessagesCount = 0;
@@ -4281,6 +4287,23 @@ public class ChatActivity extends BaseFragment implements
                             MessageObject msg = selectedMessagesCanStarIds[a].valueAt(b);
                             getMediaDataController().addRecentSticker(MediaDataController.TYPE_FAVE, msg, msg.getDocument(), (int) (System.currentTimeMillis() / 1000), !hasUnfavedSelected);
                         }
+                    }
+                    clearSelectionMode();
+                } else if (id == media_spoiler) {
+                    final boolean spoiler = hasUnspoileredSelected;
+                    final ArrayList<MessageObject> messages = new ArrayList<>();
+                    for (int a = 1; a >= 0; a--) {
+                        for (int b = 0; b < selectedMessagesIds[a].size(); b++) {
+                            messages.add(selectedMessagesIds[a].valueAt(b));
+                        }
+                    }
+                    for (int a = 0; a < messages.size(); a++) {
+                        final MessageObject message = messages.get(a);
+                        if (!MediaSpoiler.canToggle(message) || MediaSpoiler.isSpoilered(message) == spoiler) {
+                            continue;
+                        }
+                        message.editingMediaSpoiler = spoiler;
+                        getSendMessagesHelper().editMessage(message, null, null, null, null, null, null, false, spoiler, message);
                     }
                     clearSelectionMode();
                 } else if (id == edit) {
@@ -4855,7 +4878,7 @@ public class ChatActivity extends BaseFragment implements
                 headerItem.lazilyAddSubItem(search, R.drawable.msg_search, LocaleController.getString(R.string.Search));
             }
             if (ChatObject.isBoostSupported(currentChat) && (getUserConfig().isPremium() || ChatObject.isBoosted(chatInfo) || ChatObject.hasAdminRights(currentChat))) {
-                RLottieDrawable drawable = new RLottieDrawable(R.raw.boosts, "" + R.raw.boosts, dp(24), dp(24));
+                RLottieDrawable drawable = new RLottieDrawable(R.raw.boosts, dp(24), dp(24));
                 headerItem.lazilyAddSubItem(boost_group, drawable, LocaleController.getString(ChatObject.isChannelAndNotMegaGroup(currentChat) ? R.string.BoostingBoostChannelMenu : R.string.BoostingBoostGroupMenu));
             }
             translateItem = headerItem.lazilyAddSubItem(translate, R.drawable.msg_translate, LocaleController.getString(R.string.TranslateMessage));
@@ -10848,6 +10871,23 @@ public class ChatActivity extends BaseFragment implements
         return INavigationLayout.BackButtonState.BACK;
     }
 
+    private boolean hasUnspoileredSelected;
+
+    private void updateMediaSpoilerItem(ActionBarMenuItem item) {
+        if (item == null) {
+            return;
+        }
+        final int selectedCount = selectedMessagesIds[0].size() + selectedMessagesIds[1].size();
+        hasUnspoileredSelected = spoileredMessagesCount < selectedCount;
+        if (selectedCount == 0 || canSpoilerMessagesCount != selectedCount) {
+            item.setVisibility(View.GONE);
+            return;
+        }
+        item.setVisibility(View.VISIBLE);
+        item.setIcon(hasUnspoileredSelected ? R.drawable.msg_spoiler : R.drawable.msg_spoiler_off);
+        item.setContentDescription(LocaleController.getString(hasUnspoileredSelected ? R.string.EnablePhotoSpoiler : R.string.DisablePhotoSpoiler));
+    }
+
     private void createActionMode() {
         if (selectedMessagesCountTextView != null || getContext() == null) {
             return;
@@ -10906,6 +10946,7 @@ public class ChatActivity extends BaseFragment implements
             final boolean isSavedMessages = getDialogId() == getUserConfig().getClientUserId() && (chatMode == 0 || chatMode == MODE_SAVED);
             actionModeViews.add(actionMode.addItemWithWidth(save_to, R.drawable.msg_download, dp(48), LocaleController.getString(R.string.SaveToMusic)));
             actionModeViews.add(actionMode.addItemWithWidth(edit, R.drawable.msg_edit, dp(48), LocaleController.getString(R.string.Edit)));
+            actionModeViews.add(actionMode.addItemWithWidth(media_spoiler, R.drawable.msg_spoiler, dp(48), LocaleController.getString(R.string.EnablePhotoSpoiler)));
             if (isSavedMessages) {
                 actionModeViews.add(actionMode.addItemWithWidth(tag_message, R.drawable.menu_tag_edit, dp(48), LocaleController.getString(R.string.AccDescrTagMessage)));
             }
@@ -10928,6 +10969,7 @@ public class ChatActivity extends BaseFragment implements
         }
         updateMultipleSelection(actionMode);
         actionMode.setItemVisibility(edit, canEditMessagesCount == 1 && selectedMessagesIds[0].size() + selectedMessagesIds[1].size() == 1 ? View.VISIBLE : View.GONE);
+        updateMediaSpoilerItem(actionMode.getItem(media_spoiler));
         actionMode.setItemVisibility(copy, !isPeerNoForwards() && selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(star, selectedMessagesCanStarIds[0].size() + selectedMessagesCanStarIds[1].size() != 0 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(delete, cantDeleteMessagesCount == 0 ? View.VISIBLE : View.GONE);
@@ -11571,6 +11613,9 @@ public class ChatActivity extends BaseFragment implements
         }
         boolean visible = forkExtractMediaAvailable() || forkIsExtractMediaActive();
         forkExtractMediaButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+        if (chatActivityEnterView != null) {
+            chatActivityEnterView.checkSendButton(true);
+        }
         int color = getThemedColor(forkExtractMediaActive ? Theme.key_chat_messageLinkIn : Theme.key_glass_defaultIcon);
         forkExtractMediaButton.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.MULTIPLY));
         int textRightMargin = AndroidUtilities.dp(visible ? 52 : 0);
@@ -16231,6 +16276,14 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    private void moveScrollToFirstMessage() {
+        if (chatListView != null && chatAdapter != null && !messages.isEmpty() && !pinchToZoomHelper.isInOverlayMode()) {
+            chatAdapter.updateRowsSafe();
+            chatLayoutManager.scrollToPositionWithOffset(chatAdapter.messagesStartRow + messages.size() - 1, dp(4), false);
+            chatListView.stopScroll();
+        }
+    }
+
     private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
             return null;
@@ -18066,9 +18119,6 @@ public class ChatActivity extends BaseFragment implements
                         if (savedMessagesHint != null) {
                             savedMessagesHint.setTranslationY(y);
                         }
-                        if (topicsTabs != null) {
-                            topicsTabs.setTranslationY(y);
-                        }
                         if (emptyViewContainer != null) {
                             emptyViewContainer.setTranslationY(y / 2);
                         }
@@ -19145,7 +19195,7 @@ public class ChatActivity extends BaseFragment implements
             }*/
         }
 
-        private boolean isFullSizeIgnoreInsersChild(View child) {
+        private boolean isFullSizeIgnoreInsetsChild(View child) {
             return child != null && (child == backgroundView
                 || child == blurredView || child == searchViewPager
                 || child == fireworksOverlay || child == chatActivityFadeView
@@ -19312,7 +19362,7 @@ public class ChatActivity extends BaseFragment implements
                 if (child == null || child.getVisibility() == GONE || child == chatActivityEnterView || child == actionBar) {
                     continue;
                 }
-                if (isFullSizeIgnoreInsersChild(child)) {
+                if (isFullSizeIgnoreInsetsChild(child)) {
                     int contentWidthSpec = View.MeasureSpec.makeMeasureSpec(allWidth, View.MeasureSpec.EXACTLY);
                     int contentHeightSpec = View.MeasureSpec.makeMeasureSpec(allHeight, View.MeasureSpec.EXACTLY);
                     child.measure(contentWidthSpec, contentHeightSpec);
@@ -19493,7 +19543,7 @@ public class ChatActivity extends BaseFragment implements
                         childTop = lp.topMargin;
                 }
 
-                if (isFullSizeIgnoreInsersChild(child)) {
+                if (isFullSizeIgnoreInsetsChild(child)) {
                     childLeft = 0;
                     childTop = 0;
                 } else if (child == messageEnterTransitionContainer || child == quickShareSelectorOverlay || child == chatInputViewsContainer || child instanceof HintView || child instanceof ChecksHintView) {
@@ -19568,9 +19618,6 @@ public class ChatActivity extends BaseFragment implements
             }
             if (savedMessagesHint != null) {
                 savedMessagesHint.setTranslationY(0);
-            }
-            if (topicsTabs != null) {
-                topicsTabs.setTranslationY(0);
             }
             emptyViewContainer.setTranslationY(0);
             progressView.setTranslationY(0);
@@ -20051,6 +20098,12 @@ public class ChatActivity extends BaseFragment implements
                     if (messageObject.canEditMessage(currentChat)) {
                         canEditMessagesCount--;
                     }
+                    if (MediaSpoiler.canToggle(messageObject) && messageObject.canEditMessage(currentChat)) {
+                        canSpoilerMessagesCount--;
+                        if (MediaSpoiler.isSpoilered(messageObject)) {
+                            spoileredMessagesCount--;
+                        }
+                    }
                     if (!messageObject.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat)) {
                         cantDeleteMessagesCount--;
                     }
@@ -20087,6 +20140,12 @@ public class ChatActivity extends BaseFragment implements
                     }
                     if (messageObject.canEditMessage(currentChat)) {
                         canEditMessagesCount++;
+                    }
+                    if (MediaSpoiler.canToggle(messageObject) && messageObject.canEditMessage(currentChat)) {
+                        canSpoilerMessagesCount++;
+                        if (MediaSpoiler.isSpoilered(messageObject)) {
+                            spoileredMessagesCount++;
+                        }
                     }
                     if (!messageObject.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat)) {
                         cantDeleteMessagesCount++;
@@ -20201,6 +20260,7 @@ public class ChatActivity extends BaseFragment implements
                 if (starItem != null) {
                     starItem.setIcon(hasUnfavedSelected ? R.drawable.msg_fave : R.drawable.msg_unfave);
                 }
+                updateMediaSpoilerItem(actionBar.createActionMode().getItem(media_spoiler));
                 final int newEditVisibility = canEditMessagesCount == 1 && selectedCount == 1 ? View.VISIBLE : View.GONE;
                 if (actionsButtonsLayout != null) {
                     boolean allowChatActions = true;
@@ -22549,7 +22609,11 @@ public class ChatActivity extends BaseFragment implements
                         scrollToMessage = null;
                     } else if (!fakePostponedScroll) {
                         addSponsoredMessages(!isFirstLoading);
-                        moveScrollToLastMessage(true);
+                        if (chatMode == MODE_SCHEDULED) {
+                            moveScrollToFirstMessage();
+                        } else {
+                            moveScrollToLastMessage(true);
+                        }
                     }
                     if (loaded_mentions_count != 0) {
                         showMentionDownButton(true, true);
@@ -31759,6 +31823,8 @@ public class ChatActivity extends BaseFragment implements
         }
         cantDeleteMessagesCount = 0;
         canEditMessagesCount = 0;
+        canSpoilerMessagesCount = 0;
+        spoileredMessagesCount = 0;
         cantForwardMessagesCount = 0;
         canSaveMusicCount = 0;
         canSaveDocumentsCount = 0;
