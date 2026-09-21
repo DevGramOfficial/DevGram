@@ -236,7 +236,7 @@ class BasePlugin:
             self._plog("send_request %s" % request.getClass().getSimpleName(), "REQUEST")
         except Exception:
             self._plog("send_request", "REQUEST")
-        return _Plugins.sendRequest(request, callback)
+        return _Plugins.sendRequestForPlugin(str(self.id), request, callback)
 
     @staticmethod
     def tl(class_name):
@@ -287,22 +287,37 @@ class BasePlugin:
     # ---- потоки (android_utils) ----
     def run_on_ui(self, fn, delay=0):
         """Выполнить функцию на UI-потоке (delay — задержка в мс)."""
-        _Plugins.runOnUi(fn, int(delay))
+        _Plugins.runOnUiForPlugin(str(self.id), fn, int(delay))
 
     def run_on_queue(self, fn):
         """Выполнить функцию в фоновой очереди (не блокирует UI)."""
-        _Plugins.runOnQueue(fn)
+        _Plugins.runOnQueueForPlugin(str(self.id), fn)
 
     # ---- реализация Java-интерфейсов из Python (class-proxy для интерфейсов) ----
-    @staticmethod
-    def implement(interface, **methods):
+    def implement(self_or_interface=None, interface=None, **methods):
         """Создать Java-объект, реализующий интерфейс(ы), методами на Python.
         interface — Java-класс (jclass) или кортеж классов; methods — {имя_метода: функция(self, *args)}.
         Пример: l = self.implement(jclass('android.view.View$OnClickListener'), onClick=lambda s,v: ...).
-        Покрывает слушатели/делегаты (OnClickListener, RequestDelegate, NotificationCenterDelegate)."""
+        Покрывает слушатели/делегаты (OnClickListener, RequestDelegate, NotificationCenterDelegate).
+        Старый вызов BasePlugin.implement(interface, ...) также поддерживается, но без
+        привязки watchdog к конкретному экземпляру плагина."""
         from java import dynamic_proxy
-        ifaces = interface if isinstance(interface, tuple) else (interface,)
-        proxy_cls = type("DevGramProxy", (dynamic_proxy(*ifaces),), dict(methods))
+        plugin = self_or_interface if isinstance(self_or_interface, BasePlugin) else None
+        target_interface = interface if plugin is not None or self_or_interface is None else self_or_interface
+        ifaces = target_interface if isinstance(target_interface, tuple) else (target_interface,)
+        wrapped = {}
+        for name, callback in methods.items():
+            def watched(*args, _callback=callback, **kwargs):
+                if plugin is None:
+                    return _callback(*args, **kwargs)
+                token = _Plugins.pluginExecutionStarted(str(plugin.id), str(plugin.name),
+                                                         str(getattr(plugin, "_filename", "")))
+                try:
+                    return _callback(*args, **kwargs)
+                finally:
+                    _Plugins.pluginExecutionFinished(token)
+            wrapped[name] = watched
+        proxy_cls = type("DevGramProxy", (dynamic_proxy(*ifaces),), wrapped)
         return proxy_cls()
 
     def on_click(self, fn):
@@ -354,8 +369,8 @@ class BasePlugin:
         """
         try:
             names = self._override_names(logic)
-            return _Plugins.subclass(
-                str(base_class_name), logic,
+            return _Plugins.subclassForPlugin(
+                str(self.id), str(base_class_name), logic,
                 self._alist(list(names)),
                 self._alist(arg_types),
                 self._alist(args),
@@ -484,16 +499,16 @@ class BasePlugin:
     # ---- диалоги / bulletins ----
     def bulletin(self, text, kind="info", duration=2750, button=None, callback=None):
         """Показать Telegram-плашку. kind: info/success/error."""
-        _Plugins.bulletin(str(kind), str(text), int(duration),
-                          None if button is None else str(button), callback)
+        _Plugins.bulletinForPlugin(str(self.id), str(kind), str(text), int(duration),
+                                   None if button is None else str(button), callback)
 
     def alert(self, title, message="", positive="OK", on_positive=None,
               negative=None, on_negative=None, neutral=None, on_neutral=None):
         """Показать диалог с кнопками и callback-функциями."""
-        _Plugins.alert(str(title), str(message),
-                       None if positive is None else str(positive), on_positive,
-                       None if negative is None else str(negative), on_negative,
-                       None if neutral is None else str(neutral), on_neutral)
+        _Plugins.alertForPlugin(str(self.id), str(title), str(message),
+                                None if positive is None else str(positive), on_positive,
+                                None if negative is None else str(negative), on_negative,
+                                None if neutral is None else str(neutral), on_neutral)
 
     # ---- UI: страница настроек плагина ----
     def settings(self):

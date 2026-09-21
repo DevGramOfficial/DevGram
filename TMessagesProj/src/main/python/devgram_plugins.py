@@ -5,6 +5,8 @@ DevGram: загрузчик и реестр плагинов. Вызываетс
 """
 
 import ast
+import gc
+import importlib.machinery
 import importlib.util
 import os
 import sys
@@ -17,9 +19,11 @@ import types
 from java import jclass
 
 _FileLog = jclass("org.telegram.messenger.FileLog")
+_PluginWatchdog = jclass("org.telegram.messenger.DevGramPluginWatchdog")
 _SEP = "\x1f"  # разделитель полей для передачи в Java
 
 _plugins = []  # экземпляры плагинов
+_known_plugins = {}  # id -> лёгкие метаданные; выключенный экземпляр в памяти не держим
 _package_roots = {}
 _package_manifests = {}
 _package_archives = {}  # plugin_id -> путь к установленному .dgplugin (для единой карточки: _filename)
@@ -235,8 +239,11 @@ def python_version():
     return sys.version.split()[0]
 
 
-def unload_plugin(plugin_id):
+def unload_plugin(plugin_id, forget=False):
     _unload_id(plugin_id)
+    _release_plugin_imports(plugin_id)
+    if forget:
+        _known_plugins.pop(str(plugin_id or ""), None)
     return True
 
 
@@ -244,12 +251,16 @@ def enter_safe_mode():
     """Остановить активные плагины, сохранив пользовательские состояния тумблеров."""
     for plugin in list(_plugins):
         plugin_id = str(getattr(plugin, "id", ""))
-        try:
-            _invoke_unload(plugin)
-        except Exception:
-            _err("safe mode unload", plugin=plugin_id)
-        finally:
-            _cleanup_java_runtime(plugin_id)
+        _unload_id(plugin_id)
+        _release_plugin_imports(plugin_id)
+    _last_settings_objects.clear()
+    # Как shutdown движка в Extera: SDK-модули не нужны, пока плагины остановлены.
+    # Метаданные карточек остаются в _known_plugins и не требуют BasePlugin.
+    for name in list(sys.modules):
+        if name == "devgram" or name.startswith("devgram."):
+            sys.modules.pop(name, None)
+    importlib.invalidate_caches()
+    gc.collect()
     return True
 
 
@@ -257,6 +268,8 @@ def reload_all(dir_path):
     """Выгрузить все плагины и загрузить папку заново (без перезапуска приложения)."""
     for p in list(_plugins):
         _unload_id(getattr(p, "id", ""))
+    _known_plugins.clear()
+    _last_settings_objects.clear()
     for name in list(sys.modules):
         if name.startswith("devgram_plugin_") or name.startswith("devgram_package_"):
             sys.modules.pop(name, None)
@@ -280,10 +293,13 @@ def reload_plugin(plugin_id):
     """Reload one installed plugin and leave every other plugin untouched."""
     plugin_id = str(plugin_id or "")
     plugin = next((item for item in _plugins if str(item.id) == plugin_id), None)
-    if plugin is None:
-        return -1
-    path = getattr(plugin, "_archive_path", "") or getattr(plugin, "_path", "")
-    package_root = getattr(plugin, "_package_root", "")
+    record = _known_plugins.get(plugin_id, {})
+    path = ((getattr(plugin, "_archive_path", "") or getattr(plugin, "_path", ""))
+            if plugin is not None else str(record.get("path", "") or ""))
+    package_root = (getattr(plugin, "_package_root", "") if plugin is not None
+                    else str(record.get("package_root", "") or ""))
+    should_be_active = plugin is not None or (_saved_enabled(plugin_id) and not
+                                               jclass("org.telegram.messenger.DevGramPlugins").isSafeMode())
     if not path or not os.path.isfile(path):
         return -1
     _unload_id(plugin_id)
@@ -295,7 +311,10 @@ def reload_plugin(plugin_id):
         if (name == prefix or name.startswith(prefix + '.')) if package_root else (
                 name.startswith(prefix) and getattr(sys.modules.get(name), "__file__", None) == path):
             sys.modules.pop(name, None)
-    return load_from_file(path)
+    result = load_from_file(path)
+    if should_be_active and not any(str(item.id) == plugin_id for item in _plugins):
+        return 0
+    return result
 
 
 def parse_meta(source):
@@ -307,15 +326,16 @@ def parse_meta(source):
         return ""
     meta = {"id": "", "name": "", "version": "", "author": "", "description": "", "icon": ""}
     aliases = {"__id__": "id", "__name__": "name", "__version__": "version", "__author__": "author", "__description__": "description", "__icon__": "icon"}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ClassDef):
-            for item in node.body:
-                if isinstance(item, ast.Assign):
-                    for t in item.targets:
-                        if isinstance(t, ast.Name) and (t.id in meta or t.id in aliases):
-                            v = item.value
-                            if isinstance(v, ast.Constant) and isinstance(v.value, str):
-                                meta[aliases.get(t.id, t.id)] = v.value
+    scopes = [tree.body]
+    scopes.extend(node.body for node in ast.walk(tree) if isinstance(node, ast.ClassDef))
+    for body in scopes:
+        for item in body:
+            if isinstance(item, ast.Assign):
+                for t in item.targets:
+                    if isinstance(t, ast.Name) and (t.id in meta or t.id in aliases):
+                        v = item.value
+                        if isinstance(v, ast.Constant) and isinstance(v.value, str):
+                            meta[aliases.get(t.id, t.id)] = v.value
     if not meta["name"] and not meta["id"]:
         return ""
     return _SEP.join([meta["id"], meta["name"], meta["version"], meta["author"], meta["description"], meta["icon"]])
@@ -327,12 +347,14 @@ def _unload_id(plugin_id):
     try:
         for p in list(_plugins):
             if str(p.id) == plugin_id:
+                _remember_plugin(p)
                 try:
                     _invoke_unload(p)
                 except Exception:
                     _err("on_unload", plugin=plugin_id)
                 _plugins.remove(p)
     finally:
+        _last_settings_objects.pop(plugin_id, None)
         _cleanup_java_runtime(plugin_id)
 
 
@@ -346,17 +368,147 @@ def _cleanup_java_runtime(plugin_id):
         _err("cleanup runtime", plugin=plugin_id)
 
 
+def _remember_plugin(plugin, enabled=None):
+    """Сохранить только данные карточки и путь, не удерживая экземпляр/модуль плагина."""
+    plugin_id = str(getattr(plugin, "id", ""))
+    if not plugin_id:
+        return
+    archive_path = str(getattr(plugin, "_archive_path", "") or "")
+    source_path = str(getattr(plugin, "_path", "") or "")
+    _known_plugins[plugin_id] = {
+        "id": plugin_id,
+        "name": str(getattr(plugin, "name", "")),
+        "version": str(getattr(plugin, "version", "")),
+        "author": str(getattr(plugin, "author", "")),
+        "enabled": bool(getattr(plugin, "enabled", True) if enabled is None else enabled),
+        "filename": str(getattr(plugin, "_filename", "")),
+        "description": str(getattr(plugin, "description", "")),
+        "icon": str(getattr(plugin, "icon", "")),
+        "path": archive_path or source_path,
+        "package_root": str(getattr(plugin, "_package_root", "") or ""),
+    }
+
+
+def _remember_metadata(plugin_id, name, version, author, description, icon,
+                       path, filename, enabled, package_root=""):
+    """Сохранить карточку плагина, не импортируя и не создавая его класс."""
+    plugin_id = str(plugin_id or "")
+    if not plugin_id:
+        return False
+    _known_plugins[plugin_id] = {
+        "id": plugin_id,
+        "name": str(name or plugin_id),
+        "version": str(version or ""),
+        "author": str(author or ""),
+        "enabled": bool(enabled),
+        "filename": str(filename or os.path.basename(path)),
+        "description": str(description or ""),
+        "icon": str(icon or ""),
+        "path": str(path or ""),
+        "package_root": str(package_root or ""),
+    }
+    return True
+
+
+def _saved_enabled(plugin_id):
+    try:
+        return bool(jclass("org.telegram.messenger.DevGramPlugins").isPluginEnabled(str(plugin_id)))
+    except Exception:
+        return True
+
+
+def _persist_enabled(plugin_id, enabled):
+    try:
+        jclass("org.telegram.messenger.DevGramPlugins").persistPluginEnabled(
+            str(plugin_id), bool(enabled))
+    except Exception:
+        pass
+
+
+def _may_start_plugin(plugin_id):
+    try:
+        bridge = jclass("org.telegram.messenger.DevGramPlugins")
+        return not bridge.isSafeMode() and bridge.isPluginEnabled(str(plugin_id))
+    except Exception:
+        return True
+
+
+def _plain_metadata(path):
+    """Метаданные обычного .plugin/.py через AST, без исполнения его верхнего уровня."""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as source_file:
+            row = parse_meta(source_file.read())
+        if not row:
+            return None
+        fields = row.split(_SEP)
+        fields += [""] * (6 - len(fields))
+        if not fields[0]:
+            return None
+        return fields[:6]
+    except Exception:
+        return None
+
+
+def _release_plugin_imports(plugin_id):
+    """Убрать импортированные модули и wheel-пути выгруженного плагина."""
+    plugin_id = str(plugin_id or "")
+    record = _known_plugins.get(plugin_id, {})
+    package_root = str(record.get("package_root", "") or _package_roots.get(plugin_id, "") or "")
+    source_path = str(record.get("path", "") or "")
+    if package_root:
+        _remove_package_paths(plugin_id, True)
+        prefix = "devgram_package_" + ''.join(c if c.isalnum() else '_' for c in plugin_id)
+        root = _package_roots.pop(plugin_id, "") or package_root
+        _package_manifests.pop(plugin_id, None)
+        if root and os.path.isdir(root):
+            shutil.rmtree(root, ignore_errors=True)
+    else:
+        prefix = "devgram_plugin_" + os.path.splitext(os.path.basename(source_path))[0]
+    for name in list(sys.modules):
+        if name == prefix or name.startswith(prefix + '.'):
+            sys.modules.pop(name, None)
+    importlib.invalidate_caches()
+
+
+class _PluginExecution:
+    def __init__(self, plugin):
+        self.plugin = plugin
+        self.token = 0
+
+    def __enter__(self):
+        try:
+            self.token = _PluginWatchdog.onExecutionStarted(
+                str(getattr(self.plugin, "id", "")),
+                str(getattr(self.plugin, "name", "")),
+                str(getattr(self.plugin, "_filename", "")))
+        except Exception:
+            self.token = 0
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback_value):
+        try:
+            _PluginWatchdog.onExecutionFinished(self.token)
+        except Exception:
+            pass
+        return False
+
+
+def _watch(plugin):
+    return _PluginExecution(plugin)
+
+
 def _invoke_load(plugin):
     """Запустить экземпляр ровно один раз и отметить успешный lifecycle."""
     if bool(getattr(plugin, "_runtime_loaded", False)):
         return
     plugin._runtime_loaded = True
     try:
-        modern = getattr(plugin, "on_plugin_load", None)
-        if modern is not None and "on_plugin_load" in type(plugin).__dict__:
-            modern()
-        else:
-            plugin.on_load()
+        with _watch(plugin):
+            modern = getattr(plugin, "on_plugin_load", None)
+            if modern is not None and "on_plugin_load" in type(plugin).__dict__:
+                modern()
+            else:
+                plugin.on_load()
     except Exception:
         try:
             _invoke_unload(plugin)
@@ -370,11 +522,12 @@ def _invoke_unload(plugin):
     if not bool(getattr(plugin, "_runtime_loaded", False)):
         return
     try:
-        modern = getattr(plugin, "on_plugin_unload", None)
-        if modern is not None and "on_plugin_unload" in type(plugin).__dict__:
-            modern()
-        else:
-            plugin.on_unload()
+        with _watch(plugin):
+            modern = getattr(plugin, "on_plugin_unload", None)
+            if modern is not None and "on_plugin_unload" in type(plugin).__dict__:
+                modern()
+            else:
+                plugin.on_unload()
     finally:
         plugin._runtime_loaded = False
 
@@ -384,6 +537,16 @@ def load_from_file(path):
     from devgram import BasePlugin
     if path.endswith('.dgplugin'):
         return load_package(path)
+    # Отключённые плагины и safe mode не должны выполнять даже код уровня модуля.
+    # Карточку менеджера строим из литеральных метаданных через AST.
+    metadata = _plain_metadata(path)
+    if metadata is not None and not _may_start_plugin(metadata[0]):
+        plugin_id, name, version, author, description, icon = metadata
+        _unload_id(plugin_id)
+        _remember_metadata(plugin_id, name, version, author, description, icon,
+                           path, os.path.basename(path), _saved_enabled(plugin_id))
+        _release_plugin_imports(plugin_id)
+        return 1
     found = 0
     try:
         package_id = next((key for key, root in _package_roots.items() if os.path.abspath(path).startswith(os.path.abspath(root) + os.sep)), None)
@@ -396,8 +559,17 @@ def load_from_file(path):
         else:
             mod_name = "devgram_plugin_" + os.path.splitext(os.path.basename(path))[0]
         spec = importlib.util.spec_from_file_location(mod_name, path)
+        if spec is None or spec.loader is None:
+            # CPython/некоторые версии Chaquopy не считают .plugin исходным суффиксом.
+            loader = importlib.machinery.SourceFileLoader(mod_name, path)
+            spec = importlib.util.spec_from_loader(mod_name, loader)
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        sys.modules[mod_name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception:
+            sys.modules.pop(mod_name, None)
+            raise
         for attr in dir(module):
             obj = getattr(module, attr)
             if isinstance(obj, type) and issubclass(obj, BasePlugin) and obj is not BasePlugin:
@@ -428,13 +600,23 @@ def load_from_file(path):
                     continue
                 _unload_id(inst.id)  # если уже загружен такой id — заменяем (переустановка)
                 inst._runtime_loaded = False
-                _plugins.append(inst)
-                if not jclass("org.telegram.messenger.DevGramPlugins").isSafeMode():
+                _remember_plugin(inst)
+                if _may_start_plugin(inst.id):
+                    _plugins.append(inst)
                     try:
                         _invoke_load(inst)
                     except Exception:
+                        if inst in _plugins:
+                            _plugins.remove(inst)
+                        inst.enabled = False
+                        _remember_plugin(inst, False)
+                        _persist_enabled(inst.id, False)
                         _cleanup_java_runtime(str(getattr(inst, "id", "")))
+                        _release_plugin_imports(str(getattr(inst, "id", "")))
                         _err("on_load " + str(getattr(inst, "id", "?")), plugin=getattr(inst, "id", None))
+                else:
+                    _remember_plugin(inst, _saved_enabled(inst.id))
+                    _release_plugin_imports(str(getattr(inst, "id", "")))
                 found += 1
                 _log("загружен: %s" % inst.name, level="LIFE", plugin=inst.id)
     except Exception:
@@ -461,6 +643,17 @@ def load_package(path):
             _unload_id(plugin_id)
             _remove_package_paths(plugin_id, True)
             root = os.path.join(os.path.dirname(path), '.devgram', plugin_id)
+            if not _may_start_plugin(plugin_id):
+                if os.path.isdir(root):
+                    shutil.rmtree(root, ignore_errors=True)
+                _package_roots.pop(plugin_id, None)
+                _package_manifests.pop(plugin_id, None)
+                _package_archives[plugin_id] = path
+                _remember_metadata(
+                    plugin_id, manifest.get('name'), manifest.get('version'),
+                    manifest.get('author'), manifest.get('description'), manifest.get('icon'),
+                    path, os.path.basename(path), _saved_enabled(plugin_id))
+                return 1
             if os.path.isdir(root): shutil.rmtree(root)
             for name in names:
                 if name.startswith('/') or '..' in name.split('/'):
@@ -559,23 +752,24 @@ def dispatch_send(account, text):
         if not getattr(p, "enabled", True):
             continue
         try:
-            from devgram import BasePlugin, HookStrategy
-            if type(p).on_send_message_hook is not BasePlugin.on_send_message_hook:
-                hooked = p.on_send_message_hook(account, text)
-                strategy = getattr(hooked, "strategy", HookStrategy.PASS)
-                if strategy == HookStrategy.CANCEL:
+            with _watch(p):
+                from devgram import BasePlugin, HookStrategy
+                if type(p).on_send_message_hook is not BasePlugin.on_send_message_hook:
+                    hooked = p.on_send_message_hook(account, text)
+                    strategy = getattr(hooked, "strategy", HookStrategy.PASS)
+                    if strategy == HookStrategy.CANCEL:
+                        return CANCEL
+                    r = getattr(hooked, "result", None)
+                    if r is None:
+                        r = getattr(hooked, "params", None)
+                else:
+                    r = p.on_send_message(text)
+                if r is False:
+                    _log("on_send_message → отменил отправку", level="EVENT", plugin=p.id)
                     return CANCEL
-                r = getattr(hooked, "result", None)
-                if r is None:
-                    r = getattr(hooked, "params", None)
-            else:
-                r = p.on_send_message(text)
-            if r is False:
-                _log("on_send_message → отменил отправку", level="EVENT", plugin=p.id)
-                return CANCEL
-            if r is not None and r != text:
-                _log("on_send_message изменил текст", level="EVENT", plugin=p.id)
-                text = r
+                if r is not None and r != text:
+                    _log("on_send_message изменил текст", level="EVENT", plugin=p.id)
+                    text = r
         except Exception:
             _err("on_send_message", plugin=getattr(p, "id", None))
     return text
@@ -587,7 +781,8 @@ def dispatch_receive(text):
         if not getattr(p, "enabled", True):
             continue
         try:
-            p.on_receive_message(text)
+            with _watch(p):
+                p.on_receive_message(text)
         except Exception:
             _err("on_receive_message", plugin=getattr(p, "id", None))
 
@@ -599,10 +794,11 @@ def dispatch_hook(plugin_id, phase, frame):
             if not getattr(p, "enabled", True):
                 return
             try:
-                if phase == "before":
-                    p.before_hook(frame)
-                else:
-                    p.after_hook(frame)
+                with _watch(p):
+                    if phase == "before":
+                        p.before_hook(frame)
+                    else:
+                        p.after_hook(frame)
             except Exception:
                 _err("hook %s" % phase, plugin=plugin_id)
             return
@@ -640,13 +836,14 @@ def dispatch_request(account, name, request):
         if not getattr(p, "enabled", True):
             continue
         try:
-            from devgram import BasePlugin
-            if type(p).on_send_request_hook is not BasePlugin.on_send_request_hook:
-                _log("→ %s (acc %s)" % (name, account), level="REQUEST", plugin=p.id)
-                p.on_send_request_hook(account, name, request)
-            elif type(p).on_send_request is not BasePlugin.on_send_request:
-                _log("→ %s" % name, level="REQUEST", plugin=p.id)
-                p.on_send_request(name, request)
+            with _watch(p):
+                from devgram import BasePlugin
+                if type(p).on_send_request_hook is not BasePlugin.on_send_request_hook:
+                    _log("→ %s (acc %s)" % (name, account), level="REQUEST", plugin=p.id)
+                    p.on_send_request_hook(account, name, request)
+                elif type(p).on_send_request is not BasePlugin.on_send_request:
+                    _log("→ %s" % name, level="REQUEST", plugin=p.id)
+                    p.on_send_request(name, request)
         except Exception:
             _err("on_send_request %s" % name, plugin=getattr(p, "id", None))
 
@@ -657,16 +854,17 @@ def dispatch_response(account, name, response, error):
         if not getattr(p, "enabled", True):
             continue
         try:
-            from devgram import BasePlugin
-            has_hook = type(p).on_receive_response_hook is not BasePlugin.on_receive_response_hook
-            has_plain = type(p).on_receive_response is not BasePlugin.on_receive_response
-            if has_hook or has_plain:
-                err = "" if error is None else (" ERR:" + str(error))
-                _log("← %s%s" % (name, err), level="REQUEST", plugin=p.id)
-            if has_hook:
-                p.on_receive_response_hook(account, name, response, error)
-            elif has_plain:
-                p.on_receive_response(name, response, error)
+            with _watch(p):
+                from devgram import BasePlugin
+                has_hook = type(p).on_receive_response_hook is not BasePlugin.on_receive_response_hook
+                has_plain = type(p).on_receive_response is not BasePlugin.on_receive_response
+                if has_hook or has_plain:
+                    err = "" if error is None else (" ERR:" + str(error))
+                    _log("← %s%s" % (name, err), level="REQUEST", plugin=p.id)
+                if has_hook:
+                    p.on_receive_response_hook(account, name, response, error)
+                elif has_plain:
+                    p.on_receive_response(name, response, error)
         except Exception:
             _err("on_receive_response %s" % name, plugin=getattr(p, "id", None))
 
@@ -677,11 +875,12 @@ def dispatch_update(account, update):
         if not getattr(p, "enabled", True):
             continue
         try:
-            from devgram import BasePlugin
-            if type(p).on_update_hook is not BasePlugin.on_update_hook:
-                p.on_update_hook(update.getClass().getSimpleName(), account, update)
-            elif type(p).on_update is not BasePlugin.on_update:
-                p.on_update(update)
+            with _watch(p):
+                from devgram import BasePlugin
+                if type(p).on_update_hook is not BasePlugin.on_update_hook:
+                    p.on_update_hook(update.getClass().getSimpleName(), account, update)
+                elif type(p).on_update is not BasePlugin.on_update:
+                    p.on_update(update)
         except Exception:
             _err("on_update", plugin=getattr(p, "id", None))
 
@@ -693,8 +892,9 @@ def menu_items():
         if not getattr(p, "enabled", True):
             continue
         try:
-            for label in (p.menu_items() or []):
-                res.append(_SEP.join([str(p.id), str(label)]))
+            with _watch(p):
+                for label in (p.menu_items() or []):
+                    res.append(_SEP.join([str(p.id), str(label)]))
         except Exception:
             _err("menu_items", plugin=getattr(p, "id", None))
     return res
@@ -704,8 +904,9 @@ def menu_click(plugin_id, label, message_text, dialog_id):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
             try:
-                _log("меню сообщения: %s" % label, level="EVENT", plugin=plugin_id)
-                p.on_menu_click(label, message_text, dialog_id)
+                with _watch(p):
+                    _log("меню сообщения: %s" % label, level="EVENT", plugin=plugin_id)
+                    p.on_menu_click(label, message_text, dialog_id)
             except Exception:
                 _err("on_menu_click", plugin=plugin_id)
             return
@@ -718,8 +919,9 @@ def link_menu_items(url):
         if not getattr(p, "enabled", True):
             continue
         try:
-            for label in (p.link_menu_items(url) or []):
-                res.append(_SEP.join([str(p.id), str(label)]))
+            with _watch(p):
+                for label in (p.link_menu_items(url) or []):
+                    res.append(_SEP.join([str(p.id), str(label)]))
         except Exception:
             _err("link_menu_items", plugin=getattr(p, "id", None))
     return res
@@ -729,8 +931,9 @@ def link_menu_click(plugin_id, label, url, dialog_id):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
             try:
-                _log("меню ссылки: %s" % label, level="EVENT", plugin=plugin_id)
-                p.on_link_menu_click(label, url, dialog_id)
+                with _watch(p):
+                    _log("меню ссылки: %s" % label, level="EVENT", plugin=plugin_id)
+                    p.on_link_menu_click(label, url, dialog_id)
             except Exception:
                 _err("on_link_menu_click", plugin=plugin_id)
             return
@@ -745,19 +948,20 @@ def plugin_settings(plugin_id):
     for p in _plugins:
         if str(p.id) == str(plugin_id):
             try:
-                res = []
-                raw = []
-                source = p.create_settings() if "create_settings" in type(p).__dict__ else p.settings()
-                for r in (source or []):
-                    raw.append(r)
-                    row = r.as_row() if hasattr(r, "as_row") else r
-                    t = str(row[0])
-                    k = str(row[1]) if len(row) > 1 else ""
-                    title = str(row[2]) if len(row) > 2 else ""
-                    extra = str(row[3]) if len(row) > 3 else ""
-                    res.append(_SEP.join([t, k, title, extra]))
-                _last_settings_objects[str(plugin_id)] = raw
-                return res
+                with _watch(p):
+                    res = []
+                    raw = []
+                    source = p.create_settings() if "create_settings" in type(p).__dict__ else p.settings()
+                    for r in (source or []):
+                        raw.append(r)
+                        row = r.as_row() if hasattr(r, "as_row") else r
+                        t = str(row[0])
+                        k = str(row[1]) if len(row) > 1 else ""
+                        title = str(row[2]) if len(row) > 2 else ""
+                        extra = str(row[3]) if len(row) > 3 else ""
+                        res.append(_SEP.join([t, k, title, extra]))
+                    _last_settings_objects[str(plugin_id)] = raw
+                    return res
             except Exception:
                 _err("settings", plugin=getattr(p, "id", None))
             return []
@@ -777,7 +981,8 @@ def plugin_setting_click(plugin_id, key):
         if str(p.id) == str(plugin_id):
             _log("настройка-кнопка: %s" % key, level="EVENT", plugin=plugin_id)
             try:
-                p.on_setting_click(key)
+                with _watch(p):
+                    p.on_setting_click(key)
             except Exception:
                 _err("on_setting_click", plugin=plugin_id)
             return
@@ -787,12 +992,13 @@ def plugin_setting_changed(plugin_id, key, value):
         if str(p.id) == str(plugin_id):
             _log("настройка изменена: %s = %s" % (key, value), level="EVENT", plugin=plugin_id)
             try:
-                source = p.create_settings() if "create_settings" in type(p).__dict__ else p.settings()
-                for item in (source or []):
-                    if getattr(item, "key", None) == key and getattr(item, "on_change", None):
-                        item.on_change(value)
-                callback = getattr(p, "on_setting_changed", None)
-                if callback: callback(key, value)
+                with _watch(p):
+                    source = p.create_settings() if "create_settings" in type(p).__dict__ else p.settings()
+                    for item in (source or []):
+                        if getattr(item, "key", None) == key and getattr(item, "on_change", None):
+                            item.on_change(value)
+                    callback = getattr(p, "on_setting_changed", None)
+                    if callback: callback(key, value)
             except Exception:
                 _err("on_setting_changed", plugin=plugin_id)
             return
@@ -800,44 +1006,77 @@ def plugin_setting_changed(plugin_id, key, value):
 
 def list_plugins():
     """Для менеджера: 'id␟name␟version␟author␟enabled␟filename␟description␟icon'."""
+    for plugin in _plugins:
+        _remember_plugin(plugin)
     res = []
-    for p in _plugins:
-        en = 1 if getattr(p, "enabled", True) else 0
+    for record in _known_plugins.values():
+        en = 1 if bool(record.get("enabled", True)) else 0
         res.append(_SEP.join([
-            str(p.id), str(p.name), str(p.version), str(p.author),
-            str(en), str(getattr(p, "_filename", "")), str(getattr(p, "description", "")),
-            str(getattr(p, "icon", "")),
+            str(record.get("id", "")), str(record.get("name", "")),
+            str(record.get("version", "")), str(record.get("author", "")), str(en),
+            str(record.get("filename", "")), str(record.get("description", "")),
+            str(record.get("icon", "")),
         ]))
     return res
 
 
+def _set_record_enabled(plugin_id, enabled):
+    record = _known_plugins.get(str(plugin_id or ""))
+    if record is not None:
+        record["enabled"] = bool(enabled)
+
+
 def set_enabled(plugin_id, enabled):
+    plugin_id = str(plugin_id or "")
     for p in _plugins:
-        if str(p.id) == str(plugin_id):
+        if str(p.id) == plugin_id:
             was = bool(getattr(p, "enabled", True))
             p.enabled = bool(enabled)
+            _remember_plugin(p, enabled)
             # ВАЖНО: при выключении вызываем on_unload (плагин должен снять хуки, остановить
             # фоновые сервисы/ядро/прокси), при включении — on_load. Иначе disabled-плагин
             # продолжает работать (потоки/нативка/хуки не гейтятся флагом enabled).
             try:
                 if was and not enabled:
-                    try:
-                        _invoke_unload(p)
-                    finally:
-                        _cleanup_java_runtime(str(plugin_id))
+                    _unload_id(plugin_id)
+                    _release_plugin_imports(plugin_id)
                 elif enabled and not bool(getattr(p, "_runtime_loaded", False)):
                     if jclass("org.telegram.messenger.DevGramPlugins").isSafeMode():
                         return True
-                    _cleanup_java_runtime(str(plugin_id))
+                    _cleanup_java_runtime(plugin_id)
                     _invoke_load(p)
             except Exception:
                 if enabled:
-                    _cleanup_java_runtime(str(plugin_id))
+                    _cleanup_java_runtime(plugin_id)
                 _err("set_enabled lifecycle", plugin=plugin_id)
             _log("включён" if enabled else "выключен", level="LIFE", plugin=plugin_id)
             return True
-    return False
+
+    record = _known_plugins.get(plugin_id)
+    if record is None:
+        return False
+    _set_record_enabled(plugin_id, enabled)
+    if not enabled:
+        _cleanup_java_runtime(plugin_id)
+        _release_plugin_imports(plugin_id)
+        _log("выключен", level="LIFE", plugin=plugin_id)
+        return True
+    if jclass("org.telegram.messenger.DevGramPlugins").isSafeMode():
+        return True
+    path = str(record.get("path", "") or "")
+    if not path or not os.path.isfile(path):
+        _log("не найден файл плагина: " + path, level="ERROR", plugin=plugin_id)
+        record["enabled"] = False
+        _persist_enabled(plugin_id, False)
+        return False
+    load_from_file(path)
+    loaded = any(str(plugin.id) == plugin_id for plugin in _plugins)
+    if not loaded:
+        record["enabled"] = False
+        _persist_enabled(plugin_id, False)
+    _log("включён" if loaded else "ошибка включения", level="LIFE" if loaded else "ERROR", plugin=plugin_id)
+    return loaded
 
 
 def count():
-    return len(_plugins)
+    return len(_known_plugins)

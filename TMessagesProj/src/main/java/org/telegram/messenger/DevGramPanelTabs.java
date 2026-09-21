@@ -10,9 +10,12 @@ import android.view.View;
 import com.chaquo.python.PyObject;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * DevGram: реестр вкладок плагинов в панели Эмодзи/GIF/Стикеры (EmojiView, TAB_PLUGIN).
@@ -42,24 +45,68 @@ public final class DevGramPanelTabs {
 
     /** Мост Python: buildView(context, dialogId) -> View; actionClick(anchorView, dialogId) — может быть null. */
     public static void register(String pluginId, String title, PyObject buildView, PyObject actionClick, String iconPath) {
-        if (pluginId == null) return;
-        synchronized (lock) {
-            tabs.put(pluginId, new Entry(title == null ? "" : title, buildView, actionClick, iconPath));
+        if (pluginId == null) {
+            closeCallbacks(buildView, actionClick);
+            return;
         }
+        Entry previous;
+        synchronized (lock) {
+            previous = tabs.put(pluginId,
+                    new Entry(title == null ? "" : title, buildView, actionClick, iconPath));
+        }
+        closeEntry(previous, buildView, actionClick);
+        notifyChanged();
     }
 
     public static void unregister(String pluginId) {
         if (pluginId == null) return;
+        Entry removed;
         synchronized (lock) {
-            tabs.remove(pluginId);
+            removed = tabs.remove(pluginId);
         }
+        closeEntry(removed, null, null);
+        if (removed != null) notifyChanged();
     }
 
     /** Удалить все вкладки плагинов перед пересозданием Python runtime. */
     public static void clear() {
+        List<Entry> removed;
         synchronized (lock) {
+            removed = new ArrayList<>(tabs.values());
             tabs.clear();
         }
+        for (Entry entry : removed) {
+            closeEntry(entry, null, null);
+        }
+        if (!removed.isEmpty()) notifyChanged();
+    }
+
+    private static void closeEntry(Entry entry, PyObject keepFirst, PyObject keepSecond) {
+        if (entry == null) return;
+        entry.iconBitmap = null;
+        closeCallbacksExcept(keepFirst, keepSecond, entry.buildView, entry.actionClick);
+    }
+
+    private static void closeCallbacks(PyObject... callbacks) {
+        closeCallbacksExcept(null, null, callbacks);
+    }
+
+    private static void closeCallbacksExcept(PyObject keepFirst, PyObject keepSecond, PyObject... callbacks) {
+        Set<PyObject> closed = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (PyObject callback : callbacks) {
+            if (callback == null || callback == keepFirst || callback == keepSecond || !closed.add(callback)) {
+                continue;
+            }
+            try {
+                callback.close();
+            } catch (Throwable ignore) {
+            }
+        }
+    }
+
+    private static void notifyChanged() {
+        AndroidUtilities.runOnUIThread(() -> NotificationCenter.getGlobalInstance()
+                .postNotificationName(NotificationCenter.pluginPanelTabsChanged));
     }
 
     public static List<String> pluginIds() {
@@ -82,11 +129,14 @@ public final class DevGramPanelTabs {
             cb = e == null ? null : e.buildView;
         }
         if (cb == null) return null;
+        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, title(pluginId), "");
         try (PyObject v = cb.call(context, dialogId)) {
             return v == null ? null : v.toJava(View.class);
         } catch (Throwable e) {
             FileLog.e(e);
             return null;
+        } finally {
+            DevGramPluginWatchdog.onExecutionFinished(token);
         }
     }
 
@@ -104,9 +154,12 @@ public final class DevGramPanelTabs {
             cb = e == null ? null : e.actionClick;
         }
         if (cb == null) return;
+        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, title(pluginId), "");
         try (PyObject ignored = cb.call(anchor, dialogId)) {
         } catch (Throwable e) {
             FileLog.e(e);
+        } finally {
+            DevGramPluginWatchdog.onExecutionFinished(token);
         }
     }
 

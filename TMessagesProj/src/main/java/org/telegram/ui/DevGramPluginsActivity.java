@@ -163,6 +163,9 @@ public class DevGramPluginsActivity extends BaseFragment {
             on[0] = !on[0];
             sw.setChecked(on[0], true);
             DevGramPlugins.setEnabled(id, on[0]);
+            if (listView != null && listView.adapter != null) {
+                listView.adapter.update(true);
+            }
         });
 
         card.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));

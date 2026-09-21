@@ -54,6 +54,10 @@ public class DevGramPlugins {
     private static volatile String firebaseAnonToken;
     private static volatile String firebaseAnonUid;
     private static volatile java.util.Set<String> verifiedHashes = new java.util.HashSet<>();
+    private static final java.util.Map<String, java.util.Set<PyObject>> pendingPluginCallbacks =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, java.util.Set<PyObject>> persistentPluginCallbacks =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public static boolean startDevServer(int port, String token) { return DevGramDevServer.start(port, token); }
     public static void stopDevServer() { DevGramDevServer.stopServer(); }
@@ -103,8 +107,8 @@ public class DevGramPlugins {
     public static String startRemoteDebugger(String platform, String host, int port) {
         try {
             loader();
-            try (PyObject result = Python.getInstance().getModule("devgram.dev_server")
-                    .callAttr("start_debugger", platform, host, port, false)) {
+            try (PyObject module = Python.getInstance().getModule("devgram.dev_server");
+                 PyObject result = module.callAttr("start_debugger", platform, host, port, false)) {
                 return result == null ? "unavailable" : result.toString();
             }
         } catch (Throwable e) {
@@ -115,7 +119,8 @@ public class DevGramPlugins {
 
     public static String stopRemoteDebugger() {
         try {
-            try (PyObject ignored = Python.getInstance().getModule("devgram.dev_server").callAttr("stop_debugger")) {
+            try (PyObject module = Python.getInstance().getModule("devgram.dev_server");
+                 PyObject ignored = module.callAttr("stop_debugger")) {
             }
             return "stopped";
         } catch (Throwable e) {
@@ -126,7 +131,8 @@ public class DevGramPlugins {
 
     public static String remoteDebuggerStatus() {
         try {
-            try (PyObject result = Python.getInstance().getModule("devgram.dev_server").callAttr("debugger_status")) {
+            try (PyObject module = Python.getInstance().getModule("devgram.dev_server");
+                 PyObject result = module.callAttr("debugger_status")) {
                 return result == null ? "unavailable" : result.toString();
             }
         } catch (Throwable e) {
@@ -253,8 +259,8 @@ public class DevGramPlugins {
             if (!Python.isStarted()) {
                 Python.start(new AndroidPlatform(ApplicationLoader.applicationContext));
             }
-            try (PyObject result = Python.getInstance().getModule("dgws")
-                    .callAttr("start", secretHex, fakeTlsDomain, host, port)) {
+            try (PyObject module = Python.getInstance().getModule("dgws");
+                 PyObject result = module.callAttr("start", secretHex, fakeTlsDomain, host, port)) {
                 return result != null && result.toBoolean();
             }
         } catch (Throwable e) {
@@ -266,7 +272,8 @@ public class DevGramPlugins {
     public static void stopWsProxy() {
         try {
             if (Python.isStarted()) {
-                try (PyObject ignored = Python.getInstance().getModule("dgws").callAttr("stop")) {
+                try (PyObject module = Python.getInstance().getModule("dgws");
+                     PyObject ignored = module.callAttr("stop")) {
                 }
             }
         } catch (Throwable e) {
@@ -279,7 +286,8 @@ public class DevGramPlugins {
             if (!Python.isStarted()) {
                 return "python не запущен";
             }
-            try (PyObject result = Python.getInstance().getModule("dgws").callAttr("last_error")) {
+            try (PyObject module = Python.getInstance().getModule("dgws");
+                 PyObject result = module.callAttr("last_error")) {
                 return result == null ? "" : result.toString();
             }
         } catch (Throwable e) {
@@ -292,7 +300,8 @@ public class DevGramPlugins {
             if (!Python.isStarted()) {
                 return false;
             }
-            try (PyObject result = Python.getInstance().getModule("dgws").callAttr("is_running")) {
+            try (PyObject module = Python.getInstance().getModule("dgws");
+                 PyObject result = module.callAttr("is_running")) {
                 return result != null && result.toBoolean();
             }
         } catch (Throwable e) {
@@ -419,6 +428,17 @@ public class DevGramPlugins {
         }
         try {
             res.addAll(callPythonStringList("list_plugins"));
+            android.content.SharedPreferences.Editor editor = prefs().edit();
+            boolean changed = false;
+            for (String row : res) {
+                String[] fields = row.split("\u001f", -1);
+                if (fields.length > 5 && !fields[0].isEmpty() && !fields[5].isEmpty()
+                        && new File(fields[5]).getName().equals(fields[5])) {
+                    editor.putString("file_" + fields[0], fields[5]);
+                    changed = true;
+                }
+            }
+            if (changed) editor.apply();
         } catch (Throwable e) {
             FileLog.e(e);
         }
@@ -433,6 +453,19 @@ public class DevGramPlugins {
             refreshRequestHooks();
             logLine((enabled ? "включён плагин: " : "выключен плагин: ") + id);
         } catch (Throwable ignore) {
+        }
+    }
+
+    /** Сохранённое состояние плагина без запуска Python-кода. Нужно загрузчику для
+     * отложенной загрузки: выключенный плагин не должен даже создавать экземпляр. */
+    public static boolean isPluginEnabled(String id) {
+        return id != null && !id.isEmpty() && prefs().getBoolean("enabled_" + id, true);
+    }
+
+    /** Обновить только сохранённое состояние, не вызывая lifecycle повторно. */
+    public static void persistPluginEnabled(String id, boolean enabled) {
+        if (id != null && !id.isEmpty()) {
+            prefs().edit().putBoolean("enabled_" + id, enabled).apply();
         }
     }
 
@@ -507,6 +540,14 @@ public class DevGramPlugins {
                                    com.chaquo.python.PyObject longClickCallback,
                                    boolean enabled) {
         return DevGramPillStack.registerPluginPill(pluginId, pillId, name, text, valueCallback, clickCallback, longClickCallback, enabled);
+    }
+
+    public static long pluginExecutionStarted(String pluginId, String pluginName, String fileName) {
+        return DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginName, fileName);
+    }
+
+    public static void pluginExecutionFinished(long token) {
+        DevGramPluginWatchdog.onExecutionFinished(token);
     }
 
     public static void unregisterPills(String pluginId) {
@@ -834,20 +875,32 @@ public class DevGramPlugins {
     // Сырой TL-запрос: request — Java-объект TLObject (плагин строит через jclass),
     // callback (может быть null) зовётся с (response, errorText). Возвращает токен запроса.
     public static int sendRequest(final Object request, final com.chaquo.python.PyObject callback) {
+        return sendRequestForPlugin("", request, callback);
+    }
+
+    public static int sendRequestForPlugin(final String pluginId, final Object request,
+            final com.chaquo.python.PyObject callback) {
         try {
             if (!(request instanceof org.telegram.tgnet.TLObject)) {
+                closePyObjects(callback);
                 return 0;
             }
+            if (!trackPendingCallback(pluginId, callback)) return 0;
             int account = UserConfig.selectedAccount;
             return org.telegram.tgnet.ConnectionsManager.getInstance(account).sendRequest((org.telegram.tgnet.TLObject) request,
                     (response, error) -> {
                         if (callback == null) return;
+                        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
                         try (PyObject ignored = callback.call(response, error != null ? error.text : null)) {
                         } catch (Throwable e) {
                             FileLog.e(e);
+                        } finally {
+                            DevGramPluginWatchdog.onExecutionFinished(token);
+                            finishPendingCallback(pluginId, callback);
                         }
                     });
         } catch (Throwable e) {
+            finishPendingCallback(pluginId, callback);
             FileLog.e(e);
             return 0;
         }
@@ -856,29 +909,57 @@ public class DevGramPlugins {
     // ---- android_utils: потоки ----
     // Выполнить Python-функцию на UI-потоке (delayMs — задержка в мс).
     public static void runOnUi(final com.chaquo.python.PyObject fn, long delayMs) {
+        runOnUiForPlugin("", fn, delayMs);
+    }
+
+    public static void runOnUiForPlugin(final String pluginId, final com.chaquo.python.PyObject fn, long delayMs) {
         if (fn == null) return;
+        if (!trackPendingCallback(pluginId, fn)) return;
         Runnable r = () -> {
+            long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
             try (PyObject ignored = fn.call()) {
             } catch (Throwable e) {
                 FileLog.e(e);
+            } finally {
+                DevGramPluginWatchdog.onExecutionFinished(token);
+                finishPendingCallback(pluginId, fn);
             }
         };
-        if (delayMs > 0) {
-            AndroidUtilities.runOnUIThread(r, delayMs);
-        } else {
-            AndroidUtilities.runOnUIThread(r);
+        try {
+            if (delayMs > 0) {
+                AndroidUtilities.runOnUIThread(r, delayMs);
+            } else {
+                AndroidUtilities.runOnUIThread(r);
+            }
+        } catch (Throwable e) {
+            finishPendingCallback(pluginId, fn);
+            FileLog.e(e);
         }
     }
 
     // Выполнить Python-функцию в фоновой очереди (не блокирует UI).
     public static void runOnQueue(final com.chaquo.python.PyObject fn) {
+        runOnQueueForPlugin("", fn);
+    }
+
+    public static void runOnQueueForPlugin(final String pluginId, final com.chaquo.python.PyObject fn) {
         if (fn == null) return;
-        NET_QUEUE.execute(() -> {
-            try (PyObject ignored = fn.call()) {
-            } catch (Throwable e) {
-                FileLog.e(e);
-            }
-        });
+        if (!trackPendingCallback(pluginId, fn)) return;
+        try {
+            NET_QUEUE.execute(() -> {
+                long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
+                try (PyObject ignored = fn.call()) {
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                } finally {
+                    DevGramPluginWatchdog.onExecutionFinished(token);
+                    finishPendingCallback(pluginId, fn);
+                }
+            });
+        } catch (Throwable e) {
+            finishPendingCallback(pluginId, fn);
+            FileLog.e(e);
+        }
     }
 
     // ---- android_utils: графика ----
@@ -1094,8 +1175,8 @@ public class DevGramPlugins {
 
     public static boolean onIntent(android.content.Intent intent) {
         if (intent == null || !loaded || isSafeMode()) return false;
-        try (PyObject result = Python.getInstance().getModule("devgram.intents")
-                .callAttr("dispatch", intent)) {
+        try (PyObject module = Python.getInstance().getModule("devgram.intents");
+             PyObject result = module.callAttr("dispatch", intent)) {
             return result != null && result.toBoolean();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -1161,16 +1242,23 @@ public class DevGramPlugins {
     }
 
     public static void bulletin(String type, String text, int duration, String button, PyObject callback) {
+        bulletinForPlugin("", type, text, duration, button, callback);
+    }
+
+    public static void bulletinForPlugin(String pluginId, String type, String text, int duration,
+                                         String button, PyObject callback) {
         if (text == null) {
+            closePyObjects(callback);
             return;
         }
+        if (!trackPendingCallback(pluginId, callback)) return;
         AndroidUtilities.runOnUIThread(() -> {
             try {
                 org.telegram.ui.ActionBar.BaseFragment f = org.telegram.ui.LaunchActivity.getSafeLastFragment();
                 if (f != null) {
                     org.telegram.ui.Components.BulletinFactory factory = org.telegram.ui.Components.BulletinFactory.of(f);
                     org.telegram.ui.Components.Bulletin bulletin;
-                    Runnable action = callback == null ? null : () -> callPythonCallback(callback);
+                    Runnable action = callback == null ? null : () -> callPythonCallback(pluginId, callback);
                     if (button != null && !button.isEmpty()) {
                         int icon = "error".equals(type) ? R.raw.error
                                 : "success".equals(type) ? R.raw.contact_check : R.raw.info;
@@ -1184,9 +1272,15 @@ public class DevGramPlugins {
                         bulletin = factory.createSimpleBulletin(R.raw.info, text)
                                 .setDuration(Math.max(500, duration));
                     }
+                    if (callback != null) {
+                        bulletin.setOnHideListener(() -> finishPendingCallback(pluginId, callback));
+                    }
                     bulletin.show();
+                } else {
+                    finishPendingCallback(pluginId, callback);
                 }
             } catch (Throwable e) {
+                finishPendingCallback(pluginId, callback);
                 FileLog.e(e);
             }
         });
@@ -1200,26 +1294,47 @@ public class DevGramPlugins {
                              String positiveText, PyObject positiveCallback,
                              String negativeText, PyObject negativeCallback,
                              String neutralText, PyObject neutralCallback) {
+        alertForPlugin("", title, message, positiveText, positiveCallback,
+                negativeText, negativeCallback, neutralText, neutralCallback);
+    }
+
+    public static void alertForPlugin(String pluginId, String title, String message,
+                                      String positiveText, PyObject positiveCallback,
+                                      String negativeText, PyObject negativeCallback,
+                                      String neutralText, PyObject neutralCallback) {
+        if (pluginId != null && !pluginId.isEmpty()
+                && (isSafeMode() || !isPluginEnabled(pluginId))) {
+            closePyObjects(positiveCallback, negativeCallback, neutralCallback);
+            return;
+        }
+        trackPendingCallback(pluginId, positiveCallback);
+        trackPendingCallback(pluginId, negativeCallback);
+        trackPendingCallback(pluginId, neutralCallback);
         AndroidUtilities.runOnUIThread(() -> {
             try {
                 org.telegram.ui.ActionBar.BaseFragment f = org.telegram.ui.LaunchActivity.getSafeLastFragment();
                 android.app.Activity a = f != null ? f.getParentActivity() : null;
                 if (a == null) {
+                    finishPendingCallbacks(pluginId, positiveCallback, negativeCallback, neutralCallback);
                     return;
                 }
                 org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
                 b.setTitle(title == null ? "" : title);
                 b.setMessage(message == null ? "" : message);
                 if (positiveText != null && !positiveText.isEmpty()) {
-                    b.setPositiveButton(positiveText, (dialog, which) -> callPythonCallback(positiveCallback));
+                    b.setPositiveButton(positiveText, (dialog, which) -> callPythonCallback(pluginId, positiveCallback));
                 }
                 if (negativeText != null && !negativeText.isEmpty()) {
-                    b.setNegativeButton(negativeText, (dialog, which) -> callPythonCallback(negativeCallback));
+                    b.setNegativeButton(negativeText, (dialog, which) -> callPythonCallback(pluginId, negativeCallback));
                 }
                 if (neutralText != null && !neutralText.isEmpty()) {
-                    b.setNeutralButton(neutralText, (dialog, which) -> callPythonCallback(neutralCallback));
+                    b.setNeutralButton(neutralText, (dialog, which) -> callPythonCallback(pluginId, neutralCallback));
                 }
                 org.telegram.ui.ActionBar.AlertDialog dialog = b.show();
+                if (dialog != null) {
+                    dialog.setOnDismissListener(ignored -> finishPendingCallbacks(pluginId,
+                            positiveCallback, negativeCallback, neutralCallback));
+                }
                 // DevGram: текст (особенно DEBUG-трейсбеки из плагинов) должен выделяться и
                 // копироваться долгим тапом, а не только скриншотиться — стандартный AlertDialog
                 // это не даёт по умолчанию.
@@ -1227,16 +1342,101 @@ public class DevGramPlugins {
                     dialog.getMessageTextView().setTextIsSelectable(true);
                 }
             } catch (Throwable e) {
+                finishPendingCallbacks(pluginId, positiveCallback, negativeCallback, neutralCallback);
                 FileLog.e(e);
             }
         });
     }
 
-    private static void callPythonCallback(PyObject callback) {
+    private static void closePyObjects(PyObject... objects) {
+        java.util.Set<PyObject> closed = java.util.Collections.newSetFromMap(
+                new java.util.IdentityHashMap<>());
+        for (PyObject object : objects) {
+            if (object == null || !closed.add(object)) continue;
+            try {
+                object.close();
+            } catch (Throwable ignore) {
+            }
+        }
+    }
+
+    private static boolean trackPendingCallback(String pluginId, PyObject callback) {
+        if (callback == null || pluginId == null || pluginId.isEmpty()) return true;
+        if (isSafeMode() || !isPluginEnabled(pluginId)) {
+            closePyObjects(callback);
+            return false;
+        }
+        pendingPluginCallbacks.compute(pluginId, (ignored, callbacks) -> {
+            if (callbacks == null) {
+                callbacks = java.util.Collections.synchronizedSet(
+                        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+            }
+            callbacks.add(callback);
+            return callbacks;
+        });
+        return true;
+    }
+
+    private static void finishPendingCallback(String pluginId, PyObject callback) {
+        if (callback == null) return;
+        if (pluginId == null || pluginId.isEmpty()) {
+            closePyObjects(callback);
+            return;
+        }
+        java.util.concurrent.atomic.AtomicBoolean removed = new java.util.concurrent.atomic.AtomicBoolean();
+        pendingPluginCallbacks.computeIfPresent(pluginId, (ignored, callbacks) -> {
+            if (callbacks.remove(callback)) removed.set(true);
+            return callbacks.isEmpty() ? null : callbacks;
+        });
+        if (removed.get()) closePyObjects(callback);
+    }
+
+    private static void finishPendingCallbacks(String pluginId, PyObject... callbacks) {
+        for (PyObject callback : callbacks) finishPendingCallback(pluginId, callback);
+    }
+
+    private static void closePendingCallbacks(String pluginId) {
+        java.util.Set<PyObject> callbacks = pendingPluginCallbacks.remove(pluginId);
+        if (callbacks == null) return;
+        PyObject[] snapshot;
+        synchronized (callbacks) {
+            snapshot = callbacks.toArray(new PyObject[0]);
+            callbacks.clear();
+        }
+        closePyObjects(snapshot);
+    }
+
+    private static void trackPersistentCallback(String pluginId, PyObject callback) {
+        if (callback == null || pluginId == null || pluginId.isEmpty()) return;
+        persistentPluginCallbacks.compute(pluginId, (ignored, callbacks) -> {
+            if (callbacks == null) {
+                callbacks = java.util.Collections.synchronizedSet(
+                        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+            }
+            callbacks.add(callback);
+            return callbacks;
+        });
+    }
+
+    private static void closePersistentCallbacks(String pluginId) {
+        java.util.Set<PyObject> callbacks = persistentPluginCallbacks.remove(pluginId);
+        if (callbacks == null) return;
+        PyObject[] snapshot;
+        synchronized (callbacks) {
+            snapshot = callbacks.toArray(new PyObject[0]);
+            callbacks.clear();
+        }
+        closePyObjects(snapshot);
+    }
+
+    private static void callPythonCallback(String pluginId, PyObject callback) {
         if (callback == null || isSafeMode()) return;
+        long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
         try (PyObject ignored = callback.call()) {
         } catch (Throwable e) {
             FileLog.e(e);
+        } finally {
+            DevGramPluginWatchdog.onExecutionFinished(token);
         }
     }
 
@@ -1588,6 +1788,8 @@ public class DevGramPlugins {
     // Снятие хуков по плагину: на reload/выгрузку освобождаем все регистрации.
     private static final java.util.Map<String, java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook>>
             pluginUnhooks = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, java.util.List<DGMethodHook>>
+            pluginHookCallbacks = new java.util.concurrent.ConcurrentHashMap<>();
 
     private static void trackUnhook(String pluginId, de.robv.android.xposed.XC_MethodHook.Unhook unhook) {
         if (unhook == null || pluginId == null) {
@@ -1599,13 +1801,18 @@ public class DevGramPlugins {
     // Снять все хуки плагина (перед reload/выгрузкой), чтобы старые колбэки не висели.
     public static void unhookPlugin(String pluginId) {
         java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook> list = pluginUnhooks.remove(pluginId);
-        if (list == null) {
-            return;
+        if (list != null) {
+            for (de.robv.android.xposed.XC_MethodHook.Unhook u : list) {
+                try {
+                    u.unhook();
+                } catch (Throwable ignore) {
+                }
+            }
         }
-        for (de.robv.android.xposed.XC_MethodHook.Unhook u : list) {
-            try {
-                u.unhook();
-            } catch (Throwable ignore) {
+        java.util.List<DGMethodHook> callbacks = pluginHookCallbacks.remove(pluginId);
+        if (callbacks != null) {
+            for (DGMethodHook callback : callbacks) {
+                callback.close();
             }
         }
     }
@@ -1619,9 +1826,41 @@ public class DevGramPlugins {
         if (pluginId == null || pluginId.isEmpty()) {
             return;
         }
+        DevGramPluginWatchdog.cancelPlugin(pluginId);
+        closePendingCallbacks(pluginId);
         unhookPlugin(pluginId);
         DevGramPillStack.unregisterPluginPills(pluginId);
         DevGramPanelTabs.unregister(pluginId);
+        closePersistentCallbacks(pluginId);
+    }
+
+    /** Аварийное отключение без входа в Python: используется, если плагин удерживает GIL. */
+    public static void forceDisableWithoutPython(String pluginId) {
+        if (pluginId == null || pluginId.isEmpty()) {
+            return;
+        }
+        prefs().edit().putBoolean("enabled_" + pluginId, false).commit();
+        cleanupPluginRuntime(pluginId);
+    }
+
+    /** Аварийное удаление файла зависшего плагина перед перезапуском процесса. */
+    public static void forceDeleteWithoutPython(String pluginId, String fileName) {
+        forceDisableWithoutPython(pluginId);
+        if (fileName == null || fileName.isEmpty()) {
+            fileName = prefs().getString("file_" + pluginId, "");
+        }
+        if (fileName == null || fileName.isEmpty() || !new File(fileName).getName().equals(fileName)) {
+            return;
+        }
+        try {
+            File file = new File(pluginsDir(), fileName);
+            if (file.isFile() && !file.delete()) {
+                FileLog.e("[DevGramPlugins] не удалось удалить зависший плагин: " + fileName);
+            }
+            prefs().edit().remove("file_" + pluginId).apply();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
     }
 
     public static synchronized boolean initHooks() {
@@ -1714,7 +1953,7 @@ public class DevGramPlugins {
     // ===== Полный хук-API: per-hook колбэки before/after/replace =====
     // DGMethodHook держит Python-колбэки конкретного хука:
     // своя before/after функция на каждый хук + полная подмена метода (replace).
-    static final class DGMethodHook extends de.robv.android.xposed.XC_MethodHook {
+    static final class DGMethodHook extends de.robv.android.xposed.XC_MethodHook implements AutoCloseable {
         private final String pluginId;
         private final com.chaquo.python.PyObject before;
         private final com.chaquo.python.PyObject after;
@@ -1744,6 +1983,7 @@ public class DevGramPlugins {
             if (isSafeMode()) {
                 return;
             }
+            long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
             try {
                 if (replace != null) {
                     // Полная подмена: результат из python, оригинал не вызывается.
@@ -1760,6 +2000,8 @@ public class DevGramPlugins {
                 }
             } catch (Throwable t) {
                 hookError(param, t);
+            } finally {
+                DevGramPluginWatchdog.onExecutionFinished(token);
             }
         }
 
@@ -1768,14 +2010,36 @@ public class DevGramPlugins {
             if (isSafeMode() || replace != null || after == null) {
                 return;
             }
+            long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
             try {
                 try (com.chaquo.python.PyObject ignored = after.call(param)) {
                 }
                 coerceResult(param);
             } catch (Throwable t) {
                 hookError(param, t);
+            } finally {
+                DevGramPluginWatchdog.onExecutionFinished(token);
             }
         }
+
+        @Override
+        public void close() {
+            java.util.Set<com.chaquo.python.PyObject> closed = java.util.Collections.newSetFromMap(
+                    new java.util.IdentityHashMap<>());
+            for (com.chaquo.python.PyObject callback : new com.chaquo.python.PyObject[]{before, after, replace}) {
+                if (callback == null || !closed.add(callback)) continue;
+                try {
+                    callback.close();
+                } catch (Throwable ignore) {
+                }
+            }
+        }
+    }
+
+    private static void trackHookCallbacks(String pluginId, DGMethodHook callbacks) {
+        if (pluginId == null || callbacks == null) return;
+        pluginHookCallbacks.computeIfAbsent(pluginId,
+                key -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(callbacks);
     }
 
     // Хук ОДНОГО метода/конструктора со своими python-колбэками (before/after/replace).
@@ -1783,8 +2047,10 @@ public class DevGramPlugins {
             List<String> paramTypeNames, com.chaquo.python.PyObject before,
             com.chaquo.python.PyObject after, com.chaquo.python.PyObject replace, int priority) {
         if (isSafeMode() || !initHooks()) {
+            new DGMethodHook(pluginId, priority, before, after, replace).close();
             return false;
         }
+        DGMethodHook callbacks = new DGMethodHook(pluginId, priority, before, after, replace);
         try {
             java.lang.reflect.Member member = resolveMember(className, methodName, paramTypeNames);
             try {
@@ -1792,11 +2058,13 @@ public class DevGramPlugins {
             } catch (Throwable ignore) {
             }
             de.robv.android.xposed.XC_MethodHook.Unhook unhook = de.robv.android.xposed.XposedBridge.hookMethod(
-                    member, new DGMethodHook(pluginId, priority, before, after, replace));
+                    member, callbacks);
             trackUnhook(pluginId, unhook);
+            trackHookCallbacks(pluginId, callbacks);
             FileLog.d("[DevGramPlugins] hookCb: " + className + "." + methodName);
             return true;
         } catch (Throwable e) {
+            callbacks.close();
             FileLog.e(e);
             return false;
         }
@@ -1807,11 +2075,12 @@ public class DevGramPlugins {
             com.chaquo.python.PyObject before, com.chaquo.python.PyObject after,
             com.chaquo.python.PyObject replace, int priority) {
         if (isSafeMode() || !initHooks()) {
+            new DGMethodHook(pluginId, priority, before, after, replace).close();
             return 0;
         }
+        DGMethodHook cb = new DGMethodHook(pluginId, priority, before, after, replace);
         try {
             Class<?> clazz = ApplicationLoader.applicationContext.getClassLoader().loadClass(className);
-            DGMethodHook cb = new DGMethodHook(pluginId, priority, before, after, replace);
             java.util.Set<de.robv.android.xposed.XC_MethodHook.Unhook> unhooks;
             if ("<init>".equals(methodName)) {
                 unhooks = de.robv.android.xposed.XposedBridge.hookAllConstructors(clazz, cb);
@@ -1821,8 +2090,14 @@ public class DevGramPlugins {
             for (de.robv.android.xposed.XC_MethodHook.Unhook u : unhooks) {
                 trackUnhook(pluginId, u);
             }
+            if (unhooks.isEmpty()) {
+                cb.close();
+            } else {
+                trackHookCallbacks(pluginId, cb);
+            }
             return unhooks.size();
         } catch (Throwable e) {
+            cb.close();
             FileLog.e(e);
             return 0;
         }
@@ -1995,7 +2270,16 @@ public class DevGramPlugins {
                                   java.util.List<String> overrideNames,
                                   java.util.List<String> argTypeNames,
                                   java.util.List<Object> args) {
+        return subclassForPlugin("", baseName, logic, overrideNames, argTypeNames, args);
+    }
+
+    public static Object subclassForPlugin(String pluginId, String baseName,
+                                  final com.chaquo.python.PyObject logic,
+                                  java.util.List<String> overrideNames,
+                                  java.util.List<String> argTypeNames,
+                                  java.util.List<Object> args) {
         if (isSafeMode()) {
+            if (pluginId != null && !pluginId.isEmpty()) closePyObjects(logic);
             return null;
         }
         try {
@@ -2015,6 +2299,7 @@ public class DevGramPlugins {
                     return com.android.dx.stock.ProxyBuilder.callSuper(proxy, method, mArgs);
                 }
                 currentSuper.get().push(new Object[]{proxy, method, mArgs});
+                long token = DevGramPluginWatchdog.onExecutionStarted(pluginId, pluginId, "");
                 try {
                     Object[] callArgs;
                     if (mArgs == null) {
@@ -2040,17 +2325,21 @@ public class DevGramPlugins {
                         return rt == void.class ? null : defaultValue(rt);
                     }
                 } finally {
+                    DevGramPluginWatchdog.onExecutionFinished(token);
                     currentSuper.get().pop();
                 }
             };
 
-            return com.android.dx.stock.ProxyBuilder.forClass(base)
+            Object proxy = com.android.dx.stock.ProxyBuilder.forClass(base)
                     .dexCache(dexCache)
                     .constructorArgTypes(ctorTypes)
                     .constructorArgValues(ctorArgs)
                     .handler(handler)
                     .build();
+            trackPersistentCallback(pluginId, logic);
+            return proxy;
         } catch (Throwable e) {
+            if (pluginId != null && !pluginId.isEmpty()) closePyObjects(logic);
             FileLog.e(e);
             return null;
         }
@@ -2367,12 +2656,13 @@ public class DevGramPlugins {
                     f.delete();
                 }
             }
-            try (PyObject ignored = loader().callAttr("unload_plugin", pluginId)) {
+            try (PyObject ignored = loader().callAttr("unload_plugin", pluginId, true)) {
             }
             // Для .dgplugin дочищаем распакованные файлы (.devgram/<id>); для .py — no-op.
             try (PyObject ignored = loader().callAttr("delete_package_files", pluginId)) {
             }
             cleanupPluginRuntime(pluginId);
+            prefs().edit().remove("file_" + pluginId).apply();
             refreshWantsUpdates();
             refreshRequestHooks();
             return true;

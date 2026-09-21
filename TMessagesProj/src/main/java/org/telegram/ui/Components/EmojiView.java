@@ -346,6 +346,67 @@ public class EmojiView extends FrameLayout implements
         }
     }
 
+    private Tab createDevGramPluginTab(String pluginTabId) {
+        Tab tab = new Tab();
+        tab.type = TAB_PLUGIN;
+        tab.pluginId = pluginTabId;
+        tab.title = DevGramPlugins.panelTabTitle(pluginTabId);
+        tab.icon = DevGramPlugins.buildPanelTabIcon(pluginTabId, getContext());
+        FrameLayout container = new FrameLayout(getContext());
+        View content = DevGramPlugins.buildPanelTabView(pluginTabId, getContext(),
+                delegate != null ? delegate.getDialogId() : 0);
+        if (content != null) {
+            container.addView(content, LayoutHelper.createFrame(
+                    LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        }
+        tab.view = container;
+        return tab;
+    }
+
+    /** Убирает живые View выключенного плагина, чтобы они не удерживали Python-слушатели. */
+    private void rebuildDevGramPluginTabs() {
+        if (allTabs == null || currentTabs == null) return;
+        int oldPosition = pager == null ? 0 : pager.getCurrentItem();
+        String selectedPluginId = null;
+        if (oldPosition >= 0 && oldPosition < currentTabs.size()) {
+            Tab selected = currentTabs.get(oldPosition);
+            if (selected.type == TAB_PLUGIN) selectedPluginId = selected.pluginId;
+        }
+        for (int i = allTabs.size() - 1; i >= 0; i--) {
+            Tab tab = allTabs.get(i);
+            if (tab.type == TAB_PLUGIN) {
+                if (tab.view instanceof ViewGroup) ((ViewGroup) tab.view).removeAllViews();
+                allTabs.remove(i);
+            }
+        }
+        for (int i = currentTabs.size() - 1; i >= 0; i--) {
+            if (currentTabs.get(i).type == TAB_PLUGIN) currentTabs.remove(i);
+        }
+        for (String pluginTabId : DevGramPlugins.panelTabPluginIds()) {
+            Tab tab = createDevGramPluginTab(pluginTabId);
+            allTabs.add(tab);
+            currentTabs.add(tab);
+        }
+        if (pager != null) {
+            pager.setAdapter(null);
+            pager.setAdapter(emojiPagerAdapter);
+            if (typeTabs != null) typeTabs.setViewPager(pager);
+            int target = Math.min(oldPosition, Math.max(0, currentTabs.size() - 1));
+            if (selectedPluginId != null) {
+                target = 0;
+                for (int i = 0; i < currentTabs.size(); i++) {
+                    Tab tab = currentTabs.get(i);
+                    if (tab.type == TAB_PLUGIN && selectedPluginId.equals(tab.pluginId)) {
+                        target = i;
+                        break;
+                    }
+                }
+                if (target == 0 && delegate != null) delegate.onPluginTabIconChanged(null);
+            }
+            pager.setCurrentItem(target, false);
+        }
+    }
+
     private boolean allowEmojisForNonPremium;
     public void allowEmojisForNonPremium(boolean allow) {
         allowEmojisForNonPremium = allow;
@@ -2379,18 +2440,7 @@ public class EmojiView extends FrameLayout implements
             // содержимое строится в момент показа/выбора вкладки (см. refreshPluginTab), тут
             // только создаём контейнер и пробуем наполнить его сразу для первой вкладки.
             for (String pluginTabId : DevGramPlugins.panelTabPluginIds()) {
-                Tab pluginTabHolder = new Tab();
-                pluginTabHolder.type = TAB_PLUGIN;
-                pluginTabHolder.pluginId = pluginTabId;
-                pluginTabHolder.title = DevGramPlugins.panelTabTitle(pluginTabId);
-                pluginTabHolder.icon = DevGramPlugins.buildPanelTabIcon(pluginTabId, context);
-                FrameLayout pluginTabContainer = new FrameLayout(context);
-                View pluginTabContent = DevGramPlugins.buildPanelTabView(pluginTabId, context, delegate != null ? delegate.getDialogId() : 0);
-                if (pluginTabContent != null) {
-                    pluginTabContainer.addView(pluginTabContent, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-                }
-                pluginTabHolder.view = pluginTabContainer;
-                allTabs.add(pluginTabHolder);
+                allTabs.add(createDevGramPluginTab(pluginTabId));
             }
 
             stickersSearchGridAdapter = new StickersSearchGridAdapter(context);
@@ -6334,6 +6384,7 @@ public class EmojiView extends FrameLayout implements
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
+        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.pluginPanelTabsChanged);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.newEmojiSuggestionsAvailable);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.groupPackUpdated);
         if (stickersGridAdapter != null) {
@@ -6385,6 +6436,7 @@ public class EmojiView extends FrameLayout implements
 
     public void onDestroy() {
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
+        NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.pluginPanelTabsChanged);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.newEmojiSuggestionsAvailable);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.stickersDidLoad);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.groupPackUpdated);
@@ -6622,7 +6674,9 @@ public class EmojiView extends FrameLayout implements
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.stickersDidLoad) {
+        if (id == NotificationCenter.pluginPanelTabsChanged) {
+            rebuildDevGramPluginTabs();
+        } else if (id == NotificationCenter.stickersDidLoad) {
             if ((Integer) args[0] == MediaDataController.TYPE_IMAGE) {
                 if (stickersGridAdapter != null) {
                     updateStickerTabs((Boolean) args[1]);
