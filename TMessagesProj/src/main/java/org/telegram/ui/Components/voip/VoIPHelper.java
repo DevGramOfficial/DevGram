@@ -74,16 +74,11 @@ public class VoIPHelper {
 	private static final int VOIP_SUPPORT_ID = 4244000;
 
 	public static void startCall(TLRPC.User user, boolean videoCall, boolean canVideoCall, final Activity activity, TLRPC.UserFull userFull, AccountInstance accountInstance) {
-		// DevGram: подтверждение звонка (как в AyuGram) — всегда спрашиваем перед началом.
+		// DevGram: подтверждение звонка (как в AyuGram) — красивый BottomSheet перед началом.
 		if (activity != null && user != null) {
-			String name = org.telegram.messenger.ContactsController.formatName(user.first_name, user.last_name);
-			new AlertDialog.Builder(activity)
-					.setTitle(videoCall ? "Видеозвонок" : "Звонок")
-					.setMessage("Позвонить: " + name + "?")
-					.setPositiveButton(LocaleController.getString(R.string.Call), (d, w) ->
-							startCallInternal(user, videoCall, canVideoCall, activity, userFull, accountInstance))
-					.setNegativeButton(LocaleController.getString(R.string.Cancel), null)
-					.show();
+			int account = accountInstance != null ? accountInstance.getCurrentAccount() : UserConfig.selectedAccount;
+			org.telegram.ui.DevGramCallConfirmSheet.show(activity, user, videoCall, account,
+					() -> startCallInternal(user, videoCall, canVideoCall, activity, userFull, accountInstance));
 			return;
 		}
 		startCallInternal(user, videoCall, canVideoCall, activity, userFull, accountInstance);
