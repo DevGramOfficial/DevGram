@@ -14299,6 +14299,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             });
         });
         io.addGap();
+        // DevGram: быстрый тумблер режима призрака (как у AyuGram) — одним нажатием включает
+        // все настройки призрака (не слать прочтения/онлайн/печать, уходить в оффлайн) и выключает.
+        {
+            final boolean ghostOn = org.telegram.messenger.DevGramConfig.isGhostModeActive();
+            io.add(R.drawable.devgram_cat_ghost,
+                    ghostOn ? "Выключить призрака" : "Включить призрака", () -> {
+                org.telegram.messenger.DevGramConfig.toggleGhostMode();
+                boolean nowOn = org.telegram.messenger.DevGramConfig.isGhostModeActive();
+                getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
+                BulletinFactory.of(this).createSimpleBulletin(
+                        nowOn ? R.raw.chats_hide : R.raw.chats_unhide,
+                        nowOn ? "Режим призрака включён" : "Режим призрака выключен").show();
+            });
+        }
         // DevGram: быстрый доступ к скрытым чатам — виден только если есть хоть один скрытый.
         // Подпись/иконка переключаются: «Показать скрытые чаты» ↔ «Скрыть скрытые чаты».
         if (org.telegram.messenger.DevGramLockedChats.hasAny(currentAccount)) {
