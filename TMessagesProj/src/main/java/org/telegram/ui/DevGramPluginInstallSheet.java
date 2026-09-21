@@ -17,6 +17,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.telegram.messenger.DevGramBadges;
+import org.telegram.messenger.DevGramPluginBlocks;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.Components.EditTextBoldCursor;
 
@@ -258,6 +259,8 @@ public class DevGramPluginInstallSheet {
 
         // ---- перекраска по статусу проверки (живьём) ----
         final boolean[] vState = {verified};
+        final boolean[] blockKnown = {false};
+        final boolean[] blockState = {false};
         final TextView badgeRef = badge, warnTextRef = warnText, installRef = install;
         final LinearLayout warnRef = warn;
         Runnable applyVerified = () -> {
@@ -272,11 +275,47 @@ public class DevGramPluginInstallSheet {
                     ? "✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять."
                     : "ⓘ Внимание: неизвестный источник\nПлагина нет в реестре проверенных DevGram, он выполняет код в приложении. Устанавливай только если доверяешь автору.");
             warnTextRef.setTextColor(vv ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            installRef.setText(installed ? "Обновить плагин"
-                    : (vv ? "Установить плагин" : "Установить неизвестный плагин"));
+            if (!blockKnown[0]) {
+                installRef.setText("Проверяю блокировку…");
+                installRef.setEnabled(false);
+            } else if (blockState[0]) {
+                installRef.setText("⛔ Установка заблокирована");
+                installRef.setEnabled(false);
+            } else {
+                installRef.setText(installed ? "Обновить плагин"
+                        : (vv ? "Установить плагин" : "Установить неизвестный плагин"));
+                installRef.setEnabled(true);
+            }
         };
 
         final boolean team = org.telegram.messenger.DevGramBadges.isTeam(fragment.getUserConfig().getClientUserId());
+        final int account = fragment.getCurrentAccount();
+        final boolean developer = DevGramPluginBlocks.canManage(account);
+        final TextView[] blockButton = new TextView[1];
+        final Runnable[] refreshBlock = new Runnable[1];
+
+        Runnable applyBlock = () -> {
+            applyVerified.run();
+            if (blockButton[0] != null) {
+                blockButton[0].setEnabled(true);
+                blockButton[0].setText(!blockKnown[0] ? "Повторить проверку блокировки"
+                        : (blockState[0] ? "Разблокировать установку" : "Заблокировать установку"));
+            }
+        };
+
+        refreshBlock[0] = () -> {
+            blockKnown[0] = false;
+            applyBlock.run();
+            DevGramPluginBlocks.check(id, verifyHash, status -> {
+                blockKnown[0] = status.success;
+                blockState[0] = status.success && status.blocked;
+                applyBlock.run();
+                if (!status.success) {
+                    org.telegram.ui.Components.BulletinFactory.of(fragment)
+                            .createErrorBulletin(status.reason).show();
+                }
+            });
+        };
 
         // команда: сделать проверенным / убрать (реестр по хешу: исходник .py или sha архива .dgplugin)
         if (team && verifyHash != null && !verifyHash.isEmpty()) {
@@ -299,6 +338,40 @@ public class DevGramPluginInstallSheet {
                 }
             }));
             root.addView(teamBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
+        }
+
+        if (developer) {
+            TextView manageBlock = new TextView(context);
+            blockButton[0] = manageBlock;
+            manageBlock.setGravity(Gravity.CENTER);
+            manageBlock.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+            manageBlock.setTypeface(AndroidUtilities.bold());
+            manageBlock.setTextColor(Theme.getColor(Theme.key_text_RedRegular));
+            manageBlock.setPadding(0, AndroidUtilities.dp(12), 0, AndroidUtilities.dp(8));
+            manageBlock.setOnClickListener(v -> {
+                if (!blockKnown[0]) {
+                    refreshBlock[0].run();
+                    return;
+                }
+                manageBlock.setEnabled(false);
+                manageBlock.setText("Сохраняю…");
+                boolean next = !blockState[0];
+                DevGramPluginBlocks.setBlocked(account, id, verifyHash, name, next, status -> {
+                    if (status.success) {
+                        blockKnown[0] = true;
+                        blockState[0] = status.blocked;
+                        org.telegram.ui.Components.BulletinFactory.of(fragment)
+                                .createSimpleBulletin(R.raw.contact_check,
+                                        status.blocked ? "Установка плагина заблокирована" : "Блокировка снята").show();
+                    } else {
+                        org.telegram.ui.Components.BulletinFactory.of(fragment)
+                                .createErrorBulletin(status.reason).show();
+                    }
+                    applyBlock.run();
+                });
+            });
+            root.addView(manageBlock, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,
+                    LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
         }
 
         // Опубликовать в каталог — команда ИЛИ АДМИН канала-разработчика (🧩). Работает и для
@@ -502,19 +575,32 @@ public class DevGramPluginInstallSheet {
         BottomSheet sheet = builder.create();
 
         install.setOnClickListener(v -> {
-            boolean ok = installAction.install(enableAfter[0]);
-            sheet.dismiss();
-            if (ok) {
-                org.telegram.ui.Components.BulletinFactory.of(fragment)
-                        .createSimpleBulletin(R.raw.contact_check,
-                                "Плагин «" + name + "» " + (installed ? "обновлён" : "установлен")).show();
-            } else {
-                org.telegram.ui.Components.BulletinFactory.of(fragment)
-                        .createErrorBulletin(installed ? "Не удалось обновить плагин" : "Не удалось установить плагин").show();
-            }
+            install.setEnabled(false);
+            install.setText("Проверяю блокировку…");
+            DevGramPluginBlocks.check(id, verifyHash, status -> {
+                blockKnown[0] = status.success;
+                blockState[0] = status.success && status.blocked;
+                if (!status.success || status.blocked) {
+                    applyBlock.run();
+                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(
+                            status.success ? "Установка этого плагина заблокирована" : status.reason).show();
+                    return;
+                }
+                boolean ok = installAction.install(enableAfter[0]);
+                sheet.dismiss();
+                if (ok) {
+                    org.telegram.ui.Components.BulletinFactory.of(fragment)
+                            .createSimpleBulletin(R.raw.contact_check,
+                                    "Плагин «" + name + "» " + (installed ? "обновлён" : "установлен")).show();
+                } else {
+                    org.telegram.ui.Components.BulletinFactory.of(fragment)
+                            .createErrorBulletin(installed ? "Не удалось обновить плагин" : "Не удалось установить плагин").show();
+                }
+            });
         });
 
         sheet.show();
+        refreshBlock[0].run();
     }
 
     // Публикация в каталог: сначала выбор фильтра (категории), затем запись. Заблокированные плагины

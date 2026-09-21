@@ -11,6 +11,7 @@ import android.widget.TextView;
 import android.widget.ImageView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.DevGramPluginBlocks;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
@@ -69,8 +70,13 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         }
         if (!entry.desc.isEmpty()) { LinearLayout info = section(context, 18); info.addView(text(context, "О плагине", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText))); info.addView(text(context, entry.desc, 15, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0)); content.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 4)); }
 
-        TextView install = button(context, DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин");
-        install.setOnClickListener(v -> {
+        final String installLabel = DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин";
+        final String blockHash = entry.isPackage ? entry.packageSha : DevGramPlugins.sha256(entry.source);
+        final boolean[] blockKnown = {false};
+        final boolean[] blockState = {false};
+        TextView install = button(context, "Проверяю блокировку…");
+        install.setEnabled(false);
+        Runnable performInstall = () -> {
             if (entry.isPackage) {
                 // .dgplugin-пакет: исходника нет — качаем бинарь из архивного канала.
                 // Раньше тут звался install(entry.source), а у пакета source пустой → «Не удалось».
@@ -100,8 +106,79 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                 install.setAlpha(.72f);
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Плагин установлен").show();
             } else BulletinFactory.of(this).createErrorBulletin("Не удалось установить плагин").show();
+        };
+        install.setOnClickListener(v -> {
+            install.setEnabled(false);
+            install.setText("Проверяю блокировку…");
+            DevGramPluginBlocks.check(entry.id, blockHash, status -> {
+                blockKnown[0] = status.success;
+                blockState[0] = status.success && status.blocked;
+                if (!status.success || status.blocked) {
+                    install.setText(status.success ? "⛔ Установка заблокирована" : "Повторить проверку");
+                    install.setEnabled(!status.success);
+                    BulletinFactory.of(this).createErrorBulletin(
+                            status.success ? "Установка этого плагина заблокирована" : status.reason).show();
+                    return;
+                }
+                install.setText(installLabel);
+                install.setEnabled(true);
+                performInstall.run();
+            });
         });
         content.addView(install, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 16, 0, 18));
+
+        final TextView[] blockButton = new TextView[1];
+        Runnable applyBlockState = () -> {
+            if (!blockKnown[0]) {
+                install.setText("Повторить проверку");
+                install.setEnabled(true);
+            } else if (blockState[0]) {
+                install.setText("⛔ Установка заблокирована");
+                install.setEnabled(false);
+            } else {
+                install.setText(installLabel);
+                install.setEnabled(true);
+            }
+            if (blockButton[0] != null) {
+                blockButton[0].setEnabled(true);
+                blockButton[0].setText(!blockKnown[0] ? "Повторить проверку блокировки  ›"
+                        : (blockState[0] ? "Разблокировать установку  ›" : "Заблокировать установку  ›"));
+            }
+        };
+        Runnable refreshBlock = () -> DevGramPluginBlocks.check(entry.id, blockHash, status -> {
+            blockKnown[0] = status.success;
+            blockState[0] = status.success && status.blocked;
+            applyBlockState.run();
+        });
+
+        if (DevGramPluginBlocks.canManage(getCurrentAccount())) {
+            TextView manageBlock = secondaryAction(context, "Заблокировать установку", true);
+            blockButton[0] = manageBlock;
+            manageBlock.setOnClickListener(v -> {
+                if (!blockKnown[0]) {
+                    manageBlock.setEnabled(false);
+                    manageBlock.setText("Проверяю…");
+                    refreshBlock.run();
+                    return;
+                }
+                manageBlock.setEnabled(false);
+                manageBlock.setText("Сохраняю…");
+                DevGramPluginBlocks.setBlocked(getCurrentAccount(), entry.id, blockHash, entry.name,
+                        !blockState[0], status -> {
+                            if (status.success) {
+                                blockKnown[0] = true;
+                                blockState[0] = status.blocked;
+                                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
+                                        status.blocked ? "Установка плагина заблокирована" : "Блокировка снята").show();
+                            } else {
+                                BulletinFactory.of(this).createErrorBulletin(status.reason).show();
+                            }
+                            applyBlockState.run();
+                        });
+            });
+            content.addView(manageBlock, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 0, 0, 18));
+        }
+        refreshBlock.run();
 
         // DevGram: автор опубликованного плагина может обновить файл в каталоге БЕЗ модерации —
         // статистика (рейтинг/отзывы) сохраняется, меняется только файл и версия.

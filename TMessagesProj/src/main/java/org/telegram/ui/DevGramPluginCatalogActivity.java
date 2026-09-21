@@ -570,14 +570,31 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
 
     // ---------- действия ----------
     private void install(DevGramPlugins.CatalogEntry e) {
+        if (installing.contains(e.id)) return;
+        installing.add(e.id);
+        if (adapter != null) adapter.notifyDataSetChanged();
+        String hash = e.isPackage ? e.packageSha : DevGramPlugins.sha256(e.source);
+        org.telegram.messenger.DevGramPluginBlocks.check(e.id, hash, status -> {
+            if (!status.success || status.blocked) {
+                installing.remove(e.id);
+                if (adapter != null) adapter.notifyDataSetChanged();
+                BulletinFactory.of(this).createErrorBulletin(status.success
+                        ? "Установка этого плагина заблокирована" : status.reason).show();
+                return;
+            }
+            installAllowed(e);
+        });
+    }
+
+    private void installAllowed(DevGramPlugins.CatalogEntry e) {
         if (e.isPackage) {
             // .dgplugin-пакет: качаем бинарь из архивного канала и ставим
             if (e.packageMsg == 0) {
+                installing.remove(e.id);
+                if (adapter != null) adapter.notifyDataSetChanged();
                 BulletinFactory.of(this).createErrorBulletin("Пакет ещё не размещён в архиве").show();
                 return;
             }
-            installing.add(e.id);
-            if (adapter != null) adapter.notifyDataSetChanged();
             BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Скачиваю пакет «" + e.name + "»…").show();
             org.telegram.messenger.DevGramPackages.installCatalogPackage(e, ok -> {
                     installing.remove(e.id);
@@ -588,11 +605,14 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             return;
         }
         if (e.source == null || e.source.isEmpty()) {
+            installing.remove(e.id);
+            if (adapter != null) adapter.notifyDataSetChanged();
             BulletinFactory.of(this).createErrorBulletin("У плагина нет исходника в каталоге").show();
             return;
         }
         DevGramPlugins.trustFromChannel(e.source);
         boolean ok = DevGramPlugins.install(e.source, e.id, true);
+        installing.remove(e.id);
         BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
                 ok ? "Плагин установлен: " + e.name : "Не удалось установить").show();
         if (adapter != null) adapter.notifyDataSetChanged();

@@ -66,6 +66,18 @@ public final class DevGramDevServer extends NanoHTTPD {
                     return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT,
                             "invalid package: " + validationError);
                 }
+                String[] meta = DevGramPlugins.packageMeta(upload.getAbsolutePath()).split("\u001f", -1);
+                String pluginId = meta.length > 0 ? meta[0] : "";
+                String sha256 = DevGramPackages.sha256File(upload);
+                DevGramPluginBlocks.Status block = DevGramPluginBlocks.checkBlocking(pluginId, sha256);
+                if (!block.success) {
+                    return newFixedLengthResponse(Response.Status.BAD_REQUEST, MIME_PLAINTEXT,
+                            "plugin block status unavailable");
+                }
+                if (block.blocked) {
+                    return newFixedLengthResponse(Response.Status.FORBIDDEN, MIME_PLAINTEXT,
+                            "plugin installation is blocked");
+                }
                 boolean ok = DevGramPlugins.installPackage(upload.getAbsolutePath(), null, true);
                 return newFixedLengthResponse(ok ? Response.Status.OK : Response.Status.BAD_REQUEST,
                         MIME_PLAINTEXT, ok ? "installed=true" : "installed=false; plugin failed to load");

@@ -78,8 +78,19 @@ public final class DevGramPackages {
 
     // ---------- установка пакета из каталога ----------
     public static void installCatalogPackage(final DevGramPlugins.CatalogEntry e, final Utilities.Callback<Boolean> whenDone) {
-        final int account = UserConfig.selectedAccount;
         if (e == null || !e.isPackage || e.packageMsg == 0) { done(whenDone, false); return; }
+        DevGramPluginBlocks.check(e.id, e.packageSha, status -> {
+            if (!status.success || status.blocked) {
+                done(whenDone, false);
+                return;
+            }
+            installCatalogPackageAllowed(e, whenDone);
+        });
+    }
+
+    private static void installCatalogPackageAllowed(final DevGramPlugins.CatalogEntry e,
+                                                     final Utilities.Callback<Boolean> whenDone) {
+        final int account = UserConfig.selectedAccount;
         resolveUsernameThen(account, ARCHIVE_USERNAME, (user, chat) -> {
             if (chat == null) { done(whenDone, false); return; }
             TLRPC.TL_channels_getMessages req = new TLRPC.TL_channels_getMessages();
