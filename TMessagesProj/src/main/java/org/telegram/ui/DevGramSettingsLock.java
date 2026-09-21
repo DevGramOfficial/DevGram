@@ -78,16 +78,17 @@ public class DevGramSettingsLock {
         builder.setView(wrapCodeContainer(context, container));
         builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
         builder.setPositiveButton(LocaleController.getString(R.string.Continue), null);
-        builder.setOnDismissListener(d -> {
+
+        AlertDialog dialog = builder.create();
+        dialogRef[0] = dialog;
+        // ВАЖНО: слушатель закрытия передаём через showDialog(dialog, listener). Если ставить его
+        // на билдере/диалоге напрямую — BaseFragment.showDialog перезатирает его своим, и отмена
+        // (Cancel / назад / тап вне) ничего не делает → меню зависает вместо возврата назад.
+        if (fragment.showDialog(dialog, d -> {
             if (!passed[0] && onCancel != null) {
                 onCancel.run();
             }
-        });
-
-        AlertDialog dialog = builder.create();
-        dialog.setCanceledOnTouchOutside(false);
-        dialogRef[0] = dialog;
-        if (fragment.showDialog(dialog) == null) {
+        }) == null) {
             if (onCancel != null) {
                 onCancel.run();
             }

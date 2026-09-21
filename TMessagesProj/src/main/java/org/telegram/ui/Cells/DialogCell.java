@@ -863,10 +863,16 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             if (diff > 0) {
                 cachedColorOnline = Theme.getColor(Theme.key_chats_onlineCircle);
             } else if (MessagesController.getGlobalMainSettings().getBoolean("enableLastSeenDots", true)) {
-                cachedColorOnline = diff > -15 * 60 ? COLOR_LAST_SEEN_RECENT
-                    : diff > -30 * 60 ? COLOR_LAST_SEEN_MODERATE
-                    : diff > -60 * 60 ? COLOR_LAST_SEEN_STALE
-                    : 0;
+                final int customLastSeen = MessagesController.getGlobalMainSettings().getInt("lastSeenDotsColor", 0);
+                if (customLastSeen != 0) {
+                    // Пользовательский единый цвет точек (окно 1 час, как у стандартного градиента).
+                    cachedColorOnline = diff > -60 * 60 ? customLastSeen : 0;
+                } else {
+                    cachedColorOnline = diff > -15 * 60 ? COLOR_LAST_SEEN_RECENT
+                        : diff > -30 * 60 ? COLOR_LAST_SEEN_MODERATE
+                        : diff > -60 * 60 ? COLOR_LAST_SEEN_STALE
+                        : 0;
+                }
             }
             if (cachedColorOnline != 0) {
                 cachedIsOnline = true;
