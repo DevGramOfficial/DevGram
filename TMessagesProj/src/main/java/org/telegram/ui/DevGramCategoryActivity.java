@@ -2241,6 +2241,7 @@ public class DevGramCategoryActivity extends BaseFragment {
             case "de": return "Немецкий";
             case "es": return "Испанский";
             case "fr": return "Французский";
+            case "gu": return "Гуджарати";
             case "it": return "Итальянский";
             case "pt": return "Португальский";
             case "nl": return "Нидерландский";
@@ -2253,8 +2254,12 @@ public class DevGramCategoryActivity extends BaseFragment {
             case "fa": return "Персидский";
             case "hi": return "Хинди";
             case "ja": return "Японский";
+            case "kk": return "Казахский";
             case "ko": return "Корейский";
+            case "tg": return "Таджикский";
             case "uz": return "Узбекский";
+            case "vi": return "Вьетнамский";
+            case "zh": return "Китайский";
             default: return code;
         }
     }

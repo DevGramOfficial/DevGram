@@ -20,7 +20,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -65,6 +70,17 @@ public class DevGramVoiceRecognizer {
 
     private final File modelsDir = new File(ApplicationLoader.applicationContext.getExternalFilesDir(null), "Vosk Models");
     private final Map<String, Model> loadedModels = new ConcurrentHashMap<>();
+    private static final long MODEL_IDLE_TIMEOUT_MS = 10 * 60 * 1000L;
+    private final Object modelLoadLock = new Object();
+    private final Object unloadTaskLock = new Object();
+    private final AtomicLong lastRecognitionTime = new AtomicLong();
+    private final ScheduledExecutorService modelUnloadScheduler =
+            Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "DevGramVoskUnload");
+                thread.setDaemon(true);
+                return thread;
+            });
+    private ScheduledFuture<?> unloadTask;
     private final Gson gson = new Gson();
     private final List<RecognitionModel> models = new ArrayList<>();
 
@@ -82,17 +98,22 @@ public class DevGramVoiceRecognizer {
         models.add(new RecognitionModel("es", base + "vosk-model-small-es-0.42.zip", 39817833L));
         models.add(new RecognitionModel("fa", base + "vosk-model-small-fa-0.42.zip", 53431220L));
         models.add(new RecognitionModel("fr", base + "vosk-model-small-fr-0.22.zip", 42233323L));
+        models.add(new RecognitionModel("gu", base + "vosk-model-small-gu-0.42.zip", 108054987L));
         models.add(new RecognitionModel("hi", base + "vosk-model-small-hi-0.22.zip", 44458845L));
         models.add(new RecognitionModel("it", base + "vosk-model-small-it-0.22.zip", 49665141L));
         models.add(new RecognitionModel("ja", base + "vosk-model-small-ja-0.22.zip", 49704573L));
+        models.add(new RecognitionModel("kk", base + "vosk-model-small-kz-0.42.zip", 59697294L));
         models.add(new RecognitionModel("ko", base + "vosk-model-small-ko-0.22.zip", 86914329L));
         models.add(new RecognitionModel("nl", base + "vosk-model-small-nl-0.22.zip", 40441176L));
         models.add(new RecognitionModel("pl", base + "vosk-model-small-pl-0.22.zip", 52979372L));
         models.add(new RecognitionModel("pt", base + "vosk-model-small-pt-0.3.zip", 32453112L));
         models.add(new RecognitionModel("ru", base + "vosk-model-small-ru-0.22.zip", 46236750L));
+        models.add(new RecognitionModel("tg", base + "vosk-model-small-tg-0.22.zip", 51879043L));
         models.add(new RecognitionModel("tr", base + "vosk-model-small-tr-0.3.zip", 36855784L));
         models.add(new RecognitionModel("uk", base + "vosk-model-small-uk-v3-small.zip", 143914407L));
         models.add(new RecognitionModel("uz", base + "vosk-model-small-uz-0.22.zip", 51061189L));
+        models.add(new RecognitionModel("vi", base + "vosk-model-small-vn-0.4.zip", 33656337L));
+        models.add(new RecognitionModel("zh", base + "vosk-model-small-cn-0.22.zip", 43898754L));
     }
 
     public List<RecognitionModel> listAvailableModels() {
@@ -206,10 +227,8 @@ public class DevGramVoiceRecognizer {
             return;
         }
         try {
-            if (!loadedModels.containsKey(language)) {
-                loadedModels.put(language, new Model(modelsDir + "/" + language));
-            }
-            Model model = loadedModels.get(language);
+            Model model = getOrLoadModel(language);
+            updateLastRecognitionTime();
             final DevGramVoiceConverter.LazyPcmInputStream pcm =
                     DevGramVoiceConverter.extractAndConvertToPcm(path, false);
             // Частоту берём из РЕАЛЬНОГО выхода декодера (mono 16-бит), а не из контейнера —
@@ -277,6 +296,61 @@ public class DevGramVoiceRecognizer {
         } catch (Throwable e) {
             FileLog.e(e);
             callback.onError(e instanceof Exception ? (Exception) e : new RuntimeException(e));
+        }
+    }
+
+    private Model getOrLoadModel(String language) throws IOException {
+        Model model = loadedModels.get(language);
+        if (model != null) {
+            return model;
+        }
+        synchronized (modelLoadLock) {
+            model = loadedModels.get(language);
+            if (model == null) {
+                model = new Model(new File(modelsDir, language).getAbsolutePath());
+                loadedModels.put(language, model);
+            }
+            return model;
+        }
+    }
+
+    /** Как в Extera: нативная модель не должна навсегда оставаться в памяти процесса. */
+    private void updateLastRecognitionTime() {
+        lastRecognitionTime.set(System.currentTimeMillis());
+        synchronized (unloadTaskLock) {
+            if (unloadTask != null) {
+                unloadTask.cancel(false);
+            }
+            unloadTask = modelUnloadScheduler.schedule(this::checkAndUnloadInactiveModels,
+                    MODEL_IDLE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void checkAndUnloadInactiveModels() {
+        long idleFor = System.currentTimeMillis() - lastRecognitionTime.get();
+        if (idleFor < MODEL_IDLE_TIMEOUT_MS) {
+            synchronized (unloadTaskLock) {
+                unloadTask = modelUnloadScheduler.schedule(this::checkAndUnloadInactiveModels,
+                        MODEL_IDLE_TIMEOUT_MS - idleFor, TimeUnit.MILLISECONDS);
+            }
+            return;
+        }
+        unloadModels();
+        FileLog.d("DevGramVoiceRecognizer: модели выгружены после 10 минут простоя");
+    }
+
+    public void unloadModels() {
+        synchronized (modelLoadLock) {
+            for (Map.Entry<String, Model> entry : loadedModels.entrySet()) {
+                Model model = entry.getValue();
+                if (!loadedModels.remove(entry.getKey(), model)) {
+                    continue;
+                }
+                try {
+                    model.close();
+                } catch (Throwable ignore) {
+                }
+            }
         }
     }
 
