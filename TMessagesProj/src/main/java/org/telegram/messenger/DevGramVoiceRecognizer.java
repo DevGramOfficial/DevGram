@@ -226,7 +226,7 @@ public class DevGramVoiceRecognizer {
                 throw e;
             }
             final AtomicBoolean resourcesClosed = new AtomicBoolean();
-            new SpeechStreamService(recognizer, pcm, sampleRate).start(new RecognitionListener() {
+            RecognitionListener listener = new RecognitionListener() {
                 @Override
                 public void onPartialResult(String hypothesis) {
                 }
@@ -261,7 +261,19 @@ public class DevGramVoiceRecognizer {
                 @Override
                 public void onTimeout() {
                 }
-            });
+            };
+            final boolean started;
+            try {
+                started = new SpeechStreamService(recognizer, pcm, sampleRate).start(listener);
+            } catch (Throwable e) {
+                closeRecognitionResources(recognizer, pcm, resourcesClosed);
+                throw e;
+            }
+            if (!started) {
+                closeRecognitionResources(recognizer, pcm, resourcesClosed);
+                callback.onError(new IOException("Не удалось запустить Vosk"));
+                return;
+            }
         } catch (Throwable e) {
             FileLog.e(e);
             callback.onError(e instanceof Exception ? (Exception) e : new RuntimeException(e));
