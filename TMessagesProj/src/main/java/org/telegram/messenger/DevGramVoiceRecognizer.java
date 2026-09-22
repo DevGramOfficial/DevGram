@@ -231,9 +231,9 @@ public class DevGramVoiceRecognizer {
             updateLastRecognitionTime();
             final DevGramVoiceConverter.LazyPcmInputStream pcm =
                     DevGramVoiceConverter.extractAndConvertToPcm(path, false);
-            // Частоту берём из РЕАЛЬНОГО выхода декодера (mono 16-бит), а не из контейнера —
-            // иначе Vosk слышит не ту скорость и распознаёт «криво».
-            float sampleRate = pcm.getOutputSampleRate();
+            // Как в Extera: частота контейнера соответствует PCM от MediaCodec и должна
+            // совпадать с частотой, переданной SpeechStreamService/Recognizer.
+            float sampleRate = DevGramVoiceConverter.getSampleRate(path);
             final Recognizer recognizer;
             try {
                 recognizer = new Recognizer(model, sampleRate);
