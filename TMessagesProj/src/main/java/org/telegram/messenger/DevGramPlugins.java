@@ -8,6 +8,7 @@
 package org.telegram.messenger;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 
 import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
@@ -353,14 +354,25 @@ public class DevGramPlugins {
 
         // ---- защита от «кирпича» ----
         installCrashHandler();
-        // если прошлый запуск не завершился штатно (boot_pending остался) ИЛИ был пойман краш —
-        // значит приложение упало → принудительно включаем безопасный режим (хуки не привязываются)
-        boolean prevCrash = prefs().getBoolean("boot_pending", false) || prefs().getBoolean("crashed", false);
+        // boot_pending сам по себе не означает сбой: процесс мог быть остановлен обновлением,
+        // системой или пользователем. Для Java доверяем нашему handler, для native/ANR —
+        // системной причине завершения процесса (Android 11+).
+        boolean javaCrash = prefs().getBoolean("crashed", false);
+        boolean bootWasPending = prefs().getBoolean("boot_pending", false);
+        long previousBootStartedAt = prefs().getLong("boot_started_at", 0L);
+        boolean nativeCrash = !javaCrash && bootWasPending && previousExitWasCrash(previousBootStartedAt);
+        boolean prevCrash = javaCrash || nativeCrash;
         if (prevCrash) {
             setFlag("safe_mode", true);
             pendingCrashNotice = true;
         }
-        prefs().edit().putBoolean("crashed", false).putBoolean("boot_pending", true).apply();
+        SharedPreferences.Editor bootEditor = prefs().edit()
+                .putBoolean("crashed", false)
+                .putBoolean("boot_pending", true)
+                .putLong("boot_started_at", System.currentTimeMillis());
+        // Нативный отчёт не должен подхватывать Java-стек от какого-либо старого запуска.
+        if (!javaCrash) bootEditor.remove("last_crash");
+        bootEditor.apply();
 
         fetchVerified();        // быстрый первый снимок реестра
         fetchBlocked();         // блок-лист запрещённых к публикации плагинов
@@ -1550,6 +1562,27 @@ public class DevGramPlugins {
         });
     }
 
+    private static boolean previousExitWasCrash(long previousBootStartedAt) {
+        if (android.os.Build.VERSION.SDK_INT < 30 || previousBootStartedAt <= 0) return false;
+        try {
+            android.app.ActivityManager manager = (android.app.ActivityManager)
+                    ApplicationLoader.applicationContext.getSystemService(Context.ACTIVITY_SERVICE);
+            if (manager == null) return false;
+            java.util.List<android.app.ApplicationExitInfo> exits = manager.getHistoricalProcessExitReasons(
+                    ApplicationLoader.applicationContext.getPackageName(), 0, 5);
+            for (android.app.ApplicationExitInfo exit : exits) {
+                if (exit.getTimestamp() + 2000 < previousBootStartedAt) continue;
+                int reason = exit.getReason();
+                return reason == android.app.ApplicationExitInfo.REASON_CRASH
+                        || reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE
+                        || reason == android.app.ApplicationExitInfo.REASON_ANR;
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        return false;
+    }
+
     // Зовётся из главной активности (onResume). Один раз собирает и показывает ПОЛНЫЙ отчёт о крэше
     // и с задержкой снимает boot-флаг (значит запуск прошёл успешно).
     public static void onMainResume() {
@@ -1635,6 +1668,7 @@ public class DevGramPlugins {
         } else {
             sb.append("\n(Java-исключения не зафиксировано — вероятно нативный сбой или ANR; смотри logcat ниже)\n");
         }
+        prefs().edit().remove("last_crash").apply();
         sb.append("\n===== logcat (последние строки процесса) =====\n").append(readLogcat());
         return sb.toString();
     }

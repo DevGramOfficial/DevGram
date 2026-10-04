@@ -152,6 +152,7 @@ import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DocumentObject;
 import org.telegram.messenger.DevGramConfig;
+import org.telegram.messenger.DevGramSwipeAction;
 import org.telegram.messenger.DevGramMessagesController;
 import org.telegram.messenger.DownloadController;
 import org.telegram.messenger.Emoji;
@@ -1089,6 +1090,7 @@ public class ChatActivity extends BaseFragment implements
     private boolean postponedScrollIsCanceled;
     private ChatActivityTextSelectionHelper textSelectionHelper;
     private View slidingView;
+    private org.telegram.ui.Components.DevGramSwipeActionsHelper devGramSwipeActionsHelper;
 
     private final float[] tmpOverlayPos = new float[2];
     private float[] computeArticleOverlayPos(View overlay) {
@@ -1132,6 +1134,126 @@ public class ChatActivity extends BaseFragment implements
     private float slidingViewGetOffsetX() {
         if (slidingView instanceof ChatMessageCell) return ((ChatMessageCell) slidingView).getSlidingOffsetX();
         return 0;
+    }
+
+    private boolean canUseQuickReaction(MessageObject message) {
+        if (message == null || message.isSecret() || message.isSponsored() || message.isDateObject
+                || message.isSending() || message.isEditing() || message.isExpiredStory()
+                || message.type == MessageObject.TYPE_JOINED_CHANNEL || isSecretChat() || isInScheduleMode()
+                || actionBar.isActionModeShowed() || !message.canSetReaction()) {
+            return false;
+        }
+        if (currentChat != null && !ChatObject.isChannelAndNotMegaGroup(currentChat)
+                && !ChatObject.canUserDoAction(currentChat, ChatObject.ACTION_SEND_REACTIONS)) {
+            return false;
+        }
+        String reaction = getMediaDataController().getDoubleTapReaction();
+        if (TextUtils.isEmpty(reaction)) return false;
+        boolean available = dialog_id >= 0;
+        if (!available && chatInfo != null) available = ChatObject.reactionIsAvailable(chatInfo, reaction);
+        return available;
+    }
+
+    private ArrayList<DevGramSwipeAction> collectDevGramSwipeActions(MessageObject message, boolean replyAllowed) {
+        ArrayList<DevGramSwipeAction> result = new ArrayList<>();
+        if (message == null) return result;
+        MessageObject.GroupedMessages group = getValidGroupedMessage(message);
+        boolean restricted = getMessagesController().isPeerNoForwards(getDialogId())
+                || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
+        boolean secret = isSecretChat() || message.isSecretMedia() || message.isExpiredStory()
+                || message.type == MessageObject.TYPE_JOINED_CHANNEL;
+        boolean hasText = message.type == MessageObject.TYPE_TEXT || message.type == MessageObject.TYPE_ARTICLE
+                || message.isAnimatedEmoji() || message.isAnimatedEmojiStickers()
+                || getMessageCaption(message, group) != null;
+        boolean canReply = replyAllowed
+                && !(bottomChannelButtonsLayout != null && bottomChannelButtonsLayout.getVisibility() == View.VISIBLE
+                    && !(bottomOverlayChatWaitsReply && canSendMessageToTopic(message) || message.wasJustSent))
+                && !(currentChat != null && (ChatObject.isNotInChat(currentChat) && !isThreadChat()
+                    || ChatObject.isChannel(currentChat) && !ChatObject.canPost(currentChat) && !currentChat.megagroup
+                    || !ChatObject.canSendMessages(currentChat)));
+        boolean canForward = !secret && !message.isSponsored() && chatMode != MODE_SCHEDULED
+                && !(message.needDrawBluredPreview() && !message.hasExtendedMediaPreview())
+                && !message.isLiveLocation() && message.type != 16 && message.type != 18
+                && message.type != 21 && !restricted;
+        boolean canEdit = message.canEditMessage(currentChat)
+                && (chatActivityEnterView == null || !chatActivityEnterView.hasAudioToSend())
+                && message.getDialogId() != mergeDialogId && message.type != 23;
+        boolean canRepeat = canReply && message.getId() > 0 && !message.isSending() && !message.isSendError()
+                && !UserObject.isUserSelf(currentUser)
+                && (message.getDocument() != null || (message.isMediaEmpty() && !TextUtils.isEmpty(message.messageOwner.message)));
+        boolean canDelete = message.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat)
+                && (threadMessageObjects == null || !threadMessageObjects.contains(message))
+                && !(message.messageOwner.action instanceof TLRPC.TL_messageActionTopicCreate);
+        boolean canTranslate = !secret && !message.isAnimatedEmoji() && !message.isDice() && hasText;
+
+        for (DevGramSwipeAction action : DevGramSwipeAction.enabled()) {
+            boolean add;
+            switch (action) {
+                case REACTION: add = canUseQuickReaction(message); break;
+                case REPLY: add = canReply && message.getId() > 0 && !isInsideContainer; break;
+                case COPY: add = !secret && !restricted && hasText; break;
+                case FORWARD: add = canForward; break;
+                case EDIT: add = canEdit; break;
+                case SAVE: add = canForward && !UserObject.isUserSelf(currentUser); break;
+                case REPEAT: add = canRepeat; break;
+                case DELETE: add = canDelete; break;
+                case TRANSLATE: add = canTranslate; break;
+                default: add = false;
+            }
+            if (add) result.add(action);
+        }
+        if (result.contains(DevGramSwipeAction.REACTION) && devGramSwipeActionsHelper != null) {
+            String reaction = getMediaDataController().getDoubleTapReaction();
+            if (!TextUtils.isEmpty(reaction)) {
+                ReactionsLayoutInBubble.VisibleReaction visible = ReactionsLayoutInBubble.VisibleReaction.fromEmojicon(reaction);
+                devGramSwipeActionsHelper.setReaction(currentAccount, visible.emojicon, visible.documentId);
+            }
+        }
+        return result;
+    }
+
+    private void performDevGramSwipeAction(DevGramSwipeAction action, MessageObject message) {
+        if (action == null || message == null) return;
+        if (action == DevGramSwipeAction.REACTION) {
+            String reactionString = getMediaDataController().getDoubleTapReaction();
+            if (TextUtils.isEmpty(reactionString)) return;
+            ReactionsLayoutInBubble.VisibleReaction reaction;
+            if (reactionString.startsWith("animated_")) {
+                reaction = ReactionsLayoutInBubble.VisibleReaction.fromEmojicon(reactionString);
+            } else {
+                TLRPC.TL_availableReaction available = getMediaDataController().getReactionsMap().get(reactionString);
+                if (available == null) return;
+                reaction = ReactionsLayoutInBubble.VisibleReaction.fromEmojicon(available);
+            }
+            ReactionsEffectOverlay.removeCurrent(false);
+            selectReaction(slidingView, message, null, null, 0, 0, reaction, true, false, false, false);
+            return;
+        }
+        if (action == DevGramSwipeAction.REPLY) {
+            showFieldPanelForReply(message);
+            return;
+        }
+        if (action == DevGramSwipeAction.SAVE) {
+            ArrayList<MessageObject> messages = new ArrayList<>();
+            MessageObject.GroupedMessages group = getValidGroupedMessage(message);
+            if (group != null && group.messages != null && !group.messages.isEmpty()) messages.addAll(group.messages);
+            else messages.add(message);
+            getSendMessagesHelper().sendMessage(messages, getUserConfig().getClientUserId(), false, false, true, 0, 0);
+            if (getParentActivity() != null) {
+                Toast.makeText(getParentActivity(), "Сохранено в Избранное", Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
+        selectedObject = message;
+        selectedObjectGroup = getValidGroupedMessage(message);
+        switch (action) {
+            case COPY: processSelectedOption(OPTION_COPY); break;
+            case FORWARD: processSelectedOption(OPTION_FORWARD); break;
+            case EDIT: processSelectedOption(OPTION_EDIT); break;
+            case REPEAT: processSelectedOption(OPTION_DEVGRAM_REPEAT); break;
+            case DELETE: processSelectedOption(OPTION_DELETE); break;
+            case TRANSLATE: processSelectedOption(OPTION_TRANSLATE); break;
+        }
     }
     private boolean maybeStartTrackingSlidingView;
     private boolean startedTrackingSlidingView;
@@ -3703,6 +3825,9 @@ public class ChatActivity extends BaseFragment implements
 
     @Override
     public void onFragmentDestroy() {
+        if (devGramSwipeActionsHelper != null) {
+            devGramSwipeActionsHelper.detach();
+        }
         super.onFragmentDestroy();
         if (messageMetricsView != null) {
             messageMetricsView.finish();
@@ -5186,6 +5311,11 @@ public class ChatActivity extends BaseFragment implements
             private float endTrackingX;
             private boolean wasTrackingVibrate;
 
+            {
+                if (devGramSwipeActionsHelper != null) devGramSwipeActionsHelper.detach();
+                devGramSwipeActionsHelper = new org.telegram.ui.Components.DevGramSwipeActionsHelper(this, themeDelegate);
+            }
+
             private float springMultiplier = 2000f;
 
             private Paint outlineActionBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -5311,6 +5441,25 @@ public class ChatActivity extends BaseFragment implements
                     }
                 }
                 invalidate();
+            }
+
+            private float getSlidingBubbleRight() {
+                if (!(slidingView instanceof ChatMessageCell)) return getMeasuredWidth();
+                ChatMessageCell source = (ChatMessageCell) slidingView;
+                float right = source.getBackgroundDrawableRight();
+                MessageObject.GroupedMessages group = source.getCurrentMessagesGroup();
+                if (group != null) {
+                    for (int i = 0; i < getChildCount(); i++) {
+                        View child = getChildAt(i);
+                        if (child instanceof ChatMessageCell) {
+                            ChatMessageCell cell = (ChatMessageCell) child;
+                            if (cell.getCurrentMessagesGroup() == group) {
+                                right = Math.max(right, cell.getBackgroundDrawableRight());
+                            }
+                        }
+                    }
+                }
+                return right;
             }
 
             @Override
@@ -5542,16 +5691,20 @@ public class ChatActivity extends BaseFragment implements
                         }
                         slidingView = view;
                         MessageObject message = getSlidingMessageObject();
-                        boolean allowReplyOnOpenTopic = canSendMessageToTopic(message);
-                        if (
-                            chatMode != 0 && chatMode != MODE_QUICK_REPLIES && chatMode != MODE_SUGGESTIONS && (chatMode != MODE_SAVED || threadMessageId != getUserConfig().getClientUserId()) ||
-                            threadMessageObjects != null && threadMessageObjects.contains(message) ||
-                            getMessageType(message) == 1 && (message.getDialogId() == mergeDialogId || message.needDrawBluredPreview()) ||
-                            currentEncryptedChat == null && message.getId() < 0 ||
-                            currentChat != null && ChatObject.isForum(currentChat) && !allowReplyOnOpenTopic ||
-                            hasTextSelection() ||
-                            message.isEphemeral() && message.isOut()
-                        ) {
+                        if (message == null || currentEncryptedChat == null && message.getId() < 0
+                                || hasTextSelection() || message.isEphemeral() && message.isOut()) {
+                            slidingViewSetOffset(0);
+                            slidingView = null;
+                            return;
+                        }
+                        boolean replyAllowed = (chatMode == MODE_DEFAULT || chatMode == MODE_QUICK_REPLIES
+                                || chatMode == MODE_SUGGESTIONS
+                                || chatMode == MODE_SAVED && threadMessageId == getUserConfig().getClientUserId())
+                                && (threadMessageObjects == null || !threadMessageObjects.contains(message))
+                                && !(getMessageType(message) == 1 && (message.getDialogId() == mergeDialogId || message.needDrawBluredPreview()))
+                                && (currentChat == null || !ChatObject.isForum(currentChat) || canSendMessageToTopic(message));
+                        devGramSwipeActionsHelper.start(collectDevGramSwipeActions(message, replyAllowed));
+                        if (devGramSwipeActionsHelper.size() == 0) {
                             slidingViewSetOffset(0);
                             slidingView = null;
                             return;
@@ -5588,6 +5741,7 @@ public class ChatActivity extends BaseFragment implements
                             wasTrackingVibrate = false;
                         }
                         slidingViewSetOffset(dx);
+                        devGramSwipeActionsHelper.update(dx, e.getX(), e.getY());
                         MessageObject messageObject = getSlidingMessageObject();
                         if (messageObject != null && (messageObject.isRoundVideo() || messageObject.isVideo())) {
                             updateTextureViewPosition(false, false);
@@ -5599,40 +5753,7 @@ public class ChatActivity extends BaseFragment implements
                     }
                 } else if (slidingView != null && (e == null || e.getPointerId(0) == startedTrackingPointerId && (e.getAction() == MotionEvent.ACTION_CANCEL || e.getAction() == MotionEvent.ACTION_UP || e.getAction() == MotionEvent.ACTION_POINTER_UP))) {
                     if (e != null && e.getAction() != MotionEvent.ACTION_CANCEL && Math.abs(getSlidingNonAnimationTranslationX(false)) >= AndroidUtilities.dp(50)) {
-                        MessageObject message = getSlidingMessageObject();
-                        final boolean allowReplyOnOpenTopic = canSendMessageToTopic(message);
-                        if (
-                            bottomChannelButtonsLayout != null && bottomChannelButtonsLayout.getVisibility() == View.VISIBLE && !(bottomOverlayChatWaitsReply && allowReplyOnOpenTopic || message.wasJustSent) ||
-                            currentChat != null && (
-                                ChatObject.isNotInChat(currentChat) && !isThreadChat() ||
-                                ChatObject.isChannel(currentChat) && !ChatObject.canPost(currentChat) && !currentChat.megagroup ||
-                                !ChatObject.canSendMessages(currentChat)
-                            )
-                        ) {
-                            if (message.getGroupId() != 0) {
-                                MessageObject.GroupedMessages group = getGroup(message.getGroupId());
-                                if (group != null && group.captionMessage != null) {
-                                    message = group.captionMessage;
-                                }
-                            }
-                            replyingMessageObject = message;
-                            Bundle args = new Bundle();
-                            args.putBoolean("onlySelect", true);
-                            args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_FORWARD);
-                            args.putBoolean("quote", true);
-                            args.putBoolean("reply_to", true);
-                            final long author = DialogObject.getPeerDialogId(message.getFromPeer());
-                            if (author != 0 && author != getDialogId() && author != getUserConfig().getClientUserId() && author > 0) {
-                                args.putLong("reply_to_author", author);
-                            }
-                            args.putInt("messagesCount", 1);
-                            args.putBoolean("canSelectTopics", true);
-                            final DialogsActivity fragment = new DialogsActivity(args);
-                            fragment.setDelegate(ChatActivity.this);
-                            presentFragment(fragment);
-                        } else {
-                            showFieldPanelForReply(getSlidingMessageObject());
-                        }
+                        performDevGramSwipeAction(devGramSwipeActionsHelper.getSelected(), getSlidingMessageObject());
                     }
                     endTrackingX = slidingViewGetOffsetX();
                     if (endTrackingX == 0) {
@@ -5791,7 +5912,6 @@ public class ChatActivity extends BaseFragment implements
                         }
                         invalidate();
                     }
-                    drawReplyButton(c);
                 }
 
                 if (pullingDownOffset != 0 && !isInPreviewMode() && !isInsideContainer && chatMode != MODE_SAVED && chatMode != MODE_SCHEDULED) {
@@ -6104,6 +6224,13 @@ public class ChatActivity extends BaseFragment implements
                     drawChatForegroundElements(canvas);
                 }
                 canvas.restore();
+                if (slidingView != null && devGramSwipeActionsHelper != null) {
+                    MessageObject message = getSlidingMessageObject();
+                    float translation = getSlidingNonAnimationTranslationX(false);
+                    devGramSwipeActionsHelper.draw(canvas, translation, message != null && message.isOut(),
+                            slidingView.getTop() + slidingView.getMeasuredHeight() / 2f,
+                            getSlidingBubbleRight() + translation);
+                }
             }
 
             protected void drawChatForegroundElements(Canvas canvas, RectF position) {
@@ -9284,7 +9411,7 @@ public class ChatActivity extends BaseFragment implements
 
         flagSecure = new FlagSecureReason(getParentActivity().getWindow(), () ->
             currentEncryptedChat != null ||
-            isPeerNoForwards()
+            (isPeerNoForwards() && !org.telegram.messenger.DevGramConfig.allowRestricted())
         );
 
         if (oldMessage != null) {
@@ -10970,7 +11097,7 @@ public class ChatActivity extends BaseFragment implements
         updateMultipleSelection(actionMode);
         actionMode.setItemVisibility(edit, canEditMessagesCount == 1 && selectedMessagesIds[0].size() + selectedMessagesIds[1].size() == 1 ? View.VISIBLE : View.GONE);
         updateMediaSpoilerItem(actionMode.getItem(media_spoiler));
-        actionMode.setItemVisibility(copy, !isPeerNoForwards() && selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0 ? View.VISIBLE : View.GONE);
+        actionMode.setItemVisibility(copy, (!isPeerNoForwards() || org.telegram.messenger.DevGramConfig.allowRestricted()) && selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(star, selectedMessagesCanStarIds[0].size() + selectedMessagesCanStarIds[1].size() != 0 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(delete, cantDeleteMessagesCount == 0 ? View.VISIBLE : View.GONE);
         actionMode.setItemVisibility(tag_message, getUserConfig().isPremium() ? View.VISIBLE : View.GONE);
@@ -20107,7 +20234,7 @@ public class ChatActivity extends BaseFragment implements
                     if (!messageObject.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat)) {
                         cantDeleteMessagesCount--;
                     }
-                    boolean noforwards = isPeerNoForwards();
+                    boolean noforwards = isPeerNoForwards() && !org.telegram.messenger.DevGramConfig.allowRestricted();
                     if (chatMode == MODE_SCHEDULED || !messageObject.canForwardMessage() || noforwards) {
                         cantForwardMessagesCount--;
                     } else {
@@ -20150,7 +20277,7 @@ public class ChatActivity extends BaseFragment implements
                     if (!messageObject.canDeleteMessage(chatMode == MODE_SCHEDULED, currentChat)) {
                         cantDeleteMessagesCount++;
                     }
-                    boolean noforwards = isPeerNoForwards();
+                    boolean noforwards = isPeerNoForwards() && !org.telegram.messenger.DevGramConfig.allowRestricted();
                     if (chatMode == MODE_SCHEDULED || !messageObject.canForwardMessage() || noforwards) {
                         cantForwardMessagesCount++;
                     } else {
@@ -20185,7 +20312,7 @@ public class ChatActivity extends BaseFragment implements
                 ActionBarMenuItem tagItem = actionBar.createActionMode().getItem(tag_message);
                 ActionBarMenuItem shareItem = actionBar.createActionMode().getItem(share);
 
-                boolean noforwards = isPeerNoForwards() || hasSelectedNoforwardsMessage();
+                boolean noforwards = (isPeerNoForwards() || hasSelectedNoforwardsMessage()) && !org.telegram.messenger.DevGramConfig.allowRestricted();
                 if (prevCantForwardCount == 0 && cantForwardMessagesCount != 0 || prevCantForwardCount != 0 && cantForwardMessagesCount == 0) {
                     forwardButtonAnimation = new AnimatorSet();
                     ArrayList<Animator> animators = new ArrayList<>();
@@ -32071,7 +32198,7 @@ public class ChatActivity extends BaseFragment implements
             allowPin = false;
         }
         allowPin = allowPin && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
-        boolean noforwards = isPeerNoForwards() || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
+        boolean noforwards = ((isPeerNoForwards() || message.messageOwner.noforwards) && !org.telegram.messenger.DevGramConfig.allowRestricted()) || getDialogId() == UserObject.VERIFY;
         boolean noforwardsOrPaidMedia = noforwards || message.type == MessageObject.TYPE_PAID_MEDIA;
         boolean allowUnpin = message.getDialogId() != mergeDialogId && allowPin && (pinnedMessageObjects.containsKey(message.getId()) || groupedMessages != null && !groupedMessages.messages.isEmpty() && pinnedMessageObjects.containsKey(groupedMessages.messages.get(0).getId())) && !message.isExpiredStory();
         boolean allowEdit = message.canEditMessage(currentChat) && !chatActivityEnterView.hasAudioToSend() && message.getDialogId() != mergeDialogId && message.type != MessageObject.TYPE_STORY && message.type != MessageObject.TYPE_POLL;
@@ -47297,7 +47424,7 @@ public class ChatActivity extends BaseFragment implements
             allowPin = false;
         }
         allowPin = allowPin && message.getId() > 0 && (message.messageOwner.action == null || message.messageOwner.action instanceof TLRPC.TL_messageActionEmpty) && !message.isExpiredStory() && message.type != MessageObject.TYPE_STORY_MENTION;
-        boolean noforwards = isPeerNoForwards() || message.messageOwner.noforwards || getDialogId() == UserObject.VERIFY;
+        boolean noforwards = ((isPeerNoForwards() || message.messageOwner.noforwards) && !org.telegram.messenger.DevGramConfig.allowRestricted()) || getDialogId() == UserObject.VERIFY;
         boolean noforwardsOrPaidMedia = noforwards || message.type == MessageObject.TYPE_PAID_MEDIA;
         boolean allowUnpin = !isEphemeral && message.getDialogId() != mergeDialogId && allowPin && (pinnedMessageObjects.containsKey(message.getId()) || groupedMessages != null && !groupedMessages.messages.isEmpty() && pinnedMessageObjects.containsKey(groupedMessages.messages.get(0).getId())) && !message.isExpiredStory();
         boolean allowEdit = !isEphemeral && message.canEditMessage(currentChat) && !chatActivityEnterView.hasAudioToSend() && message.getDialogId() != mergeDialogId && message.type != MessageObject.TYPE_STORY && message.type != MessageObject.TYPE_POLL;

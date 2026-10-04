@@ -69,6 +69,7 @@ public final class DevGramSettingsLink {
             case "filters":    return new DevGramFiltersActivity();
             case "appearance": return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_APPEARANCE);
             case "chats":      return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_CHATS);
+            case "swipeActions": return new DevGramSwipeActionsActivity();
             case "ai":         return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_AI);
             case "other":      return new DevGramOtherActivity();
             case "locked":     return new DevGramLockedChatsActivity();

@@ -88,6 +88,11 @@ public class DevGramConfig {
     public static boolean weatherInStories = false; // виджет погоды в историях (просит доступ к гео) — по умолчанию ВЫКЛ
     public static int updateChannel = 0;           // канал обновлений: 0 = основной, 1 = бета (нужен значок поддержавшего)
 
+    // Действия свайпом по сообщению. Строка одновременно хранит включённые действия и их порядок.
+    public static String swipeActions = DevGramSwipeAction.DEFAULT_ORDER;
+    public static boolean swipeActionsLoop = true;
+    public static boolean swipeActionsReversed = false;
+
     // --- гейт для разрешённых пакетов чтения (например, ручная отметка «прочитано») ---
     private static final Object readSync = new Object();
     private static boolean allowReadVal;
@@ -141,6 +146,9 @@ public class DevGramConfig {
             replaceEditedWithIcon = preferences.getBoolean("replaceEditedWithIcon", false);
             hideShareButton = preferences.getBoolean("hideShareButton", false);
             hideStickerTime = preferences.getBoolean("hideStickerTime", false);
+            swipeActions = preferences.getString("swipeActions", DevGramSwipeAction.DEFAULT_ORDER);
+            swipeActionsLoop = preferences.getBoolean("swipeActionsLoop", true);
+            swipeActionsReversed = preferences.getBoolean("swipeActionsReversed", false);
             loaded = true;
         }
     }
@@ -217,6 +225,15 @@ public class DevGramConfig {
     public static void setUseSystemEmoji(boolean v) {
         org.telegram.messenger.SharedConfig.useSystemEmoji = v;
         MessagesController.getGlobalMainSettings().edit().putBoolean("useSystemEmoji", v).apply();
+    }
+
+    // Обход запрета пересылки/скриншотов (noforwards) — как в AyuGram.
+    public static boolean allowRestricted() {
+        return MessagesController.getGlobalMainSettings().getBoolean("dg_allowRestricted", false);
+    }
+
+    public static void setAllowRestricted(boolean v) {
+        MessagesController.getGlobalMainSettings().edit().putBoolean("dg_allowRestricted", v).apply();
     }
 
     // Размер стикеров (0..N) — pref в глобальных настройках, читается ChatMessageCell/LocaleController.
@@ -589,6 +606,9 @@ public class DevGramConfig {
             hideKeyboardOnScroll = true;
             disableGreetingSticker = false;
             addCommaAfterMention = true;
+            swipeActions = DevGramSwipeAction.DEFAULT_ORDER;
+            swipeActionsLoop = true;
+            swipeActionsReversed = false;
             if (preferences != null) {
                 preferences.edit().clear().apply();
             }
@@ -637,6 +657,9 @@ public class DevGramConfig {
             o.put("hideKeyboardOnScroll", hideKeyboardOnScroll);
             o.put("disableGreetingSticker", disableGreetingSticker);
             o.put("addCommaAfterMention", addCommaAfterMention);
+            o.put("swipeActions", swipeActions);
+            o.put("swipeActionsLoop", swipeActionsLoop);
+            o.put("swipeActionsReversed", swipeActionsReversed);
         } catch (Throwable ignore) {
         }
         return o.toString();
@@ -687,6 +710,9 @@ public class DevGramConfig {
             setHideKeyboardOnScroll(o.optBoolean("hideKeyboardOnScroll", hideKeyboardOnScroll));
             setDisableGreetingSticker(o.optBoolean("disableGreetingSticker", disableGreetingSticker));
             setAddCommaAfterMention(o.optBoolean("addCommaAfterMention", addCommaAfterMention));
+            setSwipeActions(o.optString("swipeActions", swipeActions));
+            setSwipeActionsLoop(o.optBoolean("swipeActionsLoop", swipeActionsLoop));
+            setSwipeActionsReversed(o.optBoolean("swipeActionsReversed", swipeActionsReversed));
             return true;
         } catch (Throwable e) {
             return false;
@@ -793,6 +819,21 @@ public class DevGramConfig {
 
     public static void setSaveLocalOnline(boolean v) {
         saveLocalOnline = v; preferences.edit().putBoolean("saveLocalOnline", v).apply();
+    }
+
+    public static void setSwipeActions(String value) {
+        swipeActions = value == null ? "" : value;
+        if (preferences != null) preferences.edit().putString("swipeActions", swipeActions).apply();
+    }
+
+    public static void setSwipeActionsLoop(boolean value) {
+        swipeActionsLoop = value;
+        if (preferences != null) preferences.edit().putBoolean("swipeActionsLoop", value).apply();
+    }
+
+    public static void setSwipeActionsReversed(boolean value) {
+        swipeActionsReversed = value;
+        if (preferences != null) preferences.edit().putBoolean("swipeActionsReversed", value).apply();
     }
 
     public static void setProbeUsingOtherAccounts(boolean v) {

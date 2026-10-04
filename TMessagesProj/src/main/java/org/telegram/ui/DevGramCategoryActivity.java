@@ -38,6 +38,7 @@ public class DevGramCategoryActivity extends BaseFragment {
     // DevGram: кнопки-переходы из «Чаты» (как asButtonWithSubtext AI/CHAT_SETTINGS у exteraGram)
     private static final int ID_OPEN_AI = 150;
     private static final int ID_OPEN_CHAT_SETTINGS = 151;
+    private static final int ID_OPEN_SWIPE_ACTIONS = 149;
     // DevGram: экран AI Chat (повтор AiPreferencesActivity exteraGram)
     private static final int ID_AI_SERVICES = 152;
     private static final int ID_AI_ROLES = 153;
@@ -73,6 +74,7 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_CLEAR_SPY_DATABASE = 729;
     private static final int ID_EXPORT_SPY_DATABASE = 730;
     private static final int ID_IMPORT_SPY_DATABASE = 731;
+    private static final int ID_ALLOW_RESTRICTED = 732; // обход запрета пересылки/скриншотов
     private static final int ID_DELETED_ICON = 700;      // значок пометки удалённого
     private static final int ID_DELETED_ICON_COLOR = 701; // цвет пометки удалённого
     private static final int ID_DELETED_TRANSPARENT = 702; // полупрозрачные удалённые
@@ -724,6 +726,10 @@ public class DevGramCategoryActivity extends BaseFragment {
                     index -> DevGramConfig.setMediaCacheLimit(MEDIA_CACHE_LIMITS[index])
             ).setId(ID_MEDIA_CACHE_LIMIT));
             items.add(UItem.asShadow("Если папка превысит лимит, самые старые вложения будут удалены с устройства."));
+            items.add(UItem.asHeader("Защищённый контент"));
+            items.add(UItem.asCheck(ID_ALLOW_RESTRICTED, "Обходить запрет пересылки")
+                    .setChecked(DevGramConfig.allowRestricted()));
+            items.add(UItem.asShadow("Разрешает пересылку, сохранение и скриншоты в каналах и чатах, где это запрещено. Защищённые посты пересылаются как новые сообщения."));
             items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, "Экспорт базы данных"));
             items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, R.drawable.msg_archive, "Импорт базы данных"));
             items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, R.drawable.msg_clear, "Очистить"));
@@ -913,6 +919,8 @@ public class DevGramCategoryActivity extends BaseFragment {
 
             // Кнопки-переходы двухстрочным стилем (как asButtonWithSubtext AI/CHAT_SETTINGS у exteraGram):
             // «AI Chat» — все функции ИИ вынесены на отдельный экран; «Настройки чатов» — стоковый экран Telegram.
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_SWIPE_ACTIONS, R.drawable.menu_reply, "Действия свайпом",
+                    "Выбор, порядок и поведение действий"));
             items.add(UItem.asButtonWithSubtext(ID_OPEN_AI, R.drawable.msg2_ask_question, "AI Chat",
                     "Сервисы, роли, история и генерация"));
             items.add(UItem.asButtonWithSubtext(ID_OPEN_CHAT_SETTINGS, R.drawable.msg_discussion, "Настройки чатов",
@@ -1366,6 +1374,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             DevGramConfig.setSaveReadDate(!DevGramConfig.saveReadDate);
         } else if (item.id == ID_SAVE_LOCAL_ONLINE) {
             DevGramConfig.setSaveLocalOnline(!DevGramConfig.saveLocalOnline);
+        } else if (item.id == ID_ALLOW_RESTRICTED) {
+            DevGramConfig.setAllowRestricted(!DevGramConfig.allowRestricted());
         } else if (item.id == ID_MEDIA_SAVE_PATH) {
             showSavedMediaFolderDialog(); return;
         } else if (item.id == ID_CLEAR_SPY_DATABASE) {
@@ -1734,6 +1744,9 @@ public class DevGramCategoryActivity extends BaseFragment {
             return;
         } else if (item.id == ID_OPEN_AI) {
             presentFragment(new DevGramCategoryActivity(CATEGORY_AI));
+            return;
+        } else if (item.id == ID_OPEN_SWIPE_ACTIONS) {
+            presentFragment(new DevGramSwipeActionsActivity());
             return;
         } else if (item.id == ID_OPEN_CHAT_SETTINGS) {
             presentFragment(new org.telegram.ui.ThemeActivity(org.telegram.ui.ThemeActivity.THEME_TYPE_BASIC));
