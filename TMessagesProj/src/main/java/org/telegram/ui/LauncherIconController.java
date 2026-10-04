@@ -35,13 +35,16 @@ public class LauncherIconController {
 
     public enum LauncherIcon {
         DEFAULT("DefaultIcon", R.drawable.icon_01_background_sa, R.mipmap.icon_01_foreground_sa, R.string.AppIconDefault),
-        ADAPTIVE("AdaptiveIcon", R.drawable.icon_01_background_sa, R.mipmap.icon_01_foreground_sa, R.string.AppIconAdaptive),
-        ORIGINAL("OriginalIcon", R.drawable.icon_background_sa, R.mipmap.icon_foreground_sa, R.string.CropOriginal),
-        VINTAGE("VintageIcon", R.drawable.icon_6_background_sa, R.mipmap.icon_6_foreground_sa, R.string.AppIconVintage),
-        AQUA("AquaIcon", R.drawable.icon_4_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconAqua),
-        PREMIUM("PremiumIcon", R.drawable.icon_3_background_sa, R.mipmap.icon_3_foreground_sa, R.string.AppIconPremium, true),
-        TURBO("TurboIcon", R.drawable.icon_5_background_sa, R.mipmap.icon_5_foreground_sa, R.string.AppIconTurbo, true),
-        NOX("NoxIcon", R.mipmap.icon_2_background_sa, R.mipmap.icon_foreground_sa, R.string.AppIconNox, true),
+        // DevGram: свои иконки. Ключи alias старые (Original/Vintage/…) — у кого была выбрана старая иконка,
+        // после обновления получит новую на том же alias, а не пропавшую иконку в лаунчере.
+        ZIMA("OriginalIcon", R.mipmap.icon_dg_zima_layer, R.mipmap.icon_dg_zima_layer, R.string.DevGramAppIconZima),
+        MONET_LIGHT("VintageIcon", R.mipmap.icon_dg_monet_light_layer, R.mipmap.icon_dg_monet_light_layer, R.string.DevGramAppIconMonetLight),
+        MONET_DARK("AquaIcon", R.mipmap.icon_dg_monet_dark_layer, R.mipmap.icon_dg_monet_dark_layer, R.string.DevGramAppIconMonetDark),
+        SUNSET("PremiumIcon", R.mipmap.icon_dg_sunset_layer, R.mipmap.icon_dg_sunset_layer, R.string.DevGramAppIconSunset),
+        AMETHYST("TurboIcon", R.mipmap.icon_dg_amethyst_layer, R.mipmap.icon_dg_amethyst_layer, R.string.DevGramAppIconAmethyst),
+        AURORE("NoxIcon", R.mipmap.icon_dg_aurore_layer, R.mipmap.icon_dg_aurore_layer, R.string.DevGramAppIconAurore),
+        GOOGLE("AdaptiveIcon", R.mipmap.icon_dg_google_layer, R.mipmap.icon_dg_google_layer, R.string.DevGramAppIconGoogle),
+        GOOGLE26("Google26Icon", R.mipmap.icon_dg_google26_layer, R.mipmap.icon_dg_google26_layer, R.string.DevGramAppIconGoogle26),
         // DevGram: маскировка — alias с собственным android:label (меняет и иконку, и имя приложения).
         // disguise=true => не показывается в стоковом premium-селекторе иконок, только в разделе «Маскировка».
         CALCULATOR("CalculatorIcon", R.drawable.devgram_mask_calc_bg, R.drawable.devgram_mask_calc_fg, R.string.DevGramMaskCalculator, false, true),

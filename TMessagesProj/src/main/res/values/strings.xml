@@ -6034,6 +6034,14 @@
     <string name="DevGramMaskWeather">Погода</string>
     <string name="DevGramMaskClock">Часы</string>
     <string name="DevGramMaskSettings">Настройки</string>
+    <string name="DevGramAppIconZima">Zima</string>
+    <string name="DevGramAppIconMonetLight">Monet светлая</string>
+    <string name="DevGramAppIconMonetDark">Monet тёмная</string>
+    <string name="DevGramAppIconSunset">Sunset</string>
+    <string name="DevGramAppIconAmethyst">Amethyst</string>
+    <string name="DevGramAppIconAurore">Aurore</string>
+    <string name="DevGramAppIconGoogle">Google</string>
+    <string name="DevGramAppIconGoogle26">Google ’26</string>
     <!-- DevGram: deep-ссылки на настройки -->
     <string name="DevGramCopyLink">Копировать ссылку</string>
     <string name="DevGramShareLink">Поделиться ссылкой</string>
