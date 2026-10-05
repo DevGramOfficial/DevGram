@@ -194,6 +194,8 @@ import org.telegram.messenger.forkgram.ForkUtils;
 import org.telegram.messenger.forkgram.ExtractMediaFromPreview;
 import org.telegram.messenger.forkgram.FormattingMenu;
 import org.telegram.messenger.forkgram.MediaSpoiler;
+import org.telegram.messenger.forkgram.WebPublishConfig;
+import org.telegram.messenger.forkgram.WebPublishFlow;
 import org.telegram.messenger.support.LongSparseIntArray;
 import org.telegram.messenger.utils.FBool;
 import org.telegram.messenger.utils.OnPostDrawView;
@@ -625,7 +627,7 @@ public class ChatActivity extends BaseFragment implements
     private float intoTopViewTop;
     private ChatActionCell infoTopView;
     private int hideDateDelay = 500;
-    public InstantCameraView instantCameraView;
+    public InstantCameraViewBase instantCameraView;
     private View overlayView;
     private boolean currentFloatingDateOnScreen;
     private boolean currentFloatingTopicOnScreen;
@@ -2041,6 +2043,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int forward = 11;
     private final static int forward_anonym = 111;
     private final static int select_between = 112;
+    private final static int publish_web = 113;
     private final static int delete = 12;
     private final static int chat_enc_timer = 13;
     private final static int chat_menu_attach = 14;
@@ -2853,8 +2856,9 @@ public class ChatActivity extends BaseFragment implements
         @Override
         public void setFrontface(boolean frontface) {
             checkInstantCameraView();
-            if (instantCameraView != null) {
-                instantCameraView.setFrontface(frontface);
+            // DevGram: стартовую камеру задаёт только классическая реализация; в Camera2 (InstantCameraView2) — кнопкой
+            if (instantCameraView instanceof InstantCameraView) {
+                ((InstantCameraView) instantCameraView).setFrontface(frontface);
             }
         }
 
@@ -3127,7 +3131,6 @@ public class ChatActivity extends BaseFragment implements
     }
 
     private NotificationCenter.ObserversGroup observersGroup;
-    private NotificationCenter.ObserversGroup globalObserversGroup;
 
     @Override
     public boolean onFragmentCreate() {
@@ -3329,7 +3332,6 @@ public class ChatActivity extends BaseFragment implements
         }
 
         observersGroup = getNotificationCenter().createObserversGroup(this);
-        globalObserversGroup = NotificationCenter.getGlobalInstance().createObserversGroup(this);
 
         getNotificationCenter().addPostponeNotificationsCallback(postponeNotificationsWhileLoadingCallback);
         getNotificationCenter().addObserver(this, NotificationCenter.closeChats);
@@ -3451,14 +3453,12 @@ public class ChatActivity extends BaseFragment implements
             .add(NotificationCenter.botForumTopicDidCreate)
             .add(NotificationCenter.botForumDraftUpdate)
             .add(NotificationCenter.botForumDraftDelete)
-            .add(NotificationCenter.joinedGroup);
-
-        globalObserversGroup
-            .add(NotificationCenter.emojiLoaded)
-            .add(NotificationCenter.invalidateMotionBackground)
-            .add(NotificationCenter.didSetNewWallpapper)
-            .add(NotificationCenter.didApplyNewTheme)
-            .add(NotificationCenter.goingToPreviewTheme);
+            .add(NotificationCenter.joinedGroup)
+            .addGlobal(NotificationCenter.emojiLoaded)
+            .addGlobal(NotificationCenter.invalidateMotionBackground)
+            .addGlobal(NotificationCenter.didSetNewWallpapper)
+            .addGlobal(NotificationCenter.didApplyNewTheme)
+            .addGlobal(NotificationCenter.goingToPreviewTheme);
 
         if (chatMode == MODE_EDIT_BUSINESS_LINK) {
             observersGroup.add(NotificationCenter.businessLinksUpdated);
@@ -3600,12 +3600,12 @@ public class ChatActivity extends BaseFragment implements
 
         themeDelegate = parentThemeDelegate != null ? parentThemeDelegate : new ThemeDelegate();
         if (themeDelegate.isThemeChangeAvailable(false)) {
-            globalObserversGroup.add(NotificationCenter.needSetDayNightTheme);
+            observersGroup.addGlobal(NotificationCenter.needSetDayNightTheme);
         }
         // DevGram: тумблер «Убрать хвост» и т.п. меняют форму бабла глобально, но уже отрисованные
         // ChatMessageCell кэшируют Path (Theme.MessageDrawable.PathDrawParams) и сами не перерисуются,
         // пока их не проскроллить — форсируем invalidate списка сразу при переключении в настройках.
-        globalObserversGroup.add(NotificationCenter.devgramBubbleStyleChanged);
+        observersGroup.addGlobal(NotificationCenter.devgramBubbleStyleChanged);
 
         if (chatInvite != null) {
             int timeout = chatInvite.expires - getConnectionsManager().getCurrentTime();
@@ -3861,10 +3861,6 @@ public class ChatActivity extends BaseFragment implements
             observersGroup.removeAllObservers();
             observersGroup = null;
         }
-        if (globalObserversGroup != null) {
-            globalObserversGroup.removeAllObservers();
-            globalObserversGroup = null;
-        }
 
         getNotificationCenter().removeObserver(this, NotificationCenter.closeChats);
 
@@ -3884,6 +3880,7 @@ public class ChatActivity extends BaseFragment implements
         AndroidUtilities.removeAdjustResize(getParentActivity(), classGuid);
         if (chatAttachAlert != null) {
             chatAttachAlert.onDestroy();
+            chatAttachAlert = null;
         }
         AndroidUtilities.unlockOrientation(getParentActivity());
         if (ChatObject.isChannel(currentChat)) {
@@ -4257,6 +4254,8 @@ public class ChatActivity extends BaseFragment implements
                     showAnonymShareAlert(false);
                 } else if (id == share) {
                     share();
+                } else if (id == publish_web) {
+                    publishSelectedToWeb();
                 } else if (id == open_direct) {
                     if (currentChat == null) return;
                     presentFragment(ChatActivity.of(-currentChat.linked_monoforum_id));
@@ -8997,6 +8996,7 @@ public class ChatActivity extends BaseFragment implements
         forkExtractMediaButton.setVisibility(View.GONE);
         chatActivityEnterTopView.addView(forkExtractMediaButton, LayoutHelper.createFrame(52, 46, Gravity.RIGHT | Gravity.TOP, 0, 0.5f, 52, 0));
         forkExtractMediaButton.setOnClickListener(v -> forkToggleExtractMedia());
+        forkExtractMediaButton.setOnLongClickListener(v -> forkExtractMediaWithoutLink());
         contentView.addView(
             suggestEmojiPanel = new SuggestEmojiView(context, currentAccount, chatActivityEnterView, themeDelegate),
             LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 160, Gravity.LEFT | Gravity.BOTTOM, 7, 0, 7, 0)
@@ -11087,6 +11087,9 @@ public class ChatActivity extends BaseFragment implements
                 actionModeViews.add(actionMode.addItemWithWidth(forward_anonym, R.drawable.ic_ab_forward_anonym, dp(48), LocaleController.getString(R.string.Forward)));
             }
             actionModeViews.add(actionMode.addItemWithWidth(share, R.drawable.msg_shareout, dp(48), LocaleController.getString(R.string.ShareFile)));
+            if (WebPublishConfig.isConfigured()) {
+                actionModeViews.add(actionMode.addItemWithWidth(publish_web, R.drawable.msg_publish, dp(48), LocaleController.getString(R.string.WebPublish)));
+            }
             actionModeViews.add(actionMode.addItemWithWidth(delete, R.drawable.msg_delete, dp(48), LocaleController.getString(R.string.Delete)));
         } else {
             actionModeViews.add(actionMode.addItemWithWidth(edit, R.drawable.msg_edit, dp(48), LocaleController.getString(R.string.Edit)));
@@ -11480,13 +11483,36 @@ public class ChatActivity extends BaseFragment implements
         if (instantCameraView != null || !CameraView.isCameraAllowed() || getContext() == null) {
             return;
         }
-        instantCameraView = new InstantCameraView(getContext(), this, themeDelegate, true) {
-            @Override
-            public void startAnimation(boolean open, boolean fromPaused) {
-                super.startAnimation(open, fromPaused);
-                animatorRoundMessageCameraVisibility.setValue(open, true);
+        instantCameraView = InstantCameraViewBase.create(
+                getContext(),
+                this,
+                themeDelegate,
+                true
+        );
+        instantCameraView.setAnimationCallback((open, fromPaused) ->
+                animatorRoundMessageCameraVisibility.setValue(open, true));
+        instantCameraView.setTrimCallback((start, end) -> {
+            if (chatActivityEnterView != null) {
+                chatActivityEnterView.setVideoTimelineTrim(start, end);
             }
-        };
+        });
+        instantCameraView.setRecordingUiFrameCallback(
+                new InstantCameraViewBase.RecordingUiFrameCallback() {
+                    @Override
+                    public void onActiveChanged(boolean active) {
+                        if (chatActivityEnterView != null) {
+                            chatActivityEnterView.setRoundVideoUiFrameClockActive(active);
+                        }
+                    }
+
+                    @Override
+                    public void onFrame(long durationMs) {
+                        if (chatActivityEnterView != null) {
+                            chatActivityEnterView.onRoundVideoUiFrame(durationMs);
+                        }
+                    }
+                }
+        );
         instantCameraView.setClipToPadding(false);
         instantCameraView.setButtonsBackground(glassBackgroundDrawableFactory, blurredBackgroundColorProvider);
 
@@ -11732,6 +11758,22 @@ public class ChatActivity extends BaseFragment implements
             forkExtractMediaFrozenWebPage = foundWebPage;
         }
         forkUpdateExtractMediaButton();
+    }
+
+    private boolean forkExtractMediaWithoutLink() {
+        if (!forkIsExtractMediaActive()) {
+            if (!forkExtractMediaAvailable()) {
+                return false;
+            }
+            forkExtractMediaActive = true;
+            forkExtractMediaFrozenWebPage = foundWebPage;
+        }
+        if (chatActivityEnterView != null) {
+            chatActivityEnterView.forkRemoveWebPageLink(forkExtractMediaFrozenWebPage);
+        }
+        forkUpdateExtractMediaButton();
+        forkExtractMediaButton.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+        return true;
     }
 
     public void forkUpdateExtractMediaButton() {
@@ -13088,6 +13130,21 @@ public class ChatActivity extends BaseFragment implements
         updatePinnedMessageView(true);
         updateVisibleRows();
         updateSelectedMessageReactions();
+    }
+
+    private void publishSelectedToWeb() {
+        ArrayList<MessageObject> messageObjects = new ArrayList<>();
+        for (int a = 1; a >= 0; a--) {
+            for (int b = 0; b < selectedMessagesIds[a].size(); b++) {
+                MessageObject messageObject = selectedMessagesIds[a].valueAt(b);
+                if (messageObject != null) {
+                    messageObjects.add(messageObject);
+                }
+            }
+        }
+        Collections.sort(messageObjects, (m1, m2) -> Integer.compare(m1.getId(), m2.getId()));
+        // Selection stays visible during the upload; cleared only on success.
+        WebPublishFlow.publish(currentAccount, messageObjects, this, this::clearSelectionMode);
     }
 
     private void openForward(boolean fromActionBar) {
@@ -37136,7 +37193,7 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
 
-        final InstantCameraView.InstantViewCameraContainer cameraContainer = instantCameraView.getCameraContainer();
+        final InstantCameraViewBase.InstantViewCameraContainer cameraContainer = instantCameraView.getCameraContainer();
         AnimatorSet allAnimators = new AnimatorSet();
         allAnimators.playTogether(
                 ObjectAnimator.ofFloat(cameraContainer, View.SCALE_X, 0.5f),
@@ -39329,8 +39386,8 @@ public class ChatActivity extends BaseFragment implements
                                     messageCell.getViewTreeObserver().removeOnPreDrawListener(this);
                                     ImageReceiver imageReceiver = messageCell.getPhotoImage();
                                     float w = imageReceiver.getImageWidth();
-                                    RectOld rect = instantCameraView.getCameraRect();
-                                    float scale = w / rect.width;
+                                    RectF rect = instantCameraView.getCameraRect();
+                                    float scale = w / rect.width();
                                     int[] position = new int[2];
                                     messageCell.getTransitionParams().ignoreAlpha = true;
                                     messageCell.setAlpha(0.0f);
@@ -39338,9 +39395,11 @@ public class ChatActivity extends BaseFragment implements
                                     messageCell.getLocationOnScreen(position);
                                     position[0] += imageReceiver.getImageX() - messageCell.getAnimationOffsetX();
                                     position[1] += imageReceiver.getImageY() + messageCell.getPaddingTop() - messageCell.getTranslationY();
-                                    final InstantCameraView.InstantViewCameraContainer cameraContainer = instantCameraView.getCameraContainer();
-                                    cameraContainer.setPivotX(0.0f);
-                                    cameraContainer.setPivotY(0.0f);
+                                    final InstantCameraViewBase.InstantViewCameraContainer cameraContainer = instantCameraView.getCameraContainer();
+                                    int[] cameraPosition = new int[2];
+                                    cameraContainer.getLocationOnScreen(cameraPosition);
+                                    cameraContainer.setPivotX(rect.left - cameraPosition[0]);
+                                    cameraContainer.setPivotY(rect.top - cameraPosition[1]);
                                     AnimatorSet animatorSet = new AnimatorSet();
 
                                     cameraContainer.setImageReceiver(imageReceiver);
@@ -39349,13 +39408,13 @@ public class ChatActivity extends BaseFragment implements
                                     animatorSet.playTogether(
                                             ObjectAnimator.ofFloat(cameraContainer, View.SCALE_X, scale),
                                             ObjectAnimator.ofFloat(cameraContainer, View.SCALE_Y, scale),
-                                            ObjectAnimator.ofFloat(cameraContainer, View.TRANSLATION_Y, position[1] - rect.y),
+                                            ObjectAnimator.ofFloat(cameraContainer, View.TRANSLATION_Y, position[1] - rect.top),
                                             ObjectAnimator.ofFloat(instantCameraView.getButtonsLayout(), View.ALPHA, 0.0f),
                                             ObjectAnimator.ofInt(instantCameraView.getPaint(), AnimationProperties.PAINT_ALPHA, 0),
                                             ObjectAnimator.ofFloat(instantCameraView.getMuteImageView(), View.ALPHA, 0.0f)
                                     );
                                     animatorSet.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
-                                    ObjectAnimator o = ObjectAnimator.ofFloat(cameraContainer, View.TRANSLATION_X, position[0] - rect.x);
+                                    ObjectAnimator o = ObjectAnimator.ofFloat(cameraContainer, View.TRANSLATION_X, position[0] - rect.left);
                                     o.setInterpolator(CubicBezierInterpolator.DEFAULT);
 
                                     allAnimators.playTogether(o, animatorSet);

@@ -19,6 +19,9 @@ class VoskOfflineTranscriber : OfflineTranscriber {
         audioFilePath: String,
         languageHint: String?,
         onProgress: Consumer<String>,
+        // DevGram: сегменты с таймкодами нужны для субтитров к видео; наш распознаватель
+        // отдаёт только текст без времени, поэтому сегменты не шлём
+        onSegment: Consumer<SubtitleSegment>,
         onFinal: BiConsumer<String?, Exception?>
     ): TranscriptionCancellable {
         val cancelled = AtomicBoolean(false)

@@ -292,10 +292,17 @@ object AppUpdater {
                     }
 
                     val isBeta = org.telegram.messenger.ApplicationLoader.getApplicationId().contains(".beta")
-                    val releaseInfo = if (isBeta) {
+                    val stableInfo = if (isBeta) {
                         androidInfo.optString("beta")
                     } else {
                         androidInfo.optString("release")
+                    }
+                    val optionalInfo = if (manual && isBeta) androidInfo.optString("optional") else ""
+                    val releaseInfo = when {
+                        optionalInfo.isEmpty() -> stableInfo
+                        stableInfo.isEmpty() -> optionalInfo
+                        compareVersions(optionalInfo.substringBefore(":"), stableInfo.substringBefore(":")) > 0 -> optionalInfo
+                        else -> stableInfo
                     }
 
                     if (releaseInfo.isEmpty()) {

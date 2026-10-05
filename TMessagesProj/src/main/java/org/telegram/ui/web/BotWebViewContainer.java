@@ -4330,6 +4330,7 @@ public abstract class BotWebViewContainer extends FrameLayout implements Notific
                         }
                         if (MessagesController.getInstance(botWebViewContainer.currentAccount).webAppAllowedProtocols != null &&
                             MessagesController.getInstance(botWebViewContainer.currentAccount).webAppAllowedProtocols.contains(uriNew.getScheme())) {
+                            final BotWebViewContainer botWebViewContainerLocal = botWebViewContainer;
                             if (opener != null) {
                                 if (botWebViewContainer.delegate != null) {
                                     botWebViewContainer.delegate.onInstantClose();
@@ -4341,17 +4342,17 @@ public abstract class BotWebViewContainer extends FrameLayout implements Notific
                                     opener.botWebViewContainer.delegate.onCloseToTabs();
                                 }
                             }
-                            if (botWebViewContainer.botUser != null
+                            if (botWebViewContainerLocal.botUser != null
                                 && org.telegram.ui.ForkSettingsActivity.GetBotCopyLink(
-                                    botWebViewContainer.currentAccount,
-                                    botWebViewContainer.botUser.id)) {
+                                    botWebViewContainerLocal.currentAccount,
+                                    botWebViewContainerLocal.botUser.id)) {
                                 AndroidUtilities.addToClipboard(uriNew.toString());
                                 android.widget.Toast.makeText(
                                     getContext(),
                                     LocaleController.getString(R.string.AffiliateProgramLinkCopiedTitle),
                                     android.widget.Toast.LENGTH_SHORT).show();
                             } else {
-                            botWebViewContainer.onOpenUri(uriNew);
+                                botWebViewContainerLocal.onOpenUri(uriNew);
                             }
                         }
                         d("shouldOverrideUrlLoading("+url+") = true");

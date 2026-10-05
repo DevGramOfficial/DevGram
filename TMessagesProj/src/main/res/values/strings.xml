@@ -2262,6 +2262,9 @@
     <string name="OfflineTranscriptionInfo">Transcription runs on your device through a separate engine app, such as **Scrib** on F-Droid.</string>
     <string name="OfflineTranscriptionMissing">App not installed</string>
     <string name="OfflineTranscriptionNoModel">No model downloaded yet. Open %1$s to download a language model.</string>
+    <string name="VideoSubtitles">Subtitles</string>
+    <string name="VideoSubtitlesGenerating">Generating subtitles…</string>
+    <string name="VideoSubtitlesUnavailable">Download the video to generate subtitles</string>
     <string name="CloudflareCredentialsNotSet">Cloudflare credentials are not configured.</string>
     <string name="CloudflareAccountID">Account ID</string>
     <string name="CloudflareAPIToken">API Token</string>
@@ -2884,8 +2887,6 @@
     <string name="UseProxyTelegramInfo">MTProto proxy settings.</string>
     <string name="UseProxyTelegramInfo2">This proxy may display a sponsored channel in your chat list. This doesn\'t reveal any of your Telegram traffic.</string>
     <string name="UseProxyWebInfo">WEB proxy uses an HTTPS page inside a private WebView. Enter a hostname without a scheme or path and a 16-byte MTProxy secret. This proof of concept requires a current Android System WebView and is intended for foreground testing.</string>
-    <string name="UseProxyForCalls">Use proxy for calls</string>
-    <string name="UseProxyForCallsInfo">Proxy servers may degrade the quality of your calls.</string>
     <string name="ConnectingToProxyEnable">Enable</string>
     <string name="LowDiskSpaceTitle">Attention</string>
     <string name="LowDiskSpaceMessage">Your device is almost out of disk space. To free some space, you can set up DevGram to cache only recent media.</string>
@@ -11541,6 +11542,20 @@
     <string name="UnsupportedMessageTitle">Unsupported Message</string>
     <string name="UnsupportedMessageMessage">Update Telegram to view this message</string>
     <string name="UnsupportedUpdate">Update</string>
+    <string name="RoundVideoSettings">Round Video</string>
+    <string name="RoundVideoGeneral">Recorder</string>
+    <string name="RoundVideoUseNewRecorder">Use Camera2 recorder</string>
+    <string name="RoundVideoOutputResolution">Output resolution</string>
+    <string name="RoundVideoCameraResolution">Camera resolution</string>
+    <string name="RoundVideoCameraResolutionHigh">High</string>
+    <string name="RoundVideoCameraResolutionMedium">Medium</string>
+    <string name="RoundVideoCameraResolutionLow">Low</string>
+    <string name="RoundVideoFrameRate">Frame rate</string>
+    <string name="RoundVideoBitrate">Video bitrate</string>
+    <string name="RoundVideoGeneralInfo">60 FPS is used only when both front and rear cameras support it. Otherwise recording falls back to 30 FPS.</string>
+    <string name="RoundVideoComposition">Composition</string>
+    <string name="RoundVideoCompositionEnabled">Round video styling</string>
+    <string name="RoundVideoCompositionInfo">Disable styling to record a plain square without outside-circle blur, dimming or Telegram overlays.</string>
     <string name="FolderIcon">Folder icon</string>
     <string name="FolderTabsStyle">Folder tabs</string>
     <string name="FolderTabsStyleText">Labels</string>
@@ -11549,4 +11564,13 @@
     <string name="FolderTabsStyleInfo">Choose how folders appear in the tab bar. Assign an icon to each folder in its settings.</string>
     <string name="ShareDeleteOriginals">Delete original messages</string>
     <string name="SendAsSinglePhoto">Send as one photo</string>
+    <string name="WebPublish">Publish to web</string>
+    <string name="WebPublishSection">Web Publishing</string>
+    <string name="WebPublishInfo">Build text from selected messages, upload it with media to the web service in one request, then copy the page link to the clipboard. No local files are kept: media lives only in a temporary cache until the upload finishes.</string>
+    <string name="WebPublishBase">Service base URL</string>
+    <string name="WebPublishBaseHint">https://example.com</string>
+    <string name="WebPublishToken">Upload token</string>
+    <string name="WebPublishTemplate">Clipboard template (%q = link)</string>
+    <string name="WebPublishAdvanced">Advanced</string>
+    <string name="WebPublishSaved">Publish settings saved</string>
 </resources>

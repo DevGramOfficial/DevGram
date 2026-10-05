@@ -148,7 +148,7 @@ public class DevGramProxy {
         SharedPreferences p = MessagesController.getGlobalMainSettings();
         String ip = p.getString("proxy_ip", "");
         if (p.getBoolean("proxy_enabled", false) && !TextUtils.isEmpty(ip)) {
-            ConnectionsManager.setProxySettings(true, org.telegram.proxy.ProxySettings.fromSharedPreferences(p));
+            ConnectionsManager.setProxySettings(true, org.telegram.utils.proxy.ProxySettings.fromSharedPreferences(p));
         } else {
             ConnectionsManager.setProxySettings(false, null);
         }
@@ -158,9 +158,9 @@ public class DevGramProxy {
     // ВАЖНО: тип именно MTPROTO — только он сохраняет secret в конструкторе ProxySettings;
     // при Type.SOCKS5 секрет обнуляется (secret = "") → native получает пустой секрет,
     // fake-TLS не поднимается и прокси молча не работает.
-    private static org.telegram.proxy.ProxySettings ourProxySettings() {
-        return org.telegram.proxy.ProxySettings.builder()
-                .setType(org.telegram.proxy.ProxySettings.Type.MTPROTO)
+    private static org.telegram.utils.proxy.ProxySettings ourProxySettings() {
+        return org.telegram.utils.proxy.ProxySettings.builder()
+                .setType(org.telegram.utils.proxy.ProxySettings.Type.MTPROTO)
                 .setAddress(ADDRESS)
                 .setPort(PORT)
                 .setSecret(SECRET)
