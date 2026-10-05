@@ -80,6 +80,7 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
                 holderView.bind(icon);
                 holderView.iconView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(ICONS_ROUND_RADIUS), Color.TRANSPARENT, Theme.getColor(Theme.key_listSelector), Color.BLACK));
                 holderView.iconView.setForeground(icon.foreground);
+                holderView.iconView.setOuterPadding(icon.isFullImage() ? 0 : AndroidUtilities.dp(5)); // DevGram
             }
 
             @Override
@@ -298,6 +299,7 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
     public static class AdaptiveIconImageView extends ImageView {
         private Drawable foreground;
         private Path path = new Path();
+        private final Path roundPath = new Path(); // DevGram: весь значок по скруглению карточки
         private int outerPadding = AndroidUtilities.dp(5);
         private int backgroundOuterPadding = AndroidUtilities.dp(42);
 
@@ -330,6 +332,10 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
 
         @Override
         public void draw(Canvas canvas) {
+            // DevGram: обрезаем весь значок по скруглению карточки — иначе полноразмерные
+            // картинки торчат квадратными углами за рамку выделения
+            canvas.save();
+            canvas.clipPath(roundPath);
             canvas.save();
             canvas.clipPath(path);
             canvas.scale(1f + backgroundOuterPadding / (float) getWidth(), 1f + backgroundOuterPadding / (float) getHeight(), getWidth() / 2f, getHeight() / 2f);
@@ -340,9 +346,14 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
                 foreground.setBounds(-outerPadding, -outerPadding, getWidth() + outerPadding, getHeight() + outerPadding);
                 foreground.draw(canvas);
             }
+            canvas.restore();
         }
 
         private void updatePath() {
+            roundPath.rewind();
+            float stroke = Math.max(2, AndroidUtilities.dp(0.5f));
+            AndroidUtilities.rectTmp.set(stroke, stroke, getWidth() - stroke, getHeight() - stroke);
+            roundPath.addRoundRect(AndroidUtilities.rectTmp, AndroidUtilities.dp(ICONS_ROUND_RADIUS), AndroidUtilities.dp(ICONS_ROUND_RADIUS), Path.Direction.CW);
             path.rewind();
             path.addCircle(getWidth() / 2f, getHeight() / 2f, Math.min(getWidth() - getPaddingLeft() - getPaddingRight(), getHeight() - getPaddingTop() - getPaddingBottom()) / 2f, Path.Direction.CW);
         }

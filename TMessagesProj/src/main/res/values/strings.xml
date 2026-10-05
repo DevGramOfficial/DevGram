@@ -6036,8 +6036,7 @@
     <string name="DevGramMaskClock">Часы</string>
     <string name="DevGramMaskSettings">Настройки</string>
     <string name="DevGramAppIconZima">Zima</string>
-    <string name="DevGramAppIconMonetLight">Monet светлая</string>
-    <string name="DevGramAppIconMonetDark">Monet тёмная</string>
+    <string name="DevGramAppIconMonet">Monet</string>
     <string name="DevGramAppIconSunset">Sunset</string>
     <string name="DevGramAppIconAmethyst">Amethyst</string>
     <string name="DevGramAppIconAurore">Aurore</string>

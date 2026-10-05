@@ -35,16 +35,17 @@ public class LauncherIconController {
 
     public enum LauncherIcon {
         DEFAULT("DefaultIcon", R.drawable.icon_01_background_sa, R.mipmap.icon_01_foreground_sa, R.string.AppIconDefault),
-        // DevGram: свои иконки. Ключи alias старые (Original/Vintage/…) — у кого была выбрана старая иконка,
+        // DevGram: свои иконки. В селекторе: фон прозрачный, передний план — картинка целиком (fullImage).
+        // Ключи alias старые (Original/Vintage/…) — у кого была выбрана старая иконка,
         // после обновления получит новую на том же alias, а не пропавшую иконку в лаунчере.
-        ZIMA("OriginalIcon", R.mipmap.icon_dg_zima_layer, R.mipmap.icon_dg_zima_layer, R.string.DevGramAppIconZima),
-        MONET_LIGHT("VintageIcon", R.mipmap.icon_dg_monet_light_layer, R.mipmap.icon_dg_monet_light_layer, R.string.DevGramAppIconMonetLight),
-        MONET_DARK("AquaIcon", R.mipmap.icon_dg_monet_dark_layer, R.mipmap.icon_dg_monet_dark_layer, R.string.DevGramAppIconMonetDark),
-        SUNSET("PremiumIcon", R.mipmap.icon_dg_sunset_layer, R.mipmap.icon_dg_sunset_layer, R.string.DevGramAppIconSunset),
-        AMETHYST("TurboIcon", R.mipmap.icon_dg_amethyst_layer, R.mipmap.icon_dg_amethyst_layer, R.string.DevGramAppIconAmethyst),
-        AURORE("NoxIcon", R.mipmap.icon_dg_aurore_layer, R.mipmap.icon_dg_aurore_layer, R.string.DevGramAppIconAurore),
-        GOOGLE("AdaptiveIcon", R.mipmap.icon_dg_google_layer, R.mipmap.icon_dg_google_layer, R.string.DevGramAppIconGoogle),
-        GOOGLE26("Google26Icon", R.mipmap.icon_dg_google26_layer, R.mipmap.icon_dg_google26_layer, R.string.DevGramAppIconGoogle26),
+        ZIMA("OriginalIcon", R.drawable.transparent, R.drawable.icon_dg_zima_preview, R.string.DevGramAppIconZima),
+        // Monet: светлая картинка в mipmap-*, тёмная в mipmap-night-* — система сама переключает по теме
+        MONET("VintageIcon", R.drawable.transparent, R.drawable.icon_dg_monet_preview, R.string.DevGramAppIconMonet),
+        SUNSET("PremiumIcon", R.drawable.transparent, R.drawable.icon_dg_sunset_preview, R.string.DevGramAppIconSunset),
+        AMETHYST("TurboIcon", R.drawable.transparent, R.drawable.icon_dg_amethyst_preview, R.string.DevGramAppIconAmethyst),
+        AURORE("NoxIcon", R.drawable.transparent, R.drawable.icon_dg_aurore_preview, R.string.DevGramAppIconAurore),
+        GOOGLE("AdaptiveIcon", R.drawable.transparent, R.drawable.icon_dg_google_preview, R.string.DevGramAppIconGoogle),
+        GOOGLE26("Google26Icon", R.drawable.transparent, R.drawable.icon_dg_google26_preview, R.string.DevGramAppIconGoogle26),
         // DevGram: маскировка — alias с собственным android:label (меняет и иконку, и имя приложения).
         // disguise=true => не показывается в стоковом premium-селекторе иконок, только в разделе «Маскировка».
         CALCULATOR("CalculatorIcon", R.drawable.devgram_mask_calc_bg, R.drawable.devgram_mask_calc_fg, R.string.DevGramMaskCalculator, false, true),
@@ -59,6 +60,11 @@ public class LauncherIconController {
         public final int title;
         public final boolean premium;
         public final boolean disguise; // DevGram
+
+        // DevGram: картинка-превью целиком на всю карточку селектора (без вылета за края)
+        public boolean isFullImage() {
+            return background == R.drawable.transparent;
+        }
 
         private ComponentName componentName;
 
