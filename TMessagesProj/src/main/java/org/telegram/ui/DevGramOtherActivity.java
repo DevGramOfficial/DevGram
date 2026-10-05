@@ -30,10 +30,7 @@ import java.util.ArrayList;
 public class DevGramOtherActivity extends BaseFragment {
 
     private static final int ID_SUPPORT_TON = 3;
-    private static final int ID_SUPPORT_VTB = 4;
-    private static final int ID_SUPPORT_SBER = 5;
-    private static final int ID_SUPPORT_ALFA = 7;
-    private static final int ID_SUPPORT_TBANK = 8;
+    private static final int ID_CARD_BASE = 9000; // динамические карты: ID_CARD_BASE + индекс
     private static final int ID_CRASHLYTICS = 10;
     private static final int ID_ANALYTICS = 11;
     private static final int ID_EXPORT = 20;
@@ -51,6 +48,8 @@ public class DevGramOtherActivity extends BaseFragment {
     private static final String LINK_TONKEEPER = "https://app.tonkeeper.com/transfer/" + TON_ADDRESS;
 
     private UniversalRecyclerView listView;
+    private java.util.List<org.telegram.messenger.DevGramRequisites.Card> supportCards = new java.util.ArrayList<>();
+    private String supportTon = "";
 
     @Override
     public View createView(Context context) {
@@ -73,6 +72,8 @@ public class DevGramOtherActivity extends BaseFragment {
         actionBar.setAdaptiveBackground(listView);
 
         DevGramSettingsLink.consumeHighlight(listView);
+        // Подтягиваем свежие реквизиты с сервера и обновляем список при ответе.
+        org.telegram.messenger.DevGramRequisites.refresh(this::refreshList);
         return fragmentView = contentView;
     }
 
@@ -88,16 +89,18 @@ public class DevGramOtherActivity extends BaseFragment {
         // Поддержка — реквизиты; серая подпись снизу кликабельна и открывает лист «Поддержать DevGram».
         items.add(UItem.asHeader("Поддержка"));
         boolean dark = resourceProvider != null ? resourceProvider.isDark() : Theme.isCurrentThemeDark();
+        // Реквизиты берутся с сервера (api.devgram.space), владелец меняет их через бота.
+        org.telegram.messenger.DevGramRequisites.Data req = org.telegram.messenger.DevGramRequisites.load();
+        supportCards = req.cards;
+        supportTon = req.tonkeeper;
         items.add(bankButton(ctx, ID_SUPPORT_TON, dark ? R.drawable.devgram_ton_dark : R.drawable.devgram_ton_light,
                 "Tonkeeper", null));
-        items.add(bankButton(ctx, ID_SUPPORT_VTB, dark ? R.drawable.devgram_bank_vtb_dark : R.drawable.devgram_bank_vtb,
-                "ВТБ", formatCard(CARD_VTB)));
-        items.add(bankButton(ctx, ID_SUPPORT_SBER, dark ? R.drawable.devgram_bank_sber_dark : R.drawable.devgram_bank_sber,
-                "СберБанк", formatCard(CARD_SBER)));
-        items.add(bankButton(ctx, ID_SUPPORT_ALFA, dark ? R.drawable.devgram_bank_alfa_dark : R.drawable.devgram_bank_alfa,
-                "Альфа-Банк", formatCard(CARD_ALFA)));
-        items.add(bankButton(ctx, ID_SUPPORT_TBANK, dark ? R.drawable.devgram_bank_tbank_dark : R.drawable.devgram_bank_tbank,
-                "Т-Банк", formatCard(CARD_TBANK)));
+        for (int i = 0; i < supportCards.size(); i++) {
+            org.telegram.messenger.DevGramRequisites.Card c = supportCards.get(i);
+            items.add(bankButton(ctx, ID_CARD_BASE + i,
+                    org.telegram.messenger.DevGramRequisites.bankIcon(c.bank, dark),
+                    c.bank, formatCard(c.number), c.logo));
+        }
         items.add(UItem.asShadow(supportCaption()));
 
         // Сбор данных
@@ -148,14 +151,12 @@ public class DevGramOtherActivity extends BaseFragment {
     private void onItemClick(UItem item, View view, int position, float x, float y) {
         if (item.id == ID_SUPPORT_TON) {
             openTonkeeper();
-        } else if (item.id == ID_SUPPORT_VTB) {
-            copyCard("ВТБ", CARD_VTB);
-        } else if (item.id == ID_SUPPORT_SBER) {
-            copyCard("СберБанк", CARD_SBER);
-        } else if (item.id == ID_SUPPORT_ALFA) {
-            copyCard("Альфа-Банк", CARD_ALFA);
-        } else if (item.id == ID_SUPPORT_TBANK) {
-            copyCard("Т-Банк", CARD_TBANK);
+        } else if (item.id >= ID_CARD_BASE && item.id < ID_CARD_BASE + 100) {
+            int idx = item.id - ID_CARD_BASE;
+            if (idx >= 0 && idx < supportCards.size()) {
+                org.telegram.messenger.DevGramRequisites.Card c = supportCards.get(idx);
+                copyCard(c.bank, c.number);
+            }
         } else if (item.id == ID_CRASHLYTICS) {
             DevGramConfig.setCrashlyticsEnabled(!DevGramConfig.crashlyticsEnabled);
             refreshList();
@@ -181,6 +182,10 @@ public class DevGramOtherActivity extends BaseFragment {
     }
 
     private UItem bankButton(Context context, int id, int icon, CharSequence text, CharSequence value) {
+        return bankButton(context, id, icon, text, value, null);
+    }
+
+    private UItem bankButton(Context context, int id, int icon, CharSequence text, CharSequence value, String logoUrl) {
         android.graphics.drawable.Drawable drawable = context != null ? context.getDrawable(icon) : null;
         UItem item = value == null ? UItem.asButton(id, drawable, text) : UItem.asButton(id, drawable, text, value);
         return item.onBind(view -> {
@@ -189,6 +194,10 @@ public class DevGramOtherActivity extends BaseFragment {
                 // UniversalAdapter вызывает setColors после установки Drawable; очищаем его фильтр последними.
                 cell.getImageView().setColorFilter(null);
                 cell.getImageView().setTag(null);
+                // Логотип нового банка с сервера (если задан) грузим поверх generic-иконки.
+                if (logoUrl != null && !logoUrl.isEmpty()) {
+                    org.telegram.messenger.DevGramRequisites.applyLogo(cell.getImageView(), logoUrl);
+                }
                 // Как в CherryGram: дополнительный воздух между карточкой и названием.
                 cell.setOffsetFromImage(66);
             }
@@ -302,15 +311,19 @@ public class DevGramOtherActivity extends BaseFragment {
 
     // Tonkeeper: сперва пытаемся открыть кошелёк напрямую (ton://transfer), иначе — универсальная ссылка.
     private void openTonkeeper() {
+        String addr = supportTon != null && !supportTon.isEmpty()
+                ? supportTon
+                : org.telegram.messenger.DevGramRequisites.load().tonkeeper;
         android.app.Activity act = getParentActivity();
         if (act != null) {
             try {
                 act.startActivity(new Intent(Intent.ACTION_VIEW,
-                        android.net.Uri.parse("ton://transfer/" + TON_ADDRESS)));
+                        android.net.Uri.parse("ton://transfer/" + addr)));
                 return;
             } catch (Throwable ignore) {
             }
         }
-        Browser.openUrl(getContext(), LINK_TONKEEPER);
+        Browser.openUrl(getContext(), "https://app.tonkeeper.com/transfer/" + addr);
     }
+
 }
