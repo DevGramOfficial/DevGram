@@ -92,8 +92,10 @@ public class BitmapsCache {
         }
 
         File fileTmo = new File(FileLoader.checkDirectory(FileLoader.MEDIA_DIR_CACHE), "acache");
-        if (!mkdir) {
-            fileTmo.mkdir();
+        // DevGram: очистка кэша удаляет папку acache посреди сессии — без проверки exists()
+        // анимированные стикеры не кэшировались до перезапуска (ENOENT на .pcache2)
+        if (!mkdir || !fileTmo.exists()) {
+            fileTmo.mkdirs();
             mkdir = true;
         }
         file = new File(fileTmo, fileName + "_" + w + "_" + h + (noLimit ? "_nolimit" : " ") + (fitz != 0 ? "_fitz" + fitz : "") + ".pcache2");
