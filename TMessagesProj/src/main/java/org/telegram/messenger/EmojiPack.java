@@ -1,11 +1,15 @@
 package org.telegram.messenger;
 
 import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -56,8 +60,15 @@ public final class EmojiPack {
         private static EmojiPack open() {
             try {
                 return new EmojiPack();
-            } catch (IOException e) {
-                throw new IllegalStateException("Unable to open emoji.pack", e);
+            } catch (IOException | RuntimeException e) {
+                // A broken/missing asset must not bring down globalQueue during class
+                // initialization. Emoji falls back to the individual PNG assets.
+                try {
+                    FileLog.e("Unable to open emoji.pack, using PNG fallback", e);
+                } catch (RuntimeException ignored) {
+                    // Logging is best effort here: this code runs from a static holder.
+                }
+                return null;
             }
         }
     }
@@ -67,17 +78,7 @@ public final class EmojiPack {
     }
 
     private EmojiPack() throws IOException {
-        // The mapping remains valid after closing the descriptors.
-        try (AssetFileDescriptor afd = ApplicationLoader.applicationContext
-                .getAssets().openFd(ASSET_NAME);
-             FileInputStream stream = afd.createInputStream()) {
-            long length = afd.getLength();
-            if (length < HEADER_SIZE || length > Integer.MAX_VALUE) {
-                throw new IOException("Invalid emoji pack length: " + length);
-            }
-            buffer = stream.getChannel().map(FileChannel.MapMode.READ_ONLY,
-                    afd.getStartOffset(), length);
-        }
+        buffer = mapAsset();
         buffer.order(ByteOrder.LITTLE_ENDIAN);
         if (buffer.getInt(0) != 0x334B5045 || (u16(4) != 2 && u16(4) != 3) || u16(6) != ENTRY_SIZE
                 || buffer.getInt(8) != SIDE || buffer.getInt(12) != SIDE
@@ -95,6 +96,50 @@ public final class EmojiPack {
         options.inScaled = false;
         options.inPreferredConfig = Bitmap.Config.ARGB_8888;
         options.inPremultiplied = true;
+    }
+
+    private static MappedByteBuffer mapAsset() throws IOException {
+        final AssetManager assets = ApplicationLoader.applicationContext.getAssets();
+        try (AssetFileDescriptor afd = assets.openFd(ASSET_NAME);
+             FileInputStream stream = afd.createInputStream()) {
+            return map(stream.getChannel(), afd.getStartOffset(), afd.getLength());
+        } catch (IOException directError) {
+            // openFd only works for an uncompressed, directly addressable APK asset.
+            // Some installers/firmwares may repack the APK, so copy through the
+            // regular AssetManager stream and mmap the temporary file instead.
+            File temporary = File.createTempFile("emoji-", ".pack",
+                    ApplicationLoader.applicationContext.getCodeCacheDir());
+            try {
+                try (InputStream input = assets.open(ASSET_NAME, AssetManager.ACCESS_STREAMING);
+                     FileOutputStream output = new FileOutputStream(temporary)) {
+                    byte[] copyBuffer = new byte[64 * 1024];
+                    int read;
+                    while ((read = input.read(copyBuffer)) != -1) {
+                        output.write(copyBuffer, 0, read);
+                    }
+                    output.getFD().sync();
+                }
+                try (FileInputStream stream = new FileInputStream(temporary)) {
+                    return map(stream.getChannel(), 0, temporary.length());
+                }
+            } catch (IOException fallbackError) {
+                fallbackError.addSuppressed(directError);
+                throw fallbackError;
+            } finally {
+                if (!temporary.delete()) {
+                    temporary.deleteOnExit();
+                }
+            }
+        }
+    }
+
+    private static MappedByteBuffer map(FileChannel channel, long offset, long length)
+            throws IOException {
+        if (length < HEADER_SIZE || length > Integer.MAX_VALUE) {
+            throw new IOException("Invalid emoji pack length: " + length);
+        }
+        // The mapping remains valid after the channel and descriptor are closed.
+        return channel.map(FileChannel.MapMode.READ_ONLY, offset, length);
     }
 
     private int u16(int offset) {

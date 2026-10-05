@@ -120,9 +120,14 @@ public class Emoji {
                 Bitmap bitmap = null;
                 try {
                     final EmojiPack emojiPack = EmojiPack.getInstance();
-                    bitmap = emojiPack.getEmoji(page, page2);
-                } catch (Exception e) {
+                    if (emojiPack != null) {
+                        bitmap = emojiPack.getEmoji(page, page2);
+                    }
+                } catch (RuntimeException e) {
                     FileLog.e(e);
+                }
+                if (bitmap == null) {
+                    bitmap = loadBitmap("emoji/" + page + "_" + page2 + ".png");
                 }
                 if (bitmap != null) {
                     emojiBmp[page][page2] = bitmap;
