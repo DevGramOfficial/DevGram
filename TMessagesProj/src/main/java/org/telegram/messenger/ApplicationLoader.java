@@ -377,6 +377,7 @@ public class ApplicationLoader extends Application {
         // DevGram: своя телеметрия (analytics/crashes в RTDB через REST, без Google-SDK) — ставит
         // обработчик крашей и выгружает накопленное; сбор идёт только если включены тумблеры «Google»
         DevGramTelemetry.init();
+        DevGramAnimGuard.install(); // ловушка NPE setScaleX у анимаций с пустой целью (+ отчёт о месте создания)
         DevGramPluginNotifications.init();
         // DevGram: система плагинов (Python/Chaquopy) — грузим в фоне, чтобы не тормозить старт
         Utilities.globalQueue.postRunnable(DevGramPlugins::loadAll);
