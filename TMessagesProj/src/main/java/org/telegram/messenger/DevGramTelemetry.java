@@ -22,7 +22,7 @@ public class DevGramTelemetry {
     private static volatile String installId;
 
     // Реально ли сейчас собираем краши: мастер-гейт И тумблер пользователя.
-    private static boolean crashesActive() {
+    static boolean crashesActive() {
         return COLLECT_CRASHES && DevGramConfig.crashlyticsEnabled;
     }
 
@@ -30,6 +30,7 @@ public class DevGramTelemetry {
     public static void init() {
         installCrashHandler(); // ставим всегда (чтобы работало и после включения тумблера без перезапуска)
         startMemoryWatchdog();  // ловим утечки/раздувание памяти ДО OOM (снапшот в краш-отчёт)
+        DevGramExitReport.reportPendingAsync(); // нативные краши/ANR прошлых запусков (ApplicationExitInfo)
         Utilities.globalQueue.postRunnable(() -> {
             try {
                 if (crashesActive()) {
@@ -346,5 +347,51 @@ public class DevGramTelemetry {
                 c.disconnect();
             }
         }
+    }
+
+    // Отправить готовый текст отчёта о сбое в RTDB (узел crashes_full).
+    // Нужно для НАТИВНЫХ крашей: их Java-обработчик не ловит, а при старт-краше
+    // приложение не успевает показать/скопировать отчёт в буфер. Отправка идёт по сети
+    // напрямую (не через буфер обмена), с привязкой к installId.
+    public static boolean uploadReport(String report) {
+        if (report == null || report.isEmpty()) {
+            return false;
+        }
+        String body;
+        try {
+            if (report.length() > 180000) {
+                report = report.substring(0, 180000) + "\n… (обрезано клиентом)\n";
+            }
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("ver", verName());
+            o.put("build", verCode());
+            o.put("android", android.os.Build.VERSION.SDK_INT);
+            o.put("model", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL);
+            o.put("ts", System.currentTimeMillis());
+            o.put("report", report);
+            body = o.toString();
+        } catch (Throwable e) {
+            return false;
+        }
+        // Узел crashes открыт на запись (туда же пишет телеметрия); читаю админом с сервера.
+        // Ключ с префиксом full_ — чтобы отличать полный отчёт (с logcat) от обычной записи.
+        long ts = System.currentTimeMillis();
+        String key = "full_" + ts;
+        String url = RTDB + "/crashes/" + installId() + "/" + key + ".json";
+        for (int attempt = 0; attempt < 3; attempt++) {
+            if (put(url, body)) {
+                // крошечная запись в индекс: statbot читает только новые ключи индекса,
+                // а не обходит все установки (экономия трафика RTDB)
+                put(RTDB + "/crashes/_index/" + ts + "_" + installId() + ".json",
+                        org.json.JSONObject.quote(installId() + "/" + key));
+                return true;
+            }
+            try {
+                Thread.sleep(1500);
+            } catch (InterruptedException ie) {
+                return false;
+            }
+        }
+        return false;
     }
 }

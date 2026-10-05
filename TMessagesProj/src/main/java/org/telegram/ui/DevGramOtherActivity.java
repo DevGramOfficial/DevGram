@@ -33,6 +33,7 @@ public class DevGramOtherActivity extends BaseFragment {
     private static final int ID_CARD_BASE = 9000; // динамические карты: ID_CARD_BASE + индекс
     private static final int ID_CRASHLYTICS = 10;
     private static final int ID_ANALYTICS = 11;
+    private static final int ID_CRASH_TEST = 12;
     private static final int ID_EXPORT = 20;
     private static final int ID_IMPORT = 21;
     private static final int ID_RESET = 22;
@@ -107,6 +108,9 @@ public class DevGramOtherActivity extends BaseFragment {
         items.add(UItem.asHeader("Сбор данных"));
         items.add(UItem.asCheck(ID_CRASHLYTICS, "Отчёты о сбоях").setChecked(DevGramConfig.crashlyticsEnabled));
         items.add(UItem.asCheck(ID_ANALYTICS, "Аналитика").setChecked(DevGramConfig.analyticsEnabled));
+        if (DevGramConfig.crashlyticsEnabled) {
+            items.add(UItem.asButton(ID_CRASH_TEST, R.drawable.msg_report, "Проверить отчёт о сбое"));
+        }
         items.add(UItem.asShadow("Анонимные данные (версия, модель устройства, факт запуска, стек-трейсы "
                 + "сбоев) отправляются в базу DevGram, чтобы мы видели статистику и чинили ошибки. Без "
                 + "Google-SDK и без привязки к аккаунту. Отчёты о сбоях включены по умолчанию, аналитика "
@@ -160,6 +164,8 @@ public class DevGramOtherActivity extends BaseFragment {
         } else if (item.id == ID_CRASHLYTICS) {
             DevGramConfig.setCrashlyticsEnabled(!DevGramConfig.crashlyticsEnabled);
             refreshList();
+        } else if (item.id == ID_CRASH_TEST) {
+            showCrashTestDialog();
         } else if (item.id == ID_ANALYTICS) {
             DevGramConfig.setAnalyticsEnabled(!DevGramConfig.analyticsEnabled);
             refreshList();
@@ -326,4 +332,30 @@ public class DevGramOtherActivity extends BaseFragment {
         Browser.openUrl(getContext(), "https://app.tonkeeper.com/transfer/" + addr);
     }
 
+    // Проверка всей цепочки отчётов: приложение падает нарочно, при следующем запуске отчёт
+    // уходит в RTDB (DevGramExitReport) и приходит в группу (statbot).
+    private void showCrashTestDialog() {
+        if (getParentActivity() == null) return;
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle("Проверить отчёт о сбое");
+        builder.setMessage("Приложение сразу закроется. Откройте его снова — отчёт отправится автоматически.");
+        builder.setItems(new CharSequence[]{
+                "Java-исключение",
+                "Нативный сбой (SIGSEGV)",
+                "Зависание (ANR) — потом коснитесь экрана"
+        }, (dialog, which) -> AndroidUtilities.runOnUIThread(() -> {
+            if (which == 0) {
+                throw new RuntimeException("DevGram: проверка отчёта о сбое");
+            } else if (which == 1) {
+                android.os.Process.sendSignal(android.os.Process.myPid(), 11);
+            } else {
+                try {
+                    Thread.sleep(30_000);
+                } catch (InterruptedException ignore) {
+                }
+            }
+        }, 300));
+        builder.setNegativeButton("Отмена", null);
+        showDialog(builder.create());
+    }
 }

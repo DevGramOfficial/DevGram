@@ -31,6 +31,7 @@ public class DevGramPlugins {
     // Защита от «кирпича»: если прошлый запуск упал — авто-безопасный режим + ошибка в буфер.
     private static volatile boolean crashHandlerInstalled;
     private static volatile boolean pendingCrashNotice; // показать уведомление о крэше, когда появится активность
+    private static volatile boolean pendingCrashHasJavaTrace;
 
     // Реестр проверенных плагинов: множество SHA-256 доверенных исходников (из облака).
     private static final String RTDB = "https://devgram-d03e4-default-rtdb.europe-west1.firebasedatabase.app";
@@ -365,6 +366,15 @@ public class DevGramPlugins {
         if (prevCrash) {
             setFlag("safe_mode", true);
             pendingCrashNotice = true;
+            pendingCrashHasJavaTrace = javaCrash;
+            // Отчёт в RTDB отправляет DevGramExitReport (по системной причине завершения, с
+            // нативным tombstone) — здесь только безопасный режим и диалог при следующем показе.
+            if (!javaCrash) {
+                // boot_pending also detects an interrupted startup/update. It must not
+                // attach a Java stack left over from an older application version.
+                prefs().edit().remove("last_crash").remove("last_crash_time")
+                        .remove("last_crash_version").apply();
+            }
         }
         SharedPreferences.Editor bootEditor = prefs().edit()
                 .putBoolean("crashed", false)
@@ -1553,7 +1563,9 @@ public class DevGramPlugins {
                 prefs().edit()
                         .putBoolean("crashed", true)
                         .putString("last_crash", "DevGram — приложение упало:\n\n" + sw)
-                        .apply();
+                        .putLong("last_crash_time", System.currentTimeMillis())
+                        .putString("last_crash_version", BuildVars.BUILD_VERSION_STRING)
+                        .commit(); // процесс сейчас завершится: асинхронный apply может не успеть
             } catch (Throwable ignore) {
             }
             if (prev != null) {
@@ -1595,11 +1607,13 @@ public class DevGramPlugins {
         } catch (Throwable ignore) {
         }
         final boolean crashNoticeNow = pendingCrashNotice;
+        final boolean crashHasJavaTrace = pendingCrashHasJavaTrace;
         if (pendingCrashNotice) {
             pendingCrashNotice = false;
+            pendingCrashHasJavaTrace = false;
             // сбор отчёта тяжёлый (logcat) — в фоне, затем показ на UI
             NET_QUEUE.execute(() -> {
-                final String report = collectCrashReport();
+                final String report = collectCrashReport(crashHasJavaTrace);
                 saveCrashReport(report);
                 AndroidUtilities.runOnUIThread(() -> {
                     try {
@@ -1619,7 +1633,9 @@ public class DevGramPlugins {
         // даём приложению 8 секунд «пожить»; если за это время упадёт — boot_pending останется
         AndroidUtilities.runOnUIThread(() -> {
             try {
-                prefs().edit().putBoolean("boot_pending", false).apply();
+                prefs().edit().putBoolean("boot_pending", false)
+                        .remove("last_crash").remove("last_crash_time")
+                        .remove("last_crash_version").apply();
             } catch (Throwable ignore) {
             }
         }, 8000);
@@ -1635,7 +1651,7 @@ public class DevGramPlugins {
     }
 
     // Собрать ПОЛНЫЙ отчёт: устройство, версия, Java-стек (если был) + дамп logcat (нативный бэктрейс/ANR/логи Pine).
-    private static String collectCrashReport() {
+    private static String collectCrashReport(boolean includeJavaTrace) {
         StringBuilder sb = new StringBuilder();
         sb.append("===== DevGram: отчёт о сбое =====\n");
         try {
@@ -1662,11 +1678,20 @@ public class DevGramPlugins {
             }
         } catch (Throwable ignore) {
         }
-        String javaTrace = prefs().getString("last_crash", "");
+        String javaTrace = includeJavaTrace ? prefs().getString("last_crash", "") : "";
+        if (includeJavaTrace) {
+            // A captured exception belongs to exactly one report. Keeping it in
+            // preferences made later boot_pending notices show an obsolete stack
+            // under the version and time of a newly installed build.
+            prefs().edit().remove("last_crash").remove("last_crash_time")
+                    .remove("last_crash_version").apply();
+        }
         if (javaTrace != null && !javaTrace.isEmpty()) {
             sb.append("\n===== необработанное исключение (Java) =====\n").append(javaTrace).append('\n');
         } else {
-            sb.append("\n(Java-исключения не зафиксировано — вероятно нативный сбой или ANR; смотри logcat ниже)\n");
+            // нативный сбой/ANR: причину и tombstone отдаёт система (ApplicationExitInfo)
+            String exit = DevGramExitReport.describeLatestFailure(prefs().getLong("boot_started_at", 0L));
+            sb.append('\n').append(exit.isEmpty() ? "(Java-исключения не зафиксировано, система причину не сохранила)\n" : exit);
         }
         prefs().edit().remove("last_crash").apply();
         sb.append("\n===== logcat (последние строки процесса) =====\n").append(readLogcat());
@@ -1675,22 +1700,59 @@ public class DevGramPlugins {
 
     // Дамп собственных логов процесса (там и Java FATAL EXCEPTION, и логи Pine/Chaquopy перед падением).
     private static String readLogcat() {
+        StringBuilder all = new StringBuilder();
+        // Обычный буфер (main/system) работает всегда — дампим его первым, чтобы отчёт
+        // гарантированно собрался, даже если буфер crash недоступен/виснет.
+        all.append("===== буфер main+system (последние строки) =====\n");
+        dumpLogcat(all, new String[]{"logcat", "-d", "-v", "time", "-t", "700"}, 80000);
+        // Буфер crash приложению недоступен (нет READ_LOGS, на Samsung чтение виснет) —
+        // нативный backtrace берётся из tombstone через DevGramExitReport.
+        return all.length() == 0 ? "(logcat пуст или недоступен)" : all.toString();
+    }
+
+    private static void dumpLogcat(StringBuilder all, String[] cmd, int limit) {
+        int start = all.length();
+        Process p = null;
         try {
-            Process p = Runtime.getRuntime().exec(new String[]{"logcat", "-d", "-v", "time", "-t", "700"});
+            p = Runtime.getRuntime().exec(cmd);
+            final Process fp = p;
+            // Защита от зависания logcat: если за 4 сек не завершился — прибиваем.
+            Thread killer = new Thread(() -> {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException ignored) {
+                    return;
+                }
+                try {
+                    fp.destroy();
+                } catch (Throwable ignored) {
+                }
+            });
+            killer.setDaemon(true);
+            killer.start();
             java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
-            StringBuilder all = new StringBuilder();
             String line;
             while ((line = r.readLine()) != null) {
+                if (line.contains("Kumiho-Kumiho") && line.contains("getPackageName:")) {
+                    continue;
+                }
                 all.append(line).append('\n');
-                if (all.length() > 80000) {
+                if (all.length() - start > limit) {
                     all.append("… (обрезано)\n");
                     break;
                 }
             }
             r.close();
-            return all.length() == 0 ? "(logcat пуст или недоступен)" : all.toString();
+            killer.interrupt();
         } catch (Throwable e) {
-            return "logcat недоступен: " + e;
+            all.append("logcat недоступен: ").append(e).append('\n');
+        } finally {
+            if (p != null) {
+                try {
+                    p.destroy();
+                } catch (Throwable ignored) {
+                }
+            }
         }
     }
 
