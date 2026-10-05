@@ -43259,7 +43259,7 @@ public class ChatActivity extends BaseFragment implements
                         try {
                             // Для .dgplugin архив не читаем в память — showPackage работает по пути.
                             if (devgramDocName.endsWith(".dgplugin")) {
-                                DevGramPluginInstallSheet.showPackage(ChatActivity.this, locFile.getAbsolutePath(), getDialogId());
+                                DevGramPluginInstallSheet.showPackage(ChatActivity.this, locFile.getAbsolutePath(), getDialogId(), message);
                                 return;
                             }
                             byte[] data = new byte[(int) locFile.length()];
@@ -43273,7 +43273,7 @@ public class ChatActivity extends BaseFragment implements
                             // .plugin — всегда показываем лист; .py — только если это плагин DevGram
                             boolean forcePlugin = devgramDocName.endsWith(".plugin");
                             if (forcePlugin || !org.telegram.messenger.DevGramPlugins.parseMeta(src).isEmpty()) {
-                                DevGramPluginInstallSheet.show(ChatActivity.this, src, getDialogId());
+                                DevGramPluginInstallSheet.show(ChatActivity.this, src, getDialogId(), message);
                                 return;
                             }
                         } catch (Throwable e) {

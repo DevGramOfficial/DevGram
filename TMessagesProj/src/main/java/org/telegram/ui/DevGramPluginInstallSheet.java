@@ -39,6 +39,11 @@ public class DevGramPluginInstallSheet {
 
     // Лист установки .dgplugin-пакета — ТА ЖЕ карточка, что и у .plugin (единая логика).
     public static void showPackage(BaseFragment fragment, String path, long sourceDialogId) {
+        showPackage(fragment, path, sourceDialogId, null);
+    }
+
+    // originMessage — сообщение с файлом: по нему ищем исходный канал-разработчик (пересылка и т.п.)
+    public static void showPackage(BaseFragment fragment, String path, long sourceDialogId, org.telegram.messenger.MessageObject originMessage) {
         Context context = fragment.getParentActivity();
         if (context == null || path == null) return;
         String validationError = DevGramPlugins.packageValidationError(path);
@@ -59,7 +64,9 @@ public class DevGramPluginInstallSheet {
         // у пакета нет единого «source»-текста для реестра/каталога — verifySource=null:
         // это отключает source-зависимые кнопки (проверка/публикация), карточка при этом та же.
         String pkgSha = org.telegram.messenger.DevGramPackages.sha256File(new java.io.File(path));
-        showCard(fragment, id, name, ver, author, desc, iconUrl, sourceDialogId, null, pkgSha, capabilities, path,
+        showCard(fragment, id, name, ver, author, desc, iconUrl,
+                org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId), originMessage,
+                null, pkgSha, capabilities, path,
                 enableAfter -> DevGramPlugins.installPackage(path, id, enableAfter));
     }
 
@@ -69,6 +76,10 @@ public class DevGramPluginInstallSheet {
 
     // Показать лист установки для исходника плагина (.plugin/.py).
     public static void show(BaseFragment fragment, String source, long sourceDialogId) {
+        show(fragment, source, sourceDialogId, null);
+    }
+
+    public static void show(BaseFragment fragment, String source, long sourceDialogId, org.telegram.messenger.MessageObject originMessage) {
         Context context = fragment.getParentActivity();
         if (context == null || source == null) {
             return;
@@ -87,7 +98,9 @@ public class DevGramPluginInstallSheet {
         String desc = m.length > 4 ? m[4] : "";
         String iconUrl = m.length > 5 ? m[5] : "";
         final String fSource = source;
-        showCard(fragment, id, name, ver, author, desc, iconUrl, sourceDialogId, source, DevGramPlugins.sha256(source), source, null,
+        showCard(fragment, id, name, ver, author, desc, iconUrl,
+                org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId), originMessage,
+                source, DevGramPlugins.sha256(source), source, null,
                 enableAfter -> DevGramPlugins.install(fSource, id, enableAfter));
     }
 
@@ -98,7 +111,7 @@ public class DevGramPluginInstallSheet {
     // включены (только для .py); для .dgplugin verifySource=null — они скрыты, карточка та же.
     private static void showCard(BaseFragment fragment, final String id, final String name,
                                  String ver, String author, String desc, String iconUrl,
-                                 long sourceDialogId, final String verifySource, final String verifyHash, String capabilitiesSource,
+                                 long sourceDialogId, final org.telegram.messenger.MessageObject originMessage, final String verifySource, final String verifyHash, String capabilitiesSource,
                                  final String packagePath, final InstallAction installAction) {
         Context context = fragment.getParentActivity();
         if (context == null) {
@@ -262,23 +275,27 @@ public class DevGramPluginInstallSheet {
 
         // ---- перекраска по статусу проверки (живьём) ----
         final boolean[] vState = {verified};
+        final boolean[] devState = {fromDevChannel};
         final boolean[] blockKnown = {false};
+        final boolean[] blockFailed = {false}; // проверка блокировки недоступна (сеть/база)
         final boolean[] blockState = {false};
         final TextView badgeRef = badge, warnTextRef = warnText, installRef = install;
         final LinearLayout warnRef = warn;
         Runnable applyVerified = () -> {
             boolean vv = vState[0];
-            badgeRef.setText(vv ? "🛡️ Проверено DevGram" : "⚠️ Неизвестный источник");
+            badgeRef.setText(vv ? (devState[0] ? "🧩 Проверенный разработчик" : "🛡️ Проверено DevGram") : "⚠️ Неизвестный источник");
             badgeRef.setTextColor(vv ? 0xFFFFFFFF : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             badgeRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16),
                     vv ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
             warnRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18),
                     vv ? 0x223BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
             warnTextRef.setText(vv
-                    ? "✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять."
+                    ? (devState[0]
+                        ? "✓ Проверенный источник\nПлагин из канала-разработчика плагинов DevGram (🧩). Такие каналы проверены командой — плагинам из них можно доверять."
+                        : "✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять.")
                     : "ⓘ Внимание: неизвестный источник\nПлагина нет в реестре проверенных DevGram, он выполняет код в приложении. Устанавливай только если доверяешь автору.");
             warnTextRef.setTextColor(vv ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-            if (!blockKnown[0]) {
+            if (!blockKnown[0] && !blockFailed[0]) {
                 installRef.setText("Проверяю блокировку…");
                 installRef.setEnabled(false);
             } else if (blockState[0]) {
@@ -311,12 +328,9 @@ public class DevGramPluginInstallSheet {
             applyBlock.run();
             DevGramPluginBlocks.check(id, verifyHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
+                blockFailed[0] = !status.success;
                 blockState[0] = status.success && status.blocked;
                 applyBlock.run();
-                if (!status.success) {
-                    org.telegram.ui.Components.BulletinFactory.of(fragment)
-                            .createErrorBulletin(status.reason).show();
-                }
             });
         };
 
@@ -577,33 +591,118 @@ public class DevGramPluginInstallSheet {
         builder.setCustomView(scroll);
         BottomSheet sheet = builder.create();
 
+        Runnable doInstall = () -> {
+            boolean ok = installAction.install(enableAfter[0]);
+            sheet.dismiss();
+            if (ok) {
+                org.telegram.ui.Components.BulletinFactory.of(fragment)
+                        .createSimpleBulletin(R.raw.contact_check,
+                                "Плагин «" + name + "» " + (installed ? "обновлён" : "установлен")).show();
+            } else {
+                org.telegram.ui.Components.BulletinFactory.of(fragment)
+                        .createErrorBulletin(installed ? "Не удалось обновить плагин" : "Не удалось установить плагин").show();
+            }
+        };
         install.setOnClickListener(v -> {
             install.setEnabled(false);
             install.setText("Проверяю блокировку…");
             DevGramPluginBlocks.check(id, verifyHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
+                blockFailed[0] = !status.success;
                 blockState[0] = status.success && status.blocked;
-                if (!status.success || status.blocked) {
-                    applyBlock.run();
-                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(
-                            status.success ? "Установка этого плагина заблокирована" : status.reason).show();
+                applyBlock.run();
+                if (status.success && status.blocked) {
+                    org.telegram.ui.Components.BulletinFactory.of(fragment)
+                            .createErrorBulletin("Установка этого плагина заблокирована").show();
                     return;
                 }
-                boolean ok = installAction.install(enableAfter[0]);
-                sheet.dismiss();
-                if (ok) {
-                    org.telegram.ui.Components.BulletinFactory.of(fragment)
-                            .createSimpleBulletin(R.raw.contact_check,
-                                    "Плагин «" + name + "» " + (installed ? "обновлён" : "установлен")).show();
-                } else {
-                    org.telegram.ui.Components.BulletinFactory.of(fragment)
-                            .createErrorBulletin(installed ? "Не удалось обновить плагин" : "Не удалось установить плагин").show();
+                if (!status.success) {
+                    showUncheckedRiskSheet(fragment, name, status.reason, doInstall);
+                    return;
                 }
+                doInstall.run();
             });
         });
 
         sheet.show();
         refreshBlock[0].run();
+
+        // Пересланный/повторно отправленный файл: ищем этот же документ в каналах-разработчиках (🧩)
+        if (!vState[0] && originMessage != null) {
+            org.telegram.messenger.DevGramPluginOrigin.findInDevChannels(account, originMessage, devDialogId -> {
+                if (!sheet.isShowing()) return;
+                vState[0] = true;
+                devState[0] = true;
+                applyBlock.run();
+            });
+        }
+    }
+
+    // Проверка блокировки недоступна (нет сети, база не отвечает): не запрещаем установку,
+    // а честно предупреждаем — пользователь решает сам.
+    private static void showUncheckedRiskSheet(BaseFragment fragment, String pluginName, String reason, Runnable onConfirm) {
+        Context context = fragment.getParentActivity();
+        if (context == null) return;
+        LinearLayout root = new LinearLayout(context);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(22), AndroidUtilities.dp(20), AndroidUtilities.dp(16));
+
+        TextView icon = new TextView(context);
+        icon.setText("🛡️");
+        icon.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 44);
+        icon.setGravity(Gravity.CENTER);
+        root.addView(icon, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        TextView title = new TextView(context);
+        title.setText("Проверка блокировки недоступна");
+        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+        title.setTypeface(AndroidUtilities.bold());
+        title.setGravity(Gravity.CENTER);
+        root.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
+
+        TextView text = new TextView(context);
+        text.setText("Не удалось проверить, не заблокирован ли «" + pluginName + "» командой DevGram"
+                + (reason != null && !reason.isEmpty() ? " (" + reason + ")" : "")
+                + ".\n\nВы устанавливаете плагин на свой страх и риск: он выполняет код в приложении.");
+        text.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        text.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        text.setLineSpacing(AndroidUtilities.dp(3), 1f);
+        text.setGravity(Gravity.CENTER);
+        root.addView(text, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
+
+        BottomSheet.Builder builder = new BottomSheet.Builder(context);
+        builder.setApplyBottomPadding(false);
+        builder.setCustomView(root);
+        BottomSheet riskSheet = builder.create();
+
+        TextView confirm = new TextView(context);
+        confirm.setText("Установить на свой страх и риск");
+        confirm.setGravity(Gravity.CENTER);
+        confirm.setTextColor(0xFFFFFFFF);
+        confirm.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        confirm.setTypeface(AndroidUtilities.bold());
+        confirm.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
+                Theme.getColor(Theme.key_text_RedBold), Theme.multAlpha(Theme.getColor(Theme.key_text_RedBold), .8f)));
+        ScaleStateListAnimator.apply(confirm, .025f, 1.2f);
+        confirm.setOnClickListener(v -> {
+            riskSheet.dismiss();
+            onConfirm.run();
+        });
+        root.addView(confirm, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, 0, 20, 0, 0));
+
+        TextView cancel = new TextView(context);
+        cancel.setText("Отмена");
+        cancel.setGravity(Gravity.CENTER);
+        cancel.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
+        cancel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        cancel.setTypeface(AndroidUtilities.bold());
+        cancel.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
+                0, Theme.getColor(Theme.key_listSelector)));
+        cancel.setOnClickListener(v -> riskSheet.dismiss());
+        root.addView(cancel, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 46, 0, 6, 0, 0));
+
+        riskSheet.show();
     }
 
     // Публикация в каталог: сначала выбор фильтра (категории), затем запись. Заблокированные плагины
