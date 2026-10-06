@@ -673,6 +673,8 @@ public class DevGramPluginInstallSheet {
         builder.setApplyBottomPadding(false);
         builder.setCustomView(sheetContainer);
         BottomSheet sheet = builder.create();
+        // свайп вниз закрывает лист только когда карточка прокручена до верха, иначе — обычная прокрутка
+        scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> sheet.setCanDismissWithSwipe(y <= 0));
 
         Runnable doInstall = () -> {
             boolean ok = installAction.install(enableAfter[0]);
@@ -930,6 +932,7 @@ public class DevGramPluginInstallSheet {
             builder.setApplyBottomPadding(false);
             builder.setCustomView(scroll);
             sheetRef[0] = builder.create();
+            scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> sheetRef[0].setCanDismissWithSwipe(y <= 0));
             sheetRef[0].show();
         });
     }

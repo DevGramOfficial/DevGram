@@ -278,8 +278,9 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
         DialogsActivity picker = new DialogsActivity(args);
         picker.setDelegate((fragment, dids, message, param, notify, scheduleDate, scheduleRepeatPeriod, topicsFragment) -> {
             try {
-                // копия под понятным именем: файл в папке плагинов могут переименовать/обновить
-                java.io.File dir = new java.io.File(org.telegram.messenger.ApplicationLoader.applicationContext.getCacheDir(), "plugin_share");
+                // копия во внешнем кэше Telegram: файлы из внутренней папки приложения Telegram
+                // отправлять отказывается (защита от утечки служебных данных)
+                java.io.File dir = new java.io.File(org.telegram.messenger.FileLoader.checkDirectory(org.telegram.messenger.FileLoader.MEDIA_DIR_CACHE), "plugin_share");
                 dir.mkdirs();
                 java.io.File copy = new java.io.File(dir, filename);
                 try (java.io.FileInputStream in = new java.io.FileInputStream(file);
