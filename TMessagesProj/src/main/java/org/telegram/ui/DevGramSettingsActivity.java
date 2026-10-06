@@ -43,6 +43,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
     private boolean modUnlocked;
     private boolean modPrompting;
     private View headerView;
+    private ImageView headerIcon;
 
     // Категории (каждая открывает свой экран)
     private static final int ID_CAT_GENERAL = 1;
@@ -93,6 +94,8 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
     public void onResume() {
         super.onResume();
         maybePromptModLock();
+        updateHeaderIcon(); // иконку могли сменить в «Оформлении» — подтянуть
+
     }
 
     // Гейт замка настроек мода — на входе в настройки DevGram (см. DevGram → Безопасность → «Замок настроек мода»).
@@ -123,10 +126,8 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         layout.setPadding(0, AndroidUtilities.dp(18), 0, AndroidUtilities.dp(18));
 
         ImageView icon = new ImageView(context);
-        try {
-            icon.setImageDrawable(context.getDrawable(R.mipmap.ic_launcher));
-        } catch (Throwable ignore) {
-        }
+        headerIcon = icon;
+        updateHeaderIcon();
         layout.addView(icon, LayoutHelper.createLinear(76, 76));
 
         TextView name = new TextView(context);
@@ -143,6 +144,33 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         layout.addView(ver, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0f, 4f, 0f, 0f));
 
         return layout;
+    }
+
+    // Логотип = та же иконка, что сейчас стоит на приложении в лаунчере (включённый alias).
+    // Иконку отдаёт система — она же обрезает её по форме иконок телефона, а Monet сама берёт
+    // светлую/тёмную картинку по теме.
+    private void updateHeaderIcon() {
+        if (headerIcon == null) {
+            return;
+        }
+        Context ctx = headerIcon.getContext();
+        android.graphics.drawable.Drawable drawable = null;
+        try {
+            for (LauncherIconController.LauncherIcon i : LauncherIconController.LauncherIcon.values()) {
+                if (LauncherIconController.isEnabled(i)) {
+                    drawable = ctx.getPackageManager().getActivityIcon(i.getComponentName(ctx));
+                    break;
+                }
+            }
+        } catch (Throwable ignore) {
+        }
+        if (drawable == null) {
+            try {
+                drawable = ctx.getDrawable(R.mipmap.ic_launcher);
+            } catch (Throwable ignore) {
+            }
+        }
+        headerIcon.setImageDrawable(drawable);
     }
 
     private String getVersionString() {
