@@ -731,7 +731,7 @@ public class ForkSettingsActivity extends BaseFragment {
         }
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.WebPublishSection)));
-        items.add(UItem.asSettingsCell(ID_WEB_PUBLISH, LocaleController.getString(R.string.WebPublish), getWebPublishText()));
+        items.add(UItem.asSettingsCell(ID_WEB_PUBLISH, org.telegram.messenger.DevGramNewBadge.mark(LocaleController.getString(R.string.WebPublish), org.telegram.messenger.DevGramNewBadge.WEB_PUBLISH), getWebPublishText()));
         items.add(UItem.asShadow(LocaleController.getString(R.string.WebPublishInfo)));
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.ForkSectionBackup)));

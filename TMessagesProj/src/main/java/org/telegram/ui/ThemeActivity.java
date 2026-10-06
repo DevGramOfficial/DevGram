@@ -2673,7 +2673,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                     if (position == appIconSelectorRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteGrayIcon, Theme.key_windowBackgroundWhiteBlackText);
-                        cell.setTextAndValueAndIcon(getString(R.string.AppIcon), DevGramCategoryActivity.currentAppIconTitle(),
+                        cell.setTextAndValueAndIcon(org.telegram.messenger.DevGramNewBadge.mark(getString(R.string.AppIcon), org.telegram.messenger.DevGramNewBadge.APP_ICON), DevGramCategoryActivity.currentAppIconTitle(),
                                 R.drawable.msg_premium_icons, false);
                     } else if (position == backgroundRow) {
                         cell.setSubtitle(null);

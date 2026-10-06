@@ -107,7 +107,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
         items.add(UItem.asCheck(ID_CRASHLYTICS, "Отчёты о сбоях").setChecked(DevGramConfig.crashlyticsEnabled));
         items.add(UItem.asCheck(ID_ANALYTICS, "Аналитика").setChecked(DevGramConfig.analyticsEnabled));
         if (DevGramConfig.crashlyticsEnabled) {
-            items.add(UItem.asButton(ID_CRASH_TEST, R.drawable.msg_report, "Проверить отчёт о сбое"));
+            items.add(UItem.asButton(ID_CRASH_TEST, R.drawable.msg_report, org.telegram.messenger.DevGramNewBadge.mark("Проверить отчёт о сбое", org.telegram.messenger.DevGramNewBadge.CRASH_TEST)));
         }
         items.add(UItem.asShadow("Анонимные данные (версия, модель устройства, факт запуска, стек-трейсы "
                 + "сбоев) отправляются в базу DevGram, чтобы мы видели статистику и чинили ошибки. Без "

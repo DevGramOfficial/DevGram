@@ -128,7 +128,7 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
         items.add(UItem.asTopView("Сервисы", "Выберите подходящий сервис для взаимодействия с языковыми моделями.",
                 "RestrictedEmoji", "🔑"));
         items.add(UItem.asHeader("Сервисы"));
-        UItem nano = UItem.asRadio2(ID_NANO, "Gemini Nano", DevGramGeminiNano.statusText())
+        UItem nano = UItem.asRadio2(ID_NANO, org.telegram.messenger.DevGramNewBadge.mark("Gemini Nano", org.telegram.messenger.DevGramNewBadge.GEMINI_NANO), DevGramGeminiNano.statusText())
                 .setChecked(DevGramGeminiNano.isSelected());
         nano.multiline = true;
         items.add(nano);

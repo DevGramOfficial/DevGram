@@ -738,7 +738,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             ).setId(ID_MEDIA_CACHE_LIMIT));
             items.add(UItem.asShadow("Если папка превысит лимит, самые старые вложения будут удалены с устройства."));
             items.add(UItem.asHeader("Защищённый контент"));
-            items.add(UItem.asCheck(ID_ALLOW_RESTRICTED, "Обходить запрет пересылки")
+            items.add(UItem.asCheck(ID_ALLOW_RESTRICTED, org.telegram.messenger.DevGramNewBadge.mark("Обходить запрет пересылки", org.telegram.messenger.DevGramNewBadge.ALLOW_RESTRICTED))
                     .setChecked(DevGramConfig.allowRestricted()));
             items.add(UItem.asShadow("Разрешает пересылку, сохранение и скриншоты в каналах и чатах, где это запрещено. Защищённые посты пересылаются как новые сообщения."));
             items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, "Экспорт базы данных"));
@@ -797,7 +797,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     .setChecked(gPref("dg_hideFab", false)));
             items.add(UItem.asCheck(ID_HIDE_SEARCHBAR, "Скрыть строку поиска")
                     .setChecked(gPref("dg_hideSearchBar", false)));
-            items.add(UItem.asCheck(ID_MINI_AVATARS, "Мини-аватарки отправителей")
+            items.add(UItem.asCheck(ID_MINI_AVATARS, org.telegram.messenger.DevGramNewBadge.mark("Мини-аватарки отправителей", org.telegram.messenger.DevGramNewBadge.MINI_AVATARS))
                     .setChecked(gPref("senderMiniAvatars", true)));
             items.add(UItem.asButton(ID_ACTIONBAR_TITLE, "Текст в заголовке",
                     ACTIONBAR_TITLE_OPTIONS[gInt("dg_actionBarTitle", 0)]));
@@ -828,7 +828,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     .setChecked(gPref("dg_systemFonts", true)));
             items.add(UItem.asCheck(ID_SYSTEM_EMOJI, "Системные эмодзи")
                     .setChecked(DevGramConfig.isUseSystemEmoji()));
-            items.add(UItem.asCheck(ID_MD3, "Material Design 3  " + md3Count() + "/6")
+            items.add(UItem.asCheck(ID_MD3, org.telegram.messenger.DevGramNewBadge.mark("Material Design 3  " + md3Count() + "/6", org.telegram.messenger.DevGramNewBadge.MATERIAL3))
                     .setChecked(gPref("dg_md3", true)));
             if (gPref("dg_md3", true)) {
                 items.add(UItem.asRoundCheckbox(ID_MD3_PROGRESS, "Индикаторы загрузки")
@@ -844,7 +844,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 items.add(UItem.asRoundCheckbox(ID_MD3_FAB, "Плавающие кнопки")
                         .setChecked(gPref("dg_md3_fab", false)));
             }
-            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, "Анимация переходов",
+            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
                     TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
             items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
             items.add(UItem.asCheck(ID_GOOEY, "«Липкая» анимация аватарок")
@@ -935,7 +935,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
             // Кнопки-переходы двухстрочным стилем (как asButtonWithSubtext AI/CHAT_SETTINGS у exteraGram):
             // «AI Chat» — все функции ИИ вынесены на отдельный экран; «Настройки чатов» — стоковый экран Telegram.
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_SWIPE_ACTIONS, R.drawable.menu_reply, "Действия свайпом",
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_SWIPE_ACTIONS, R.drawable.menu_reply, org.telegram.messenger.DevGramNewBadge.mark("Действия свайпом", org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS),
                     "Выбор, порядок и поведение действий"));
             items.add(UItem.asButtonWithSubtext(ID_OPEN_AI, R.drawable.msg2_ask_question, "AI Chat",
                     "Сервисы, роли, история и генерация"));
@@ -1114,17 +1114,17 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asHeader("Основные"));
             items.add(UItem.asButton(ID_AI_SERVICES, R.drawable.msg_language, "Сервисы", aiServicesLabel()));
             items.add(UItem.asButton(ID_AI_ROLES, R.drawable.msg_openprofile, "Роли", aiRoleLabel()));
-            items.add(UItem.asButton(ID_AI_HISTORY, R.drawable.msg_discussion, "История сообщений", aiHistoryLabel()));
+            items.add(UItem.asButton(ID_AI_HISTORY, R.drawable.msg_discussion, org.telegram.messenger.DevGramNewBadge.mark("История сообщений", org.telegram.messenger.DevGramNewBadge.AI_HISTORY), aiHistoryLabel()));
             items.add(UItem.asShadow("История диалога позволяет ИИ понимать предыдущие запросы и "
                     + "учитывать их при генерации новых ответов."));
 
             boolean nonPremium = !getUserConfig().isPremium();
             items.add(UItem.asHeader("Функции Telegram"));
-            UItem replaceEditor = UItem.asCheck(ID_AI_REPLACE_EDITOR, "Заменить ИИ-редактор Telegram")
+            UItem replaceEditor = UItem.asCheck(ID_AI_REPLACE_EDITOR, org.telegram.messenger.DevGramNewBadge.mark("Заменить ИИ-редактор Telegram", org.telegram.messenger.DevGramNewBadge.AI_REPLACE_EDITOR))
                     .setChecked(gPref("dg_aiReplaceTelegramEditor", nonPremium)).setMultiline(true);
             replaceEditor.subtext = "Перевод, стилизация и проверка черновиков через выбранный ИИ-сервис.";
             items.add(replaceEditor);
-            UItem replaceSummaries = UItem.asCheck(ID_AI_REPLACE_SUMMARIES, "Заменить пересказы Telegram")
+            UItem replaceSummaries = UItem.asCheck(ID_AI_REPLACE_SUMMARIES, org.telegram.messenger.DevGramNewBadge.mark("Заменить пересказы Telegram", org.telegram.messenger.DevGramNewBadge.AI_REPLACE_SUMMARIES))
                     .setChecked(gPref("dg_aiReplaceTelegramSummaries", nonPremium)).setMultiline(true);
             replaceSummaries.subtext = "Пересказ длинных сообщений и постов без Premium и лимитов Telegram.";
             items.add(replaceSummaries);
