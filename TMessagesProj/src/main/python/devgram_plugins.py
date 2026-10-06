@@ -350,6 +350,29 @@ def parse_meta(source):
     return _SEP.join([meta["id"], meta["name"], meta["version"], meta["author"], meta["description"], meta["icon"]])
 
 
+# Модули API exteraGram: в DevGram их нет, такой плагин у нас не загрузится
+_EXTERA_MODULES = {"base_plugin", "android_utils", "hook_utils", "client_utils", "markdown_utils",
+                   "extera_utils", "plugins_manager", "ui"}
+
+
+def foreign_platform(source):
+    """БЕЗ выполнения кода (ast): для какого клиента написан плагин, если не для DevGram.
+    'exteraGram' — импортирует API экстеры и не импортирует devgram; '' — наш или не понять."""
+    try:
+        tree = ast.parse(source)
+    except Exception:
+        return ""
+    roots = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots.update(a.name.split(".")[0] for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            roots.add(node.module.split(".")[0])
+    if "devgram" in roots:
+        return ""
+    return "exteraGram" if roots & _EXTERA_MODULES else ""
+
+
 def _unload_id(plugin_id):
     """Выгрузить уже загруженный плагин с таким id (для переустановки)."""
     plugin_id = str(plugin_id or "")

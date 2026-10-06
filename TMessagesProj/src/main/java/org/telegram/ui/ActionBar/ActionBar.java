@@ -264,11 +264,18 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         return dp(2) + glassPadding - dp(6);
     }
 
+    // То же справа: кружок под кнопками меню при большем отступе съезжает влево — двигаем меню за ним.
+    private int glassMenuTranslationX() {
+        return -dp(10) - (glassPadding - dp(6));
+    }
+
     public void setGlassPadding(int padding) {
         glassPadding = padding;
         if (glassMode && backButtonImageView != null) {
             backButtonImageView.setTranslationX(glassBackTranslationX());
         }
+        if (glassMode && menu != null) menu.setTranslationX(glassMenuTranslationX());
+        if (glassMode && actionMode != null) actionMode.setTranslationX(glassMenuTranslationX());
         if (glassDrawable != null) glassDrawable.setPadding(padding);
         if (glassDrawableBack != null) glassDrawableBack.setPadding(padding);
         if (glassDrawableMenu != null) glassDrawableMenu.setPadding(padding);
@@ -313,11 +320,11 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             .setPadding(glassPadding);
 
         if (menu != null) {
-            menu.setTranslationX(-dp(10));
+            menu.setTranslationX(glassMenuTranslationX());
             menu.setGlassMode(true);
         }
         if (actionMode != null) {
-            actionMode.setTranslationX(-dp(10));
+            actionMode.setTranslationX(glassMenuTranslationX());
             actionMode.setGlassMode(true);
         }
         if (backButtonImageView != null) {
@@ -801,6 +808,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
         menu = new ActionBarMenu(getContext(), this);
         addView(menu, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.RIGHT));
+        if (glassMode) { // DevGram: меню создано уже после setupGlass
+            menu.setTranslationX(glassMenuTranslationX());
+            menu.setGlassMode(true);
+        }
         return menu;
     }
 

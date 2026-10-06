@@ -4459,6 +4459,19 @@ public class DevGramPlugins {
         }
     }
 
+    // Для какого клиента плагин, если не для DevGram ("exteraGram"), иначе "".
+    public static String foreignPlatform(String source) {
+        if (source == null) {
+            return "";
+        }
+        try {
+            return callPythonString("foreign_platform", source);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return "";
+        }
+    }
+
     // Установить плагин: сохранить исходник в папку и загрузить. enable — включить сразу.
     public static boolean install(String source, String pluginId, boolean enable) {
         if (source == null) {

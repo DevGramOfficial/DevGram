@@ -13,6 +13,7 @@ import android.widget.ImageView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPluginBlocks;
 import org.telegram.messenger.DevGramPluginInfo;
+import org.telegram.messenger.DevGramPluginTranslation;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
@@ -21,6 +22,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.DevGramPluginInfoViews;
+import org.telegram.ui.Components.DevGramTranslateButton;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.ScaleStateListAnimator;
 
@@ -72,7 +74,17 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             if (entry.updatedAt > entry.submittedAt) dates += "  ·  Обновлён: " + android.text.format.DateFormat.format("dd.MM.yyyy", entry.updatedAt);
             addText(dates, 13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         }
-        if (!entry.desc.isEmpty()) { LinearLayout info = section(context, 18); info.addView(text(context, "О плагине", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText))); info.addView(text(context, entry.desc, 15, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0)); content.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 4)); }
+        if (!entry.desc.isEmpty()) {
+            LinearLayout info = section(context, 18);
+            LinearLayout infoHead = new LinearLayout(context);
+            infoHead.setGravity(Gravity.CENTER_VERTICAL);
+            infoHead.addView(text(context, "О плагине", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)), LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+            TextView descView = text(context, entry.desc, 15, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+            infoHead.addView(translateButton(context, heroTitle, descView), LayoutHelper.createLinear(40, 40, 0, -8, -8, -8));
+            info.addView(infoHead, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            info.addView(descView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+            content.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 4));
+        }
         addPluginInfo(context);
 
         final String installLabel = DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин";
@@ -384,6 +396,38 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
 
     private LinearLayout section(Context context, int radius) { LinearLayout box = new LinearLayout(context); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(16), AndroidUtilities.dp(18), AndroidUtilities.dp(16)); box.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider))); box.setElevation(AndroidUtilities.dp(1)); return box; }
     private TextView text(Context context, String value, int size, boolean bold, int color) { TextView t = new TextView(context); t.setText(value); t.setTextSize(size); t.setTextColor(color); t.setLineSpacing(AndroidUtilities.dp(2), 1f); if (bold) t.setTypeface(AndroidUtilities.bold()); return t; }
+
+    // Перевод названия и описания в один тап — кнопка видна, только если язык другой
+    private View translateButton(Context context, TextView titleView, TextView descView) {
+        DevGramTranslateButton button = new DevGramTranslateButton(context, Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourceProvider));
+        button.setVisibility(View.GONE);
+        ArrayList<String> originals = new ArrayList<>();
+        originals.add(entry.name);
+        originals.add(entry.desc);
+        DevGramPluginTranslation.checkNeeded(originals, needed -> button.setVisibility(needed ? View.VISIBLE : View.GONE));
+        button.setOnClickListener(v -> {
+            int st = button.getState();
+            if (st == DevGramTranslateButton.STATE_LOADING) return;
+            if (st == DevGramTranslateButton.STATE_RESET) {
+                titleView.setText(entry.name);
+                descView.setText(entry.desc);
+                button.setState(DevGramTranslateButton.STATE_TRANSLATE);
+                return;
+            }
+            button.setState(DevGramTranslateButton.STATE_LOADING);
+            DevGramPluginTranslation.translate(originals, map -> {
+                if (map == null) {
+                    button.setState(DevGramTranslateButton.STATE_TRANSLATE);
+                    BulletinFactory.of(this).createErrorBulletin("Не удалось перевести").show();
+                    return;
+                }
+                if (map.containsKey(entry.name)) titleView.setText(map.get(entry.name));
+                if (map.containsKey(entry.desc)) descView.setText(map.get(entry.desc));
+                button.setState(DevGramTranslateButton.STATE_RESET);
+            });
+        });
+        return button;
+    }
 
     private static String username(String value) {
         if (value == null) return null;

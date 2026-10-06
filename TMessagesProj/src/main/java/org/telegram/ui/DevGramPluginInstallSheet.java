@@ -91,6 +91,12 @@ public class DevGramPluginInstallSheet {
         if (context == null || source == null) {
             return;
         }
+        String foreign = DevGramPlugins.foreignPlatform(source);
+        if (foreign != null && !foreign.isEmpty()) {
+            org.telegram.ui.Components.BulletinFactory.of(fragment)
+                    .createErrorBulletin("Это плагин для " + foreign + " — в DevGram он не работает").show();
+            return;
+        }
         String meta = DevGramPlugins.parseMeta(source);
         if (meta == null || meta.isEmpty()) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
