@@ -278,7 +278,8 @@ public final class BulletinFactory {
         layout.titleTextView.setSingleLine(false);
         layout.titleTextView.setText(text);
         layout.titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        layout.titleTextView.setMaxLines(3);
+        layout.titleTextView.setMaxLines(Integer.MAX_VALUE); // DevGram: длинный текст показываем целиком
+        layout.titleTextView.setEllipsize(null);
         layout.titleTextView.setTypeface(null);
         layout.subtitleTextView.setVisibility(View.GONE);
         return create(layout, text.length() < 20 ? Bulletin.DURATION_SHORT : Bulletin.DURATION_LONG);

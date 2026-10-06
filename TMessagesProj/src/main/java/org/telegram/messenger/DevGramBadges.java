@@ -761,7 +761,7 @@ public class DevGramBadges {
                 if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.LottieLayout) {
                     android.widget.TextView tv = ((org.telegram.ui.Components.Bulletin.LottieLayout) b.getLayout()).textView;
                     tv.setSingleLine(false);
-                    tv.setMaxLines(3);
+                    tv.setMaxLines(Integer.MAX_VALUE);
                     tv.setEllipsize(null);
                 }
             } catch (Throwable ignore) {

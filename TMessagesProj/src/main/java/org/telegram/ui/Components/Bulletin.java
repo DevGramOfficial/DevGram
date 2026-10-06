@@ -269,9 +269,24 @@ public class Bulletin {
     }
 
     public boolean setCanHideOnShow = true;
+    // DevGram: многострочный текст в плашках не обрезаем — показываем целиком (однострочные не трогаем)
+    private static void unclampText(View v) {
+        if (v instanceof android.widget.TextView) {
+            android.widget.TextView tv = (android.widget.TextView) v;
+            if (tv.getMaxLines() >= 2 && tv.getMaxLines() != Integer.MAX_VALUE) {
+                tv.setMaxLines(Integer.MAX_VALUE);
+                tv.setEllipsize(null);
+            }
+        } else if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) unclampText(g.getChildAt(i));
+        }
+    }
+
     public Bulletin show(boolean top) {
         if (!showing && containerLayout != null) {
             showing = true;
+            try { unclampText(layout); } catch (Throwable ignore) { }
             layout.setTop(top);
 
             CharSequence text = layout.getAccessibilityText();
