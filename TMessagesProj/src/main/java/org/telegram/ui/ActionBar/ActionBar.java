@@ -257,8 +257,18 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         invalidate();
     }
 
+    // DevGram: стеклянный кружок под «Назад» рисуется с отступом glassPadding (центр = p + 23dp),
+    // а сама стрелка стоит на месте (кнопка 54dp, центр 27dp). При штатных 6dp они совпадают
+    // (сдвиг 2dp); при большем отступе (12dp в настройках DevGram) стрелку двигаем за кружком.
+    private int glassBackTranslationX() {
+        return dp(2) + glassPadding - dp(6);
+    }
+
     public void setGlassPadding(int padding) {
         glassPadding = padding;
+        if (glassMode && backButtonImageView != null) {
+            backButtonImageView.setTranslationX(glassBackTranslationX());
+        }
         if (glassDrawable != null) glassDrawable.setPadding(padding);
         if (glassDrawableBack != null) glassDrawableBack.setPadding(padding);
         if (glassDrawableMenu != null) glassDrawableMenu.setPadding(padding);
@@ -311,7 +321,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             actionMode.setGlassMode(true);
         }
         if (backButtonImageView != null) {
-            backButtonImageView.setTranslationX(dp(2));
+            backButtonImageView.setTranslationX(glassBackTranslationX());
         }
         applyGlassAvatarCorners();
     }
@@ -359,6 +369,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         backButtonImageView.setBackgroundDrawable(Theme.createSelectorDrawable(itemsBackgroundColor));
         backButtonImageView.setPadding(dp(1), 0, 0, 0);
         addView(backButtonImageView, LayoutHelper.createFrame(54, 54, Gravity.LEFT | Gravity.TOP));
+        if (glassMode) {
+            backButtonImageView.setTranslationX(glassBackTranslationX()); // DevGram: кнопка создана уже после setupGlass
+        }
 
         backButtonImageView.setOnClickListener(v -> {
             if (!actionModeVisible && isSearchFieldVisible) {
