@@ -51,18 +51,18 @@ public final class DevGramSettingsLink {
         if (s == null || s.isEmpty()) return false;
         String code = s;
         int itemId = 0;
-        if ("showTranslateChatButton".equals(code)) {
+        if ("showTranslateChatButton".equalsIgnoreCase(code)) {
             code = "general";
             itemId = DevGramCategoryActivity.ID_TRANSLATE_CHAT;
-        } else if ("aiServices".equals(code)) {
+        } else if ("aiServices".equalsIgnoreCase(code)) {
             code = "ai";
             itemId = DevGramCategoryActivity.ID_AI_SERVICES;
-        } else if ("aiHistory".equals(code)) {
+        } else if ("aiHistory".equalsIgnoreCase(code)) {
             return openDirect(new DevGramAiHistoryActivity());
-        } else if ("replaceTelegramEditor".equals(code)) {
+        } else if ("replaceTelegramEditor".equalsIgnoreCase(code)) {
             code = "ai";
             itemId = DevGramCategoryActivity.ID_AI_REPLACE_EDITOR;
-        } else if ("replaceTelegramSummaries".equals(code)) {
+        } else if ("replaceTelegramSummaries".equalsIgnoreCase(code)) {
             code = "ai";
             itemId = DevGramCategoryActivity.ID_AI_REPLACE_SUMMARIES;
         }
@@ -74,7 +74,8 @@ public final class DevGramSettingsLink {
             } catch (Throwable ignore) {
             }
         }
-        BaseFragment target = fragmentForCode(code);
+        // LaunchActivity приводит s= к нижнему регистру — коды сравниваем без учёта регистра
+        BaseFragment target = fragmentForCode(code.toLowerCase(java.util.Locale.US));
         BaseFragment last = LaunchActivity.getLastFragment();
         if (target == null || last == null) {
             if (last != null) {
@@ -104,8 +105,8 @@ public final class DevGramSettingsLink {
             case "filters":    return new DevGramFiltersActivity();
             case "appearance": return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_APPEARANCE);
             case "chats":      return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_CHATS);
-            case "swipeActions": return new DevGramSwipeActionsActivity();
-            case "appIcon":    return new DevGramAppIconsActivity();
+            case "swipeactions": return new DevGramSwipeActionsActivity();
+            case "appicon":    return new DevGramAppIconsActivity();
             case "ai":         return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_AI);
             case "other":      return new DevGramOtherActivity();
             case "locked":     return new DevGramLockedChatsActivity();
