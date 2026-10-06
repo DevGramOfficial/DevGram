@@ -26,7 +26,8 @@ public final class DevGramAiClient {
     private DevGramAiClient() {}
 
     public static boolean isConfigured() {
-        return !MessagesController.getGlobalMainSettings().getString("dg_aiKey", "").trim().isEmpty();
+        return DevGramGeminiNano.isSelected()
+                || !MessagesController.getGlobalMainSettings().getString("dg_aiKey", "").trim().isEmpty();
     }
 
     /** Одиночный запрос (без стрима) — редактор, пересказ, «Сгенерировать ответ». */
@@ -34,11 +35,57 @@ public final class DevGramAiClient {
         generate(prompt, false, callback);
     }
 
+    /** Isolated text-tool request which doesn't inherit the user's chat role or history. */
+    public static void generateTool(String prompt, String systemPrompt, Callback callback) {
+        JSONArray messages = new JSONArray();
+        try {
+            messages.put(new JSONObject().put("role", "user").put("content", prompt));
+        } catch (Throwable ignore) {}
+        request(messages, false, new StreamCallback() {
+            @Override public void onDelta(String delta) {}
+            @Override public void onDone(String full, Throwable error) { callback.done(full, error); }
+        }, systemPrompt == null ? "" : systemPrompt);
+    }
+
     /**
      * Одиночный запрос с опциональной общей историей AI Chat — как у exteraGram.
      * При успешной генерации новая пара user/assistant сохраняется в dg_aiHistory.
      */
     public static void generate(String prompt, boolean useHistory, Callback callback) {
+        generatePrompt(prompt, useHistory, true, callback);
+    }
+
+    /** Generates with optional context but leaves history untouched until the UI accepts the result. */
+    public static void generatePreview(String prompt, boolean useHistory, Callback callback) {
+        generatePrompt(prompt, useHistory, false, callback);
+    }
+
+    /** Preview variant used by the response sheet so partial text can be animated while it arrives. */
+    public static void generatePreview(String prompt, boolean useHistory, boolean stream, StreamCallback callback) {
+        JSONArray messages = buildPromptConversation(prompt, useHistory);
+        request(messages, stream, callback);
+    }
+
+    private static void generatePrompt(String prompt, boolean useHistory, boolean saveResult, Callback callback) {
+        JSONArray messages = buildPromptConversation(prompt, useHistory);
+        final JSONArray conversation = messages;
+        request(messages, false, new StreamCallback() {
+            @Override public void onDelta(String delta) {}
+            @Override public void onDone(String full, Throwable error) {
+                if (saveResult && useHistory && error == null && full != null && !full.isEmpty()) {
+                    try {
+                        conversation.put(new JSONObject().put("role", "assistant").put("content", full));
+                        MessagesController.getGlobalMainSettings().edit()
+                                .putString("dg_aiHistory", trimConversationHistory(conversation).toString())
+                                .apply();
+                    } catch (Throwable ignore) {}
+                }
+                callback.done(full, error);
+            }
+        });
+    }
+
+    private static JSONArray buildPromptConversation(String prompt, boolean useHistory) {
         JSONArray messages = new JSONArray();
         try {
             if (useHistory) {
@@ -55,21 +102,21 @@ public final class DevGramAiClient {
             }
             messages.put(new JSONObject().put("role", "user").put("content", prompt));
         } catch (Throwable ignore) {}
-        final JSONArray conversation = messages;
-        request(messages, false, new StreamCallback() {
-            @Override public void onDelta(String delta) {}
-            @Override public void onDone(String full, Throwable error) {
-                if (useHistory && error == null && full != null && !full.isEmpty()) {
-                    try {
-                        conversation.put(new JSONObject().put("role", "assistant").put("content", full));
-                        MessagesController.getGlobalMainSettings().edit()
-                                .putString("dg_aiHistory", trimConversationHistory(conversation).toString())
-                                .apply();
-                    } catch (Throwable ignore) {}
-                }
-                callback.done(full, error);
-            }
-        });
+        return messages;
+    }
+
+    public static void saveTurn(String prompt, String response) {
+        if (!MessagesController.getGlobalMainSettings().getBoolean("dg_aiSaveHistory", true)
+                || prompt == null || response == null) return;
+        try {
+            JSONArray conversation;
+            String saved = MessagesController.getGlobalMainSettings().getString("dg_aiHistory", "");
+            conversation = saved.isEmpty() ? new JSONArray() : new JSONArray(saved);
+            conversation.put(new JSONObject().put("role", "user").put("content", prompt));
+            conversation.put(new JSONObject().put("role", "assistant").put("content", response));
+            MessagesController.getGlobalMainSettings().edit()
+                    .putString("dg_aiHistory", trimConversationHistory(conversation).toString()).apply();
+        } catch (Throwable ignore) {}
     }
 
     private static JSONObject copyMessage(JSONObject source) throws Exception {
@@ -160,6 +207,14 @@ public final class DevGramAiClient {
     }
 
     private static void request(JSONArray conversation, boolean stream, StreamCallback callback) {
+        request(conversation, stream, callback, null);
+    }
+
+    private static void request(JSONArray conversation, boolean stream, StreamCallback callback, String systemOverride) {
+        if (DevGramGeminiNano.isSelected()) {
+            DevGramGeminiNano.generate(conversation, stream, systemOverride, callback);
+            return;
+        }
         new Thread(() -> {
             String result = null;
             Throwable error = null;
@@ -198,7 +253,8 @@ public final class DevGramAiClient {
 
                 JSONArray messages = new JSONArray();
                 // Роль (системный промпт) из настроек AI Chat.
-                String systemPrompt = prefs.getString("dg_aiSystemPrompt", "");
+                String systemPrompt = systemOverride != null
+                        ? systemOverride : prefs.getString("dg_aiSystemPrompt", "");
                 if (systemPrompt != null && !systemPrompt.trim().isEmpty()) {
                     messages.put(new JSONObject().put("role", "system").put("content", systemPrompt));
                 }

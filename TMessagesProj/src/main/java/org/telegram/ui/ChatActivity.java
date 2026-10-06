@@ -34835,7 +34835,7 @@ public class ChatActivity extends BaseFragment implements
                 closeMenu();
                 if (!org.telegram.messenger.DevGramAiClient.isConfigured()) {
                     if (getParentActivity() != null) {
-                        android.widget.Toast.makeText(getParentActivity(), "Укажите API-ключ ИИ в настройках DevGram", android.widget.Toast.LENGTH_LONG).show();
+                        android.widget.Toast.makeText(getParentActivity(), "Настройте ИИ-сервис в DevGram", android.widget.Toast.LENGTH_LONG).show();
                     }
                     break;
                 }
@@ -34854,17 +34854,9 @@ public class ChatActivity extends BaseFragment implements
                 }
                 new org.telegram.ui.Components.DevGramGenerateFromMessageBottomSheet(
                         source, this, getParentActivity(), generationData -> {
-                    if (getParentActivity() != null) {
-                        android.widget.Toast.makeText(getParentActivity(), "Генерирую ответ…", android.widget.Toast.LENGTH_SHORT).show();
-                    }
-                    org.telegram.messenger.DevGramAiClient.generate(
-                            generationData.prompt, generationData.useHistory, (result, error) -> {
-                        if (error != null || TextUtils.isEmpty(result)) {
-                            if (getParentActivity() != null) {
-                                android.widget.Toast.makeText(getParentActivity(), error != null ? error.getMessage() : "Не удалось получить ответ", android.widget.Toast.LENGTH_LONG).show();
-                            }
-                            return;
-                        }
+                    if (getParentActivity() == null) return;
+                    new org.telegram.ui.Components.DevGramAiResponseAlert(
+                            getParentActivity(), this, generationData.prompt, generationData.useHistory, result -> {
                         if (chatActivityEnterView != null) {
                             // «Вставлять ответ как цитату» (настройка AI Chat) — оборачиваем ответ в блок-цитату.
                             if (MessagesController.getGlobalMainSettings().getBoolean("dg_aiInsertAsQuote", true)) {
@@ -34876,7 +34868,7 @@ public class ChatActivity extends BaseFragment implements
                             }
                             chatActivityEnterView.openKeyboard();
                         }
-                    });
+                    }).show();
                 }).show();
                 break;
             }

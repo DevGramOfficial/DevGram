@@ -160,6 +160,7 @@ public class TranslateAlert3 extends BottomSheetWithRecyclerListView {
     private CharSequence text;
     private boolean translatedLoading;
     private CharSequence translated;
+    private Runnable devGramAiCancel;
 
     private Utilities.Callback<CharSequence> onUseListener;
 
@@ -385,6 +386,28 @@ public class TranslateAlert3 extends BottomSheetWithRecyclerListView {
         translatedLoading = true;
 
         if (summarized && dialogId != 0 && messageId != 0) {
+            if (org.telegram.messenger.DevGramTelegramAiReplacement.replacesSummaries(currentAccount)) {
+                devGramAiCancel = org.telegram.messenger.DevGramTelegramAiReplacement.summarize(
+                        fromText.text, to_lang,
+                        result -> {
+                            devGramAiCancel = null;
+                            button.setLoading(false);
+                            translated = MessageObject.formatTextWithEntities(result);
+                            translatedLoading = false;
+                            adapter.update(true);
+                        },
+                        (code, errorText) -> {
+                            devGramAiCancel = null;
+                            button.setLoading(false);
+                            BulletinFactory.of(topBulletinContainer, resourcesProvider)
+                                    .createErrorBulletin(TextUtils.isEmpty(errorText)
+                                            ? getString(R.string.TranslationFailedAlert2) : errorText).show();
+                            button.setText(getString(R.string.OK));
+                            button.setOnClickListener(v -> dismiss());
+                        });
+                adapter.update(true);
+                return;
+            }
             final TLRPC.TL_messages_summarizeText req = new TLRPC.TL_messages_summarizeText();
 
             req.flags |= TLObject.FLAG_0;
@@ -460,10 +483,20 @@ public class TranslateAlert3 extends BottomSheetWithRecyclerListView {
         adapter.update(true);
     }
     private void cancelRequest() {
+        if (devGramAiCancel != null) {
+            devGramAiCancel.run();
+            devGramAiCancel = null;
+        }
         if (requestId >= 0) {
             ConnectionsManager.getInstance(currentAccount).cancelRequest(requestId, true);
             requestId = -1;
         }
+    }
+
+    @Override
+    public void dismiss() {
+        cancelRequest();
+        super.dismiss();
     }
 
     public static class Header extends FrameLayout implements Theme.Colorable {

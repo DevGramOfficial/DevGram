@@ -974,6 +974,24 @@ public class TranslateController extends BaseController {
 
         loadingSummarizations.add(id);
 
+        if (DevGramTelegramAiReplacement.replacesSummaries(currentAccount)) {
+            String sourceText = message.messageOwner.message;
+            String resultLanguage = language != null ? language : message.messageOwner.summary_from_language;
+            DevGramTelegramAiReplacement.summarize(sourceText, resultLanguage, result -> {
+                loadingSummarizations.remove(id);
+                callback.run(result);
+            }, (code, errorText) -> {
+                loadingSummarizations.remove(id);
+                final BaseFragment lastFragment = LaunchActivity.getSafeLastFragment();
+                if (lastFragment != null) {
+                    BulletinFactory.of(lastFragment).createErrorBulletin(
+                            TextUtils.isEmpty(errorText) ? getString(R.string.TranslationFailedAlert2) : errorText).show();
+                }
+                callback.run(null);
+            });
+            return;
+        }
+
         final TLRPC.TL_messages_summarizeText req = new TLRPC.TL_messages_summarizeText();
         req.peer = MessagesController.getInstance(currentAccount).getInputPeer(message.getDialogId());
         req.id = message.getId();

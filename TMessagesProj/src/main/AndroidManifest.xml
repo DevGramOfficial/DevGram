@@ -3,6 +3,9 @@
           xmlns:tools="http://schemas.android.com/tools"
     android:installLocation="auto">
 
+    <!-- Gemini Nano is only entered behind an API 26 runtime guard; keep DevGram's API 24 baseline. -->
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.common,com.google.mlkit.genai.prompt" />
+
     <supports-screens android:anyDensity="true"
                       android:largeScreens="true"
                       android:normalScreens="true"

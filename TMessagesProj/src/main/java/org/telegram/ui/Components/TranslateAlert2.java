@@ -91,6 +91,7 @@ import java.util.Locale;
 public class TranslateAlert2 extends BottomSheet implements NotificationCenter.NotificationCenterDelegate {
 
     private Integer reqId;
+    private Runnable devGramAiCancel;
     private CharSequence reqText;
     private ArrayList<TLRPC.MessageEntity> reqMessageEntities;
     private TLRPC.InputPeer reqPeer;
@@ -315,6 +316,10 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
             ConnectionsManager.getInstance(currentAccount).cancelRequest(reqId, true);
             reqId = null;
         }
+        if (devGramAiCancel != null) {
+            devGramAiCancel.run();
+            devGramAiCancel = null;
+        }
 
         final String method = ForkOfflineTranslate.method(MessagesController.getInstance(currentAccount).translationsManualEnabled);
         if (!reqSum) {
@@ -377,6 +382,32 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
         }
 
         if (reqSum && reqPeer != null) {
+            if (org.telegram.messenger.DevGramTelegramAiReplacement.replacesSummaries(currentAccount)) {
+                devGramAiCancel = org.telegram.messenger.DevGramTelegramAiReplacement.summarize(
+                        textWithEntities.text, lang,
+                        result -> {
+                            devGramAiCancel = null;
+                            firstTranslation = false;
+                            CharSequence translated = SpannableStringBuilder.valueOf(result.text);
+                            MessageObject.addEntitiesToText(translated, result.entities, false, true, false, false);
+                            textView.setText(preprocessText(translated));
+                            adapter.updateMainView(textViewContainer);
+                        },
+                        (code, errorText) -> {
+                            devGramAiCancel = null;
+                            if (firstTranslation) {
+                                dismiss();
+                                NotificationCenter.getGlobalInstance().postNotificationName(
+                                        NotificationCenter.showBulletin, Bulletin.TYPE_ERROR,
+                                        TextUtils.isEmpty(errorText) ? LocaleController.getString(R.string.TranslationFailedAlert2) : errorText);
+                            } else {
+                                BulletinFactory.of((FrameLayout) containerView, resourcesProvider)
+                                        .createErrorBulletin(TextUtils.isEmpty(errorText)
+                                                ? LocaleController.getString(R.string.TranslationFailedAlert2) : errorText).show();
+                            }
+                        });
+                return;
+            }
             TLRPC.TL_messages_summarizeText req = new TLRPC.TL_messages_summarizeText();
             req.flags |= 1;
             req.peer = reqPeer;
@@ -1084,6 +1115,10 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
             ConnectionsManager.getInstance(currentAccount).cancelRequest(reqId, true);
             reqId = null;
         }
+        if (devGramAiCancel != null) {
+            devGramAiCancel.run();
+            devGramAiCancel = null;
+        }
         super.dismissInternal();
     }
 
@@ -1756,6 +1791,10 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
 
     @Override
     public void dismiss() {
+        if (devGramAiCancel != null) {
+            devGramAiCancel.run();
+            devGramAiCancel = null;
+        }
         super.dismiss();
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.translationModelDownloaded);

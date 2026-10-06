@@ -32,6 +32,14 @@ public final class DevGramSettingsLink {
         String s;
         if ("general".equals(code) && itemId == DevGramCategoryActivity.ID_TRANSLATE_CHAT) {
             s = "showTranslateChatButton";
+        } else if ("ai".equals(code) && itemId == DevGramCategoryActivity.ID_AI_SERVICES) {
+            s = "aiServices";
+        } else if ("ai".equals(code) && itemId == DevGramCategoryActivity.ID_AI_HISTORY) {
+            s = "aiHistory";
+        } else if ("ai".equals(code) && itemId == DevGramCategoryActivity.ID_AI_REPLACE_EDITOR) {
+            s = "replaceTelegramEditor";
+        } else if ("ai".equals(code) && itemId == DevGramCategoryActivity.ID_AI_REPLACE_SUMMARIES) {
+            s = "replaceTelegramSummaries";
         } else {
             s = code + (itemId > 0 ? "__" + itemId : "");
         }
@@ -46,6 +54,17 @@ public final class DevGramSettingsLink {
         if ("showTranslateChatButton".equals(code)) {
             code = "general";
             itemId = DevGramCategoryActivity.ID_TRANSLATE_CHAT;
+        } else if ("aiServices".equals(code)) {
+            code = "ai";
+            itemId = DevGramCategoryActivity.ID_AI_SERVICES;
+        } else if ("aiHistory".equals(code)) {
+            return openDirect(new DevGramAiHistoryActivity());
+        } else if ("replaceTelegramEditor".equals(code)) {
+            code = "ai";
+            itemId = DevGramCategoryActivity.ID_AI_REPLACE_EDITOR;
+        } else if ("replaceTelegramSummaries".equals(code)) {
+            code = "ai";
+            itemId = DevGramCategoryActivity.ID_AI_REPLACE_SUMMARIES;
         }
         int sep = s.indexOf("__");
         if (sep > 0) {
@@ -65,6 +84,13 @@ public final class DevGramSettingsLink {
             return false;
         }
         pendingHighlight = itemId;
+        last.presentFragment(target);
+        return true;
+    }
+
+    private static boolean openDirect(BaseFragment target) {
+        BaseFragment last = LaunchActivity.getLastFragment();
+        if (last == null || target == null) return false;
         last.presentFragment(target);
         return true;
     }

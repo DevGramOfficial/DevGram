@@ -400,6 +400,10 @@ public class AIEditorAlert extends BottomSheetWithRecyclerListView implements No
     @Override
     public void dismiss() {
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.loadedAiComposeTones);
+        if (devGramAiCancel != null) {
+            devGramAiCancel.run();
+            devGramAiCancel = null;
+        }
         if (tonesController != null) {
             tonesController.open = false;
         }
@@ -1228,6 +1232,7 @@ public class AIEditorAlert extends BottomSheetWithRecyclerListView implements No
     }
 
     private int requestId = -1;
+    private Runnable devGramAiCancel;
 
     private boolean loading;
     private TLRPC.TL_messages_composeMessageWithAI[] lastRequest = new TLRPC.TL_messages_composeMessageWithAI[3];
@@ -1311,8 +1316,9 @@ public class AIEditorAlert extends BottomSheetWithRecyclerListView implements No
             fixedText = loadingText;
         }
 
-        requestId = ConnectionsManager.getInstance(currentAccount).sendRequestTyped(req, AndroidUtilities::runOnUIThread, (res, err) -> {
+        Utilities.Callback2<TLRPC.TL_composedMessageWithAI, TLRPC.TL_error> requestCallback = (res, err) -> {
             requestId = -1;
+            devGramAiCancel = null;
 
             loading = false;
             if (err != null && ("SUMMARY_FLOOD_PREMIUM".equalsIgnoreCase(err.text) || "AICOMPOSE_FLOOD_PREMIUM".equalsIgnoreCase(err.text))) {
@@ -1362,7 +1368,22 @@ public class AIEditorAlert extends BottomSheetWithRecyclerListView implements No
             }
 
             adapter.update(true);
-        });
+        };
+        if (org.telegram.messenger.DevGramTelegramAiReplacement.replacesEditor(currentAccount)) {
+            if (devGramAiCancel != null) devGramAiCancel.run();
+            devGramAiCancel = org.telegram.messenger.DevGramTelegramAiReplacement.compose(
+                    req, styleTabs.getSelectedTone(), from_lang,
+                    result -> requestCallback.run(result, null),
+                    (code, messageText) -> {
+                        TLRPC.TL_error error = new TLRPC.TL_error();
+                        error.code = code;
+                        error.text = messageText;
+                        requestCallback.run(null, error);
+                    });
+        } else {
+            requestId = ConnectionsManager.getInstance(currentAccount).sendRequestTyped(
+                    req, AndroidUtilities::runOnUIThread, requestCallback);
+        }
 
         adapter.update(true);
     }
@@ -1476,6 +1497,10 @@ public class AIEditorAlert extends BottomSheetWithRecyclerListView implements No
     }
 
     private void cancelRequest() {
+        if (devGramAiCancel != null) {
+            devGramAiCancel.run();
+            devGramAiCancel = null;
+        }
         if (requestId >= 0) {
             ConnectionsManager.getInstance(currentAccount).cancelRequest(requestId, true);
             requestId = -1;

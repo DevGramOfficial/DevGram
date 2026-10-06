@@ -148,7 +148,7 @@ public class DevGramAiChatActivity extends BaseFragment {
             return;
         }
         if (!DevGramAiClient.isConfigured()) {
-            transcript.append(transcript.length() > 0 ? "\n\n" : "").append("Укажите API-ключ в настройках AI Chat.");
+            transcript.append(transcript.length() > 0 ? "\n\n" : "").append("Настройте ИИ-сервис в AI Chat.");
             if (conversation != null) conversation.setText(transcript.toString());
             return;
         }

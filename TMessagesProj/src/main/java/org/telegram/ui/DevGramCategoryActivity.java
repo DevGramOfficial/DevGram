@@ -40,14 +40,15 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_OPEN_CHAT_SETTINGS = 151;
     private static final int ID_OPEN_SWIPE_ACTIONS = 149;
     // DevGram: экран AI Chat (повтор AiPreferencesActivity exteraGram)
-    private static final int ID_AI_SERVICES = 152;
+    static final int ID_AI_SERVICES = 152;
     private static final int ID_AI_ROLES = 153;
-    private static final int ID_AI_HISTORY = 154;
+    static final int ID_AI_HISTORY = 154;
     private static final int ID_AI_STREAMING = 155;
     private static final int ID_AI_RESP_ONLY = 156;
     private static final int ID_AI_QUOTE = 157;
     private static final int ID_AI_TEMPERATURE = 158;
-    private static final int ID_AI_CLEAR_HISTORY = 159;
+    static final int ID_AI_REPLACE_EDITOR = 815;
+    static final int ID_AI_REPLACE_SUMMARIES = 816;
     private static final int MENU_OPEN_CHAT = 500; // пункт меню в шапке (не строка списка)
 
     // Режим призрака
@@ -1113,13 +1114,23 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asHeader("Основные"));
             items.add(UItem.asButton(ID_AI_SERVICES, R.drawable.msg_language, "Сервисы", aiServicesLabel()));
             items.add(UItem.asButton(ID_AI_ROLES, R.drawable.msg_openprofile, "Роли", aiRoleLabel()));
-            items.add(UItem.asCheck(ID_AI_HISTORY, "История сообщений")
-                    .setChecked(gPref("dg_aiSaveHistory", true)));
-            if (gPref("dg_aiSaveHistory", true)) {
-                items.add(UItem.asButton(ID_AI_CLEAR_HISTORY, R.drawable.msg_delete, "Очистить историю").red());
-            }
+            items.add(UItem.asButton(ID_AI_HISTORY, R.drawable.msg_discussion, "История сообщений", aiHistoryLabel()));
             items.add(UItem.asShadow("История диалога позволяет ИИ понимать предыдущие запросы и "
                     + "учитывать их при генерации новых ответов."));
+
+            boolean nonPremium = !getUserConfig().isPremium();
+            items.add(UItem.asHeader("Функции Telegram"));
+            UItem replaceEditor = UItem.asCheck(ID_AI_REPLACE_EDITOR, "Заменить ИИ-редактор Telegram")
+                    .setChecked(gPref("dg_aiReplaceTelegramEditor", nonPremium)).setMultiline(true);
+            replaceEditor.subtext = "Перевод, стилизация и проверка черновиков через выбранный ИИ-сервис.";
+            items.add(replaceEditor);
+            UItem replaceSummaries = UItem.asCheck(ID_AI_REPLACE_SUMMARIES, "Заменить пересказы Telegram")
+                    .setChecked(gPref("dg_aiReplaceTelegramSummaries", nonPremium)).setMultiline(true);
+            replaceSummaries.subtext = "Пересказ длинных сообщений и постов без Premium и лимитов Telegram.";
+            items.add(replaceSummaries);
+            items.add(UItem.asShadow(nonPremium
+                    ? "Для аккаунтов без Premium обе замены включены по умолчанию."
+                    : "Запросы выполняет активный сервис из настроек AI Chat."));
 
             items.add(UItem.asHeader("Генерация"));
             UItem streaming = UItem.asCheck(ID_AI_STREAMING, "Потоковая передача ответа")
@@ -1785,19 +1796,18 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramAiRolesActivity());
             return;
         } else if (item.id == ID_AI_HISTORY) {
-            gToggle("dg_aiSaveHistory", true);
+            presentFragment(new DevGramAiHistoryActivity());
+            return;
+        } else if (item.id == ID_AI_REPLACE_EDITOR) {
+            gToggle("dg_aiReplaceTelegramEditor", !getUserConfig().isPremium());
+        } else if (item.id == ID_AI_REPLACE_SUMMARIES) {
+            gToggle("dg_aiReplaceTelegramSummaries", !getUserConfig().isPremium());
         } else if (item.id == ID_AI_STREAMING) {
             gToggle("dg_aiStreaming", true);
         } else if (item.id == ID_AI_RESP_ONLY) {
             gToggle("dg_aiShowResponseOnly", false);
         } else if (item.id == ID_AI_QUOTE) {
             gToggle("dg_aiInsertAsQuote", true);
-        } else if (item.id == ID_AI_CLEAR_HISTORY) {
-            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().remove("dg_aiHistory").apply();
-            if (getParentActivity() != null) {
-                android.widget.Toast.makeText(getParentActivity(), "История очищена", android.widget.Toast.LENGTH_SHORT).show();
-            }
-            return;
         } else if (item.id == ID_PHOTO_HAS_STICKER) {
             gToggle("photoHasSticker", true);
         } else if (item.id == ID_DISABLE_FLIP_PHOTOS) {
@@ -2199,8 +2209,21 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         if (!org.telegram.messenger.DevGramAiClient.isConfigured()) {
             return "Нет";
         }
+        if (org.telegram.messenger.DevGramGeminiNano.isSelected()) {
+            return org.telegram.messenger.DevGramGeminiNano.modelLabel();
+        }
         String model = gPrefString("dg_aiModel", "gpt-4o-mini");
         return model == null || model.isEmpty() ? "OpenAI" : model;
+    }
+
+    private static String aiHistoryLabel() {
+        if (!gPref("dg_aiSaveHistory", true)) return "Выключена";
+        try {
+            int count = new org.json.JSONArray(gPrefString("dg_aiHistory", "[]")).length();
+            return count == 0 ? "Пусто" : Integer.toString(count);
+        } catch (Throwable ignore) {
+            return "Пусто";
+        }
     }
 
     private static String aiRoleLabel() {
