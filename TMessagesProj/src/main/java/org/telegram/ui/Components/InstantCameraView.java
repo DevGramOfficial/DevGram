@@ -74,6 +74,7 @@ import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.AutoDeleteMediaTask;
 import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.DispatchQueue;
+import org.telegram.messenger.DevGramLongRound;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ImageLoader;
@@ -683,7 +684,8 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         rect.set(x - dp(8), y - dp(8), x + cameraContainer.getMeasuredWidth() + dp(8), y + cameraContainer.getMeasuredHeight() + dp(8));
         if (recording) {
             recordedTime = System.currentTimeMillis() - recordStartTime + recordPlusTime;
-            progress = Math.min(1f, recordedTime / 60000.0f);
+            // DevGram: запись не ограничена минутой — кольцо заполняется заново на каждой следующей минуте
+            progress = recordedTime <= DevGramLongRound.SEGMENT_MS ? recordedTime / 60000.0f : (recordedTime % DevGramLongRound.SEGMENT_MS) / 60000.0f;
             invalidate();
         }
 
@@ -1041,6 +1043,25 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         }
     }
 
+    // DevGram: кружок длиннее минуты уходит цепочкой минутных кружков по очереди. true — отправка взята на себя.
+    private boolean sendLongRound(File source, VideoEditedInfo edited, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
+        if (source == null || delegate == null) return false;
+        long startMs = edited != null && edited.startTime > 0 ? edited.startTime : 0;
+        long endMs = edited != null && edited.endTime > 0 ? edited.endTime : recordedTime;
+        if (!DevGramLongRound.needsSplit(endMs - startMs)) return false;
+        FileLoader.getInstance(currentAccount).cancelFileUpload(source.getAbsolutePath(), false);
+        final Delegate d = delegate;
+        final boolean[] first = {true};
+        DevGramLongRound.splitAndSend(currentAccount, d.getDialogId(), source, startMs, edited != null && edited.endTime > 0 ? endMs : 0, (part, info) -> {
+            MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, 0, part.getAbsolutePath(), 0, true, 0, 0, 0);
+            entry.ttl = ttl;
+            entry.effectId = first[0] ? effectId : 0;
+            first[0] = false;
+            d.sendMedia(entry, info, notify, scheduleDate, scheduleRepeatPeriod, false, stars);
+        });
+        return true;
+    }
+
     public void send(int state, boolean notify, int scheduleDate, int scheduleRepeatPeriod, int ttl, long effectId, long stars) {
         if (textureView == null) {
             return;
@@ -1057,6 +1078,11 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             }
             if (BuildVars.DEBUG_VERSION && !cameraFile.exists()) {
                 FileLog.e(new RuntimeException("file not found :( round video"));
+            }
+            if (sendLongRound(cameraFile, videoEditedInfo, notify, scheduleDate, scheduleRepeatPeriod, ttl, effectId, stars)) {
+                videoEditedInfo = null;
+                MediaController.getInstance().requestRecordAudioFocus(false);
+                return;
             }
             if (videoEditedInfo == null) {
                 videoEditedInfo = new VideoEditedInfo();
@@ -2620,9 +2646,9 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                         for (int a = input.lastWroteBuffer; a <= input.results; a++) {
                             if (a < input.results) {
                                 long totalTime = input.offset[a] - audioStartTime;
-                                if (!running && (input.offset[a] >= videoLast - desyncTime || totalTime >= 60_000000)) {
+                                if (!running && (input.offset[a] >= videoLast - desyncTime || totalTime >= DevGramLongRound.MAX_TOTAL_MS * 1000)) {
                                     if (BuildVars.LOGS_ENABLED) {
-                                        if (totalTime >= 60_000000) {
+                                        if (totalTime >= DevGramLongRound.MAX_TOTAL_MS * 1000) {
                                             FileLog.d("InstantCamera stop audio encoding because recorded time more than 60s");
                                         } else {
                                             FileLog.d("InstantCamera stop audio encoding because of stoped video recording at " + input.offset[a] + " last video " + videoLast);
@@ -3002,7 +3028,8 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
 
         private void handleStopRecording(final int send, final SendOptions sendOptions) {
             final boolean runDone;
-            if (send == ENCODER_SEND_SEND && (videoEditedInfo == null || !videoEditedInfo.needConvert()) && !delegate.isInScheduleMode()) {
+            if (send == ENCODER_SEND_SEND && (videoEditedInfo == null || !videoEditedInfo.needConvert()) && !delegate.isInScheduleMode()
+                    && !DevGramLongRound.needsSplit(recordedTime)) {
                 runDone = false;
                 if (!sentMedia) {
                     sentMedia = true;
@@ -3176,6 +3203,11 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                         if (send == ENCODER_SEND_SEND) {
                             if (delegate.isInScheduleMode()) {
                                 AlertsCreator.createScheduleDatePickerDialog(delegate.getParentActivity(), delegate.getDialogId(), (notify, scheduleDate, scheduleRepeatPeriod) -> {
+                                    if (sendLongRound(videoFile, null, notify || sendOptions == null || sendOptions.notify, scheduleDate, scheduleRepeatPeriod,
+                                            sendOptions != null ? sendOptions.ttl : 0, sendOptions != null ? sendOptions.effectId : 0, sendOptions != null ? sendOptions.stars : 0)) {
+                                        startAnimation(false, false);
+                                        return;
+                                    }
                                     MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, 0, videoFile.getAbsolutePath(), 0, true, 0, 0, 0);
                                     if (sendOptions != null) {
                                         entry.ttl = sendOptions.ttl;
@@ -3186,7 +3218,8 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                                 }, () -> {
                                     startAnimation(false, false);
                                 }, resourcesProvider);
-                            } else {
+                            } else if (!sendLongRound(videoFile, null, sendOptions == null || sendOptions.notify, sendOptions != null ? sendOptions.scheduleDate : 0, sendOptions != null ? sendOptions.scheduleRepeatPeriod : 0,
+                                    sendOptions != null ? sendOptions.ttl : 0, sendOptions != null ? sendOptions.effectId : 0, sendOptions != null ? sendOptions.stars : 0)) {
                                 MediaController.PhotoEntry entry = new MediaController.PhotoEntry(0, 0, 0, videoFile.getAbsolutePath(), 0, true, 0, 0, 0);
                                 if (sendOptions != null) {
                                     entry.ttl = sendOptions.ttl;
@@ -3493,7 +3526,17 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             return surface;
         }
 
+        private boolean longUploadCancelled;
+
         private void didWriteData(File file, long availableSize, boolean last) {
+            if (longUploadCancelled) {
+                return;
+            }
+            if (DevGramLongRound.needsSplit(recordedTime)) {
+                longUploadCancelled = true;
+                FileLoader.getInstance(currentAccount).cancelFileUpload(file.toString(), false);
+                return;
+            }
             if (videoConvertFirstWrite) {
                 FileLoader.getInstance(currentAccount).uploadFile(file.toString(), isSecretChat, false, 1, ConnectionsManager.FileTypeVideo, false);
                 videoConvertFirstWrite = false;

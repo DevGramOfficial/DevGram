@@ -14716,7 +14716,8 @@ public class ChatActivityEnterView extends FrameLayout implements
             int ms = (int) (t % 1000L) / 10;
 
             if (isInVideoMode()) {
-                if (t >= 59500 && !stoppedInternal) {
+                // DevGram: кружок не ограничен минутой (режется на минутные при отправке), стоп — только по предохранителю
+                if (t >= org.telegram.messenger.DevGramLongRound.MAX_TOTAL_MS - 500 && !stoppedInternal) {
                     startedDraggingX = -1;
                     delegate.needStartRecordVideo(3, true, 0, 0, voiceOnce ? 0x7FFFFFFF : 0, effectId, 0);
                     sendButton.setEffect(effectId = 0);
