@@ -81,7 +81,7 @@ public class RadioButtonCell extends FrameLayout {
 
     public int itemId;
 
-    public void setTextAndValue(String text, String value, boolean divider, boolean checked) {
+    public void setTextAndValue(CharSequence text, CharSequence value, boolean divider, boolean checked) { // DevGram: CharSequence — чтобы работали плашки (NEW)
         textView.setText(text);
         valueTextView.setText(value);
         radioButton.setChecked(checked, false);

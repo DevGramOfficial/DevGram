@@ -736,7 +736,7 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             }
             case VIEW_TYPE_RADIO_2: {
                 RadioButtonCell radioCell = (RadioButtonCell) holder.itemView;
-                radioCell.setTextAndValue(item.text.toString(), item.textValue.toString(), divider, item.checked);
+                radioCell.setTextAndValue(item.text, item.textValue, divider, item.checked); // DevGram: без toString — иначе теряются span-плашки
                 radioCell.itemId = item.id;
                 break;
             }
