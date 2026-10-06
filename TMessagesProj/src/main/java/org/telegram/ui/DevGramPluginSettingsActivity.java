@@ -37,6 +37,15 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
     private UniversalRecyclerView listView;
     private final ArrayList<String[]> rows = new ArrayList<>(); // type,key,title по индексу
 
+    // Перевод пунктов настроек в один тап (кнопка в шапке; видна, если язык текстов другой)
+    private static final int MENU_TRANSLATE = 1;
+    private final java.util.HashMap<String, String> translations = new java.util.HashMap<>();
+    private final java.util.LinkedHashSet<String> visibleTexts = new java.util.LinkedHashSet<>();
+    private boolean translated;
+    private boolean translateChecked;
+    private org.telegram.ui.ActionBar.ActionBarMenuItem translateItem;
+    private org.telegram.ui.Components.DevGramTranslateButton translateButton;
+
     public DevGramPluginSettingsActivity(String pluginId, String pluginName) {
         this.pluginId = pluginId;
         this.pluginName = pluginName;
@@ -52,9 +61,17 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
             public void onItemClick(int id) {
                 if (id == -1) {
                     finishFragment();
+                } else if (id == MENU_TRANSLATE) {
+                    onTranslateClick();
                 }
             }
         });
+        translateItem = actionBar.createMenu().addItem(MENU_TRANSLATE, 0);
+        translateButton = new org.telegram.ui.Components.DevGramTranslateButton(context,
+                Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        translateItem.addView(translateButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        translateItem.setContentDescription("Перевести");
+        translateItem.setVisibility(View.GONE);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
         org.telegram.ui.Components.DevGramSettingsLayout content =
                 new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
@@ -63,6 +80,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         rows.clear();
+        visibleTexts.clear();
         Context context = getParentActivity();
         List<String> list = DevGramPlugins.pluginSettings(pluginId);
         for (int i = 0; i < list.size(); i++) {
@@ -70,8 +88,10 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
             rows.add(r);
             String type = r.length > 0 ? r[0] : "";
             String key = r.length > 1 ? r[1] : "";
-            String title = r.length > 2 ? r[2] : "";
+            String rawTitle = r.length > 2 ? r[2] : "";
             String options = r.length > 3 ? r[3] : "";
+            if (!"custom_view".equals(type)) visibleTexts.add(rawTitle);
+            String title = tr(rawTitle);
             if ("header".equals(type)) {
                 items.add(UItem.asHeader(title));
             } else if ("switch".equals(type)) {
@@ -91,6 +111,8 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
                 String[] parts = options.split("\u0001", -1);
                 String icon = parts.length > 0 ? parts[0] : "";
                 String subtitle = parts.length > 1 ? parts[1] : "";
+                visibleTexts.add(subtitle);
+                subtitle = tr(subtitle);
                 int color;
                 try {
                     color = parts.length > 2 ? Integer.parseInt(parts[2]) : 0xFF3B82F6;
@@ -122,13 +144,50 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
                 String value = DevGramPlugins.pluginGet(pluginId, key, "0");
                 int selected = 0; try { selected = Integer.parseInt(value); } catch (Exception ignore) { }
                 String[] choices = options.split("\\|", -1);
-                String current = choices.length > 0 && selected >= 0 && selected < choices.length ? choices[selected] : "—";
+                for (String ch : choices) visibleTexts.add(ch);
+                String current = choices.length > 0 && selected >= 0 && selected < choices.length ? tr(choices[selected]) : "—";
                 items.add(UItem.asButton(i, R.drawable.msg_list, title, current));
             }
         }
         if (rows.isEmpty()) {
             items.add(UItem.asShadow("У этого плагина нет настроек."));
         }
+        if (!translateChecked && !visibleTexts.isEmpty()) {
+            translateChecked = true;
+            org.telegram.messenger.DevGramPluginTranslation.checkNeeded(new ArrayList<>(visibleTexts), needed -> {
+                if (translateItem != null) translateItem.setVisibility(needed ? View.VISIBLE : View.GONE);
+            });
+        }
+    }
+
+    private String tr(String text) {
+        if (!translated || text == null) return text;
+        String t = translations.get(text);
+        return t != null ? t : text;
+    }
+
+    private void onTranslateClick() {
+        if (translateButton == null) return;
+        int st = translateButton.getState();
+        if (st == org.telegram.ui.Components.DevGramTranslateButton.STATE_LOADING) return;
+        if (translated) {
+            translated = false;
+            translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_TRANSLATE);
+            refresh();
+            return;
+        }
+        translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_LOADING);
+        org.telegram.messenger.DevGramPluginTranslation.translate(new ArrayList<>(visibleTexts), map -> {
+            if (map == null) {
+                translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_TRANSLATE);
+                org.telegram.ui.Components.BulletinFactory.of(this).createErrorBulletin("Не удалось перевести").show();
+                return;
+            }
+            translations.putAll(map);
+            translated = true;
+            translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_RESET);
+            refresh();
+        });
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
@@ -149,14 +208,14 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
         } else if ("button".equals(type) || "card".equals(type)) {
             DevGramPlugins.pluginSettingClick(pluginId, key);
         } else if ("text".equals(type)) {
-            editText(key, title);
+            editText(key, tr(title));
         } else if ("selector".equals(type)) {
             String[] choices = options.split("\\|", -1);
             int selected = 0; try { selected = Integer.parseInt(DevGramPlugins.pluginGet(pluginId, key, "0")); } catch (Exception ignore) { }
             AlertDialog.Builder dialog = new AlertDialog.Builder(getParentActivity());
-            dialog.setTitle(title);
+            dialog.setTitle(tr(title));
             CharSequence[] labels = new CharSequence[choices.length];
-            for (int i = 0; i < choices.length; i++) labels[i] = (i == selected ? "• " : "    ") + choices[i];
+            for (int i = 0; i < choices.length; i++) labels[i] = (i == selected ? "• " : "    ") + tr(choices[i]);
             dialog.setItems(labels, (d, which) -> {
                 DevGramPlugins.pluginSet(pluginId, key, String.valueOf(which));
                 DevGramPlugins.pluginSettingChanged(pluginId, key, String.valueOf(which));

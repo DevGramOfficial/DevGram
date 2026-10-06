@@ -65,7 +65,8 @@ public class DevGramPluginInstallSheet {
         // это отключает source-зависимые кнопки (проверка/публикация), карточка при этом та же.
         String pkgSha = org.telegram.messenger.DevGramPackages.sha256File(new java.io.File(path));
         showCard(fragment, id, name, ver, author, desc, iconUrl,
-                org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId), originMessage,
+                org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId, new java.io.File(path)),
+                originMessage, new java.io.File(path),
                 null, pkgSha, capabilities, path,
                 enableAfter -> DevGramPlugins.installPackage(path, id, enableAfter));
     }
@@ -80,6 +81,12 @@ public class DevGramPluginInstallSheet {
     }
 
     public static void show(BaseFragment fragment, String source, long sourceDialogId, org.telegram.messenger.MessageObject originMessage) {
+        show(fragment, source, sourceDialogId, originMessage, null);
+    }
+
+    // localFile — сам файл плагина: по его содержимому сверяемся с постом в канале разработчика
+    public static void show(BaseFragment fragment, String source, long sourceDialogId,
+                            org.telegram.messenger.MessageObject originMessage, java.io.File localFile) {
         Context context = fragment.getParentActivity();
         if (context == null || source == null) {
             return;
@@ -99,7 +106,8 @@ public class DevGramPluginInstallSheet {
         String iconUrl = m.length > 5 ? m[5] : "";
         final String fSource = source;
         showCard(fragment, id, name, ver, author, desc, iconUrl,
-                org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId), originMessage,
+                org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId, localFile),
+                originMessage, localFile,
                 source, DevGramPlugins.sha256(source), source, null,
                 enableAfter -> DevGramPlugins.install(fSource, id, enableAfter));
     }
@@ -111,7 +119,8 @@ public class DevGramPluginInstallSheet {
     // включены (только для .py); для .dgplugin verifySource=null — они скрыты, карточка та же.
     private static void showCard(BaseFragment fragment, final String id, final String name,
                                  String ver, String author, String desc, String iconUrl,
-                                 long sourceDialogId, final org.telegram.messenger.MessageObject originMessage, final String verifySource, final String verifyHash, String capabilitiesSource,
+                                 long sourceDialogId, final org.telegram.messenger.MessageObject originMessage,
+                                 final java.io.File localFile, final String verifySource, final String verifyHash, String capabilitiesSource,
                                  final String packagePath, final InstallAction installAction) {
         Context context = fragment.getParentActivity();
         if (context == null) {
@@ -203,8 +212,10 @@ public class DevGramPluginInstallSheet {
         root.addView(badge, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 14, 0, 0));
 
         // описание
+        final TextView[] descriptionRef = {null};
         if (!desc.isEmpty()) {
             TextView description = new TextView(context);
+            descriptionRef[0] = description;
             description.setText(desc);
             description.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             description.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -230,22 +241,60 @@ public class DevGramPluginInstallSheet {
         warn.addView(warnText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         root.addView(warn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 18, 0, 0));
 
-        String lowerSource = capabilitiesSource == null ? "" : capabilitiesSource.toLowerCase(java.util.Locale.US);
-        java.util.ArrayList<String> capabilities = new java.util.ArrayList<>();
-        if (lowerSource.contains("wants_request_hooks") || lowerSource.contains("on_request")) capabilities.add("перехват сетевых запросов");
-        if (lowerSource.contains("on_message") || lowerSource.contains("message")) capabilities.add("обработка сообщений");
-        if (lowerSource.contains("open(") || lowerSource.contains("pathlib") || lowerSource.contains("os.path")) capabilities.add("доступ к локальным файлам");
-        if (lowerSource.contains("http://") || lowerSource.contains("https://") || lowerSource.contains("requests.")) capabilities.add("обращение к интернету");
-        if (lowerSource.contains("register_pill")) capabilities.add("виджеты строки поиска (Pill Stack)");
-        if (!capabilities.isEmpty()) {
-            TextView access = new TextView(context);
-            access.setText("Возможности плагина:\n• " + android.text.TextUtils.join("\n• ", capabilities));
-            access.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-            access.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-            access.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(11), AndroidUtilities.dp(14), AndroidUtilities.dp(11));
-            access.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_windowBackgroundGray)));
-            root.addView(access, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
+        // ---- что умеет плагин (по коду) ----
+        java.util.ArrayList<org.telegram.messenger.DevGramPluginInfo.Capability> caps =
+                org.telegram.messenger.DevGramPluginInfo.capabilities(capabilitiesSource);
+        if (!caps.isEmpty()) {
+            LinearLayout capsCard = infoCard(context);
+            capsCard.addView(cardTitle(context, "Что умеет плагин"));
+            for (org.telegram.messenger.DevGramPluginInfo.Capability c : caps) {
+                TextView row = new TextView(context);
+                android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+                sb.append(c.emoji).append("  ");
+                int start = sb.length();
+                sb.append(c.title);
+                sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length(), 0);
+                if (c.level == org.telegram.messenger.DevGramPluginInfo.LEVEL_DANGER) {
+                    sb.setSpan(new android.text.style.ForegroundColorSpan(Theme.getColor(Theme.key_text_RedBold)), start, sb.length(), 0);
+                }
+                if (c.detail != null && !c.detail.isEmpty()) {
+                    int ds = sb.length();
+                    sb.append("\n").append(c.detail);
+                    sb.setSpan(new android.text.style.ForegroundColorSpan(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText)), ds, sb.length(), 0);
+                    sb.setSpan(new android.text.style.RelativeSizeSpan(0.92f), ds, sb.length(), 0);
+                }
+                row.setText(sb);
+                row.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
+                row.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                row.setLineSpacing(AndroidUtilities.dp(2), 1f);
+                capsCard.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+            }
+            root.addView(capsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
         }
+
+        // ---- сведения ----
+        java.io.File infoFile = packagePath != null ? new java.io.File(packagePath) : localFile;
+        LinearLayout infoCard = infoCard(context);
+        infoCard.addView(cardTitle(context, "Сведения"));
+        addInfoRow(context, infoCard, "ID", id, null);
+        if (ver != null && !ver.isEmpty()) addInfoRow(context, infoCard, "Версия", ver, null);
+        if (author != null && !author.isEmpty()) addInfoRow(context, infoCard, "Автор", author, null);
+        String minVersion = org.telegram.messenger.DevGramPluginInfo.metaValue(capabilitiesSource, "__min_version__");
+        if (minVersion != null) addInfoRow(context, infoCard, "Мин. версия DevGram", minVersion, null);
+        addInfoRow(context, infoCard, "Формат", packagePath != null ? ".dgplugin — пакет" : "исходник Python", null);
+        long size = infoFile != null && infoFile.exists() ? infoFile.length()
+                : (verifySource != null ? verifySource.getBytes(java.nio.charset.StandardCharsets.UTF_8).length : 0);
+        if (size > 0) addInfoRow(context, infoCard, "Размер", org.telegram.messenger.DevGramPluginInfo.formatSize(size), null);
+        int lines = org.telegram.messenger.DevGramPluginInfo.codeLines(capabilitiesSource);
+        if (lines > 0) addInfoRow(context, infoCard, "Строк кода", String.valueOf(lines), null);
+        if (verifyHash != null && !verifyHash.isEmpty()) {
+            String shortHash = verifyHash.length() > 16 ? verifyHash.substring(0, 16) + "…" : verifyHash;
+            addInfoRow(context, infoCard, "SHA-256", shortHash, () -> {
+                AndroidUtilities.addToClipboard(verifyHash);
+                org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyBulletin("Хеш скопирован").show();
+            });
+        }
+        root.addView(infoCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
 
         // галка «включить после установки»
         final boolean[] enableAfter = {true};
@@ -586,9 +635,43 @@ public class DevGramPluginInstallSheet {
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroll.addView(root);
 
+        // Перевод названия и описания в один тап — кнопка видна, только если язык другой
+        android.widget.FrameLayout sheetContainer = new android.widget.FrameLayout(context);
+        sheetContainer.addView(scroll, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        org.telegram.ui.Components.DevGramTranslateButton translateButton =
+                new org.telegram.ui.Components.DevGramTranslateButton(context, Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon));
+        translateButton.setVisibility(View.GONE);
+        sheetContainer.addView(translateButton, LayoutHelper.createFrame(40, 40, Gravity.TOP | Gravity.RIGHT, 0, 10, 10, 0));
+        final java.util.ArrayList<String> originals = new java.util.ArrayList<>();
+        originals.add(name);
+        if (!desc.isEmpty()) originals.add(desc);
+        org.telegram.messenger.DevGramPluginTranslation.checkNeeded(originals,
+                needed -> translateButton.setVisibility(needed ? View.VISIBLE : View.GONE));
+        translateButton.setOnClickListener(v -> {
+            int st = translateButton.getState();
+            if (st == org.telegram.ui.Components.DevGramTranslateButton.STATE_LOADING) return;
+            if (st == org.telegram.ui.Components.DevGramTranslateButton.STATE_RESET) {
+                title.setText(name);
+                if (descriptionRef[0] != null) descriptionRef[0].setText(desc);
+                translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_TRANSLATE);
+                return;
+            }
+            translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_LOADING);
+            org.telegram.messenger.DevGramPluginTranslation.translate(originals, map -> {
+                if (map == null) {
+                    translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_TRANSLATE);
+                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin("Не удалось перевести").show();
+                    return;
+                }
+                if (map.containsKey(name)) title.setText(map.get(name));
+                if (descriptionRef[0] != null && map.containsKey(desc)) descriptionRef[0].setText(map.get(desc));
+                translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_RESET);
+            });
+        });
+
         BottomSheet.Builder builder = new BottomSheet.Builder(context);
         builder.setApplyBottomPadding(false);
-        builder.setCustomView(scroll);
+        builder.setCustomView(sheetContainer);
         BottomSheet sheet = builder.create();
 
         Runnable doInstall = () -> {
@@ -627,15 +710,53 @@ public class DevGramPluginInstallSheet {
         sheet.show();
         refreshBlock[0].run();
 
-        // Пересланный/повторно отправленный файл: ищем этот же документ в каналах-разработчиках (🧩)
-        if (!vState[0] && originMessage != null) {
-            org.telegram.messenger.DevGramPluginOrigin.findInDevChannels(account, originMessage, devDialogId -> {
+        // Пересланный/перезалитый файл: ищем его в каналах-разработчиках (🧩) — по id документа
+        // или по содержимому (SHA-256 копии из поста совпадает с нашим файлом)
+        if (!vState[0] && localFile != null) {
+            org.telegram.messenger.DevGramPluginOrigin.findInDevChannels(account, originMessage, localFile, name, id, devDialogId -> {
                 if (!sheet.isShowing()) return;
                 vState[0] = true;
                 devState[0] = true;
                 applyBlock.run();
             });
         }
+    }
+
+    private static LinearLayout infoCard(Context context) {
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(14));
+        card.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_windowBackgroundGray)));
+        return card;
+    }
+
+    private static TextView cardTitle(Context context, String text) {
+        TextView t = new TextView(context);
+        t.setText(text);
+        t.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader));
+        t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        t.setTypeface(AndroidUtilities.bold());
+        return t;
+    }
+
+    private static void addInfoRow(Context context, LinearLayout card, String key, String value, Runnable onClick) {
+        LinearLayout row = new LinearLayout(context);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        TextView k = new TextView(context);
+        k.setText(key);
+        k.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        k.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        row.addView(k, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+        TextView v = new TextView(context);
+        v.setText(value);
+        v.setTextColor(Theme.getColor(onClick != null ? Theme.key_windowBackgroundWhiteBlueText : Theme.key_windowBackgroundWhiteBlackText));
+        v.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        v.setGravity(Gravity.RIGHT);
+        row.addView(v, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 1.4f));
+        if (onClick != null) {
+            row.setOnClickListener(x -> onClick.run());
+        }
+        card.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
     }
 
     // Проверка блокировки недоступна (нет сети, база не отвечает): не запрещаем установку,
