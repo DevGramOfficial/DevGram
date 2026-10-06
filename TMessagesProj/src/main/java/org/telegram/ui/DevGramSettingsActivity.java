@@ -128,6 +128,8 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         ImageView icon = new ImageView(context);
         headerIcon = icon;
         updateHeaderIcon();
+        icon.setOnClickListener(v -> presentFragment(new DevGramAppIconsActivity())); // выбор иконки, как у exteraGram
+        org.telegram.ui.Components.ScaleStateListAnimator.apply(icon, .06f, 1.4f);
         layout.addView(icon, LayoutHelper.createLinear(76, 76));
 
         TextView name = new TextView(context);

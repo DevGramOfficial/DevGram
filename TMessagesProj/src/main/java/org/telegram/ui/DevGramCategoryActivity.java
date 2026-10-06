@@ -36,6 +36,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     public static final int CATEGORY_AI = 5; // DevGram: отдельный экран «ИИ-чат» (как AiPreferencesActivity у exteraGram)
 
     // DevGram: кнопки-переходы из «Чаты» (как asButtonWithSubtext AI/CHAT_SETTINGS у exteraGram)
+    private static final int ID_APP_ICONS = 815;
     private static final int ID_OPEN_AI = 150;
     private static final int ID_OPEN_CHAT_SETTINGS = 151;
     private static final int ID_OPEN_SWIPE_ACTIONS = 149;
@@ -754,6 +755,11 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             // анимация, заголовок по центру, профиль в стиле iOS) — не отдельный рендер-код.
             // Отправная точка, а не жёсткая блокировка: любой пункт можно донастроить вручную
             // ниже после выбора пресета.
+            // Иконка приложения — отдельный экран выбора (как у exteraGram)
+            items.add(UItem.asButtonWithSubtext(ID_APP_ICONS, R.drawable.msg_premium_icons, "Иконка приложения",
+                    currentAppIconTitle()));
+            items.add(UItem.asShadow(null));
+
             items.add(UItem.asHeader("Дизайн"));
             items.add(UItem.asSlideView(
                     new String[]{"DevGram", "iOS", "Старый"},
@@ -1783,6 +1789,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_OPEN_AI) {
             presentFragment(new DevGramCategoryActivity(CATEGORY_AI));
             return;
+        } else if (item.id == ID_APP_ICONS) {
+            presentFragment(new DevGramAppIconsActivity());
+            return;
         } else if (item.id == ID_OPEN_SWIPE_ACTIONS) {
             presentFragment(new DevGramSwipeActionsActivity());
             return;
@@ -2429,5 +2438,14 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         });
         builder.setNegativeButton("Отмена", null);
         showDialog(builder.create());
+    }
+
+    private static String currentAppIconTitle() {
+        for (LauncherIconController.LauncherIcon icon : LauncherIconController.LauncherIcon.values()) {
+            if (LauncherIconController.isEnabled(icon)) {
+                return icon.disguise ? "Сейчас включена маскировка" : org.telegram.messenger.LocaleController.getString(icon.title);
+            }
+        }
+        return org.telegram.messenger.LocaleController.getString(LauncherIconController.LauncherIcon.DEFAULT.title);
     }
 }
