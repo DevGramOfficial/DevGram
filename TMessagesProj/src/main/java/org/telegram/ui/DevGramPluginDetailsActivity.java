@@ -12,6 +12,7 @@ import android.widget.ImageView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPluginBlocks;
+import org.telegram.messenger.DevGramPluginInfo;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
@@ -19,6 +20,7 @@ import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.BulletinFactory;
+import org.telegram.ui.Components.DevGramPluginInfoViews;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.ScaleStateListAnimator;
 
@@ -61,14 +63,17 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         heroRatingView = text(context, entry.rating > 0 ? String.format(java.util.Locale.US, "★ %.1f  ·  %d отзывов", entry.rating, entry.reviews) : "Новый плагин", 13, true, 0xFFE0A400); heroInfo.addView(heroRatingView,LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,8,0,0));
         heroRow.addView(heroInfo,LayoutHelper.createLinear(0,LayoutHelper.WRAP_CONTENT,1f)); hero.addView(heroRow);
         content.addView(hero, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
-        if (!entry.author.isEmpty() && entry.author.contains("@")) addLink("Открыть автора  →", entry.author);
+        // одна ссылка, если автор и канал — один и тот же адрес; две — только если они разные
+        String authorUser = username(entry.author), channelUser = username(entry.channel);
         if (!entry.channel.isEmpty()) addLink("🧩 " + entry.channel, entry.channel);
+        if (authorUser != null && !authorUser.equalsIgnoreCase(channelUser)) addLink("Открыть автора @" + authorUser, "@" + authorUser);
         if (entry.submittedAt > 0) {
             String dates = "Опубликован: " + android.text.format.DateFormat.format("dd.MM.yyyy", entry.submittedAt);
             if (entry.updatedAt > entry.submittedAt) dates += "  ·  Обновлён: " + android.text.format.DateFormat.format("dd.MM.yyyy", entry.updatedAt);
             addText(dates, 13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         }
         if (!entry.desc.isEmpty()) { LinearLayout info = section(context, 18); info.addView(text(context, "О плагине", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText))); info.addView(text(context, entry.desc, 15, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0)); content.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 4)); }
+        addPluginInfo(context);
 
         final String installLabel = DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин";
         final String blockHash = entry.isPackage ? entry.packageSha : DevGramPlugins.sha256(entry.source);
@@ -379,6 +384,90 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
 
     private LinearLayout section(Context context, int radius) { LinearLayout box = new LinearLayout(context); box.setOrientation(LinearLayout.VERTICAL); box.setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(16), AndroidUtilities.dp(18), AndroidUtilities.dp(16)); box.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(radius), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider))); box.setElevation(AndroidUtilities.dp(1)); return box; }
     private TextView text(Context context, String value, int size, boolean bold, int color) { TextView t = new TextView(context); t.setText(value); t.setTextSize(size); t.setTextColor(color); t.setLineSpacing(AndroidUtilities.dp(2), 1f); if (bold) t.setTypeface(AndroidUtilities.bold()); return t; }
+
+    private static String username(String value) {
+        if (value == null) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:@|t\\.me/)([A-Za-z0-9_]{4,})").matcher(value);
+        return m.find() ? m.group(1) : null;
+    }
+
+    // «Что умеет плагин» и «Сведения» — как в листе установки. У пакета исходника в каталоге нет:
+    // показываем заглушку и качаем .dgplugin из архива, затем читаем из него main.
+    private void addPluginInfo(Context context) {
+        LinearLayout capsBox = section(context, 18);
+        capsBox.addView(text(context, "Что умеет плагин", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)));
+        TextView capsStatus = text(context, "Загружаю плагин…", 14, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        capsBox.addView(capsStatus, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
+        content.addView(capsBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
+
+        LinearLayout infoBox = section(context, 18);
+        infoBox.addView(text(context, "Сведения", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)));
+        DevGramPluginInfoViews.addRow(context, infoBox, "ID", entry.id, null);
+        if (!entry.version.isEmpty()) DevGramPluginInfoViews.addRow(context, infoBox, "Версия", entry.version, null);
+        if (!entry.author.isEmpty()) DevGramPluginInfoViews.addRow(context, infoBox, "Автор", entry.author, null);
+        DevGramPluginInfoViews.addRow(context, infoBox, "Формат", entry.isPackage ? ".dgplugin — пакет" : "исходник Python", null);
+        LinearLayout codeRows = new LinearLayout(context);
+        codeRows.setOrientation(LinearLayout.VERTICAL);
+        infoBox.addView(codeRows, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        content.addView(infoBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
+
+        if (entry.isPackage) {
+            if (entry.packageSize > 0) DevGramPluginInfoViews.addRow(context, codeRows, "Размер", DevGramPluginInfo.formatSize(entry.packageSize), null);
+            addHashRow(context, codeRows, entry.packageSha);
+            org.telegram.messenger.DevGramPackages.fetchCatalogPackage(entry, file -> {
+                if (file == null) {
+                    capsStatus.setText("Не удалось загрузить плагин для проверки");
+                    return;
+                }
+                String path = file.getAbsolutePath();
+                org.telegram.messenger.Utilities.globalQueue.postRunnable(() -> {
+                    String src = DevGramPlugins.packageMainSource(path);
+                    AndroidUtilities.runOnUIThread(() -> fillCode(context, capsBox, capsStatus, codeRows, src, false));
+                });
+            });
+        } else {
+            String src = entry.source == null ? "" : entry.source;
+            if (!src.isEmpty()) {
+                DevGramPluginInfoViews.addRow(context, codeRows, "Размер",
+                        DevGramPluginInfo.formatSize(src.getBytes(java.nio.charset.StandardCharsets.UTF_8).length), null);
+            }
+            fillCode(context, capsBox, capsStatus, codeRows, src, true);
+            if (!src.isEmpty()) addHashRow(context, codeRows, DevGramPlugins.sha256(src));
+        }
+    }
+
+    private void fillCode(Context context, LinearLayout capsBox, TextView capsStatus, LinearLayout codeRows, String src, boolean beforeHash) {
+        if (getParentActivity() == null) return;
+        ArrayList<DevGramPluginInfo.Capability> caps = DevGramPluginInfo.capabilities(src);
+        if (src == null || src.isEmpty()) {
+            capsStatus.setText("Исходник плагина недоступен");
+        } else if (caps.isEmpty()) {
+            capsStatus.setText("Ничего особенного: плагин не запрашивает заметных возможностей");
+        } else {
+            capsBox.removeView(capsStatus);
+            DevGramPluginInfoViews.addCapabilities(context, capsBox, caps);
+        }
+        int at = beforeHash ? codeRows.getChildCount() : 0;
+        String minVersion = DevGramPluginInfo.metaValue(src, "__min_version__");
+        int lines = DevGramPluginInfo.codeLines(src);
+        LinearLayout tmp = new LinearLayout(context);
+        tmp.setOrientation(LinearLayout.VERTICAL);
+        if (minVersion != null) DevGramPluginInfoViews.addRow(context, tmp, "Мин. версия DevGram", minVersion, null);
+        if (lines > 0) DevGramPluginInfoViews.addRow(context, tmp, "Строк кода", String.valueOf(lines), null);
+        while (tmp.getChildCount() > 0) {
+            View row = tmp.getChildAt(0);
+            tmp.removeView(row);
+            codeRows.addView(row, at++);
+        }
+    }
+
+    private void addHashRow(Context context, LinearLayout box, String hash) {
+        if (hash == null || hash.isEmpty()) return;
+        DevGramPluginInfoViews.addRow(context, box, "SHA-256", DevGramPluginInfoViews.shortHash(hash), () -> {
+            AndroidUtilities.addToClipboard(hash);
+            BulletinFactory.of(this).createCopyBulletin("Хеш скопирован").show();
+        });
+    }
 
     private void addLink(String label, String target) {
         TextView t = secondaryAction(getContext(), label, false);

@@ -90,14 +90,24 @@ public final class DevGramPackages {
 
     private static void installCatalogPackageAllowed(final DevGramPlugins.CatalogEntry e,
                                                      final Utilities.Callback<Boolean> whenDone) {
+        fetchCatalogPackage(e, file -> {
+            if (file == null) { done(whenDone, false); return; }
+            finishInstall(file, e.id, e.packageSha, whenDone);
+        });
+    }
+
+    // Скачать .dgplugin каталога из архивного канала (без установки) — для установки и для
+    // карточки каталога (возможности, сведения). null — не удалось. Колбэк на UI-потоке.
+    public static void fetchCatalogPackage(final DevGramPlugins.CatalogEntry e, final Utilities.Callback<File> whenDone) {
+        if (e == null || !e.isPackage || e.packageMsg == 0) { AndroidUtilities.runOnUIThread(() -> whenDone.run(null)); return; }
         final int account = UserConfig.selectedAccount;
         resolveUsernameThen(account, ARCHIVE_USERNAME, (user, chat) -> {
-            if (chat == null) { done(whenDone, false); return; }
+            if (chat == null) { whenDone.run(null); return; }
             TLRPC.TL_channels_getMessages req = new TLRPC.TL_channels_getMessages();
             req.channel = MessagesController.getInstance(account).getInputChannel(chat.id);
             req.id.add(e.packageMsg);
             ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
-                if (!(response instanceof TLRPC.messages_Messages)) { done(whenDone, false); return; }
+                if (!(response instanceof TLRPC.messages_Messages)) { whenDone.run(null); return; }
                 TLRPC.messages_Messages mm = (TLRPC.messages_Messages) response;
                 MessagesController.getInstance(account).putUsers(mm.users, false);
                 MessagesController.getInstance(account).putChats(mm.chats, false);
@@ -106,17 +116,16 @@ public final class DevGramPackages {
                     TLRPC.Message m = mm.messages.get(i);
                     if (m != null && m.media != null && m.media.document != null) { doc = m.media.document; break; }
                 }
-                if (doc == null) { done(whenDone, false); return; }
-                downloadAndInstall(account, doc, e.id, e.packageSha, whenDone);
+                if (doc == null) { whenDone.run(null); return; }
+                download(account, doc, whenDone);
             }));
         });
     }
 
-    private static void downloadAndInstall(final int account, final TLRPC.Document doc, final String pluginId,
-                                           final String expectedSha, final Utilities.Callback<Boolean> whenDone) {
+    private static void download(final int account, final TLRPC.Document doc, final Utilities.Callback<File> whenDone) {
         File existing = FileLoader.getInstance(account).getPathToAttach(doc, true);
         if (existing != null && existing.exists() && existing.length() > 0) {
-            finishInstall(existing, pluginId, expectedSha, whenDone);
+            whenDone.run(existing);
             return;
         }
         final String attachName = FileLoader.getAttachFileName(doc);
@@ -124,15 +133,11 @@ public final class DevGramPackages {
         final NotificationCenter.NotificationCenterDelegate[] holder = new NotificationCenter.NotificationCenterDelegate[1];
         holder[0] = (id, acc, args) -> {
             if (args.length == 0 || !attachName.equals(args[0])) return;
-            if (id == NotificationCenter.fileLoaded) {
+            if (id == NotificationCenter.fileLoaded || id == NotificationCenter.fileLoadFailed) {
                 nc.removeObserver(holder[0], NotificationCenter.fileLoaded);
                 nc.removeObserver(holder[0], NotificationCenter.fileLoadFailed);
-                File file = FileLoader.getInstance(account).getPathToAttach(doc, true);
-                finishInstall(file, pluginId, expectedSha, whenDone);
-            } else if (id == NotificationCenter.fileLoadFailed) {
-                nc.removeObserver(holder[0], NotificationCenter.fileLoaded);
-                nc.removeObserver(holder[0], NotificationCenter.fileLoadFailed);
-                done(whenDone, false);
+                File file = id == NotificationCenter.fileLoaded ? FileLoader.getInstance(account).getPathToAttach(doc, true) : null;
+                whenDone.run(file != null && file.exists() && file.length() > 0 ? file : null);
             }
         };
         nc.addObserver(holder[0], NotificationCenter.fileLoaded);

@@ -247,28 +247,7 @@ public class DevGramPluginInstallSheet {
         if (!caps.isEmpty()) {
             LinearLayout capsCard = infoCard(context);
             capsCard.addView(cardTitle(context, "Что умеет плагин"));
-            for (org.telegram.messenger.DevGramPluginInfo.Capability c : caps) {
-                TextView row = new TextView(context);
-                android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
-                sb.append(c.emoji).append("  ");
-                int start = sb.length();
-                sb.append(c.title);
-                sb.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length(), 0);
-                if (c.level == org.telegram.messenger.DevGramPluginInfo.LEVEL_DANGER) {
-                    sb.setSpan(new android.text.style.ForegroundColorSpan(Theme.getColor(Theme.key_text_RedBold)), start, sb.length(), 0);
-                }
-                if (c.detail != null && !c.detail.isEmpty()) {
-                    int ds = sb.length();
-                    sb.append("\n").append(c.detail);
-                    sb.setSpan(new android.text.style.ForegroundColorSpan(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText)), ds, sb.length(), 0);
-                    sb.setSpan(new android.text.style.RelativeSizeSpan(0.92f), ds, sb.length(), 0);
-                }
-                row.setText(sb);
-                row.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                row.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-                row.setLineSpacing(AndroidUtilities.dp(2), 1f);
-                capsCard.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
-            }
+            org.telegram.ui.Components.DevGramPluginInfoViews.addCapabilities(context, capsCard, caps);
             root.addView(capsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
         }
 
@@ -276,20 +255,20 @@ public class DevGramPluginInstallSheet {
         java.io.File infoFile = packagePath != null ? new java.io.File(packagePath) : localFile;
         LinearLayout infoCard = infoCard(context);
         infoCard.addView(cardTitle(context, "Сведения"));
-        addInfoRow(context, infoCard, "ID", id, null);
-        if (ver != null && !ver.isEmpty()) addInfoRow(context, infoCard, "Версия", ver, null);
-        if (author != null && !author.isEmpty()) addInfoRow(context, infoCard, "Автор", author, null);
+        org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "ID", id, null);
+        if (ver != null && !ver.isEmpty()) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Версия", ver, null);
+        if (author != null && !author.isEmpty()) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Автор", author, null);
         String minVersion = org.telegram.messenger.DevGramPluginInfo.metaValue(capabilitiesSource, "__min_version__");
-        if (minVersion != null) addInfoRow(context, infoCard, "Мин. версия DevGram", minVersion, null);
-        addInfoRow(context, infoCard, "Формат", packagePath != null ? ".dgplugin — пакет" : "исходник Python", null);
+        if (minVersion != null) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Мин. версия DevGram", minVersion, null);
+        org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Формат", packagePath != null ? ".dgplugin — пакет" : "исходник Python", null);
         long size = infoFile != null && infoFile.exists() ? infoFile.length()
                 : (verifySource != null ? verifySource.getBytes(java.nio.charset.StandardCharsets.UTF_8).length : 0);
-        if (size > 0) addInfoRow(context, infoCard, "Размер", org.telegram.messenger.DevGramPluginInfo.formatSize(size), null);
+        if (size > 0) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Размер", org.telegram.messenger.DevGramPluginInfo.formatSize(size), null);
         int lines = org.telegram.messenger.DevGramPluginInfo.codeLines(capabilitiesSource);
-        if (lines > 0) addInfoRow(context, infoCard, "Строк кода", String.valueOf(lines), null);
+        if (lines > 0) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Строк кода", String.valueOf(lines), null);
         if (verifyHash != null && !verifyHash.isEmpty()) {
-            String shortHash = verifyHash.length() > 16 ? verifyHash.substring(0, 16) + "…" : verifyHash;
-            addInfoRow(context, infoCard, "SHA-256", shortHash, () -> {
+            String shortHash = org.telegram.ui.Components.DevGramPluginInfoViews.shortHash(verifyHash);
+            org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "SHA-256", shortHash, () -> {
                 AndroidUtilities.addToClipboard(verifyHash);
                 org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyBulletin("Хеш скопирован").show();
             });
@@ -739,26 +718,6 @@ public class DevGramPluginInstallSheet {
         t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         t.setTypeface(AndroidUtilities.bold());
         return t;
-    }
-
-    private static void addInfoRow(Context context, LinearLayout card, String key, String value, Runnable onClick) {
-        LinearLayout row = new LinearLayout(context);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        TextView k = new TextView(context);
-        k.setText(key);
-        k.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        k.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        row.addView(k, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-        TextView v = new TextView(context);
-        v.setText(value);
-        v.setTextColor(Theme.getColor(onClick != null ? Theme.key_windowBackgroundWhiteBlueText : Theme.key_windowBackgroundWhiteBlackText));
-        v.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        v.setGravity(Gravity.RIGHT);
-        row.addView(v, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 1.4f));
-        if (onClick != null) {
-            row.setOnClickListener(x -> onClick.run());
-        }
-        card.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
     }
 
     // Проверка блокировки недоступна (нет сети, база не отвечает): не запрещаем установку,
