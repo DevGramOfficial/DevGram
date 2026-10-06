@@ -49,7 +49,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_AI_TEMPERATURE = 158;
     static final int ID_AI_REPLACE_EDITOR = 815;
     static final int ID_AI_REPLACE_SUMMARIES = 816;
-    private static final int MENU_OPEN_CHAT = 500; // пункт меню в шапке (не строка списка)
 
     // Режим призрака
     private static final int ID_GHOST_MASTER = 1;
@@ -553,8 +552,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_SWIPE_TO_PIP = 97;
     private static final int ID_PAUSE_VIDEO_MINIMIZE = 98;
     private static final int ID_DOUBLE_TAP_SEEK = 99;
-    private static final int ID_AI_CHAT = 100;
-    private static final int ID_AI_PROVIDER = 101;
     private static final int ID_REPLY_ELEMENTS = 102;
     private static final int ID_REPLY_COLORS = 103;
     private static final int ID_REPLY_EMOJI = 104;
@@ -605,21 +602,11 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
         actionBar.setTitle(titleFor(category));
-        // На экране AI Chat — иконка «открыть ИИ-чат» в шапке.
-        if (category == CATEGORY_AI) {
-            actionBar.createMenu().addItem(MENU_OPEN_CHAT, R.drawable.msg2_ask_question);
-        }
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
                 if (id == -1) {
                     finishFragment();
-                } else if (id == MENU_OPEN_CHAT) {
-                    if (org.telegram.messenger.DevGramAiClient.isConfigured()) {
-                        presentFragment(new DevGramAiChatActivity());
-                    } else {
-                        showAiProviderDialog(true);
-                    }
                 }
             }
         });
@@ -1770,16 +1757,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             gToggle("hideAiEditor", false);
         } else if (item.id == ID_AI_SUMMARIES) {
             gToggle("dg_hideAiSummaries", false);
-        } else if (item.id == ID_AI_CHAT) {
-            if (!org.telegram.messenger.DevGramAiClient.isConfigured()) {
-                showAiProviderDialog(true);
-            } else {
-                presentFragment(new DevGramAiChatActivity());
-            }
-            return;
-        } else if (item.id == ID_AI_PROVIDER) {
-            showAiProviderDialog(false);
-            return;
         } else if (item.id == ID_OPEN_AI) {
             presentFragment(new DevGramCategoryActivity(CATEGORY_AI));
             return;
@@ -2108,41 +2085,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static String gPrefString(String key, String def) {
         return org.telegram.messenger.MessagesController.getGlobalMainSettings().getString(key, def);
     }
-
-    private void showAiProviderDialog(boolean openChatAfterSave) {
-        if (getParentActivity() == null) return;
-        android.widget.LinearLayout box = new android.widget.LinearLayout(getParentActivity());
-        box.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = org.telegram.messenger.AndroidUtilities.dp(20);
-        box.setPadding(pad, 0, pad, 0);
-        org.telegram.ui.Components.EditTextBoldCursor endpoint = createThemedDialogInput("Endpoint");
-        endpoint.setText(gPrefString("dg_aiEndpoint", "https://api.openai.com/v1/chat/completions"));
-        box.addView(endpoint, new android.widget.LinearLayout.LayoutParams(-1, -2));
-        org.telegram.ui.Components.EditTextBoldCursor model = createThemedDialogInput("Модель");
-        model.setText(gPrefString("dg_aiModel", "gpt-4o-mini"));
-        box.addView(model, new android.widget.LinearLayout.LayoutParams(-1, -2));
-        org.telegram.ui.Components.EditTextBoldCursor key = createThemedDialogInput("API-ключ");
-        key.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        key.setText(gPrefString("dg_aiKey", ""));
-        box.addView(key, new android.widget.LinearLayout.LayoutParams(-1, -2));
-        org.telegram.ui.ActionBar.AlertDialog.Builder builder =
-                new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Провайдер ИИ");
-        builder.setView(box);
-        builder.setPositiveButton("Сохранить", (dialog, which) -> {
-            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
-                    .putString("dg_aiEndpoint", endpoint.getText().toString().trim())
-                    .putString("dg_aiModel", model.getText().toString().trim())
-                    .putString("dg_aiKey", key.getText().toString().trim()).apply();
-            refreshList();
-            if (openChatAfterSave && org.telegram.messenger.DevGramAiClient.isConfigured()) {
-                presentFragment(new DevGramAiChatActivity());
-            }
-        });
-        builder.setNegativeButton("Отмена", null);
-        showDialog(builder.create());
-    }
-
     // Диагностика прокси: soket-проверка блокирующая → гоним в фоне, результат в диалоге.
     private void runProxyDiagnostics() {
         final org.telegram.ui.ActionBar.AlertDialog progress =
