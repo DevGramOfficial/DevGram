@@ -26,7 +26,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 
 import java.util.ArrayList;
 
-public class DevGramCategoryActivity extends BaseFragment {
+public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
     public static final int CATEGORY_GENERAL = 0;
     public static final int CATEGORY_GHOST = 1;
@@ -89,7 +89,7 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_VPN = 17;
     private static final int ID_VPN_DIAG = 19;
     private static final int ID_TRANSLATE_BUTTON = 160;
-    private static final int ID_TRANSLATE_CHAT = 161;
+    static final int ID_TRANSLATE_CHAT = 161;
     private static final int ID_TRANSLATION_PROVIDER = 162;
     private static final int ID_TRANSLATION_FORMALITY = 163;
     private static final int ID_TRANSLATION_TARGET = 164;
@@ -213,6 +213,11 @@ public class DevGramCategoryActivity extends BaseFragment {
                 org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
                         .putBoolean("view_animations", true).apply();
                 org.telegram.messenger.SharedConfig.setAnimationsEnabled(true);
+            }
+            if ("dg_translationProvider".equals(key)) {
+                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.updateSearchSettings);
+                rebuildAllScreens();
+                return;
             }
             refreshList();
             if ("dg_actionBarTitle".equals(key)) {
@@ -1157,7 +1162,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             }
             items.add(UItem.asButton(ID_TRANSLATION_TARGET, "Язык перевода", translationTargetLabel()));
             items.add(UItem.asButton(ID_DO_NOT_TRANSLATE, "Не переводить", doNotTranslateLabel()));
-            items.add(UItem.asShadow("Настройки применяются к переводу отдельных сообщений и целых чатов."));
+            items.add(UItem.asShadow("Настройки применяются к переводу отдельных сообщений и целых чатов. "
+                    + "Google, Yandex и DeepL переводят чаты без Telegram Premium."));
 
             items.add(UItem.asHeader("Основные"));
             items.add(UItem.asButtonCheck(ID_NUMBER_ROUNDING, "Отключить округление чисел", "1,23K → 1 234")
@@ -1426,7 +1432,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             rebuildAllScreens();
             return;
         } else if (item.id == ID_TRANSLATE_CHAT) {
-            if (!getUserConfig().isPremium() && !getMessagesController().getTranslateController().isChatTranslateEnabled()) {
+            if (!getUserConfig().isPremium() && !DevGramTranslator.usesExternalProvider() &&
+                    !getMessagesController().getTranslateController().isChatTranslateEnabled()) {
                 showDialog(new org.telegram.ui.Components.Premium.PremiumFeatureBottomSheet(this, 13, false));
                 return;
             }

@@ -24,7 +24,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 
 import java.util.ArrayList;
 
-public class DevGramPluginSystemActivity extends BaseFragment {
+public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
 
     private UniversalRecyclerView listView;
 

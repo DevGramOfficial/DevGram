@@ -110,6 +110,11 @@ public class DevGramSettingsLayout extends FrameLayout implements Theme.Colorabl
         listView.addEdgeEffectListener(() -> listView.postOnAnimation(this::invalidateBlur));
     }
 
+    public void setInsets(int top, int bottom) {
+        listView.setPadding(0, top + ActionBar.getCurrentActionBarHeight(), 0, bottom);
+        listView.setClipToPadding(false);
+    }
+
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);

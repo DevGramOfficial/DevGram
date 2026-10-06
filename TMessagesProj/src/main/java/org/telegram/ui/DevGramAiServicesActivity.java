@@ -21,7 +21,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 import java.util.ArrayList;
 
 /** Сервисы ИИ (повтор ServicesActivity exteraGram): список сервисов + «Новый сервис». Выбранный = активный. */
-public class DevGramAiServicesActivity extends BaseFragment {
+public class DevGramAiServicesActivity extends DevGramSettingsFragment {
     private static final int ID_NEW = 1;
     private static final int ID_BASE = 100;
 

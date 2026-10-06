@@ -29,7 +29,12 @@ public final class DevGramSettingsLink {
 
     // ---------- построение ссылки ----------
     public static String build(String code, int itemId) {
-        String s = code + (itemId > 0 ? "__" + itemId : "");
+        String s;
+        if ("general".equals(code) && itemId == DevGramCategoryActivity.ID_TRANSLATE_CHAT) {
+            s = "showTranslateChatButton";
+        } else {
+            s = code + (itemId > 0 ? "__" + itemId : "");
+        }
         return "https://t.me/" + USERNAME + "?s=" + s;
     }
 
@@ -38,6 +43,10 @@ public final class DevGramSettingsLink {
         if (s == null || s.isEmpty()) return false;
         String code = s;
         int itemId = 0;
+        if ("showTranslateChatButton".equals(code)) {
+            code = "general";
+            itemId = DevGramCategoryActivity.ID_TRANSLATE_CHAT;
+        }
         int sep = s.indexOf("__");
         if (sep > 0) {
             code = s.substring(0, sep);

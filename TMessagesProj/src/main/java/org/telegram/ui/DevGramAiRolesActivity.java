@@ -22,7 +22,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 import java.util.ArrayList;
 
 /** Роли ИИ (повтор RolesActivity exteraGram): предложенные роли + свои. Выбранная роль = системный промпт. */
-public class DevGramAiRolesActivity extends BaseFragment {
+public class DevGramAiRolesActivity extends DevGramSettingsFragment {
     private static final int MENU_ADD = 1;
     private static final int ID_BASE_SUGGESTED = 1000;
     private static final int ID_BASE_CUSTOM = 2000;

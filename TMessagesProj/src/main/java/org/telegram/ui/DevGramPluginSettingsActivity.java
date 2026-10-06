@@ -30,7 +30,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DevGramPluginSettingsActivity extends BaseFragment {
+public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
 
     private final String pluginId;
     private final String pluginName;

@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /** AyuGram-inspired filter manager with separate shared, per-chat and local-ban screens. */
-public class DevGramFiltersActivity extends BaseFragment {
+public class DevGramFiltersActivity extends DevGramSettingsFragment {
     private static final int MODE_ROOT = 0, MODE_RULES = 1, MODE_BANS = 2;
     private static final int ID_MASTER = 1, ID_PRIVATE = 2, ID_BLOCKED = 3, ID_SHARED = 4, ID_BANS = 5;
     private static final int ID_SELECT_CHAT = 8;

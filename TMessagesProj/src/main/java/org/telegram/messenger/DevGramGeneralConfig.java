@@ -21,9 +21,9 @@ public final class DevGramGeneralConfig {
         prefs().edit().putBoolean(key, value).apply();
     }
 
-    public static int getTranslationProvider() { return prefs().getInt("dg_translationProvider", 0); }
+    public static int getTranslationProvider() { return Math.max(0, Math.min(3, prefs().getInt("dg_translationProvider", 0))); }
     public static void setTranslationProvider(int value) { prefs().edit().putInt("dg_translationProvider", Math.max(0, Math.min(3, value))).apply(); }
-    public static int getTranslationFormality() { return prefs().getInt("dg_translationFormality", 0); }
+    public static int getTranslationFormality() { return Math.max(0, Math.min(2, prefs().getInt("dg_translationFormality", 0))); }
     public static void setTranslationFormality(int value) { prefs().edit().putInt("dg_translationFormality", Math.max(0, Math.min(2, value))).apply(); }
 
     public static boolean isRelativeLastSeen() { return bool("dg_relativeLastSeen", false); }

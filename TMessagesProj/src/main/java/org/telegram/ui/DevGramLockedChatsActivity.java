@@ -41,7 +41,7 @@ import java.util.ArrayList;
 
 // DevGram: экран управления скрытыми (запароленными) чатами — пасскод, биометрия,
 // уведомления и список скрытых чатов. Открывается только после разблокировки.
-public class DevGramLockedChatsActivity extends BaseFragment {
+public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
 
     private static final int ID_SET_PASSCODE = 1;
     private static final int ID_REMOVE_PASSCODE = 2;

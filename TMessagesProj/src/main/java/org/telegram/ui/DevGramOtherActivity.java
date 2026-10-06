@@ -27,7 +27,7 @@ import java.util.ArrayList;
 
 // DevGram: раздел «Другое» — поддержка проекта, сбор данных и сервисные действия (экспорт/импорт/сброс,
 // удаление аккаунта). Открывается кнопкой «Другое» из главного экрана настроек DevGram.
-public class DevGramOtherActivity extends BaseFragment {
+public class DevGramOtherActivity extends DevGramSettingsFragment {
 
     private static final int ID_SUPPORT_TON = 3;
     private static final int ID_CARD_BASE = 9000; // динамические карты: ID_CARD_BASE + индекс

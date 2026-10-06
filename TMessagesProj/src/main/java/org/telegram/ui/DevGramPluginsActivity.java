@@ -31,7 +31,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DevGramPluginsActivity extends BaseFragment {
+public class DevGramPluginsActivity extends DevGramSettingsFragment {
 
     private UniversalRecyclerView listView;
     private final ArrayList<String[]> rows = new ArrayList<>();

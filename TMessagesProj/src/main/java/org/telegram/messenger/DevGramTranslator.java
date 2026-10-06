@@ -14,17 +14,25 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 
 /** Translation providers used by the General settings, matching exteraGram. */
 public final class DevGramTranslator {
     public interface Callback {
         void run(TLRPC.TL_textWithEntities result, Throwable error);
+    }
+
+    public interface BatchCallback {
+        void run(ArrayList<TLRPC.TL_textWithEntities> result, Throwable error);
     }
 
     private static final Set<String> YANDEX_LANGUAGES = new HashSet<>(Arrays.asList(
@@ -42,6 +50,11 @@ public final class DevGramTranslator {
             "uk", "zh"
     ));
     private static final String YANDEX_UUID = UUID.randomUUID().toString().replace("-", "");
+    private static final ExecutorService TRANSLATION_EXECUTOR = Executors.newFixedThreadPool(3, runnable -> {
+        Thread thread = new Thread(runnable, "DevGramTranslator");
+        thread.setPriority(Thread.NORM_PRIORITY - 1);
+        return thread;
+    });
 
     private DevGramTranslator() {}
 
@@ -68,29 +81,65 @@ public final class DevGramTranslator {
         final String source = TextUtils.isEmpty(fromLanguage) || TranslateController.UNKNOWN_LANGUAGE.equals(fromLanguage)
                 ? "auto" : normalize(fromLanguage);
         final String target = normalize(toLanguage);
-        final int configuredProvider = DevGramGeneralConfig.getTranslationProvider();
-        final int provider = isTargetSupported(target) ? configuredProvider : 1;
-        Utilities.globalQueue.postRunnable(() -> {
+        final int provider = resolvedProvider(target);
+        TRANSLATION_EXECUTOR.execute(() -> {
             try {
-                String translated;
-                if (provider == 2) {
-                    translated = translateYandex(text, target);
-                } else if (provider == 3) {
-                    translated = translateDeepL(text, source, target);
-                } else {
-                    translated = translateGoogle(text, source, target);
-                }
-                if (TextUtils.isEmpty(translated)) {
-                    throw new IllegalStateException("Empty translation response");
-                }
-                TLRPC.TL_textWithEntities result = new TLRPC.TL_textWithEntities();
-                result.text = translated;
+                TLRPC.TL_textWithEntities result = translateBlocking(text, source, target, provider);
                 AndroidUtilities.runOnUIThread(() -> callback.run(result, null));
             } catch (Throwable error) {
                 FileLog.e(error);
                 AndroidUtilities.runOnUIThread(() -> callback.run(null, error));
             }
         });
+    }
+
+    /** Translates a grouped chat request without using Telegram's Premium-only API. */
+    public static void translateBatch(List<TLRPC.TL_textWithEntities> texts, String fromLanguage,
+                                      String toLanguage, BatchCallback callback) {
+        if (callback == null) {
+            return;
+        }
+        final ArrayList<TLRPC.TL_textWithEntities> sourceTexts = texts == null
+                ? new ArrayList<>() : new ArrayList<>(texts);
+        final String source = TextUtils.isEmpty(fromLanguage) || TranslateController.UNKNOWN_LANGUAGE.equals(fromLanguage)
+                ? "auto" : normalize(fromLanguage);
+        final String target = normalize(toLanguage);
+        final int provider = resolvedProvider(target);
+        TRANSLATION_EXECUTOR.execute(() -> {
+            try {
+                ArrayList<TLRPC.TL_textWithEntities> result = new ArrayList<>(sourceTexts.size());
+                for (TLRPC.TL_textWithEntities text : sourceTexts) {
+                    result.add(translateBlocking(text == null ? "" : text.text, source, target, provider));
+                }
+                AndroidUtilities.runOnUIThread(() -> callback.run(result, null));
+            } catch (Throwable error) {
+                FileLog.e(error);
+                AndroidUtilities.runOnUIThread(() -> callback.run(null, error));
+            }
+        });
+    }
+
+    private static int resolvedProvider(String target) {
+        int configuredProvider = DevGramGeneralConfig.getTranslationProvider();
+        return isTargetSupported(target) ? configuredProvider : 1;
+    }
+
+    private static TLRPC.TL_textWithEntities translateBlocking(String text, String source,
+                                                                String target, int provider) throws Exception {
+        String translated;
+        if (provider == 2) {
+            translated = translateYandex(text, target);
+        } else if (provider == 3) {
+            translated = translateDeepL(text, source, target);
+        } else {
+            translated = translateGoogle(text, source, target);
+        }
+        if (TextUtils.isEmpty(translated)) {
+            throw new IllegalStateException("Empty translation response");
+        }
+        TLRPC.TL_textWithEntities result = new TLRPC.TL_textWithEntities();
+        result.text = translated;
+        return result;
     }
 
     private static String translateGoogle(String text, String from, String to) throws Exception {

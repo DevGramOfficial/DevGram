@@ -29,7 +29,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 import java.util.ArrayList;
 
 /** Swipe actions settings, laid out like Extera's original screen. */
-public class DevGramSwipeActionsActivity extends BaseFragment {
+public class DevGramSwipeActionsActivity extends DevGramSettingsFragment {
     private static final int ID_PREVIEW = 1;
     private static final int ID_LOOP = 2;
     private static final int ID_REVERSED = 3;

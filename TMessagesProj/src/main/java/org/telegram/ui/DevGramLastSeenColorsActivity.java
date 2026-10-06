@@ -35,7 +35,7 @@ import java.util.Locale;
  * Для каждого уровня: палитра-пресеты + свотч «Своя» с вводом HEX (#RRGGBB). 0 = цвет по умолчанию.
  * Идея смены цвета — @katieska_2011.
  */
-public class DevGramLastSeenColorsActivity extends BaseFragment {
+public class DevGramLastSeenColorsActivity extends DevGramSettingsFragment {
 
     // pref-ключи цвета по уровням (0 = по умолчанию)
     public static final String KEY_ONLINE = "lastSeenColorOnline";

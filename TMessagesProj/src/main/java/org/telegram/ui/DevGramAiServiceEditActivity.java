@@ -22,7 +22,7 @@ import org.telegram.ui.Components.UniversalRecyclerView;
 import java.util.ArrayList;
 
 /** Редактор сервиса ИИ (повтор EditServiceActivity exteraGram): провайдер + inline поля + Проверить и сохранить. */
-public class DevGramAiServiceEditActivity extends BaseFragment {
+public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     private static final int ID_PROVIDER_BASE = 10;
     private static final int ID_REASONING = 23;
     private static final int ID_VERIFY = 24;

@@ -35,7 +35,7 @@ import java.util.ArrayList;
 
 // DevGram: главный экран настроек мода: шапка + категории + ссылки. Поддержка/сбор данных/сервис —
 // в отдельном разделе «Другое» (DevGramOtherActivity).
-public class DevGramSettingsActivity extends BaseFragment {
+public class DevGramSettingsActivity extends DevGramSettingsFragment {
 
     private UniversalRecyclerView listView;
     // Замок настроек мода: спрашиваем код ОДИН раз на входе в настройки DevGram; внутри разделов
