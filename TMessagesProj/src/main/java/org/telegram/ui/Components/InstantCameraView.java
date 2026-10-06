@@ -54,6 +54,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
+import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -61,6 +62,7 @@ import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.LinearLayout;
 
 import androidx.annotation.Nullable;
@@ -137,6 +139,11 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     private Paint paint;
     private RectF rect;
     private ZoomControlView zoomControlView; // DevGram: слайдер зума камеры кружков
+    // DevGram: кольцо записи — дорожка + дуга текущей минуты + светящаяся точка; таймер текущего кружка
+    private Paint ringTrackPaint;
+    private Paint ringHeadPaint;
+    private TextView recordTimerView;
+    private long recordTimerShown = -1;
     private final FlashViews.ImageViewInvertable switchCameraButton;
     private final FlashViews.ImageViewInvertable flashButton;
     private final FlashViews.ImageViewInvertable optionsButton;
@@ -295,6 +302,13 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setStrokeWidth(dp(3));
         paint.setColor(0xffffffff);
+        ringTrackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        ringTrackPaint.setStyle(Paint.Style.STROKE);
+        ringTrackPaint.setStrokeWidth(dp(3));
+        ringTrackPaint.setColor(0xffffffff);
+        ringHeadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        ringHeadPaint.setColor(0xffffffff);
+        ringHeadPaint.setShadowLayer(dp(6), 0, 0, 0xccffffff);
 
         rect = new RectF();
 
@@ -355,6 +369,17 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             }
         });
         addView(zoomControlView, LayoutHelper.createFrame(180, 40, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, 64));
+
+        // DevGram: сколько идёт текущий кружок — над ползунком зума
+        recordTimerView = new TextView(context);
+        recordTimerView.setTextColor(0xffffffff);
+        recordTimerView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        recordTimerView.setTypeface(AndroidUtilities.bold());
+        recordTimerView.setGravity(Gravity.CENTER);
+        recordTimerView.setPadding(dp(12), 0, dp(12), 0);
+        recordTimerView.setBackground(Theme.createRoundRectDrawable(dp(14), 0x66000000));
+        recordTimerView.setVisibility(GONE);
+        addView(recordTimerView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 28, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, 110));
 
         switchCameraButton = new FlashViews.ImageViewInvertable(context);
         switchCameraButton.setScaleType(ImageView.ScaleType.CENTER);
@@ -689,12 +714,20 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             invalidate();
         }
 
+        updateRecordTimer();
         if (progress != 0) {
             canvas.save();
             if (!flipAnimationInProgress) {
                 canvas.scale(cameraContainer.getScaleX(), cameraContainer.getScaleY(), rect.centerX(), rect.centerY());
             }
+            // дорожка на весь круг — видно, сколько осталось до следующего кружка
+            ringTrackPaint.setAlpha((int) (paint.getAlpha() * 0.22f));
+            canvas.drawArc(rect, 0, 360, false, ringTrackPaint);
             canvas.drawArc(rect, -90, 360 * progress, false, paint);
+            double angle = Math.toRadians(-90 + 360 * progress);
+            float r = rect.width() / 2f;
+            ringHeadPaint.setAlpha(paint.getAlpha());
+            canvas.drawCircle(rect.centerX() + (float) (r * Math.cos(angle)), rect.centerY() + (float) (r * Math.sin(angle)), dp(4), ringHeadPaint);
             canvas.restore();
         }
     }
@@ -1041,6 +1074,27 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         } else if (state == 2) {
             videoPlayer.seekTo((long) (progress * videoPlayer.getDuration()));
         }
+    }
+
+    // DevGram: таймер текущего кружка («● 0:42», после минуты — «● 0:17 · кружок 2»)
+    private void updateRecordTimer() {
+        if (recordTimerView == null) return;
+        if (!recording) {
+            if (recordTimerView.getVisibility() != GONE) recordTimerView.setVisibility(GONE);
+            recordTimerShown = -1;
+            return;
+        }
+        if (recordTimerView.getVisibility() != VISIBLE) recordTimerView.setVisibility(VISIBLE);
+        long seconds = recordedTime / 1000;
+        if (seconds == recordTimerShown) return;
+        recordTimerShown = seconds;
+        long part = recordedTime / DevGramLongRound.SEGMENT_MS;
+        long inPart = (recordedTime % DevGramLongRound.SEGMENT_MS) / 1000;
+        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder("● ");
+        sb.setSpan(new android.text.style.ForegroundColorSpan(0xffff4f4f), 0, 1, 0);
+        sb.append(String.format(java.util.Locale.US, "%d:%02d", inPart / 60, inPart % 60));
+        if (part > 0) sb.append(" · кружок ").append(String.valueOf(part + 1));
+        recordTimerView.setText(sb);
     }
 
     // DevGram: кружок длиннее минуты уходит цепочкой минутных кружков по очереди. true — отправка взята на себя.
