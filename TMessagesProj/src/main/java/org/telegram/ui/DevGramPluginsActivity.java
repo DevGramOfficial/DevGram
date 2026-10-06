@@ -260,37 +260,61 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
         return iv;
     }
 
-    // Поделиться файлом плагина: открываем системное меню отправки (в т.ч. переслать в чат Telegram).
+    // Поделиться файлом плагина внутри приложения: выбор чатов Telegram → файл уходит туда документом.
     private void sharePlugin(String filename, String pname) {
-        try {
-            if (filename == null || filename.isEmpty()) {
-                return;
-            }
-            java.io.File file = new java.io.File(DevGramPlugins.pluginsDir(), filename);
-            if (!file.exists()) {
-                org.telegram.ui.Components.BulletinFactory.of(this)
-                        .createErrorBulletin("Файл плагина не найден").show();
-                return;
-            }
-            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_SEND);
-            // единый функционал: .dgplugin — это архив, .py/.plugin — исходник
-            intent.setType(filename.endsWith(".dgplugin") ? "application/octet-stream" : "text/x-python");
-            android.net.Uri uri;
-            if (android.os.Build.VERSION.SDK_INT >= 24) {
-                uri = androidx.core.content.FileProvider.getUriForFile(getParentActivity(),
-                        org.telegram.messenger.ApplicationLoader.getApplicationId() + ".provider", file);
-                intent.setFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            } else {
-                uri = android.net.Uri.fromFile(file);
-            }
-            intent.putExtra(android.content.Intent.EXTRA_STREAM, uri);
-            intent.putExtra(android.content.Intent.EXTRA_SUBJECT, pname);
-            getParentActivity().startActivity(android.content.Intent.createChooser(intent, "Поделиться плагином"));
-        } catch (Throwable e) {
-            org.telegram.messenger.FileLog.e(e);
-            org.telegram.ui.Components.BulletinFactory.of(this)
-                    .createErrorBulletin("Не удалось поделиться").show();
+        if (filename == null || filename.isEmpty()) {
+            return;
         }
+        java.io.File file = new java.io.File(DevGramPlugins.pluginsDir(), filename);
+        if (!file.exists()) {
+            org.telegram.ui.Components.BulletinFactory.of(this)
+                    .createErrorBulletin("Файл плагина не найден").show();
+            return;
+        }
+        android.os.Bundle args = new android.os.Bundle();
+        args.putBoolean("onlySelect", true);
+        args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_FORWARD);
+        args.putBoolean("canSelectTopics", true);
+        DialogsActivity picker = new DialogsActivity(args);
+        picker.setDelegate((fragment, dids, message, param, notify, scheduleDate, scheduleRepeatPeriod, topicsFragment) -> {
+            try {
+                // копия под понятным именем: файл в папке плагинов могут переименовать/обновить
+                java.io.File dir = new java.io.File(org.telegram.messenger.ApplicationLoader.applicationContext.getCacheDir(), "plugin_share");
+                dir.mkdirs();
+                java.io.File copy = new java.io.File(dir, filename);
+                try (java.io.FileInputStream in = new java.io.FileInputStream(file);
+                     java.io.FileOutputStream out = new java.io.FileOutputStream(copy)) {
+                    byte[] buf = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                java.util.ArrayList<String> paths = new java.util.ArrayList<>();
+                paths.add(copy.getAbsolutePath());
+                for (int i = 0; i < dids.size(); i++) {
+                    long did = dids.get(i).dialogId;
+                    org.telegram.messenger.MessageObject replyTo = null;
+                    long topicId = dids.get(i).topicId;
+                    if (topicId != 0) {
+                        org.telegram.tgnet.TLRPC.TL_forumTopic topic = getMessagesController().getTopicsController().findTopic(-did, topicId);
+                        if (topic != null && topic.topicStartMessage != null) {
+                            replyTo = new org.telegram.messenger.MessageObject(currentAccount, topic.topicStartMessage, false, false);
+                            replyTo.isTopicMainMessage = true;
+                        }
+                    }
+                    org.telegram.messenger.SendMessagesHelper.prepareSendingDocuments(getAccountInstance(), paths, paths, null,
+                            i == 0 && message != null && message.length() > 0 ? message.toString() : null, null, did,
+                            replyTo, replyTo, null, null, null, notify, scheduleDate, null, null, 0, false, 0);
+                }
+                fragment.finishFragment();
+                org.telegram.ui.Components.BulletinFactory.of(DevGramPluginsActivity.this).createSimpleBulletin(R.raw.forward,
+                        dids.size() == 1 ? "Плагин «" + pname + "» отправлен" : "Плагин «" + pname + "» отправлен в " + dids.size() + " чата").show();
+            } catch (Throwable e) {
+                org.telegram.messenger.FileLog.e(e);
+                org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin("Не удалось отправить плагин").show();
+            }
+            return true;
+        });
+        presentFragment(picker);
     }
 
     /**

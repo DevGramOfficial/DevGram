@@ -43267,7 +43267,7 @@ public class ChatActivity extends BaseFragment implements
                             // .plugin — всегда показываем лист; .py — только если это плагин DevGram
                             boolean forcePlugin = devgramDocName.endsWith(".plugin");
                             if (forcePlugin || !org.telegram.messenger.DevGramPlugins.parseMeta(src).isEmpty()) {
-                                DevGramPluginInstallSheet.show(ChatActivity.this, src, getDialogId(), message);
+                                DevGramPluginInstallSheet.show(ChatActivity.this, src, getDialogId(), message, locFile);
                                 return;
                             }
                         } catch (Throwable e) {
