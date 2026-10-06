@@ -146,7 +146,8 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         return layout;
     }
 
-    // Логотип = та же иконка, что сейчас стоит на приложении в лаунчере (включённый alias).
+    // Логотип = та же иконка, что сейчас стоит на приложении в лаунчере (включённый alias);
+    // при маскировке — основная иконка DevGram.
     // Иконку отдаёт система — она же обрезает её по форме иконок телефона, а Monet сама берёт
     // светлую/тёмную картинку по теме.
     private void updateHeaderIcon() {
@@ -158,7 +159,9 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         try {
             for (LauncherIconController.LauncherIcon i : LauncherIconController.LauncherIcon.values()) {
                 if (LauncherIconController.isEnabled(i)) {
-                    drawable = ctx.getPackageManager().getActivityIcon(i.getComponentName(ctx));
+                    // при маскировке (Калькулятор/Часы…) в шапке всё равно логотип DevGram
+                    LauncherIconController.LauncherIcon shown = i.disguise ? LauncherIconController.LauncherIcon.DEFAULT : i;
+                    drawable = ctx.getPackageManager().getActivityIcon(shown.getComponentName(ctx));
                     break;
                 }
             }
