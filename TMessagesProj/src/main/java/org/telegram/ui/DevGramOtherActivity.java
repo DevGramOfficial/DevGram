@@ -66,11 +66,9 @@ public class DevGramOtherActivity extends BaseFragment {
             }
         });
 
-        FrameLayout contentView = new FrameLayout(context);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, this::onItemLongClick);
-        listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
-        contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
-        actionBar.setAdaptiveBackground(listView);
+        org.telegram.ui.Components.DevGramSettingsLayout contentView =
+                new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
 
         DevGramSettingsLink.consumeHighlight(listView);
         // Подтягиваем свежие реквизиты с сервера и обновляем список при ответе.

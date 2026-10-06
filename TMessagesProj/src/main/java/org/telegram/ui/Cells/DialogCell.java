@@ -734,6 +734,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     }
 
     private final Theme.ResourcesProvider resourcesProvider;
+    private final AvatarSpan messageAvatarSpan;
 
     public DialogCell(DialogsActivity fragment, Context context, boolean needCheck, boolean forceThreeLines, int account, Theme.ResourcesProvider resourcesProvider) {
         super(context);
@@ -752,6 +753,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
         useForceThreeLines = forceThreeLines;
         currentAccount = account;
+        messageAvatarSpan = new AvatarSpan(this, currentAccount, 18);
+        messageAvatarSpan.needDrawShadow = false;
 
         emojiStatusView = new View(context) {
             @Override
@@ -1666,6 +1669,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 needEmoji = true;
                 updateMessageThumbs();
                 messageNameString = ChatObject.isMonoForum(chat) ? null : AndroidUtilities.escape(getMessageNameString());
+                messageNameString = addSenderAvatar(messageNameString, message);
                 if (ChatObject.isMonoForum(chat)) {
                     messageNameString = null;
                     if (messageFormatType == 1) {
@@ -1910,6 +1914,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                                 user != null && user.id == UserObject.VERIFY && message != null && message.getForwardedFromId() != null
                             ) {
                                 messageNameString = AndroidUtilities.escape(triedMessageName != null ? triedMessageName : getMessageNameString());
+                                messageNameString = addSenderAvatar(messageNameString, message);
                                 if (chat != null && chat.forum && !isTopic && !useFromUserAsAvatar) {
                                     CharSequence topicName = MessagesController.getInstance(currentAccount).getTopicsController().getTopicIconName(chat, message, currentMessagePaint);
                                     if (!TextUtils.isEmpty(topicName)) {
@@ -3102,6 +3107,25 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     public void setTitleOverride(String s) {
         titleOverride = s;
+    }
+
+    private CharSequence addSenderAvatar(CharSequence text, MessageObject messageObject) {
+        if (!MessagesController.getGlobalMainSettings().getBoolean("senderMiniAvatars", true)
+                || messageObject == null || TextUtils.isEmpty(text)) {
+            return text;
+        }
+        long senderId = messageObject.getFromChatId();
+        if (senderId == UserConfig.getInstance(currentAccount).getClientUserId()) {
+            return text;
+        }
+        messageAvatarSpan.setDialogId(senderId);
+        SpannableStringBuilder result = new SpannableStringBuilder("A ");
+        result.setSpan(messageAvatarSpan, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int spacerStart = result.length();
+        result.append(' ');
+        result.setSpan(new FixedWidthSpan(dp(1)), spacerStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        result.append(text);
+        return result;
     }
 
     private SpannableStringBuilder formatInternal(int messageFormatType, CharSequence s1, CharSequence s2) {

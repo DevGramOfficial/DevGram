@@ -36,6 +36,29 @@ public class DevGramMaterial3 {
         return enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_bottomnav", false);
     }
 
+    public static boolean fabEnabled() {
+        return enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_fab", false);
+    }
+
+    public static final int TRANSITION_DEFAULT = 0;
+    public static final int TRANSITION_AOSP = 1;
+    public static final int TRANSITION_SPRING = 2;
+
+    public static int transitionAnimation() {
+        int value = MessagesController.getGlobalMainSettings().getInt("dg_transitionAnimation", TRANSITION_SPRING);
+        return value < TRANSITION_DEFAULT || value > TRANSITION_SPRING ? TRANSITION_SPRING : value;
+    }
+
+    public static float springTransitionInterpolation(float progress) {
+        if (progress <= 0f) {
+            return 0f;
+        }
+        if (progress >= 1f) {
+            return 1f;
+        }
+        return (float) (1.0 - Math.exp(-7.25 * progress) * Math.cos(10.5 * progress));
+    }
+
     // DevGram: нижний таб-бар в режиме дизайна iOS — та же плавающая скруглённая капсула на
     // всю ширину, что и в MD3-режиме (сверено по реальным скриншотам Swiftgram: там именно
     // плавающая капсула с отступами от краёв, а не плоская стыкованная полоса).

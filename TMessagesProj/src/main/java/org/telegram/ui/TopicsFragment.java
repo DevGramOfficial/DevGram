@@ -1297,7 +1297,9 @@ public class TopicsFragment extends BaseFragment implements NotificationCenter.N
         floatingButton.setOnClickListener(v -> presentFragment(TopicCreateFragment.create(chatId, 0)));
         floatingButton.imageView.setImageResource(R.drawable.ic_chatlist_add_2);
         floatingButton.imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        floatingButton.imageView.setPadding(dp(12), dp(12), dp(12), dp(12));
+        int floatingButtonPadding = dp((FragmentFloatingButton.getSizeDp() - 24) / 2f);
+        floatingButton.imageView.setPadding(floatingButtonPadding, floatingButtonPadding,
+                floatingButtonPadding, floatingButtonPadding);
         floatingButton.setContentDescription(getString(R.string.CreateTopic));
 
 

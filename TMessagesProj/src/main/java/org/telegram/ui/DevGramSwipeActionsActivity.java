@@ -57,16 +57,13 @@ public class DevGramSwipeActionsActivity extends BaseFragment {
             }
         });
 
-        FrameLayout root = new FrameLayout(context);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
         preview = new DevGramSwipeActionsPreviewCell(context, resourceProvider);
         preview.setActions(enabled);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, null);
         listView.allowReorder(true);
         listView.listenReorder(this::whenReordered);
-        root.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT,
-                LayoutHelper.MATCH_PARENT, Gravity.FILL));
-        actionBar.setAdaptiveBackground(listView);
+        org.telegram.ui.Components.DevGramSettingsLayout root =
+                new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
         return fragmentView = root;
     }
 

@@ -81,6 +81,7 @@ import org.telegram.ui.bots.BotWebViewSheet;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.ChatAttachAlert;
 import org.telegram.ui.Components.CubicBezierInterpolator;
+import org.telegram.ui.Components.DevGramMaterial3;
 import org.telegram.ui.Components.FloatingDebug.FloatingDebugController;
 import org.telegram.ui.Components.FloatingDebug.FloatingDebugProvider;
 import org.telegram.ui.Components.GroupCallPip;
@@ -1827,7 +1828,17 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     dt = 18;
                 }
                 lastFrameTime = newTime;
-                float duration = preview && open ? 190.0f : 150.0f;
+                int transitionMode = preview ? DevGramMaterial3.TRANSITION_DEFAULT : DevGramMaterial3.transitionAnimation();
+                float duration;
+                if (preview && open) {
+                    duration = 190.0f;
+                } else if (transitionMode == DevGramMaterial3.TRANSITION_AOSP) {
+                    duration = 280.0f;
+                } else if (transitionMode == DevGramMaterial3.TRANSITION_SPRING) {
+                    duration = 420.0f;
+                } else {
+                    duration = 150.0f;
+                }
                 animationProgress += dt / duration;
                 if (animationProgress > 1.0f) {
                     animationProgress = 1.0f;
@@ -1869,9 +1880,15 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     } else {
                         interpolated = CubicBezierInterpolator.EASE_OUT_QUINT.getInterpolation(animationProgress);
                     }
+                } else if (transitionMode == DevGramMaterial3.TRANSITION_AOSP) {
+                    interpolated = CubicBezierInterpolator.EASE_OUT_QUINT.getInterpolation(animationProgress);
+                } else if (transitionMode == DevGramMaterial3.TRANSITION_SPRING) {
+                    interpolated = DevGramMaterial3.springTransitionInterpolation(animationProgress);
                 } else {
                     interpolated = decelerateInterpolator.getInterpolation(animationProgress);
                 }
+                float transitionDistance = transitionMode == DevGramMaterial3.TRANSITION_AOSP
+                        ? Math.max(dp(48), getMeasuredWidth() * .18f) : dp(48);
                 if (open) {
                     float clampedInterpolated = MathUtils.clamp(interpolated, 0, 1);
                     containerView.setAlpha(clampedInterpolated);
@@ -1889,7 +1906,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                         containerView.invalidate();
                         invalidate();
                     } else {
-                        containerView.setTranslationX(dp(48) * (1.0f - interpolated));
+                        containerView.setTranslationX(transitionDistance * (1.0f - interpolated));
                     }
                 } else {
                     float clampedReverseInterpolated = MathUtils.clamp(1f - interpolated, 0, 1);
@@ -1904,7 +1921,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                         containerView.invalidate();
                         invalidate();
                     } else {
-                        containerViewBack.setTranslationX(dp(48) * interpolated);
+                        containerViewBack.setTranslationX(transitionDistance * interpolated);
                     }
                 }
                 if (animationProgress < 1) {

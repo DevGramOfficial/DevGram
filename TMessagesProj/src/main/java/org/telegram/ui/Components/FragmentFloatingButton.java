@@ -70,8 +70,7 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
 
         ScaleStateListAnimator.apply(this);
         if (!isSubButton) {
-            setOutlineProvider(ViewOutlineProviderImpl.BOUNDS_OVAL);
-            setTranslationZ(dpf2(0.5f));
+            setTranslationZ(dpf2(fabElevationDp()));
         }
 
         if (isSubButton) {
@@ -95,8 +94,8 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
             iBlur3Background = iBlur3SourceColor.createDrawable();
             iBlur3Background.setColorProvider(iBlur3ColorProviderTabs);
             iBlur3Background.setStrokeWidth(dpf2(0.4f), dpf2(0.4f));
-            iBlur3Background.setRadius(dp(DevGramMaterial3.enabled() ? DevGramMaterial3.RADIUS_MEDIUM_DP : 18));
-            iBlur3Background.setPadding(dp(5.66f));
+            iBlur3Background.setRadius(dp(subFabRadiusDp()));
+            iBlur3Background.setPadding(dp(subFabPaddingDp()));
         }
 
         updateColors();
@@ -157,15 +156,15 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
             iBlur3Background.updateColors();
             invalidate();
 
-            int rad = dp(DevGramMaterial3.enabled() ? DevGramMaterial3.RADIUS_MEDIUM_DP : 18);
+            int rad = dp(subFabRadiusDp());
             int pressedColor = Theme.getColor(Theme.key_listSelector, resourcesProvider);
-            setBackground(Theme.createInsetRoundRectDrawable(pressedColor, rad, dp(6)));
+            setBackground(Theme.createInsetRoundRectDrawable(pressedColor, rad, dp(subFabPaddingDp())));
         } else {
             imageView.setColorFilter(Theme.getColor(Theme.key_chats_actionIcon, resourcesProvider), PorterDuff.Mode.SRC_IN);
             progressView.setProgressColor(Theme.getColor(Theme.key_chats_actionIcon, resourcesProvider));
             // DevGram (как exteraGram): квадратная кнопка (squircle) вместо круглой
             if (org.telegram.messenger.DevGramConfig.squareFab) {
-                final int rad = dp(DevGramMaterial3.RADIUS_MEDIUM_DP);
+                final int rad = dp((float) Math.ceil(getSizeDp() * 16f / 56f));
                 setBackground(Theme.createSimpleSelectorRoundRectDrawable(rad,
                     Theme.getColor(Theme.key_featuredStickers_addButton, resourcesProvider),
                     Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourcesProvider)
@@ -179,7 +178,7 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
                 });
                 setClipToOutline(true);
             } else {
-                setBackground(Theme.createSimpleSelectorCircleDrawable(dp(48),
+                setBackground(Theme.createSimpleSelectorCircleDrawable(dp(getSizeDp()),
                     Theme.getColor(Theme.key_featuredStickers_addButton, resourcesProvider),
                     Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourcesProvider)
                 ));
@@ -191,23 +190,50 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
 
     public static final int SIZE = 48;
 
+    public static int getSizeDp() {
+        return DevGramMaterial3.fabEnabled() ? 56 : 48;
+    }
+
+    private static int fabBottomMarginDp() {
+        return DevGramMaterial3.fabEnabled() ? 16 : 14;
+    }
+
+    private static int subFabBottomMarginDp() {
+        return DevGramMaterial3.fabEnabled() ? 24 : 14;
+    }
+
+    private static float subFabPaddingDp() {
+        return DevGramMaterial3.fabEnabled() ? 8f : 5.66f;
+    }
+
+    private static float fabElevationDp() {
+        return DevGramMaterial3.fabEnabled() ? 6f : .5f;
+    }
+
+    private static float subFabRadiusDp() {
+        if (org.telegram.messenger.DevGramConfig.squareFab) {
+            return DevGramMaterial3.fabEnabled() ? 12f : 10f;
+        }
+        return (getSizeDp() - subFabPaddingDp() * 2f) / 2f;
+    }
+
     public static FrameLayout.LayoutParams createSubButtonLayoutParams() {
-        return LayoutHelper.createFrame(48, 48,
+        return LayoutHelper.createFrame(getSizeDp(), getSizeDp(),
                 (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.BOTTOM,
-                20, 0, 20, 14);
+                20, 0, 20, subFabBottomMarginDp());
     }
 
     public static FrameLayout.LayoutParams createDefaultLayoutParams() {
-        return LayoutHelper.createFrame(48, 48,
+        return LayoutHelper.createFrame(getSizeDp(), getSizeDp(),
                 (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.BOTTOM,
-                20, 0, 20, 14);
+                20, 0, 20, fabBottomMarginDp());
     }
 
 
     public static FrameLayout.LayoutParams createDefaultLayoutParamsBig() {
         return LayoutHelper.createFrame(56, 56,
                 (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.BOTTOM,
-                20 /*24*/, 0, 20 /*24*/, 14 /*16*/);
+                20 /*24*/, 0, 20 /*24*/, fabBottomMarginDp());
     }
 
     private float additionalTranslationY;

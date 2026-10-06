@@ -8,7 +8,6 @@ package org.telegram.ui;
 import android.content.Context;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.FrameLayout;
 
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.DevGramGeneralConfig;
@@ -20,6 +19,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.BulletinFactory;
+import org.telegram.ui.Components.DevGramSettingsLayout;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalRecyclerView;
@@ -209,6 +209,11 @@ public class DevGramCategoryActivity extends BaseFragment {
         }
         b.setItems(labels, (d, which) -> {
             org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putInt(key, which).apply();
+            if ("dg_transitionAnimation".equals(key) && which != org.telegram.ui.Components.DevGramMaterial3.TRANSITION_DEFAULT) {
+                org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
+                        .putBoolean("view_animations", true).apply();
+                org.telegram.messenger.SharedConfig.setAnimationsEnabled(true);
+            }
             refreshList();
             if ("dg_actionBarTitle".equals(key)) {
                 rebuildAppearanceScreens();
@@ -391,8 +396,11 @@ public class DevGramCategoryActivity extends BaseFragment {
     private static final int ID_MD3_SWITCH = 54;
     private static final int ID_MD3_TITLE = 55;
     private static final int ID_MD3_BOTTOMNAV = 56;
+    private static final int ID_MD3_FAB = 57;
+    private static final int ID_TRANSITION_ANIMATION = 58;
 
-    private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav"};
+    private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav", "dg_md3_fab"};
+    private static final String[] TRANSITION_ANIMATIONS = {"По умолчанию", "AOSP", "Пружинная"};
 
     private static int md3Count() {
         int c = 0;
@@ -610,11 +618,8 @@ public class DevGramCategoryActivity extends BaseFragment {
             }
         });
 
-        FrameLayout contentView = new FrameLayout(context);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, this::onItemLongClick);
-        listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
-        contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
-        actionBar.setAdaptiveBackground(listView);
+        DevGramSettingsLayout contentView = new DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
 
         DevGramSettingsLink.consumeHighlight(listView); // подсветить пункт, если открыто по ссылке
         return fragmentView = contentView;
@@ -787,7 +792,7 @@ public class DevGramCategoryActivity extends BaseFragment {
             items.add(UItem.asCheck(ID_HIDE_SEARCHBAR, "Скрыть строку поиска")
                     .setChecked(gPref("dg_hideSearchBar", false)));
             items.add(UItem.asCheck(ID_MINI_AVATARS, "Мини-аватарки отправителей")
-                    .setChecked(!gPref("disableThumbsInDialogList", false)));
+                    .setChecked(gPref("senderMiniAvatars", true)));
             items.add(UItem.asButton(ID_ACTIONBAR_TITLE, "Текст в заголовке",
                     ACTIONBAR_TITLE_OPTIONS[gInt("dg_actionBarTitle", 0)]));
             items.add(UItem.asShadow("Падающий снег появится в верхней панели."));
@@ -817,7 +822,7 @@ public class DevGramCategoryActivity extends BaseFragment {
                     .setChecked(gPref("dg_systemFonts", true)));
             items.add(UItem.asCheck(ID_SYSTEM_EMOJI, "Системные эмодзи")
                     .setChecked(DevGramConfig.isUseSystemEmoji()));
-            items.add(UItem.asCheck(ID_MD3, "Material Design 3  " + md3Count() + "/5")
+            items.add(UItem.asCheck(ID_MD3, "Material Design 3  " + md3Count() + "/6")
                     .setChecked(gPref("dg_md3", true)));
             if (gPref("dg_md3", true)) {
                 items.add(UItem.asRoundCheckbox(ID_MD3_PROGRESS, "Индикаторы загрузки")
@@ -830,7 +835,12 @@ public class DevGramCategoryActivity extends BaseFragment {
                         .setChecked(gPref("dg_md3_title", false)));
                 items.add(UItem.asRoundCheckbox(ID_MD3_BOTTOMNAV, "Нижняя панель навигации")
                         .setChecked(gPref("dg_md3_bottomnav", false)));
+                items.add(UItem.asRoundCheckbox(ID_MD3_FAB, "Плавающие кнопки")
+                        .setChecked(gPref("dg_md3_fab", false)));
             }
+            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, "Анимация переходов",
+                    TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
+            items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
             items.add(UItem.asCheck(ID_GOOEY, "«Липкая» анимация аватарок")
                     .setChecked(gPref("dg_gooey", true)));
             items.add(UItem.asHeader("Интерфейс DevGram"));
@@ -1562,6 +1572,14 @@ public class DevGramCategoryActivity extends BaseFragment {
             gToggle("dg_md3_bottomnav", false);
             refreshThenRebuildAppearanceScreens();
             return;
+        } else if (item.id == ID_MD3_FAB) {
+            gToggle("dg_md3_fab", false);
+            refreshThenRebuildAppearanceScreens();
+            return;
+        } else if (item.id == ID_TRANSITION_ANIMATION) {
+            showChoice("Анимация переходов", TRANSITION_ANIMATIONS, "dg_transitionAnimation",
+                    org.telegram.ui.Components.DevGramMaterial3.TRANSITION_SPRING);
+            return;
         } else if (item.id == ID_CENTER_TITLE) {
             DevGramConfig.setCenterTitle(!DevGramConfig.centerTitle);
             if (chatListPreview != null) chatListPreview.invalidate();
@@ -1593,7 +1611,9 @@ public class DevGramCategoryActivity extends BaseFragment {
             }
             return;
         } else if (item.id == ID_MINI_AVATARS) {
-            gToggle("disableThumbsInDialogList", false);
+            gToggle("senderMiniAvatars", true);
+            org.telegram.messenger.NotificationCenter.getInstance(currentAccount)
+                    .postNotificationName(org.telegram.messenger.NotificationCenter.dialogsNeedReload);
         } else if (item.id == ID_HIDE_CONTACTS_DIALOGS) {
             gToggle("hideContactsInDialogs", false);
         } else if (item.id == ID_LAST_SEEN_DOTS) {

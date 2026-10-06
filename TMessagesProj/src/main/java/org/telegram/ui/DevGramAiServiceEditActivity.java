@@ -75,11 +75,9 @@ public class DevGramAiServiceEditActivity extends BaseFragment {
         keyCell = new EditTextCell(context, "API-ключ", false);
         keyCell.setText(initKey);
 
-        FrameLayout content = new FrameLayout(context);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
-        listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
-        content.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
-        actionBar.setAdaptiveBackground(listView);
+        org.telegram.ui.Components.DevGramSettingsLayout content =
+                new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
         return fragmentView = content;
     }
 

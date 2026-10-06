@@ -7,7 +7,6 @@ import android.content.pm.PackageInfo;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -26,6 +25,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.RadioColorCell;
 import org.telegram.ui.Components.BulletinFactory;
+import org.telegram.ui.Components.DevGramSettingsLayout;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
@@ -83,11 +83,8 @@ public class DevGramSettingsActivity extends BaseFragment {
 
         headerView = createHeader(context);
 
-        FrameLayout contentView = new FrameLayout(context);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, this::onItemLongClick);
-        listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
-        contentView.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
-        actionBar.setAdaptiveBackground(listView);
+        DevGramSettingsLayout contentView = new DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
 
         return fragmentView = contentView;
     }
