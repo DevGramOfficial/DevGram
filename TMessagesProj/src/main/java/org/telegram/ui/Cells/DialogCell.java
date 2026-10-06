@@ -3123,9 +3123,28 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         result.setSpan(messageAvatarSpan, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         int spacerStart = result.length();
         result.append(' ');
-        result.setSpan(new FixedWidthSpan(dp(1)), spacerStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        // свой span, не FixedWidthSpan: по первому FixedWidthSpan ищется место превью медиа (updateThumbsPosition),
+        // и с ним превью рисовалось поверх имени отправителя
+        result.setSpan(new AvatarGapSpan(dp(1)), spacerStart, result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         result.append(text);
         return result;
+    }
+
+    private static final class AvatarGapSpan extends android.text.style.ReplacementSpan {
+        private final int width;
+
+        AvatarGapSpan(int width) {
+            this.width = width;
+        }
+
+        @Override
+        public int getSize(@NonNull android.graphics.Paint paint, CharSequence text, int start, int end, android.graphics.Paint.FontMetricsInt fm) {
+            return width;
+        }
+
+        @Override
+        public void draw(@NonNull Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom, @NonNull android.graphics.Paint paint) {
+        }
     }
 
     private SpannableStringBuilder formatInternal(int messageFormatType, CharSequence s1, CharSequence s2) {
