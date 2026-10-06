@@ -299,25 +299,15 @@ public class DevGramAppIconsActivity extends BaseFragment {
 
     // ---- превью иконки: квадрат со скруглением, как в селекторе ----
 
+    // Иконка из ресурсов alias'а: система обрезает её по форме иконок телефона, поэтому все иконки
+    // в сетке одной формы с основной. Запасной вариант — готовое превью.
     static Drawable previewDrawable(Context context, LauncherIconController.LauncherIcon icon) {
-        Drawable single = null;
-        Drawable bg = null, fg = null;
-        if (icon.isFullImage()) {
-            single = context.getDrawable(icon.foreground); // готовая картинка-превью (видимая часть иконки)
-        } else {
-            try {
-                Drawable d = context.getPackageManager().getActivityIcon(icon.getComponentName(context));
-                if (Build.VERSION.SDK_INT >= 26 && d instanceof AdaptiveIconDrawable) {
-                    bg = ((AdaptiveIconDrawable) d).getBackground();
-                    fg = ((AdaptiveIconDrawable) d).getForeground();
-                } else {
-                    single = d;
-                }
-            } catch (Throwable e) {
-                single = context.getDrawable(R.mipmap.ic_launcher);
-            }
+        Drawable d = LauncherIconController.loadIcon(context, icon);
+        if (d != null) {
+            return d;
         }
-        return new RoundIconDrawable(single, bg, fg);
+        Drawable single = icon.isFullImage() ? context.getDrawable(icon.foreground) : context.getDrawable(R.mipmap.ic_launcher);
+        return new RoundIconDrawable(single, null, null);
     }
 
     private static final class RoundIconDrawable extends Drawable {

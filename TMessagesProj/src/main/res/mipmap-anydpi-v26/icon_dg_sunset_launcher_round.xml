@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- DevGram: иконка целиком в фоновом слое, передний план пустой -->
+<!-- DevGram: картинка — передний слой (как у основной иконки); фон — та же картинка;
+     монохромный слой — силуэт для тематических иконок. С пустым передним слоем One UI
+     считал иконку «старой» и рисовал её в серой круглой рамке. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@mipmap/icon_dg_sunset_layer" />
-    <foreground android:drawable="@android:color/transparent" />
+    <foreground android:drawable="@mipmap/icon_dg_sunset_layer" />
+    <monochrome android:drawable="@drawable/icon_plane" />
 </adaptive-icon>

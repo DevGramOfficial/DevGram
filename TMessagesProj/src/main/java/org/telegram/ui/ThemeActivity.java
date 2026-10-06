@@ -671,7 +671,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             chatListRow = rowCount++;
             chatListInfoRow = rowCount++;
 
-            appIconHeaderRow = rowCount++;
+            // DevGram: вместо ленты иконок — строка «Иконка приложения», открывает экран выбора
             appIconSelectorRow = rowCount++;
             appIconShadowRow = rowCount++;
 
@@ -1113,6 +1113,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 if (view instanceof TextCheckCell) {
                     ((TextCheckCell) view).setChecked(!animations);
                 }
+            } else if (position == appIconSelectorRow) {
+                presentFragment(new DevGramAppIconsActivity());
             } else if (position == backgroundRow) {
                 presentFragment(new WallpapersListActivity(WallpapersListActivity.TYPE_ALL));
             } else if (position == changeUserColor) {
@@ -2668,7 +2670,12 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
                 case TYPE_TEXT_PREFERENCE: {
                     TextCell cell = (TextCell) holder.itemView;
                     cell.heightDp = 48;
-                    if (position == backgroundRow) {
+                    if (position == appIconSelectorRow) {
+                        cell.setSubtitle(null);
+                        cell.setColors(Theme.key_windowBackgroundWhiteGrayIcon, Theme.key_windowBackgroundWhiteBlackText);
+                        cell.setTextAndValueAndIcon(getString(R.string.AppIcon), DevGramCategoryActivity.currentAppIconTitle(),
+                                R.drawable.msg_premium_icons, false);
+                    } else if (position == backgroundRow) {
                         cell.setSubtitle(null);
                         cell.setColors(Theme.key_windowBackgroundWhiteBlueText4, Theme.key_windowBackgroundWhiteBlueText4);
                         cell.setTextAndIcon(getString(R.string.ChangeChatBackground), R.drawable.msg_background, changeUserColor >= 0);
@@ -2779,7 +2786,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
             } else if (position == saveToGalleryOption1Row || position == saveToGalleryOption2Row) {
                 return TYPE_SAVE_TO_GALLERY;
             } else if (position == appIconSelectorRow) {
-                return TYPE_APP_ICON;
+                return TYPE_TEXT_PREFERENCE; // DevGram: строка-переход на экран выбора иконки
             } else if (position == changeUserColor) {
                 return TYPE_CHOOSE_COLOR;
             }

@@ -24,6 +24,22 @@ public class LauncherIconController {
         return i == PackageManager.COMPONENT_ENABLED_STATE_ENABLED || i == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT && icon == LauncherIcon.DEFAULT;
     }
 
+    // DevGram: иконка alias'а «как есть» из ресурсов. PackageManager.getActivityIcon для ВКЛЮЧЁННОГО
+    // компонента на Samsung отдаёт иконку уже с темой лаунчера (серая рамка вокруг) — в приложении
+    // она тогда выглядит иначе, чем остальные. Грузим ресурс сами: система лишь обрезает её по форме.
+    public static android.graphics.drawable.Drawable loadIcon(Context ctx, LauncherIcon icon) {
+        try {
+            android.content.pm.ActivityInfo info = ctx.getPackageManager().getActivityInfo(icon.getComponentName(ctx),
+                    PackageManager.MATCH_DISABLED_COMPONENTS);
+            int res = info.getIconResource();
+            if (res != 0) {
+                return ctx.getDrawable(res);
+            }
+        } catch (Throwable ignore) {
+        }
+        return null;
+    }
+
     public static void setIcon(LauncherIcon icon) {
         Context ctx = ApplicationLoader.applicationContext;
         PackageManager pm = ctx.getPackageManager();

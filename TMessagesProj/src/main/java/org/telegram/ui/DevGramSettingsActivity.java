@@ -163,7 +163,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
                 if (LauncherIconController.isEnabled(i)) {
                     // при маскировке (Калькулятор/Часы…) в шапке всё равно логотип DevGram
                     LauncherIconController.LauncherIcon shown = i.disguise ? LauncherIconController.LauncherIcon.DEFAULT : i;
-                    drawable = ctx.getPackageManager().getActivityIcon(shown.getComponentName(ctx));
+                    drawable = LauncherIconController.loadIcon(ctx, shown); // без рамки темы лаунчера
                     break;
                 }
             }
