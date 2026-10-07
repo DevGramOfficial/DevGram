@@ -1138,14 +1138,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asShadow("Температура управляет случайностью ответа: чем выше значение, "
                     + "тем креативнее ответ; чем ниже — тем точнее."));
         } else {
-            long uid = getUserConfig().getClientUserId();
-            boolean hasArrow = org.telegram.messenger.DevGramBadges.hasSupporterFeatures(uid);
-            if (hasArrow) {
-                items.add(UItem.asHeader("Прокси DevGram"));
-                items.add(UItem.asCheck(ID_VPN, "Прокси")
-                        .setChecked(org.telegram.messenger.DevGramProxy.isEnabled()));
-                items.add(UItem.asShadow("Быстрое включение защищённого подключения DevGram."));
-            }
+            // прокси DevGram — в разделе «Поддержавшим»
 
             items.add(UItem.asHeader("Перевод сообщений"));
             items.add(UItem.asCheck(ID_TRANSLATE_BUTTON, "Показывать кнопку «Перевести»")

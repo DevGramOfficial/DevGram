@@ -62,6 +62,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
     private static final int ID_CHECK_UPDATE = 20;   // проверить обновления сейчас
     private static final int ID_UPDATE_INTERVAL = 21; // интервал авто-проверки
     private static final int ID_UPDATE_CHANNEL = 22;  // канал обновлений (основной/бета)
+    private static final int ID_SUPPORTER = 30;       // раздел «Поддержавшим» — только с правом поддержавшего
 
     private static final String LINK_CHANNEL = "https://t.me/devgramnews";
     private static final String LINK_CHAT = "https://t.me/DevGramForum";
@@ -207,18 +208,16 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         items.add(UItem.asButton(ID_CAT_CHATS, R.drawable.msg_discussion, "Чаты"));
         items.add(UItem.asButton(ID_PLUGINS, R.drawable.devgram_cat_general, "Плагины"));
         items.add(UItem.asButton(ID_OTHER, R.drawable.msg_settings, "Другое"));
+        if (DevGramSupporterActivity.isAvailable(currentAccount)) {
+            items.add(UItem.asButton(ID_SUPPORTER, R.drawable.devgram_supporter, "Поддержавшим"));
+        }
         items.add(UItem.asShadow(null));
 
         // Обновления DevGram (GitHub-релизы firedragoq/DevGram)
         items.add(UItem.asHeader("Обновления"));
         items.add(UItem.asButton(ID_CHECK_UPDATE, R.drawable.msg_download, "Проверить обновления"));
         items.add(UItem.asButton(ID_UPDATE_INTERVAL, R.drawable.msg_autodelete, "Интервал проверки", getUpdateIntervalText()));
-        // Канал обновлений (основной/бета) — виден ТОЛЬКО поддержавшим (значок ✈️)
-        if (org.telegram.messenger.DevGramBeta.hasAccess(currentAccount)) {
-            items.add(UItem.asButton(ID_UPDATE_CHANNEL, R.drawable.msg_channel,
-                    "Канал обновлений",
-                    org.telegram.messenger.DevGramConfig.updateChannel == 1 ? "Бета" : "Основной"));
-        }
+        // канал обновлений (основной/бета) — в разделе «Поддержавшим»
         items.add(UItem.asShadow(null));
 
         // Ссылки на официальный канал и форум
@@ -247,6 +246,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         else if (item.id == ID_CAT_APPEARANCE) code = "appearance";
         else if (item.id == ID_CAT_CHATS) code = "chats";
         else if (item.id == ID_OTHER) code = "other";
+        else if (item.id == ID_SUPPORTER) code = "supporter";
         if (code == null) return false;
         return DevGramSettingsLink.showLinkOptions(this, view, code, 0);
     }
@@ -268,6 +268,8 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramPluginsActivity());
         } else if (item.id == ID_OTHER) {
             presentFragment(new DevGramOtherActivity());
+        } else if (item.id == ID_SUPPORTER) {
+            presentFragment(new DevGramSupporterActivity());
         } else if (item.id == ID_BADGES) {
             presentFragment(new DevGramBadgesActivity());
         } else if (item.id == ID_LINK_CHANNEL) {

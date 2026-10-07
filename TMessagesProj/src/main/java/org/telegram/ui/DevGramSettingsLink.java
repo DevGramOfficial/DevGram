@@ -107,6 +107,7 @@ public final class DevGramSettingsLink {
             case "chats":      return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_CHATS);
             case "swipeactions": return new DevGramSwipeActionsActivity();
             case "appicon":    return new DevGramAppIconsActivity();
+            case "supporter":  return new DevGramSupporterActivity();
             case "ai":         return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_AI);
             case "other":      return new DevGramOtherActivity();
             case "locked":     return new DevGramLockedChatsActivity();
