@@ -33,6 +33,29 @@
         <item name="android:windowSplashScreenBackground">?android:windowBackground</item>
     </style>
 
+    <!-- DevGram: заставка при запуске с выбранной иконкой (Android 13+, SplashScreen.setSplashScreenTheme) -->
+    <style name="Theme.TMessages.Start.DgIconZima" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_zima_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconMonet" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_monet_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSunset" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sunset_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconAmethyst" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_amethyst_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconAurore" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_aurore_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconGoogle" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_google_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconGoogle26" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_google26_launcher</item>
+    </style>
+
     <style name="Theme.TMessages" parent="Theme.AppCompat.Light">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>

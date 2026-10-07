@@ -47,6 +47,47 @@ public class LauncherIconController {
             pm.setComponentEnabledSetting(i.getComponentName(ctx), i == icon ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED :
                     PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
         }
+        applySplashTheme(LaunchActivity.instance, icon);
+    }
+
+    // DevGram: текущая иконка приложения
+    public static LauncherIcon current() {
+        for (LauncherIcon icon : LauncherIcon.values()) {
+            if (icon != LauncherIcon.DEFAULT && isEnabled(icon)) {
+                return icon;
+            }
+        }
+        return LauncherIcon.DEFAULT;
+    }
+
+    // DevGram: заставка при следующих запусках — с выбранной иконкой (система берёт её из темы, а не из alias).
+    // При маскировке — основная иконка DevGram.
+    public static void applySplashTheme(android.app.Activity activity) {
+        try {
+            applySplashTheme(activity, current());
+        } catch (Throwable ignore) {
+        }
+    }
+
+    private static void applySplashTheme(android.app.Activity activity, LauncherIcon icon) {
+        if (activity == null || android.os.Build.VERSION.SDK_INT < 33) {
+            return;
+        }
+        int theme;
+        switch (icon.disguise ? LauncherIcon.DEFAULT : icon) {
+            case ZIMA: theme = R.style.Theme_TMessages_Start_DgIconZima; break;
+            case MONET: theme = R.style.Theme_TMessages_Start_DgIconMonet; break;
+            case SUNSET: theme = R.style.Theme_TMessages_Start_DgIconSunset; break;
+            case AMETHYST: theme = R.style.Theme_TMessages_Start_DgIconAmethyst; break;
+            case AURORE: theme = R.style.Theme_TMessages_Start_DgIconAurore; break;
+            case GOOGLE: theme = R.style.Theme_TMessages_Start_DgIconGoogle; break;
+            case GOOGLE26: theme = R.style.Theme_TMessages_Start_DgIconGoogle26; break;
+            default: theme = R.style.Theme_TMessages_Start; break;
+        }
+        try {
+            activity.getSplashScreen().setSplashScreenTheme(theme);
+        } catch (Throwable ignore) {
+        }
     }
 
     public enum LauncherIcon {
