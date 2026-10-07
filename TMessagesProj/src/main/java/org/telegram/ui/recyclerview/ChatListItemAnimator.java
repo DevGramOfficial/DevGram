@@ -1153,11 +1153,15 @@ public class ChatListItemAnimator extends DefaultItemAnimator {
         return info;
     }
 
+    // DevGram: не включать обрезку списка после анимаций (ставит чат)
+    public boolean keepUnclipped;
+
     @Override
     protected void onAllAnimationsDone() {
         super.onAllAnimationsDone();
 
-        recyclerListView.setClipChildren(true);
+        // DevGram: в чате обрезку не возвращаем — украшения обводки поддержавших выходят за край сообщения
+        recyclerListView.setClipChildren(!keepUnclipped);
         while (!runOnAnimationsEnd.isEmpty()) {
             runOnAnimationsEnd.remove(0).run();
         }

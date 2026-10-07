@@ -184,6 +184,29 @@ public final class DevGramMessageFrame {
         }
     }
 
+    // Кружок (видеосообщение): круглая рамка по краю видео и украшения по диагоналям круга.
+    public static void drawRound(Canvas canvas, RectF circle, int styleId, float alpha) {
+        Style s = get(styleId);
+        if (s == null || alpha <= 0f || circle.width() <= 0) return;
+        float cx = circle.centerX(), cy = circle.centerY(), r = circle.width() / 2f;
+        float stroke = AndroidUtilities.dp(3);
+        strokePaint.setStrokeWidth(stroke);
+        if (s.gradientBorder || s.border == 0) {
+            strokePaint.setShader(new LinearGradient(circle.left, circle.top, circle.right, circle.bottom, s.colors, null, Shader.TileMode.CLAMP));
+        } else {
+            strokePaint.setShader(null);
+            strokePaint.setColor(s.border);
+        }
+        strokePaint.setAlpha((int) (255 * alpha));
+        canvas.drawCircle(cx, cy, r - stroke / 2f, strokePaint);
+        float size = AndroidUtilities.dp(30);
+        float d = (float) (r * Math.cos(Math.PI / 4));
+        drawDecor(canvas, s.tl, cx - d, cy - d, size, -12, alpha);
+        drawDecor(canvas, s.tr, cx + d, cy - d, size, 12, alpha);
+        drawDecor(canvas, s.bl, cx - d, cy + d, size, -8, alpha);
+        drawDecor(canvas, s.br, cx + d, cy + d, size, 8, alpha);
+    }
+
     private static void drawDecor(Canvas canvas, String emoji, float cx, float cy, float size, float rotation, float alpha) {
         if (emoji == null) return;
         Drawable d = Emoji.getEmojiDrawable(emoji);

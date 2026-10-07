@@ -6234,6 +6234,13 @@ public class ChatActivity extends BaseFragment implements
             }
 
             protected void drawChatForegroundElements(Canvas canvas, RectF position) {
+                // DevGram: украшения обводки поддержавших — поверх всех сообщений
+                for (int i = 0, n = getChildCount(); i < n; i++) {
+                    View child = getChildAt(i);
+                    if (child instanceof ChatMessageCell) {
+                        ((ChatMessageCell) child).drawDevGramDecorOverlay(canvas);
+                    }
+                }
                 int size = drawTimeAfter.size();
                 if (size > 0) {
                     for (int a = 0; a < size; a++) {
@@ -7191,6 +7198,7 @@ public class ChatActivity extends BaseFragment implements
                     });
                 }
             };
+            chatListItemAnimator.keepUnclipped = true; // DevGram: украшения обводки за краем сообщения
             chatListItemAnimator.setOnSnapMessage(this::supportsThanosEffect, this::getChatThanosEffect);
         }
 

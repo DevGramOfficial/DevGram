@@ -6591,7 +6591,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (getTranslationZ() > 0) post(this::devgramEnsureUnclipped); // DevGram: украшения обводки за краем ячейки
 
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
@@ -13527,15 +13526,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                                  boolean topNear,
                                  boolean firstInChat,
                                  boolean lastInChatList) {
-        // DevGram: ячейку с обводкой поддержавшего поднимаем над соседями — иначе соседнее сообщение,
-        // нарисованное позже, перекрывает украшения, выходящие за край пузыря
-        long devgramSender = messageObject != null ? messageObject.getFromChatId() : 0;
-        float devgramZ = devgramSender > 0 && org.telegram.messenger.DevGramBadges.borderOf(devgramSender) != 0 ? 1f : 0f;
-        if (getTranslationZ() != devgramZ) {
-            setTranslationZ(devgramZ);
-            setOutlineProvider(devgramZ > 0 ? null : android.view.ViewOutlineProvider.BACKGROUND); // без тени
-        }
-        if (devgramZ > 0) post(this::devgramEnsureUnclipped);
         if (attachedToWindow && !frozen) {
             setMessageContent(messageObject, groupedMessages, bottomNear, topNear, firstInChat, lastInChatList);
         } else {
@@ -20460,7 +20450,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
 
         drawBackgroundInternal(canvas, false);
-        drawDevGramDecorPending(canvas);
+        devgramCaptureRound();
         if (isHighlightedAnimated) {
             long newTime = System.currentTimeMillis();
             long dt = Math.abs(newTime - lastHighlightProgressTime);
@@ -21140,40 +21130,74 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         return true;
     }
 
-    // DevGram: обводка сообщений поддержавших (стиль — поле «b» значка отправителя, видят все)
+    // DevGram: обводка сообщений поддержавших (стиль — поле «b» значка отправителя, видят все).
+    // Заливка и рамка рисуются вместе с пузырём, а украшения — отдельным слоем ПОВЕРХ всего списка
+    // (drawDevGramDecorOverlay из ChatActivity после всех сообщений): иначе их перекрывают соседние
+    // сообщения, анимации и обрезка по краю ячейки.
     private final RectF devgramFrameRect = new RectF();
-    private boolean devgramDecorPending;
-    private float devgramDecorRadius, devgramDecorAlpha;
+    private final RectF devgramDecorRect = new RectF();
+    private float devgramDecorRadius, devgramDecorAlpha, devgramDecorOffX, devgramDecorOffY;
     private int devgramDecorStyle;
+    private boolean devgramDecorRound;
+    private int devgramDecorMsgId;
 
-    // Список чата не обрезает ячейки (украшения выходят за край), но Android применяет это к ячейке
-    // только в момент переключения настройки у списка — пересозданные ячейки (например, при открытии
-    // клавиатуры) снова обрезаются. Переключаем настройку, чтобы она применилась и к этой ячейке.
-    private void devgramEnsureUnclipped() {
-        if (getTranslationZ() > 0 && getParent() instanceof android.view.ViewGroup) {
-            android.view.ViewGroup parent = (android.view.ViewGroup) getParent();
-            if (!parent.getClipChildren()) {
-                parent.setClipChildren(true);
-                parent.setClipChildren(false);
-            }
-        }
+    private int devgramStyle() {
+        if (currentMessageObject == null) return 0;
+        long senderId = currentMessageObject.getFromChatId();
+        return senderId > 0 ? org.telegram.messenger.DevGramBadges.borderOf(senderId) : 0;
     }
 
-    private void drawDevGramDecorPending(Canvas canvas) {
-        if (!devgramDecorPending) return;
-        devgramDecorPending = false;
-        org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, devgramDecorRadius, devgramDecorStyle, devgramDecorAlpha, false);
+    // смещение рисования внутри ячейки (как в onDraw: верхние плашки и адаптивная ширина)
+    private float devgramCellOffY() {
+        int top = getStarsPriceTopPadding() + suggestionOfferTopPadding + getTopicSeparatorTopPadding();
+        return (top > 0 ? top : 0) + transitionYOffsetForDrawables;
+    }
+
+    private void devgramCaptureRound() {
+        if (currentMessageObject == null || !currentMessageObject.isRoundVideo()) return;
+        int style = devgramStyle();
+        if (style == 0) {
+            devgramDecorStyle = 0;
+            return;
+        }
+        devgramDecorRect.set(photoImage.getImageX(), photoImage.getImageY(), photoImage.getImageX2(), photoImage.getImageY2());
+        devgramDecorRadius = devgramDecorRect.width() / 2f;
+        devgramDecorStyle = style;
+        devgramDecorAlpha = alphaInternal;
+        devgramDecorRound = true;
+        devgramDecorOffX = isWidthAdaptive() ? -getBoundsLeft() : 0;
+        devgramDecorOffY = devgramCellOffY() - transitionYOffsetForDrawables;
+        devgramDecorMsgId = currentMessageObject.getId();
+    }
+
+    // Слой украшений поверх списка. Холст — координаты списка; рисуем, только если сообщение то же.
+    public void drawDevGramDecorOverlay(Canvas canvas) {
+        if (devgramDecorStyle == 0 || currentMessageObject == null || devgramDecorMsgId != currentMessageObject.getId()
+                || getVisibility() != VISIBLE || devgramStyle() != devgramDecorStyle) {
+            return;
+        }
+        float alpha = devgramDecorAlpha * getAlpha();
+        if (alpha <= 0f) return;
+        canvas.save();
+        canvas.translate(getX() + devgramDecorOffX, getY() + devgramDecorOffY);
+        if (devgramDecorRound) {
+            org.telegram.ui.Components.DevGramMessageFrame.drawRound(canvas, devgramDecorRect, devgramDecorStyle, alpha);
+        } else {
+            org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramDecorRect, devgramDecorRadius, devgramDecorStyle, alpha, false);
+        }
+        canvas.restore();
     }
 
     private void drawDevGramFrame(Canvas canvas, boolean fromParent) {
         if (currentMessageObject == null || currentBackgroundDrawable == null || currentPosition != null
                 || !(drawBackground || transitionParams.animateDrawBackground) || currentMessageObject.isRoundVideo()
                 || enterTransitionInProgress && !currentMessageObject.isVoice()) { // пузырь в анимации отправки рисует сама анимация
+            if (currentMessageObject != null && !currentMessageObject.isRoundVideo()) devgramDecorStyle = 0;
             return;
         }
-        long senderId = currentMessageObject.getFromChatId();
-        int style = senderId > 0 ? org.telegram.messenger.DevGramBadges.borderOf(senderId) : 0;
+        int style = devgramStyle();
         if (style == 0) {
+            devgramDecorStyle = 0;
             return;
         }
         Rect b = currentBackgroundDrawable.getBounds();
@@ -21191,15 +21215,19 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
         // рамка — по настоящему контуру пузыря, вместе с хвостиком
         org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, style, alpha);
+        devgramDecorRect.set(devgramFrameRect);
+        devgramDecorRadius = radius;
+        devgramDecorStyle = style;
+        devgramDecorAlpha = alphaInternal;
+        devgramDecorRound = false;
+        devgramDecorMsgId = currentMessageObject.getId();
         if (fromParent) {
-            // фон рисует список одним проходом ДО всех ячеек (анимация, клавиатура) — украшения тогда
-            // соседние сообщения перекрыли бы; рисуем их в проходе самой ячейки (она поднята над соседями)
-            devgramDecorPending = true;
-            devgramDecorRadius = radius;
-            devgramDecorStyle = style;
-            devgramDecorAlpha = alpha;
+            // список рисует фон со сдвигом на (getX, getY + paddingTop)
+            devgramDecorOffX = 0;
+            devgramDecorOffY = getPaddingTop() + transitionYOffsetForDrawables;
         } else {
-            org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha, false);
+            devgramDecorOffX = isWidthAdaptive() ? -getBoundsLeft() : 0;
+            devgramDecorOffY = devgramCellOffY();
         }
     }
 
