@@ -210,7 +210,7 @@ public class DevGramBadgesActivity extends BaseFragment {
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         granted = DevGramBadges.listGranted();
         if (query.isEmpty()) {
-            items.add(UItem.asButton(ID_OPTIONS, R.drawable.devgram_supporter, "Значки для поддержавших"));
+            items.add(UItem.asButton(ID_OPTIONS, R.drawable.msg_input_like, "Значки для поддержавших"));
             items.add(UItem.asShadow("Значки, которые поддержавшие могут выбрать себе сами в разделе «Поддержавшим»."));
         }
         if (!granted.isEmpty()) {

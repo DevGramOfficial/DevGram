@@ -209,7 +209,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         items.add(UItem.asButton(ID_PLUGINS, R.drawable.devgram_cat_general, "Плагины"));
         items.add(UItem.asButton(ID_OTHER, R.drawable.msg_settings, "Другое"));
         if (DevGramSupporterActivity.isAvailable(currentAccount)) {
-            items.add(UItem.asButton(ID_SUPPORTER, R.drawable.devgram_supporter, "Поддержавшим"));
+            items.add(UItem.asButton(ID_SUPPORTER, R.drawable.msg_input_like, "Поддержавшим"));
         }
         items.add(UItem.asShadow(null));
 
