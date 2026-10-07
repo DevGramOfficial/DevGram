@@ -189,12 +189,19 @@ public class DevGramBadgesActivity extends BaseFragment {
         args.putBoolean("onlySelect", true);
         args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_FORWARD);
         args.putBoolean("allowSwitchAccount", false);
-        DialogsActivity fragment = new DialogsActivity(args);
+        args.putBoolean("checkCanWrite", false); // каналы, куда нельзя писать, тоже выбираются
+        DialogsActivity fragment = new DialogsActivity(args) {
+            @Override
+            public View createView(Context context) {
+                View view = super.createView(context);
+                actionBar.setTitle("Кому выдать значок");
+                return view;
+            }
+        };
         fragment.setDelegate((f, dids, message, param, notify, scheduleDate, scheduleRepeatPeriod, topicsFragment) -> {
-            if (dids == null || dids.isEmpty()) return false;
-            long did = dids.get(0).dialogId;
-            f.finishFragment();
-            if (did != 0) presentFragment(new DevGramBadgeGrantActivity(did));
+            if (dids == null || dids.isEmpty() || dids.get(0).dialogId == 0) return false;
+            // выдача заменяет список чатов (закрыть и сразу открыть нельзя — переход отбрасывается)
+            f.presentFragment(new DevGramBadgeGrantActivity(dids.get(0).dialogId), true);
             return true;
         });
         presentFragment(fragment);
