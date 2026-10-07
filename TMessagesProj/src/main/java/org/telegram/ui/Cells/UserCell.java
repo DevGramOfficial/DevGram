@@ -200,7 +200,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
 
         botVerification = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(20));
         emojiStatus = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(20));
-        devgramBadge = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(18));
+        devgramBadge = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно, а не 2 раза как статус
 
         statusTextView = new SimpleTextView(context);
         statusTextView.setTextSize(15);

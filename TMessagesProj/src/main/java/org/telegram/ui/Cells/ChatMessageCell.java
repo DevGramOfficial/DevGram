@@ -19090,7 +19090,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 if (devgramNameBadge == null) {
                     // перерисовываем саму ячейку: при invalidateParent=true перерисовывался только список,
                     // а ячейка бралась из кэша отрисовки — анимация значка у ника замирала
-                    devgramNameBadge = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, false, dp(18));
+                    devgramNameBadge = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, false, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // крутится постоянно
                     if (attachedToWindow) {
                         devgramNameBadge.attach();
                     }

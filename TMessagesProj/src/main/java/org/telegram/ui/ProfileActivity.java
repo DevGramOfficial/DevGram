@@ -11352,7 +11352,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     // Держим по одному на каждый вариант имени (крупное/мелкое).
     private Drawable getDevGramBadgeDrawable(int a, long dialogId) {
         if (devgramBadgeDrawable[a] == null) {
-            devgramBadgeDrawable[a] = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView[a], AndroidUtilities.dp(22), a == 0 ? AnimatedEmojiDrawable.CACHE_TYPE_EMOJI_STATUS : AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD);
+            devgramBadgeDrawable[a] = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView[a], AndroidUtilities.dp(22), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно, а не 2 раза как статус
             if (fragmentViewAttached) {
                 devgramBadgeDrawable[a].attach();
             }

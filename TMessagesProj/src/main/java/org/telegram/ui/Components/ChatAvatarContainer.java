@@ -383,7 +383,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
 
         emojiStatusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(titleTextView, dp(24));
         botVerificationDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(titleTextView, dp(17));
-        devgramBadgeDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(titleTextView, dp(20));
+        devgramBadgeDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(titleTextView, dp(20), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно
     }
 
     public ButtonBounce bounce = new ButtonBounce(this);

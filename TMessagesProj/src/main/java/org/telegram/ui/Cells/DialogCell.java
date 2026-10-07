@@ -766,7 +766,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         addView(emojiStatusView);
         emojiStatus = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(emojiStatusView, dp(22));
         botVerification = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(17));
-        devgramBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(18));
+        devgramBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно
         avatarImage.setAllowLoadingOnAttachedOnly(true);
     }
 

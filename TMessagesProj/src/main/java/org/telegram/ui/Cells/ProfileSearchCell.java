@@ -176,7 +176,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
         statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(20));
         statusDrawable.setCallback(this);
 
-        devgramBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(18));
+        devgramBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно
         devgramBadgeEmoji.setCallback(this);
     }
 

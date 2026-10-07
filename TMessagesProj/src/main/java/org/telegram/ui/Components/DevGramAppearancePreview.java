@@ -68,7 +68,7 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
         if (badgeId == emojiId && badge != null) return;
         if (badge != null && isAttachedToWindow()) badge.removeView(this);
         badgeId = emojiId;
-        badge = emojiId != 0 ? AnimatedEmojiDrawable.make(account, AnimatedEmojiDrawable.CACHE_TYPE_EMOJI_STATUS, emojiId) : null;
+        badge = emojiId != 0 ? AnimatedEmojiDrawable.make(account, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, emojiId) : null;
         if (badge != null && isAttachedToWindow()) badge.addView(this);
         invalidate();
     }
