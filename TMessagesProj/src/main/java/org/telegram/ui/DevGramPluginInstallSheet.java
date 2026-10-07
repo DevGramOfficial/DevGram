@@ -254,6 +254,7 @@ public class DevGramPluginInstallSheet {
             LinearLayout capsCard = infoCard(context);
             capsCard.addView(cardTitle(context, "Что умеет плагин"));
             org.telegram.ui.Components.DevGramPluginInfoViews.addCapabilities(context, capsCard, caps);
+            org.telegram.ui.Components.DevGramPluginInfoViews.makeCollapsible(capsCard, false);
             root.addView(capsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
         }
 
@@ -279,6 +280,7 @@ public class DevGramPluginInstallSheet {
                 org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyBulletin("Хеш скопирован").show();
             });
         }
+        org.telegram.ui.Components.DevGramPluginInfoViews.makeCollapsible(infoCard, false);
         root.addView(infoCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
 
         // галка «включить после установки»

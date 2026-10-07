@@ -68,6 +68,43 @@ public final class DevGramPluginInfoViews {
         card.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
     }
 
+    // Сворачиваемая карточка: первый ребёнок — заголовок, остальное — содержимое. По нажатию на
+    // карточку содержимое разворачивается/сворачивается, стрелка справа поворачивается.
+    public static void makeCollapsible(LinearLayout card, boolean expanded) {
+        if (card.getChildCount() == 0) return;
+        android.view.View titleView = card.getChildAt(0);
+        card.removeViewAt(0);
+        LinearLayout header = new LinearLayout(card.getContext());
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(titleView, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+        android.widget.ImageView arrow = new android.widget.ImageView(card.getContext());
+        arrow.setImageResource(org.telegram.messenger.R.drawable.arrow_more);
+        arrow.setColorFilter(new android.graphics.PorterDuffColorFilter(
+                Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), android.graphics.PorterDuff.Mode.SRC_IN));
+        arrow.setRotation(expanded ? 180f : 0f);
+        header.addView(arrow, LayoutHelper.createLinear(20, 20));
+        card.addView(header, 0, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        android.animation.LayoutTransition transition = new android.animation.LayoutTransition();
+        transition.enableTransitionType(android.animation.LayoutTransition.CHANGING);
+        transition.setDuration(200);
+        card.setLayoutTransition(transition);
+        final boolean[] open = {expanded};
+        Runnable apply = () -> {
+            for (int i = 1; i < card.getChildCount(); i++) {
+                card.getChildAt(i).setVisibility(open[0] ? android.view.View.VISIBLE : android.view.View.GONE);
+            }
+        };
+        apply.run();
+        card.setOnClickListener(v -> {
+            open[0] = !open[0];
+            apply.run();
+            arrow.animate().rotation(open[0] ? 180f : 0f).setDuration(200).start();
+        });
+        card.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_windowBackgroundGray)));
+        card.setForeground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ROUNDRECT_6DP));
+    }
+
     public static String shortHash(String hash) {
         return hash.length() > 16 ? hash.substring(0, 16) + "…" : hash;
     }
