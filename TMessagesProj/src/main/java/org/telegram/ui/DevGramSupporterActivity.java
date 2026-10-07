@@ -43,7 +43,10 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_UPDATE_CHANNEL = 2;
 
     private UniversalRecyclerView listView;
-    private View heroView;
+    private HeroView heroView;
+    private org.telegram.ui.Components.DevGramBadgePickerView badgePicker;
+    private ArrayList<DevGramBadges.Option> badgeOptions;
+    private boolean badgeSaving;
 
     public static boolean isAvailable(int account) {
         try {
@@ -67,6 +70,13 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         });
 
         heroView = new HeroView(context);
+        badgePicker = new org.telegram.ui.Components.DevGramBadgePickerView(context, currentAccount, resourceProvider);
+        badgePicker.setOnSelect(this::chooseBadge);
+        DevGramBadges.fetchOptions(options -> {
+            badgeOptions = options;
+            refreshBadgePicker();
+            if (listView != null && listView.adapter != null) listView.adapter.update(true);
+        });
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
         org.telegram.ui.Components.DevGramSettingsLayout content =
                 new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
@@ -76,6 +86,16 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(heroView));
+
+        items.add(UItem.asHeader("Ваш значок"));
+        if (badgeOptions == null) {
+            items.add(UItem.asShadow("Загружаю значки…"));
+        } else if (badgeOptions.isEmpty()) {
+            items.add(UItem.asShadow("Скоро здесь появятся значки на выбор."));
+        } else {
+            items.add(UItem.asCustom(badgePicker));
+            items.add(UItem.asShadow("Выбранный значок видят все пользователи DevGram рядом с вашим именем."));
+        }
 
         items.add(UItem.asHeader("Ваши возможности"));
         items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Быстрое защищённое подключение DevGram")
@@ -96,6 +116,30 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_UPDATE_CHANNEL) {
             toggleUpdateChannel();
         }
+    }
+
+    private void refreshBadgePicker() {
+        if (badgePicker == null || badgeOptions == null) return;
+        DevGramBadges.Badge b = DevGramBadges.badgeOf(getUserConfig().getClientUserId());
+        long original = b != null ? b.originalEmojiId : DevGramBadges.EMOJI_SUPPORTER;
+        long current = b != null ? b.emojiId : original;
+        badgePicker.setData(original, current, badgeOptions);
+    }
+
+    private void chooseBadge(long emojiId) {
+        if (badgeSaving) return;
+        badgeSaving = true;
+        badgePicker.setSelected(emojiId);
+        DevGramBadges.updateSelf(currentAccount, emojiId, null, (ok, error) -> {
+            badgeSaving = false;
+            refreshBadgePicker();
+            if (heroView != null) heroView.updateBadge();
+            if (ok) {
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Значок обновлён").show();
+            } else {
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сменить значок").show();
+            }
+        });
     }
 
     // Основной/бета. Бета включается только после активации токена (клиент сам получает его у бота).
@@ -126,7 +170,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         private final Matrix matrix = new Matrix();
         private LinearGradient gradient;
         private final StarParticlesView stars;
-        private final AnimatedEmojiDrawable badge;
+        private AnimatedEmojiDrawable badge;
         private final long startTime = System.currentTimeMillis();
 
         HeroView(Context context) {
@@ -145,10 +189,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             stars.drawable.init();
             addView(stars, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 150, Gravity.TOP, 14, 10, 14, 0));
 
-            long uid = getUserConfig().getClientUserId();
-            long emojiId = DevGramBadges.emojiIdOf(uid);
-            if (emojiId == 0) emojiId = DevGramBadges.EMOJI_SUPPORTER;
-            badge = AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE, emojiId);
+            badge = makeBadge();
 
             LinearLayout texts = new LinearLayout(context);
             texts.setOrientation(LinearLayout.VERTICAL);
@@ -174,6 +215,19 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             texts.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
 
             addView(texts, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 34, 150, 34, 26));
+        }
+
+        private AnimatedEmojiDrawable makeBadge() {
+            long emojiId = DevGramBadges.emojiIdOf(getUserConfig().getClientUserId());
+            if (emojiId == 0) emojiId = DevGramBadges.EMOJI_SUPPORTER;
+            return AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE, emojiId);
+        }
+
+        void updateBadge() {
+            if (badge != null && isAttachedToWindow()) badge.removeView(this);
+            badge = makeBadge();
+            if (isAttachedToWindow()) badge.addView(this);
+            invalidate();
         }
 
         @Override

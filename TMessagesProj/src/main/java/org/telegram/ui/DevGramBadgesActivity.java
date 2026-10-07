@@ -36,6 +36,7 @@ import java.util.ArrayList;
 public class DevGramBadgesActivity extends BaseFragment {
 
     private static final int ID_LIST_BASE = 1000; // выданные значки: ID_LIST_BASE + индекс
+    private static final int ID_OPTIONS = 1; // значки на выбор для поддержавших
 
     private UniversalRecyclerView listView;
     private EditTextBoldCursor recipientInput;
@@ -208,6 +209,10 @@ public class DevGramBadgesActivity extends BaseFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         granted = DevGramBadges.listGranted();
+        if (query.isEmpty()) {
+            items.add(UItem.asButton(ID_OPTIONS, R.drawable.devgram_supporter, "Значки для поддержавших"));
+            items.add(UItem.asShadow("Значки, которые поддержавшие могут выбрать себе сами в разделе «Поддержавшим»."));
+        }
         if (!granted.isEmpty()) {
             items.add(UItem.asHeader("Выдано вручную (" + granted.size() + ")"));
             int shown = 0;
@@ -238,6 +243,10 @@ public class DevGramBadgesActivity extends BaseFragment {
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
+        if (item.id == ID_OPTIONS) {
+            ensureAdminSignedIn(() -> presentFragment(new DevGramBadgeOptionsActivity()));
+            return;
+        }
         if (item.id >= ID_LIST_BASE) {
             int idx = item.id - ID_LIST_BASE;
             if (idx >= 0 && idx < granted.size()) {

@@ -61,6 +61,10 @@ public class DevGramBadges {
         public final long emojiId;
         public final String text;
         public final int access;
+        // DevGram: значок, выданный командой (поддержавший мог сменить emojiId на один из предложенных).
+        // Роли (команда/канал/официальный) определяются по нему, а не по выбранному.
+        public long originalEmojiId;
+        public int border; // стиль обводки сообщений (0 — нет)
         public Badge(long emojiId, String text) {
             this(emojiId, text, 0);
         }
@@ -68,6 +72,17 @@ public class DevGramBadges {
             this.emojiId = emojiId;
             this.text = text == null ? "" : text;
             this.access = access;
+            this.originalEmojiId = emojiId;
+        }
+    }
+
+    // Значок на выбор для поддержавших (список ведёт команда: badges_options на api.devgram.space)
+    public static class Option {
+        public final long emojiId;
+        public final String title;
+        public Option(long emojiId, String title) {
+            this.emojiId = emojiId;
+            this.title = title == null ? "" : title;
         }
     }
 
@@ -483,8 +498,12 @@ public class DevGramBadges {
             try {
                 JSONObject o = new JSONObject(s);
                 long emojiId = o.optLong("e", 0);
-                int access = o.has("p") ? o.optInt("p", 0) : legacyAccess(emojiId);
-                return new Badge(emojiId, o.optString("t", ""), access);
+                long original = o.has("o") ? o.optLong("o", emojiId) : emojiId;
+                int access = o.has("p") ? o.optInt("p", 0) : legacyAccess(original);
+                Badge b = new Badge(emojiId, o.optString("t", ""), access);
+                b.originalEmojiId = original;
+                b.border = o.optInt("b", 0);
+                return b;
             } catch (Throwable ignore) {
                 return null;
             }
@@ -502,10 +521,10 @@ public class DevGramBadges {
         if (b == null) {
             return -1;
         }
-        if (b.emojiId == EMOJI_CHANNEL) {
+        if (b.originalEmojiId == EMOJI_CHANNEL) {
             return ROLE_CHANNEL;
         }
-        if (b.emojiId == EMOJI_OFFICIAL) {
+        if (b.originalEmojiId == EMOJI_OFFICIAL) {
             return ROLE_OFFICIAL;
         }
         return ROLE_TEAM;
@@ -524,7 +543,110 @@ public class DevGramBadges {
         if (TEAM_HARDCODED.contains(userId)) {
             return true;
         }
-        return emojiIdOf(userId) == EMOJI_TEAM;
+        return roleEmojiOf(userId) == EMOJI_TEAM;
+    }
+
+    // Выданный командой значок (для проверки ролей), а не выбранный поддержавшим
+    private static long roleEmojiOf(long dialogId) {
+        Badge b = badgeOf(dialogId);
+        return b == null ? 0 : b.originalEmojiId;
+    }
+
+    // Стиль обводки сообщений этого пользователя (0 — нет). Только у поддержавших.
+    public static int borderOf(long userId) {
+        if (userId <= 0) return 0;
+        Badge b = badgeOf(userId);
+        if (b == null || (b.access & (ACCESS_SUPPORTER | ACCESS_DEVELOPER)) == 0 && b.originalEmojiId != EMOJI_TEAM) return 0;
+        return b.border;
+    }
+
+    // ---- значки на выбор (поддержавшие) ----
+
+    public static void fetchOptions(Utilities.Callback<ArrayList<Option>> callback) {
+        Utilities.globalQueue.postRunnable(() -> {
+            ArrayList<Option> list = new ArrayList<>();
+            String res = httpSend("GET", RTDB_BASE + "/badges_options.json", null);
+            try {
+                if (res != null && res.trim().startsWith("{")) {
+                    JSONObject o = new JSONObject(res);
+                    Iterator<String> keys = o.keys();
+                    while (keys.hasNext()) {
+                        String k = keys.next();
+                        JSONObject v = o.optJSONObject(k);
+                        list.add(new Option(Long.parseLong(k), v != null ? v.optString("t", "") : ""));
+                    }
+                }
+            } catch (Throwable e) {
+                FileLog.e(e);
+            }
+            AndroidUtilities.runOnUIThread(() -> callback.run(list));
+        });
+    }
+
+    // Команда: добавить/убрать значок из списка на выбор
+    public static void putOption(long emojiId, String title, Callback callback) {
+        Utilities.globalQueue.postRunnable(() -> {
+            String body;
+            try {
+                body = new JSONObject().put("t", title == null ? "" : title).toString();
+            } catch (Throwable e) {
+                body = "{}";
+            }
+            String tok = ensureFreshToken();
+            String res = tok == null ? null : httpSend("PUT", RTDB_BASE + "/badges_options/" + emojiId + ".json?auth=" + tok, body);
+            final boolean ok = res != null;
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(ok, ok ? null : "Не удалось сохранить"));
+        });
+    }
+
+    public static void removeOption(long emojiId, Callback callback) {
+        Utilities.globalQueue.postRunnable(() -> {
+            String tok = ensureFreshToken();
+            String res = tok == null ? null : httpSend("DELETE", RTDB_BASE + "/badges_options/" + emojiId + ".json?auth=" + tok, null);
+            final boolean ok = res != null;
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(ok, ok ? null : "Не удалось удалить"));
+        });
+    }
+
+    // Поддержавший меняет своё оформление: emojiId (0 — вернуть выданный, null — не менять) и
+    // border (0 — без обводки, null — не менять). Личность подтверждает персональный токен беты.
+    public static void updateSelf(int account, Long emojiId, Integer border, Callback callback) {
+        DevGramBeta.activate(account, (tokenOk, tokenError) -> {
+            if (!tokenOk) {
+                callback.onResult(false, tokenError != null ? tokenError : "Не удалось подтвердить аккаунт");
+                return;
+            }
+            final long uid = UserConfig.getInstance(account).getClientUserId();
+            Utilities.globalQueue.postRunnable(() -> {
+                String error = "Не удалось сохранить";
+                boolean ok = false;
+                try {
+                    JSONObject req = new JSONObject();
+                    req.put("uid", uid);
+                    req.put("token", DevGramConfig.getBetaToken());
+                    if (emojiId != null) req.put("e", emojiId);
+                    if (border != null) req.put("b", border);
+                    String res = httpSend("POST", RTDB_BASE + "/badges/self", req.toString());
+                    if (res != null) {
+                        JSONObject r = new JSONObject(res);
+                        ok = r.optBoolean("ok", false);
+                        JSONObject badge = r.optJSONObject("badge");
+                        SharedPreferences p = prefs();
+                        if (ok && badge != null && p != null) {
+                            p.edit().putString(key(uid), badge.toString()).apply();
+                        }
+                    }
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                final boolean fOk = ok;
+                final String fErr = error;
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (fOk) notifyBadgesChanged();
+                    callback.onResult(fOk, fOk ? null : fErr);
+                });
+            });
+        });
     }
 
     public static boolean isSupporter(long userId) {
