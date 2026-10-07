@@ -98,7 +98,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         }
 
         items.add(UItem.asHeader("Ваши возможности"));
-        items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Быстрое защищённое подключение DevGram")
+        items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Защищённое подключение")
                 .setChecked(DevGramProxy.isEnabled()));
         if (DevGramBeta.hasAccess(currentAccount)) {
             items.add(UItem.asButton(ID_UPDATE_CHANNEL, R.drawable.msg_channel, "Канал обновлений",
