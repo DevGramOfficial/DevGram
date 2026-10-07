@@ -332,8 +332,44 @@ public class DevGramBadges {
     }
 
     public static boolean isSignedIn() {
-        return adminIdToken != null;
+        restoreAdminSession();
+        return adminIdToken != null || adminRefreshToken != null && !adminRefreshToken.isEmpty();
     }
+
+    // Сессия команды переживает перезапуск: храним refresh-токен (пароль не храним). idToken
+    // обновится сам при первой записи (ensureFreshToken).
+    private static boolean adminSessionRestored;
+
+    private static SharedPreferences adminPrefs() {
+        return ApplicationLoader.applicationContext.getSharedPreferences("devgram_admin_session", 0);
+    }
+
+    private static void restoreAdminSession() {
+        if (adminSessionRestored || ApplicationLoader.applicationContext == null) return;
+        adminSessionRestored = true;
+        if (adminIdToken == null && adminRefreshToken == null) {
+            SharedPreferences p = adminPrefs();
+            adminRefreshToken = p.getString("rt", null);
+            adminUid = p.getString("uid", null);
+            adminEmail = p.getString("email", null);
+        }
+    }
+
+    public static String getAdminEmail() {
+        restoreAdminSession();
+        return adminEmail;
+    }
+
+    public static void signOut() {
+        adminIdToken = null;
+        adminUid = null;
+        adminRefreshToken = null;
+        adminEmail = null;
+        adminTokenAt = 0;
+        if (ApplicationLoader.applicationContext != null) adminPrefs().edit().clear().apply();
+    }
+
+    private static volatile String adminEmail;
 
     // Токен админа для записи из других модулей (реестр проверенных плагинов).
     public static String getAdminToken() {
@@ -367,6 +403,9 @@ public class DevGramBadges {
                         adminUid = r.optString("localId", null);
                         adminRefreshToken = r.optString("refreshToken", null);
                         adminTokenAt = System.currentTimeMillis();
+                        adminEmail = email;
+                        adminPrefs().edit().putString("rt", adminRefreshToken).putString("uid", adminUid)
+                                .putString("email", email).apply();
                         AndroidUtilities.runOnUIThread(() -> cb.onResult(true, null));
                         return;
                     }
@@ -787,6 +826,7 @@ public class DevGramBadges {
     // запись значка в облако молча падает с 401 → «иногда не выдаётся». Вызывать в globalQueue.
     // Возвращает актуальный idToken (или текущий, если refresh невозможен/не нужен).
     private static String ensureFreshToken() {
+        restoreAdminSession();
         String rt = adminRefreshToken;
         if (rt == null || rt.isEmpty()) {
             return adminIdToken; // legacy-сессия без refresh — вернём что есть
@@ -807,6 +847,7 @@ public class DevGramBadges {
                     adminIdToken = fresh;
                     adminRefreshToken = r.optString("refresh_token", rt);
                     adminTokenAt = System.currentTimeMillis();
+                    adminPrefs().edit().putString("rt", adminRefreshToken).apply();
                 }
             }
         } catch (Throwable e) {
@@ -836,6 +877,11 @@ public class DevGramBadges {
             o.put("e", emojiId);
             o.put("t", textTemplate == null ? "" : textTemplate);
             o.put("p", access);
+            // обводку, выбранную поддержавшим, при смене значка командой не сбрасываем
+            Badge prev = badgeOf(dialogId);
+            if (prev != null && prev.border != 0 && (access & ACCESS_SUPPORTER) != 0) {
+                o.put("b", prev.border);
+            }
             json = o.toString();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -846,7 +892,7 @@ public class DevGramBadges {
         if (p != null) {
             p.edit().putString(key(dialogId), json).apply();
         }
-        if (adminIdToken != null) {
+        if (isSignedIn()) {
             Utilities.globalQueue.postRunnable(() -> {
                 // свежий токен (idToken живёт 1ч) + ретрай с принудительным refresh при 401,
                 // иначе запись молча падает и значок «иногда не выдаётся».
@@ -873,7 +919,7 @@ public class DevGramBadges {
         if (p != null) {
             p.edit().remove(key(dialogId)).apply();
         }
-        if (adminIdToken != null) {
+        if (isSignedIn()) {
             Utilities.globalQueue.postRunnable(() -> {
                 String tok = ensureFreshToken();
                 String res = httpSend("DELETE", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + tok, null);

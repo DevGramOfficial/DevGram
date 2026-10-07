@@ -1,23 +1,25 @@
 /*
- * DevGram: экран выдачи значков (доступен команде проекта).
- * Флоу: ввод ID -> выбор значка (готовый ИЛИ любой эмодзи/премиум-эмодзи через тот же пикер,
- * что в чате) -> выбор подписи (готовая ИЛИ своя) -> выдать. Значок = {эмодзи, подпись} и
- * хранится в облаке (Firebase RTDB), появляется у всех сразу, пересборка не нужна.
+ * DevGram: экран значков для команды. Сверху сразу выдача: ввёл ID / @юзернейм / ссылку (или
+ * выбрал из чатов) -> открывается экран выдачи. Список выданных — отдельный экран с поиском и
+ * фильтрами. Значок хранится в облаке и появляется у всех сразу, пересборка не нужна.
  */
 
 package org.telegram.ui;
 
 import android.content.Context;
+import android.os.Bundle;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
+import org.telegram.messenger.DevGramPackages;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
@@ -32,269 +34,45 @@ import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalRecyclerView;
 
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class DevGramBadgesActivity extends BaseFragment {
 
-    private static final int ID_LIST_BASE = 1000; // выданные значки: ID_LIST_BASE + индекс
-    private static final int ID_OPTIONS = 1; // значки на выбор для поддержавших
+    private static final int ID_LIST = 1;
+    private static final int ID_OPTIONS = 2;
+    private static final int ID_ACCOUNT = 3;
+    private static final int ID_SIGN_IN = 4;
+    private static final int ID_SIGN_OUT = 5;
+
+    private static final Pattern USERNAME = Pattern.compile("^(?:https?://)?(?:t\\.me/|telegram\\.me/|@)?([A-Za-z][A-Za-z0-9_]{3,31})(?:[/?].*)?$");
 
     private UniversalRecyclerView listView;
+    private View grantCard;
     private EditTextBoldCursor recipientInput;
-    private ArrayList<Long> granted = new ArrayList<>(); // dialogId'ы
-    private String query = ""; // фильтр поиска (по ID и юзернейму/имени)
+    private TextView nextButton;
+    private boolean resolving;
 
     @Override
     public View createView(Context context) {
-        DevGramBadges.syncFromCloud(); // подтянуть свежий список из облака при открытии
+        DevGramBadges.syncFromCloud();
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
         actionBar.setTitle("Значки DevGram");
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
-                if (id == -1) {
-                    finishFragment();
-                }
+                if (id == -1) finishFragment();
             }
         });
 
-        LinearLayout root = new LinearLayout(context);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
-
-        root.addView(createGrantCard(context), LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 12, 12, 12, 6));
-
-        // Поиск по выданным значкам (по ID и юзернейму/имени)
-        android.widget.FrameLayout searchWrap = new android.widget.FrameLayout(context);
-        searchWrap.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(21),
-                Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
-        android.widget.ImageView searchIcon = new android.widget.ImageView(context);
-        searchIcon.setImageResource(R.drawable.msg_search);
-        searchIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-        searchWrap.addView(searchIcon, LayoutHelper.createFrame(20, 20, Gravity.CENTER_VERTICAL | Gravity.LEFT, 14, 0, 0, 0));
-        EditTextBoldCursor search = new EditTextBoldCursor(context);
-        search.setHint("Поиск по ID или @юзернейму");
-        search.setSingleLine(true);
-        search.setBackground(null);
-        search.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        search.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        search.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
-        search.setCursorColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        search.setCursorSize(AndroidUtilities.dp(20));
-        search.setCursorWidth(1.5f);
-        search.setPadding(AndroidUtilities.dp(44), 0, AndroidUtilities.dp(14), 0);
-        search.addTextChangedListener(new android.text.TextWatcher() {
-            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
-            public void onTextChanged(CharSequence s, int a, int b, int c) {}
-            public void afterTextChanged(android.text.Editable s) {
-                query = s.toString().trim().toLowerCase();
-                update();
-            }
-        });
-        searchWrap.addView(search, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 42));
-        root.addView(searchWrap, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 42, 12, 4, 12, 6));
-
+        grantCard = createGrantCard(context);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
         listView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
-        root.addView(listView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 0, 1f));
         actionBar.setAdaptiveBackground(listView);
-
-        return fragmentView = root;
+        return fragmentView = listView;
     }
 
-    private View createGrantCard(Context context) {
-        LinearLayout card = new LinearLayout(context);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(16));
-        card.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16),
-                Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
-
-        TextView title = new TextView(context);
-        title.setText("Выдать новый значок");
-        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
-        title.setTypeface(AndroidUtilities.bold());
-        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
-        card.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
-        TextView subtitle = new TextView(context);
-        subtitle.setText("Введите ID пользователя или отрицательный ID чата");
-        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-        subtitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-        card.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
-
-        LinearLayout inputRow = new LinearLayout(context);
-        inputRow.setGravity(Gravity.CENTER_VERTICAL);
-        recipientInput = makeInput(context, "Например, 7101191373 или -100…",
-                InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
-        recipientInput.setSingleLine(true);
-        recipientInput.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
-        recipientInput.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
-                openGrantFromInput();
-                return true;
-            }
-            return false;
-        });
-        inputRow.addView(recipientInput, LayoutHelper.createLinear(0, 48, 1f));
-
-        TextView next = new TextView(context);
-        next.setText("Далее");
-        next.setGravity(Gravity.CENTER);
-        next.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        next.setTypeface(AndroidUtilities.bold());
-        next.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
-        next.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12),
-                Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider),
-                Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourceProvider)));
-        next.setOnClickListener(v -> openGrantFromInput());
-        inputRow.addView(next, LayoutHelper.createLinear(88, 44, 12, 0, 0, 0));
-        card.addView(inputRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 12, 0, 0));
-        return card;
-    }
-
-    private void openGrantFromInput() {
-        if (recipientInput == null) return;
-        // Канал в bot-API формате (-100…) приводим к внутреннему dialogId, иначе значок «не появится».
-        long id = DevGramBadges.normalizeDialogId(Utilities.parseLong(recipientInput.getText().toString()));
-        if (id == 0) {
-            recipientInput.animate().translationX(AndroidUtilities.dp(5)).setDuration(70).withEndAction(() ->
-                    recipientInput.animate().translationX(0).setDuration(70).start()).start();
-            return;
-        }
-        AndroidUtilities.hideKeyboard(recipientInput);
-        presentFragment(new DevGramBadgeGrantActivity(id));
-    }
-
-    // Имя + @юзернейм по dialogId (для отображения и поиска). "" если не резолвится.
-    private String nameFor(long dialogId) {
-        try {
-            if (dialogId > 0) {
-                org.telegram.tgnet.TLRPC.User u = getMessagesController().getUser(dialogId);
-                if (u != null) {
-                    String nm = org.telegram.messenger.ContactsController.formatName(u.first_name, u.last_name);
-                    String un = org.telegram.messenger.UserObject.getPublicUsername(u);
-                    return (nm != null ? nm : "") + (un != null && !un.isEmpty() ? " @" + un : "");
-                }
-            } else {
-                org.telegram.tgnet.TLRPC.Chat c = getMessagesController().getChat(-dialogId);
-                if (c != null) {
-                    String un = org.telegram.messenger.ChatObject.getPublicUsername(c);
-                    return (c.title != null ? c.title : "") + (un != null && !un.isEmpty() ? " @" + un : "");
-                }
-            }
-        } catch (Throwable ignore) {
-        }
-        return "";
-    }
-
-    private static long shownId(long dialogId) {
-        return dialogId < 0 ? -dialogId : dialogId;
-    }
-
-    private static String shortText(String t) {
-        if (t == null) return "";
-        t = t.replace("{name}", "").trim();
-        return t.length() > 34 ? t.substring(0, 34) + "…" : t;
-    }
-
-    private static String emojiLabel(long emojiId) {
-        for (int i = 0; i < DevGramBadges.READY_EMOJI.length; i++) {
-            if (DevGramBadges.READY_EMOJI[i] == emojiId) {
-                return DevGramBadges.READY_EMOJI_LABELS[i];
-            }
-        }
-        return "Свой эмодзи";
-    }
-
-    private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        granted = DevGramBadges.listGranted();
-        if (query.isEmpty()) {
-            items.add(UItem.asButton(ID_OPTIONS, R.drawable.msg_input_like, "Значки для поддержавших"));
-            items.add(UItem.asShadow("Значки, которые поддержавшие могут выбрать себе сами в разделе «Поддержавшим»."));
-        }
-        if (!granted.isEmpty()) {
-            items.add(UItem.asHeader("Выдано вручную (" + granted.size() + ")"));
-            int shown = 0;
-            for (int i = 0; i < granted.size(); i++) {
-                long dialogId = granted.get(i);
-                String name = nameFor(dialogId);
-                // фильтр: по ID и по имени/юзернейму
-                if (!query.isEmpty()
-                        && !String.valueOf(shownId(dialogId)).contains(query)
-                        && !name.toLowerCase().contains(query)) {
-                    continue;
-                }
-                DevGramBadges.Badge b = DevGramBadges.badgeOf(dialogId);
-                String title = name.isEmpty() ? ("ID " + shownId(dialogId)) : name;
-                String value = b == null ? ("ID " + shownId(dialogId))
-                        : emojiLabel(b.emojiId) + "  ·  ID " + shownId(dialogId);
-                items.add(UItem.asButton(ID_LIST_BASE + i, title, value));
-                shown++;
-            }
-            if (shown == 0) {
-                items.add(UItem.asShadow("Ничего не найдено."));
-            } else {
-                items.add(UItem.asShadow("Нажмите на строку, чтобы изменить или снять значок."));
-            }
-        } else if (query.isEmpty()) {
-            items.add(UItem.asShadow("Выданных значков пока нет."));
-        }
-    }
-
-    private void onItemClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == ID_OPTIONS) {
-            ensureAdminSignedIn(() -> presentFragment(new DevGramBadgeOptionsActivity()));
-            return;
-        }
-        if (item.id >= ID_LIST_BASE) {
-            int idx = item.id - ID_LIST_BASE;
-            if (idx >= 0 && idx < granted.size()) {
-                showBadgeActions(granted.get(idx));
-            }
-        }
-    }
-
-    private void showBadgeActions(long dialogId) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        String name = nameFor(dialogId);
-        builder.setTitle(name.isEmpty() ? "ID " + shownId(dialogId) : name);
-        builder.setItems(new CharSequence[]{"Изменить значок", "Снять значок"}, (dialog, which) -> {
-            if (which == 0) {
-                presentFragment(new DevGramBadgeGrantActivity(dialogId));
-            } else {
-                showRevokeDialog(dialogId);
-            }
-        });
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(builder.create());
-    }
-
-    // Ввод ID -> открываем ОТДЕЛЬНЫЙ экран выдачи (не диалог, иначе пикер эмодзи его закроет).
-    private void askId() {
-        Context context = getParentActivity();
-        EditTextBoldCursor editText = makeInput(context, "ID пользователя (или -ID чата)", InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
-
-        android.widget.FrameLayout container = new android.widget.FrameLayout(context);
-        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
-        container.addView(editText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 44));
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle("Кому выдать значок?");
-        builder.setView(container);
-        builder.setPositiveButton("Далее", (d, w) -> {
-            long id = Utilities.parseLong(editText.getText().toString());
-            if (id != 0) {
-                presentFragment(new DevGramBadgeGrantActivity(id));
-            }
-        });
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(builder.create());
-        editText.requestFocus();
-        AndroidUtilities.showKeyboard(editText);
-    }
-
-    // Обновляем список при возврате с экрана выдачи.
     @Override
     public void onResume() {
         super.onResume();
@@ -302,80 +80,233 @@ public class DevGramBadgesActivity extends BaseFragment {
         update();
     }
 
-    private void showRevokeDialog(long dialogId) {
-        DevGramBadges.Badge b = DevGramBadges.badgeOf(dialogId);
-        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Снять значок");
-        builder.setMessage("Убрать значок у ID " + shownId(dialogId) + "?"
-                + (b != null ? "\n\n«" + shortText(b.text) + "»" : ""));
-        builder.setPositiveButton("Снять", (d, w) -> ensureAdminSignedIn(() -> {
-            DevGramBadges.revoke(dialogId);
-            update();
-        }));
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(builder.create());
+    private View createGrantCard(Context context) {
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(14), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
+        card.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
+
+        TextView title = new TextView(context);
+        title.setText("Выдать значок");
+        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
+        title.setTypeface(AndroidUtilities.bold());
+        title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        card.addView(title);
+
+        LinearLayout inputRow = new LinearLayout(context);
+        inputRow.setGravity(Gravity.CENTER_VERTICAL);
+        recipientInput = makeInput(this, context, "ID, @юзернейм или ссылка", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        recipientInput.setSingleLine(true);
+        recipientInput.setImeOptions(EditorInfo.IME_ACTION_GO);
+        recipientInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_GO) {
+                openGrantFromInput();
+                return true;
+            }
+            return false;
+        });
+        inputRow.addView(recipientInput, LayoutHelper.createLinear(0, 48, 1f));
+
+        nextButton = new TextView(context);
+        nextButton.setText("Далее");
+        nextButton.setGravity(Gravity.CENTER);
+        nextButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        nextButton.setTypeface(AndroidUtilities.bold());
+        nextButton.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
+        nextButton.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12),
+                Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider),
+                Theme.getColor(Theme.key_featuredStickers_addButtonPressed, resourceProvider)));
+        nextButton.setOnClickListener(v -> openGrantFromInput());
+        inputRow.addView(nextButton, LayoutHelper.createLinear(88, 44, 12, 0, 0, 0));
+        card.addView(inputRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 0, 0));
+
+        TextView fromChats = new TextView(context);
+        fromChats.setText("Выбрать из чатов");
+        fromChats.setGravity(Gravity.CENTER);
+        fromChats.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        fromChats.setTypeface(AndroidUtilities.bold());
+        fromChats.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
+        fromChats.setCompoundDrawablePadding(AndroidUtilities.dp(8));
+        android.graphics.drawable.Drawable icon = context.getResources().getDrawable(R.drawable.msg_contacts).mutate();
+        icon.setColorFilter(new android.graphics.PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider), android.graphics.PorterDuff.Mode.SRC_IN));
+        icon.setBounds(0, 0, AndroidUtilities.dp(20), AndroidUtilities.dp(20));
+        fromChats.setCompoundDrawables(icon, null, null, null);
+        fromChats.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12),
+                Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider), 0.10f),
+                Theme.getColor(Theme.key_listSelector, resourceProvider)));
+        fromChats.setOnClickListener(v -> pickFromChats());
+        card.addView(fromChats, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0, 12, 0, 0));
+        return card;
     }
 
-    // Писать значки в облако можно только после входа команды (Firebase Auth REST).
-    private void ensureAdminSignedIn(Runnable onReady) {
+    private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+        items.add(UItem.asCustom(grantCard));
+        items.add(UItem.asShadow("Можно ввести ID пользователя, ID канала (в том числе -100…), @юзернейм или ссылку t.me/…"));
+
+        items.add(UItem.asHeader("Управление"));
+        int count = DevGramBadges.listGranted().size();
+        items.add(UItem.asButton(ID_LIST, R.drawable.msg_list, "Выданные значки", count > 0 ? String.valueOf(count) : ""));
+        items.add(UItem.asButton(ID_OPTIONS, R.drawable.msg_input_like, "Значки для поддержавших"));
+        items.add(UItem.asShadow("Поддержавшие выбирают себе значок из этого списка в разделе «Поддержавшим»."));
+
+        items.add(UItem.asHeader("Аккаунт команды"));
         if (DevGramBadges.isSignedIn()) {
-            onReady.run();
-            return;
+            String email = DevGramBadges.getAdminEmail();
+            items.add(UItem.asButton(ID_ACCOUNT, R.drawable.msg_admins, "Вы вошли", email == null ? "" : email));
+            items.add(UItem.asButton(ID_SIGN_OUT, R.drawable.msg_leave, "Выйти").red());
+            items.add(UItem.asShadow("Сессия сохраняется после перезапуска — входить заново не нужно."));
+        } else {
+            items.add(UItem.asButton(ID_SIGN_IN, R.drawable.msg_admins, "Войти"));
+            items.add(UItem.asShadow("Вход нужен, чтобы выдавать и снимать значки."));
         }
-        Context context = getParentActivity();
-        EditTextBoldCursor emailEt = makeInput(context, "Email команды", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
-        EditTextBoldCursor passEt = makeInput(context, "Пароль", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
-        passEt.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+    }
 
-        LinearLayout boxx = new LinearLayout(context);
-        boxx.setOrientation(LinearLayout.VERTICAL);
-        boxx.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
-        boxx.addView(emailEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44));
-        boxx.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
+    private void onItemClick(UItem item, View view, int position, float x, float y) {
+        if (item.id == ID_LIST) {
+            presentFragment(new DevGramBadgeListActivity());
+        } else if (item.id == ID_OPTIONS) {
+            ensureAdminSignedIn(this, () -> presentFragment(new DevGramBadgeOptionsActivity()));
+        } else if (item.id == ID_SIGN_IN) {
+            ensureAdminSignedIn(this, this::update);
+        } else if (item.id == ID_SIGN_OUT) {
+            AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
+            b.setTitle("Выйти из аккаунта команды?");
+            b.setMessage("Чтобы снова выдавать значки, понадобится войти по почте и паролю.");
+            b.setPositiveButton("Выйти", (d, w) -> {
+                DevGramBadges.signOut();
+                update();
+            });
+            b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            AlertDialog dialog = b.create();
+            showDialog(dialog);
+            TextView button = (TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
+            if (button != null) button.setTextColor(Theme.getColor(Theme.key_text_RedBold, resourceProvider));
+        }
+    }
 
-        AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Вход команды DevGram");
-        b.setView(boxx);
-        b.setPositiveButton("Войти", (d, w) -> {
-            String email = emailEt.getText().toString().trim();
-            String pass = passEt.getText().toString();
-            if (email.isEmpty() || pass.isEmpty()) {
+    private void pickFromChats() {
+        Bundle args = new Bundle();
+        args.putBoolean("onlySelect", true);
+        args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_FORWARD);
+        args.putBoolean("allowSwitchAccount", false);
+        DialogsActivity fragment = new DialogsActivity(args);
+        fragment.setDelegate((f, dids, message, param, notify, scheduleDate, scheduleRepeatPeriod, topicsFragment) -> {
+            if (dids == null || dids.isEmpty()) return false;
+            long did = dids.get(0).dialogId;
+            f.finishFragment();
+            if (did != 0) presentFragment(new DevGramBadgeGrantActivity(did));
+            return true;
+        });
+        presentFragment(fragment);
+    }
+
+    // ID сразу открывает выдачу, юзернейм/ссылку сначала резолвим
+    private void openGrantFromInput() {
+        if (recipientInput == null || resolving) return;
+        String raw = recipientInput.getText().toString().trim();
+        if (raw.matches("^-?\\d+$")) {
+            long id = DevGramBadges.normalizeDialogId(Utilities.parseLong(raw));
+            if (id == 0) {
+                shake();
                 return;
             }
-            DevGramBadges.signIn(email, pass, (ok, err) -> {
-                if (ok) {
-                    onReady.run();
-                } else {
-                    Toast.makeText(getParentActivity(), "Не удалось войти: " + err, Toast.LENGTH_LONG).show();
-                }
-            });
+            openGrant(id);
+            return;
+        }
+        Matcher m = USERNAME.matcher(raw);
+        if (!m.matches()) {
+            shake();
+            return;
+        }
+        setResolving(true);
+        DevGramPackages.resolveUsernameThen(currentAccount, m.group(1), (user, chat) -> {
+            setResolving(false);
+            if (user != null) {
+                openGrant(user.id);
+            } else if (chat != null) {
+                openGrant(-chat.id);
+            } else {
+                shake();
+                Toast.makeText(getParentActivity(), "Не нашёл @" + m.group(1), Toast.LENGTH_SHORT).show();
+            }
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
-        emailEt.requestFocus();
-        AndroidUtilities.showKeyboard(emailEt);
     }
 
-    private EditTextBoldCursor makeInput(Context context, String hint, int inputType) {
-        EditTextBoldCursor et = new EditTextBoldCursor(context);
-        et.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
-        et.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, resourceProvider));
-        et.setInputType(inputType);
-        et.setHint(hint);
-        // видимый hint управляется setHintTextColor (setHintColor — анимированный, не тот)
-        et.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, resourceProvider));
-        et.setCursorColor(Theme.getColor(Theme.key_dialogTextBlack, resourceProvider));
-        et.setCursorSize(AndroidUtilities.dp(20));
-        et.setCursorWidth(1.5f);
-        et.setBackgroundDrawable(Theme.createEditTextDrawable(context, true));
-        return et;
+    private void openGrant(long dialogId) {
+        AndroidUtilities.hideKeyboard(recipientInput);
+        recipientInput.setText("");
+        presentFragment(new DevGramBadgeGrantActivity(dialogId));
+    }
+
+    private void setResolving(boolean value) {
+        resolving = value;
+        if (nextButton != null) {
+            nextButton.setText(value ? "…" : "Далее");
+            nextButton.setEnabled(!value);
+        }
+    }
+
+    private void shake() {
+        AndroidUtilities.shakeViewSpring(recipientInput, -6);
     }
 
     private void update() {
         if (listView != null && listView.adapter != null) {
             listView.adapter.update(true);
         }
-        org.telegram.messenger.NotificationCenter.getGlobalInstance()
-                .postNotificationName(org.telegram.messenger.NotificationCenter.reloadInterface);
+    }
+
+    // Писать значки в облако можно только после входа команды (сессия сохраняется в DevGramBadges).
+    static void ensureAdminSignedIn(BaseFragment fragment, Runnable onReady) {
+        if (DevGramBadges.isSignedIn()) {
+            onReady.run();
+            return;
+        }
+        Context context = fragment.getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor emailEt = makeInput(fragment, context, "Почта команды", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor passEt = makeInput(fragment, context, "Пароль", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
+        passEt.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+
+        LinearLayout box = new LinearLayout(context);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
+        box.addView(emailEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44));
+        box.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
+
+        AlertDialog.Builder b = new AlertDialog.Builder(context, fragment.getResourceProvider());
+        b.setTitle("Вход команды DevGram");
+        b.setView(box);
+        b.setPositiveButton("Войти", (d, w) -> {
+            String email = emailEt.getText().toString().trim();
+            String pass = passEt.getText().toString();
+            if (email.isEmpty() || pass.isEmpty()) return;
+            DevGramBadges.signIn(email, pass, (ok, err) -> {
+                if (ok) {
+                    onReady.run();
+                } else if (fragment.getParentActivity() != null) {
+                    Toast.makeText(fragment.getParentActivity(), "Не удалось войти: " + err, Toast.LENGTH_LONG).show();
+                }
+            });
+        });
+        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        fragment.showDialog(b.create());
+        emailEt.requestFocus();
+        AndroidUtilities.showKeyboard(emailEt);
+    }
+
+    static EditTextBoldCursor makeInput(BaseFragment fragment, Context context, String hint, int inputType) {
+        Theme.ResourcesProvider rp = fragment.getResourceProvider();
+        EditTextBoldCursor et = new EditTextBoldCursor(context);
+        et.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        et.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
+        et.setInputType(inputType);
+        et.setHint(hint);
+        et.setHintTextColor(Theme.getColor(Theme.key_groupcreate_hintText, rp));
+        et.setCursorColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
+        et.setCursorSize(AndroidUtilities.dp(20));
+        et.setCursorWidth(1.5f);
+        et.setBackgroundDrawable(Theme.createEditTextDrawable(context, true));
+        return et;
     }
 }
