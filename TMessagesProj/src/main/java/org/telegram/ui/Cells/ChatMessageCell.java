@@ -19088,7 +19088,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 devgramNameBadgeDialogId = devgramFrom;
                 nameWidth = Math.max(dp(10), nameWidth - dp(22));
                 if (devgramNameBadge == null) {
-                    devgramNameBadge = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, true, dp(18));
+                    // перерисовываем саму ячейку: при invalidateParent=true перерисовывался только список,
+                    // а ячейка бралась из кэша отрисовки — анимация значка у ника замирала
+                    devgramNameBadge = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, false, dp(18));
                     if (attachedToWindow) {
                         devgramNameBadge.attach();
                     }
