@@ -21150,6 +21150,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 out ? b.right - dp(8) : b.right - padding, b.bottom - padding);
         float radius = Math.min(dp(SharedConfig.bubbleRadius), (b.height() - padding) / 2f);
         float alpha = fromParent ? alphaInternal * getAlpha() : alphaInternal;
+        // заливка всего пузыря (вместе с хвостом) цветом стиля; при выделении — не перекрываем подсветку
+        if (currentSelectedBackgroundAlpha <= 0f) {
+            Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(style, b.left, b.top, b.right, b.bottom, alpha);
+            if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
+        }
         org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha);
     }
 
@@ -29484,7 +29489,29 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     public int getThemedColor(int key) {
+        Integer frameColor = devgramFrameColor(key);
+        if (frameColor != null) return frameColor;
         return Theme.getColor(key, resourcesProvider);
+    }
+
+    // DevGram: у сообщения с залитым пузырём (обводка поддержавшего) текст, ссылки и время
+    // берут цвета стиля — иначе на светлой заливке в тёмной теме текст не читается
+    private Integer devgramFrameColor(int key) {
+        if (currentMessageObject == null || currentMessageObject.isRoundVideo() || currentPosition != null) return null;
+        if (key != Theme.key_chat_messageTextIn && key != Theme.key_chat_messageTextOut
+                && key != Theme.key_chat_messageLinkIn && key != Theme.key_chat_messageLinkOut
+                && key != Theme.key_chat_inTimeText && key != Theme.key_chat_outTimeText
+                && key != Theme.key_chat_inViews && key != Theme.key_chat_outViews) {
+            return null;
+        }
+        long senderId = currentMessageObject.getFromChatId();
+        int styleId = senderId > 0 ? org.telegram.messenger.DevGramBadges.borderOf(senderId) : 0;
+        if (styleId == 0) return null;
+        org.telegram.ui.Components.DevGramMessageFrame.Style st = org.telegram.ui.Components.DevGramMessageFrame.get(styleId);
+        if (st == null || st.text == 0) return null;
+        if (key == Theme.key_chat_messageLinkIn || key == Theme.key_chat_messageLinkOut) return st.link;
+        if (key == Theme.key_chat_messageTextIn || key == Theme.key_chat_messageTextOut) return st.text;
+        return ColorUtils.setAlphaComponent(st.text, 0x99); // время и просмотры — приглушённо
     }
 
     private Drawable getThemedDrawable(String key) {
