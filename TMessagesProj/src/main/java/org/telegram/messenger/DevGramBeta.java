@@ -51,19 +51,13 @@ public final class DevGramBeta {
             AndroidUtilities.runOnUIThread(() -> callback.onResult(false, "Нужен значок поддержавшего"));
             return;
         }
-        // «Вход через Telegram» (без переписки с ботом) — только с согласия пользователя; бот — запасной путь
+        // «Вход через Telegram» (без переписки с ботом) — только с согласия пользователя
         askConsent(account, agreed -> {
             if (!agreed) {
                 callback.onResult(false, "Подтверждение отменено");
                 return;
             }
-            loginViaTelegram(account, ok -> {
-                if (ok) {
-                    callback.onResult(true, null);
-                } else {
-                    activateViaBot(account, callback);
-                }
-            });
+            loginViaTelegram(account, ok -> callback.onResult(ok, ok ? null : "Не удалось подтвердить аккаунт"));
         });
     }
 
@@ -116,30 +110,70 @@ public final class DevGramBeta {
     private static final String AUTH_HOST = "api.devgram.space";
     private static final String AUTH_URL = "https://" + AUTH_HOST + "/api/auth/telegram";
 
+    // Служебный пост с кнопкой входа (login_url) в публичном канале @devgramarchive. Вход по обычной
+    // ссылке Telegram подписывает только для своих доменов, а кнопка входа работает для домена бота.
+    // Приложение «нажимает» кнопку программно — писать боту и подписываться на канал не нужно.
+    private static final int AUTH_MSG_ID = 10;
+
     private static void loginViaTelegram(final int account, final Utilities.Callback<Boolean> done) {
-        TLRPC.TL_messages_requestUrlAuth req = new TLRPC.TL_messages_requestUrlAuth();
-        req.url = AUTH_URL;
-        req.flags |= 4; // url
-        ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> {
-            if (response instanceof TLRPC.TL_urlAuthResultAccepted) {
-                fetchToken(account, ((TLRPC.TL_urlAuthResultAccepted) response).url, done);
-            } else if (response instanceof TLRPC.TL_urlAuthResultRequest) {
-                TLRPC.TL_messages_acceptUrlAuth accept = new TLRPC.TL_messages_acceptUrlAuth();
-                accept.url = AUTH_URL;
-                accept.flags |= 4; // url
-                accept.write_allowed = false;
-                ConnectionsManager.getInstance(account).sendRequest(accept, (r2, e2) -> {
-                    if (r2 instanceof TLRPC.TL_urlAuthResultAccepted) {
-                        fetchToken(account, ((TLRPC.TL_urlAuthResultAccepted) r2).url, done);
+        DevGramPackages.resolveUsernameThen(account, DevGramPackages.ARCHIVE_USERNAME, (user, chat) -> {
+            if (chat == null) {
+                AndroidUtilities.runOnUIThread(() -> done.run(false));
+                return;
+            }
+            final TLRPC.InputPeer peer = MessagesController.getInstance(account).getInputPeer(-chat.id);
+            TLRPC.TL_channels_getMessages get = new TLRPC.TL_channels_getMessages();
+            get.channel = MessagesController.getInstance(account).getInputChannel(chat.id);
+            get.id.add(AUTH_MSG_ID);
+            ConnectionsManager.getInstance(account).sendRequest(get, (response, error) -> {
+                int buttonId = -1;
+                if (response instanceof TLRPC.messages_Messages) {
+                    for (TLRPC.Message m : ((TLRPC.messages_Messages) response).messages) {
+                        if (m == null || m.id != AUTH_MSG_ID || !(m.reply_markup instanceof TLRPC.TL_replyInlineMarkup)) continue;
+                        for (org.telegram.tgnet.tl.TL_keyboard.KeyboardInlineButtonRow row : ((TLRPC.TL_replyInlineMarkup) m.reply_markup).rows) {
+                            for (org.telegram.tgnet.tl.TL_keyboard.KeyboardInlineButton btn : row.buttons) {
+                                org.telegram.tgnet.tl.TL_keyboard.TL_inlineButtonTypeUrlAuth auth = org.telegram.messenger.utils.tlutils.TLKeyboardHelper
+                                        .getType(btn, org.telegram.tgnet.tl.TL_keyboard.TL_inlineButtonTypeUrlAuth.class);
+                                if (auth != null) buttonId = auth.button_id;
+                            }
+                        }
+                    }
+                }
+                if (buttonId < 0) {
+                    FileLog.e("DevGramBeta: нет кнопки входа " + (error != null ? error.text : ""));
+                    AndroidUtilities.runOnUIThread(() -> done.run(false));
+                    return;
+                }
+                final int fButtonId = buttonId;
+                TLRPC.TL_messages_requestUrlAuth req = new TLRPC.TL_messages_requestUrlAuth();
+                req.flags |= 2; // peer + msg_id + button_id
+                req.peer = peer;
+                req.msg_id = AUTH_MSG_ID;
+                req.button_id = fButtonId;
+                ConnectionsManager.getInstance(account).sendRequest(req, (r1, e1) -> {
+                    if (r1 instanceof TLRPC.TL_urlAuthResultAccepted) {
+                        fetchToken(account, ((TLRPC.TL_urlAuthResultAccepted) r1).url, done);
+                    } else if (r1 instanceof TLRPC.TL_urlAuthResultRequest) {
+                        TLRPC.TL_messages_acceptUrlAuth accept = new TLRPC.TL_messages_acceptUrlAuth();
+                        accept.flags |= 2;
+                        accept.peer = peer;
+                        accept.msg_id = AUTH_MSG_ID;
+                        accept.button_id = fButtonId;
+                        accept.write_allowed = false;
+                        ConnectionsManager.getInstance(account).sendRequest(accept, (r2, e2) -> {
+                            if (r2 instanceof TLRPC.TL_urlAuthResultAccepted) {
+                                fetchToken(account, ((TLRPC.TL_urlAuthResultAccepted) r2).url, done);
+                            } else {
+                                FileLog.e("DevGramBeta: acceptUrlAuth " + (e2 != null ? e2.text : String.valueOf(r2)));
+                                AndroidUtilities.runOnUIThread(() -> done.run(false));
+                            }
+                        });
                     } else {
-                        FileLog.e("DevGramBeta: acceptUrlAuth " + (e2 != null ? e2.text : String.valueOf(r2)));
+                        FileLog.e("DevGramBeta: requestUrlAuth " + (e1 != null ? e1.text : String.valueOf(r1)));
                         AndroidUtilities.runOnUIThread(() -> done.run(false));
                     }
                 });
-            } else {
-                FileLog.e("DevGramBeta: requestUrlAuth " + (error != null ? error.text : String.valueOf(response)));
-                AndroidUtilities.runOnUIThread(() -> done.run(false));
-            }
+            });
         });
     }
 
@@ -179,86 +213,5 @@ public final class DevGramBeta {
             final boolean fOk = ok;
             AndroidUtilities.runOnUIThread(() -> done.run(fOk));
         });
-    }
-
-    // ---- запасной путь: токен от бота по команде /beta_token ----
-    private static void activateViaBot(final int account, final Callback callback) {
-        DevGramPackages.resolveUsernameThen(account, BOT_USERNAME, (user, chat) -> {
-            if (user == null) {
-                callback.onResult(false, "Бот недоступен");
-                return;
-            }
-            final long botId = user.id;
-            listenForToken(account, botId, callback);
-            DevGramPlugins.sendMessage(botId, "/beta_token");
-        });
-    }
-
-    private static void listenForToken(final int account, final long botId, final Callback callback) {
-        final NotificationCenter nc = NotificationCenter.getInstance(account);
-        final boolean[] done = {false};
-        final NotificationCenter.NotificationCenterDelegate[] holder = new NotificationCenter.NotificationCenterDelegate[1];
-
-        final Runnable timeout = () -> {
-            if (done[0]) return;
-            done[0] = true;
-            if (holder[0] != null) nc.removeObserver(holder[0], NotificationCenter.didReceiveNewMessages);
-            callback.onResult(false, "Не удалось активировать (нет ответа)");
-        };
-
-        holder[0] = (id, acc, args) -> {
-            if (done[0] || id != NotificationCenter.didReceiveNewMessages) return;
-            try {
-                long dialogId = (Long) args[0];
-                if (dialogId != botId) return;
-                @SuppressWarnings("unchecked")
-                ArrayList<MessageObject> msgs = (ArrayList<MessageObject>) args[1];
-                for (MessageObject mo : msgs) {
-                    if (mo.getDialogId() != botId || mo.isOutOwner()) continue;
-                    String text = mo.messageOwner != null ? mo.messageOwner.message : null;
-                    if (text == null) continue;
-                    int idx = text.indexOf(TOKEN_MARKER);
-                    if (idx < 0) {
-                        // бот отказал (нет значка и т.п.) — тоже финал
-                        if (text.contains("Бета") || text.contains("поддержав") || text.contains("🔒")) {
-                            done[0] = true;
-                            AndroidUtilities.cancelRunOnUIThread(timeout);
-                            nc.removeObserver(holder[0], NotificationCenter.didReceiveNewMessages);
-                            // didReceiveNewMessages может прийти с фонового потока обработки апдейтов —
-                            // колбэк дёргает UI (обновление списка/буллетин), поэтому строго на UI-поток.
-                            AndroidUtilities.runOnUIThread(() -> callback.onResult(false, "Бот отказал в доступе"));
-                            return;
-                        }
-                        continue;
-                    }
-                    String token = text.substring(idx + TOKEN_MARKER.length()).trim();
-                    int nl = token.indexOf('\n');
-                    if (nl >= 0) token = token.substring(0, nl);
-                    token = token.trim();
-                    if (token.isEmpty()) continue;
-                    done[0] = true;
-                    AndroidUtilities.cancelRunOnUIThread(timeout);
-                    nc.removeObserver(holder[0], NotificationCenter.didReceiveNewMessages);
-                    DevGramConfig.setBetaToken(UserConfig.getInstance(account).getClientUserId(), token);
-                    // подчистим служебную переписку с ботом (не мусорим в списке чатов)
-                    cleanupBotChat(account, botId);
-                    // строго на UI-поток: didReceiveNewMessages мог прийти с фонового потока,
-                    // а колбэк обновляет экран (иначе «сразу не обновляется» при получении токена).
-                    AndroidUtilities.runOnUIThread(() -> callback.onResult(true, null));
-                    return;
-                }
-            } catch (Exception ignore) {}
-        };
-        nc.addObserver(holder[0], NotificationCenter.didReceiveNewMessages);
-        AndroidUtilities.runOnUIThread(timeout, 25000);
-    }
-
-    /** Удалить диалог с ботом целиком (у себя), чтобы служебные /beta_token не мозолили глаза. */
-    private static void cleanupBotChat(final int account, final long botId) {
-        AndroidUtilities.runOnUIThread(() -> {
-            try {
-                MessagesController.getInstance(account).deleteDialog(botId, 1, false);
-            } catch (Exception ignore) {}
-        }, 1500);
     }
 }
