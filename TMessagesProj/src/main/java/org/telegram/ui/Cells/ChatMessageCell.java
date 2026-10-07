@@ -6591,6 +6591,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        if (getTranslationZ() > 0) post(this::devgramEnsureUnclipped); // DevGram: украшения обводки за краем ячейки
 
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
@@ -13534,6 +13535,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             setTranslationZ(devgramZ);
             setOutlineProvider(devgramZ > 0 ? null : android.view.ViewOutlineProvider.BACKGROUND); // без тени
         }
+        if (devgramZ > 0) post(this::devgramEnsureUnclipped);
         if (attachedToWindow && !frozen) {
             setMessageContent(messageObject, groupedMessages, bottomNear, topNear, firstInChat, lastInChatList);
         } else {
@@ -21143,6 +21145,19 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private boolean devgramDecorPending;
     private float devgramDecorRadius, devgramDecorAlpha;
     private int devgramDecorStyle;
+
+    // Список чата не обрезает ячейки (украшения выходят за край), но Android применяет это к ячейке
+    // только в момент переключения настройки у списка — пересозданные ячейки (например, при открытии
+    // клавиатуры) снова обрезаются. Переключаем настройку, чтобы она применилась и к этой ячейке.
+    private void devgramEnsureUnclipped() {
+        if (getTranslationZ() > 0 && getParent() instanceof android.view.ViewGroup) {
+            android.view.ViewGroup parent = (android.view.ViewGroup) getParent();
+            if (!parent.getClipChildren()) {
+                parent.setClipChildren(true);
+                parent.setClipChildren(false);
+            }
+        }
+    }
 
     private void drawDevGramDecorPending(Canvas canvas) {
         if (!devgramDecorPending) return;
