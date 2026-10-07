@@ -20458,6 +20458,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
 
         drawBackgroundInternal(canvas, false);
+        drawDevGramDecorPending(canvas);
         if (isHighlightedAnimated) {
             long newTime = System.currentTimeMillis();
             long dt = Math.abs(newTime - lastHighlightProgressTime);
@@ -21139,6 +21140,15 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     // DevGram: обводка сообщений поддержавших (стиль — поле «b» значка отправителя, видят все)
     private final RectF devgramFrameRect = new RectF();
+    private boolean devgramDecorPending;
+    private float devgramDecorRadius, devgramDecorAlpha;
+    private int devgramDecorStyle;
+
+    private void drawDevGramDecorPending(Canvas canvas) {
+        if (!devgramDecorPending) return;
+        devgramDecorPending = false;
+        org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, devgramDecorRadius, devgramDecorStyle, devgramDecorAlpha, false);
+    }
 
     private void drawDevGramFrame(Canvas canvas, boolean fromParent) {
         if (currentMessageObject == null || currentBackgroundDrawable == null || currentPosition != null
@@ -21166,7 +21176,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
         // рамка — по настоящему контуру пузыря, вместе с хвостиком
         org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, style, alpha);
-        org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha, false);
+        if (fromParent) {
+            // фон рисует список одним проходом ДО всех ячеек (анимация, клавиатура) — украшения тогда
+            // соседние сообщения перекрыли бы; рисуем их в проходе самой ячейки (она поднята над соседями)
+            devgramDecorPending = true;
+            devgramDecorRadius = radius;
+            devgramDecorStyle = style;
+            devgramDecorAlpha = alpha;
+        } else {
+            org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha, false);
+        }
     }
 
     private void animateCheckboxTranslation() {
