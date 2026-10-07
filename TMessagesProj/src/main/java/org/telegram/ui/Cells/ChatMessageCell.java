@@ -21155,7 +21155,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(style, b.left, b.top, b.right, b.bottom, alpha);
             if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
         }
-        org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha);
+        // рамка — по настоящему контуру пузыря, вместе с хвостиком
+        Paint border = org.telegram.ui.Components.DevGramMessageFrame.borderPaint(style, b.left, b.top, b.right, b.bottom, alpha);
+        if (border != null) currentBackgroundDrawable.draw(canvas, border);
+        org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha, false);
     }
 
     private void animateCheckboxTranslation() {
