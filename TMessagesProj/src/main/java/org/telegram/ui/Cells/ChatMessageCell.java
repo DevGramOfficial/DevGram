@@ -21134,7 +21134,8 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     private void drawDevGramFrame(Canvas canvas, boolean fromParent) {
         if (currentMessageObject == null || currentBackgroundDrawable == null || currentPosition != null
-                || !(drawBackground || transitionParams.animateDrawBackground) || currentMessageObject.isRoundVideo()) {
+                || !(drawBackground || transitionParams.animateDrawBackground) || currentMessageObject.isRoundVideo()
+                || enterTransitionInProgress && !currentMessageObject.isVoice()) { // пузырь в анимации отправки рисует сама анимация
             return;
         }
         long senderId = currentMessageObject.getFromChatId();

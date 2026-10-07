@@ -519,6 +519,17 @@ public class TextMessageEnterTransition implements MessageEnterTransitionContain
             drawable.setBounds((int) drawableX, (int) drawableTop, drawableRight, (int) drawableBottom);
             drawable.setDrawFullBubble(true);
             drawable.draw(canvas);
+            // DevGram: сообщение поддержавшего «вылетает» уже в цвете своего стиля (иначе на миг
+            // виден обычный пузырь темы с текстом цвета стиля — в тёмной теме он почти чёрный)
+            long dgSender = currentMessageObject.getFromChatId();
+            int dgStyle = dgSender > 0 ? org.telegram.messenger.DevGramBadges.borderOf(dgSender) : 0;
+            if (dgStyle != 0) {
+                android.graphics.Rect bb = drawable.getBounds();
+                android.graphics.Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(dgStyle, bb.left, bb.top, bb.right, bb.bottom, alphaProgress);
+                if (fill != null) drawable.draw(canvas, fill);
+                android.graphics.Paint border = org.telegram.ui.Components.DevGramMessageFrame.borderPaint(dgStyle, bb.left, bb.top, bb.right, bb.bottom, alphaProgress);
+                if (border != null) drawable.draw(canvas, border);
+            }
             drawable.setDrawFullBubble(false);
             drawable.setAlpha(255);
         }

@@ -136,13 +136,15 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
         float x = bubble.left + AndroidUtilities.dp(12), y = bubble.top + AndroidUtilities.dp(10);
         namePaint.setColor(Theme.getColor(Theme.key_avatar_nameInMessageBlue, resourcesProvider));
         String shownName = TextUtils.ellipsize(name, namePaint, maxW - AndroidUtilities.dp(40), TextUtils.TruncateAt.END).toString();
-        canvas.drawText(shownName, x, y + AndroidUtilities.dp(14), namePaint);
+        // значок — слева от ника, как в DevGram
+        float nameX = x;
         if (badge != null) {
-            float bx = x + namePaint.measureText(shownName) + AndroidUtilities.dp(4);
             int s = AndroidUtilities.dp(18);
-            badge.setBounds((int) bx, (int) (y + AndroidUtilities.dp(1)), (int) bx + s, (int) (y + AndroidUtilities.dp(1)) + s);
+            badge.setBounds((int) x, (int) (y + AndroidUtilities.dp(1)), (int) x + s, (int) (y + AndroidUtilities.dp(1)) + s);
             badge.draw(canvas);
+            nameX = x + s + AndroidUtilities.dp(4);
         }
+        canvas.drawText(shownName, nameX, y + AndroidUtilities.dp(14), namePaint);
         // текст и время
         canvas.save();
         canvas.translate(x, y + nameH + AndroidUtilities.dp(2));
