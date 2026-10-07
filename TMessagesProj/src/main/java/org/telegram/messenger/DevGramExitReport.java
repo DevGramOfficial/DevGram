@@ -20,7 +20,8 @@ import java.util.Locale;
 // Ловит то, что Java-обработчик не видит: нативные краши (SIGSEGV/SIGABRT в .so), ANR, сбои
 // инициализации — и в том числе случившиеся посреди работы, а не только на старте. Для нативного
 // краша система отдаёт tombstone (protobuf): сигнал, адрес сбоя, backtrace с функциями/.so/BuildId
-// и последние строки лога процесса. Читать logcat -b crash приложению нельзя (нет READ_LOGS).
+// и последние строки лога процесса. Из logcat доступны только строки нашего uid — этого хватает
+// и на лог процесса, и на бэктрейс от crash_dump (он работает под uid упавшего приложения).
 // Каждый сбой отправляется в RTDB один раз (помним timestamp последнего отправленного).
 public final class DevGramExitReport {
 
@@ -204,10 +205,26 @@ public final class DevGramExitReport {
         // Лог упавшего процесса: приложению доступны собственные логи (тот же uid), в том числе
         // прошлого процесса, пока они в буфере. Для SIGNALED это единственный источник подробностей.
         // (в tombstone на части прошивок, напр. Samsung, буфер лога пустой — поэтому всегда)
+        // Бэктрейс нативного сбоя пишет crash_dump под СВОИМ pid (тег DEBUG), поэтому в лог процесса
+        // по --pid он не попадает. Берём его отдельно: блок DEBUG, где упомянут pid упавшего процесса.
+        if (exit.getReason() == ApplicationExitInfo.REASON_CRASH_NATIVE || exit.getReason() == ApplicationExitInfo.REASON_SIGNALED) {
+            String dump = crashDumpLogcat(exit.getPid());
+            if (!dump.isEmpty()) {
+                sb.append("\n===== вывод crash_dump (backtrace) =====\n").append(dump);
+            }
+        }
         {
             String processLog = processLogcat(exit.getPid());
             if (!processLog.isEmpty()) {
                 sb.append("\n===== лог процесса pid=").append(exit.getPid()).append(" =====\n").append(processLog);
+            }
+        }
+        // Бэктрейс нативного сбоя пишет crash_dump (тег DEBUG) из СВОЕГО pid, но под нашим uid —
+        // по --pid его не видно, поэтому ищем блок, где упомянут pid упавшего процесса.
+        if (exit.getReason() == ApplicationExitInfo.REASON_CRASH_NATIVE || exit.getReason() == ApplicationExitInfo.REASON_SIGNALED) {
+            String dump = crashDumpLog(exit.getPid());
+            if (!dump.isEmpty()) {
+                sb.append("\n===== бэктрейс (crash_dump) =====\n").append(dump);
             }
         }
         return sb.toString();
@@ -280,6 +297,100 @@ public final class DevGramExitReport {
             result = main + "\n\n----- остальные потоки -----\n" + anr;
         }
         return clip(result);
+    }
+
+    private static String crashDumpLogcat(int pid) {
+        String raw = runLogcat(new String[]{"logcat", "-d", "-v", "threadtime", "-b", "crash,main", "-s", "DEBUG:I"});
+        java.util.LinkedHashMap<String, StringBuilder> byDumper = new java.util.LinkedHashMap<>();
+        java.util.HashSet<String> matched = new java.util.HashSet<>();
+        String marker = "pid: " + pid + ",";
+        for (String line : raw.split("\n")) {
+            String[] cols = line.trim().split("\\s+", 4);
+            if (cols.length < 4) continue;
+            String dumper = cols[2]; // pid процесса crash_dump
+            StringBuilder b = byDumper.get(dumper);
+            if (b == null) byDumper.put(dumper, b = new StringBuilder());
+            if (b.length() < 64 * 1024) b.append(line).append('\n');
+            if (line.contains(marker)) matched.add(dumper);
+        }
+        StringBuilder out = new StringBuilder();
+        for (String d : matched) out.append(byDumper.get(d));
+        return out.toString();
+    }
+
+    private static String runLogcat(String[] cmd) {
+        StringBuilder out = new StringBuilder();
+        Process p = null;
+        try {
+            p = Runtime.getRuntime().exec(cmd);
+            final Process fp = p;
+            Thread killer = new Thread(() -> {
+                try {
+                    Thread.sleep(3000);
+                    fp.destroy();
+                } catch (Throwable ignored) {
+                }
+            });
+            killer.setDaemon(true);
+            killer.start();
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) out.append(line).append('\n');
+            }
+            killer.interrupt();
+        } catch (Throwable ignored) {
+        } finally {
+            if (p != null) p.destroy();
+        }
+        return out.toString();
+    }
+
+    private static String crashDumpLog(int pid) {
+        java.util.LinkedHashMap<String, StringBuilder> byDumper = new java.util.LinkedHashMap<>();
+        String needle = "pid: " + pid + ",";
+        String found = null;
+        Process p = null;
+        try {
+            p = Runtime.getRuntime().exec(new String[]{"logcat", "-d", "-v", "threadtime", "-b", "crash,main",
+                    "-t", "3000", "-s", "DEBUG:*"});
+            final Process fp = p;
+            Thread killer = new Thread(() -> {
+                try {
+                    Thread.sleep(3000);
+                    fp.destroy();
+                } catch (Throwable ignored) {
+                }
+            });
+            killer.setDaemon(true);
+            killer.start();
+            try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    // формат threadtime: дата время pid tid уровень тег: текст — группируем по pid crash_dump
+                    String[] parts = line.trim().split("\\s+", 4);
+                    if (parts.length < 4) continue;
+                    String dumper = parts[2];
+                    StringBuilder b = byDumper.get(dumper);
+                    if (b == null) {
+                        b = new StringBuilder();
+                        byDumper.put(dumper, b);
+                    }
+                    if (b.length() < 64 * 1024) b.append(line).append('\n');
+                    if (line.contains(needle)) found = dumper;
+                }
+            }
+            killer.interrupt();
+        } catch (Throwable e) {
+            return "(logcat недоступен: " + e + ")\n";
+        } finally {
+            if (p != null) {
+                p.destroy();
+            }
+        }
+        if (found == null) {
+            return "(crash_dump не оставил бэктрейс в доступном логе)\n";
+        }
+        return byDumper.get(found).toString();
     }
 
     private static String processLogcat(int pid) {
