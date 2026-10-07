@@ -20595,6 +20595,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             drawNamesLayout(canvas, 1f);
         }
 
+        // DevGram: кольцо обводки у кружка — поверх видео, но под длительностью и временем
+        if (devgramDecorRound && devgramDecorStyle != 0 && currentMessageObject != null && currentMessageObject.isRoundVideo()) {
+            org.telegram.ui.Components.DevGramMessageFrame.drawRoundRing(canvas, devgramDecorRect, devgramDecorStyle, alphaInternal);
+        }
         if ((!autoPlayingMedia || !MediaController.getInstance().isPlayingMessageAndReadyToDraw(currentMessageObject) || isRoundVideo) && !transitionParams.animateBackgroundBoundsInner && !(currentMessageObject != null && currentMessageObject.preview)) {
             drawOverlays(canvas);
         }
@@ -21181,9 +21185,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         canvas.save();
         canvas.translate(getX() + devgramDecorOffX, getY() + devgramDecorOffY);
         if (devgramDecorRound) {
-            org.telegram.ui.Components.DevGramMessageFrame.drawRound(canvas, devgramDecorRect, devgramDecorStyle, alpha);
+            org.telegram.ui.Components.DevGramMessageFrame.drawRoundDecor(canvas, devgramDecorRect, devgramDecorStyle, alpha);
         } else {
-            org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramDecorRect, devgramDecorRadius, devgramDecorStyle, alpha, false);
+            // верхние — у первого сообщения серии, нижние — у последнего
+            org.telegram.ui.Components.DevGramMessageFrame.drawDecorations(canvas, devgramDecorRect, devgramDecorStyle, alpha,
+                    !isPinnedTop(), !isPinnedBottom());
         }
         canvas.restore();
     }

@@ -166,29 +166,42 @@ public final class DevGramMessageFrame {
             canvas.drawRoundRect(r, rad, rad, strokePaint);
         }
 
-        float size = Math.min(AndroidUtilities.dp(26), Math.max(AndroidUtilities.dp(18), rect.height() * 0.7f));
-        if (s.onEdge) {
-            // как зверушки у TikTok: выглядывают из-за верхней кромки и стоят на нижней, чуть отступив от углов
-            float inX = Math.min(size * 0.85f, rect.width() * 0.25f);
-            drawDecor(canvas, s.tl, rect.left + inX, rect.top - size * 0.12f, size, -8, alpha);
-            drawDecor(canvas, s.tr, rect.right - inX, rect.top - size * 0.12f, size, 8, alpha);
-            drawDecor(canvas, s.bl, rect.left + inX, rect.bottom + size * 0.05f, size * 0.8f, 0, alpha);
-            drawDecor(canvas, s.br, rect.right - inX, rect.bottom + size * 0.05f, size * 0.8f, 0, alpha);
-        } else {
-            // как цветы у TikTok: сидят на самом углу и выходят за пузырь
-            float out = size * 0.12f;
-            drawDecor(canvas, s.tl, rect.left - out, rect.top - out, size, -12, alpha);
-            drawDecor(canvas, s.tr, rect.right + out, rect.top - out, size, 12, alpha);
-            drawDecor(canvas, s.bl, rect.left - out, rect.bottom + out, size, -8, alpha);
-            drawDecor(canvas, s.br, rect.right + out, rect.bottom + out, size, 8, alpha);
+        drawDecorations(canvas, rect, s, alpha, true, true);
+    }
+
+    // Украшения пузыря. Верхние — только у первого сообщения серии, нижние — только у последнего
+    // (иначе налезают на соседние сообщения подряд). Нижние всегда слева: справа внизу время и галочки.
+    public static void drawDecorations(Canvas canvas, RectF rect, int styleId, float alpha, boolean top, boolean bottom) {
+        Style s = get(styleId);
+        if (s == null || alpha <= 0f || rect.width() <= 0 || rect.height() <= 0) return;
+        drawDecorations(canvas, rect, s, alpha, top, bottom);
+    }
+
+    private static void drawDecorations(Canvas canvas, RectF rect, Style s, float alpha, boolean top, boolean bottom) {
+        float size = AndroidUtilities.dp(20);
+        if (top) {
+            // сидят на верхней кромке и почти целиком выходят наружу — текст не задевают
+            float inX = s.onEdge ? Math.min(size * 0.9f, rect.width() * 0.25f) : size * 0.15f;
+            float y = rect.top - size * 0.2f;
+            drawDecor(canvas, s.tl, rect.left + inX, y, size, -10, alpha);
+            drawDecor(canvas, s.tr, rect.right - inX, y, size, 10, alpha);
+        }
+        if (bottom) {
+            // снизу слева, под кромкой
+            String first = s.bl != null ? s.bl : s.br;
+            String second = s.bl != null ? s.br : null;
+            float y = rect.bottom + size * 0.2f;
+            float x = rect.left + (s.onEdge ? size * 0.9f : size * 0.15f);
+            drawDecor(canvas, first, x, y, size * 0.9f, -6, alpha);
+            if (second != null) drawDecor(canvas, second, x + size * 1.05f, y, size * 0.9f, 6, alpha);
         }
     }
 
-    // Кружок (видеосообщение): круглая рамка по краю видео и украшения по диагоналям круга.
-    public static void drawRound(Canvas canvas, RectF circle, int styleId, float alpha) {
+    // Кружок (видеосообщение): кольцо по краю видео. Рисует сама ячейка — после видео, но до
+    // длительности и времени, чтобы кольцо не перекрывало эти плашки.
+    public static void drawRoundRing(Canvas canvas, RectF circle, int styleId, float alpha) {
         Style s = get(styleId);
         if (s == null || alpha <= 0f || circle.width() <= 0) return;
-        float cx = circle.centerX(), cy = circle.centerY(), r = circle.width() / 2f;
         float stroke = AndroidUtilities.dp(3);
         strokePaint.setStrokeWidth(stroke);
         if (s.gradientBorder || s.border == 0) {
@@ -198,13 +211,22 @@ public final class DevGramMessageFrame {
             strokePaint.setColor(s.border);
         }
         strokePaint.setAlpha((int) (255 * alpha));
-        canvas.drawCircle(cx, cy, r - stroke / 2f, strokePaint);
+        canvas.drawCircle(circle.centerX(), circle.centerY(), circle.width() / 2f - stroke / 2f, strokePaint);
+    }
+
+    // Украшения кружка: верхние — по диагоналям, нижние — по бокам, подальше от плашек длительности и времени.
+    public static void drawRoundDecor(Canvas canvas, RectF circle, int styleId, float alpha) {
+        Style s = get(styleId);
+        if (s == null || alpha <= 0f || circle.width() <= 0) return;
+        float cx = circle.centerX(), cy = circle.centerY(), r = circle.width() / 2f;
         float size = AndroidUtilities.dp(30);
         float d = (float) (r * Math.cos(Math.PI / 4));
         drawDecor(canvas, s.tl, cx - d, cy - d, size, -12, alpha);
         drawDecor(canvas, s.tr, cx + d, cy - d, size, 12, alpha);
-        drawDecor(canvas, s.bl, cx - d, cy + d, size, -8, alpha);
-        drawDecor(canvas, s.br, cx + d, cy + d, size, 8, alpha);
+        double side = Math.toRadians(20);
+        float sx = (float) (r * Math.cos(side)), sy = (float) (r * Math.sin(side));
+        drawDecor(canvas, s.bl, cx - sx, cy + sy, size * 0.85f, -8, alpha);
+        drawDecor(canvas, s.br, cx + sx, cy + sy, size * 0.85f, 8, alpha);
     }
 
     private static void drawDecor(Canvas canvas, String emoji, float cx, float cy, float size, float rotation, float alpha) {
