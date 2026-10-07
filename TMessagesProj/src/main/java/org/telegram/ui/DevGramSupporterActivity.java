@@ -41,14 +41,11 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
 
     private static final int ID_PROXY = 1;
     private static final int ID_UPDATE_CHANNEL = 2;
+    private static final int ID_BADGE = 3;
+    private static final int ID_FRAME = 4;
 
     private UniversalRecyclerView listView;
     private HeroView heroView;
-    private org.telegram.ui.Components.DevGramBadgePickerView badgePicker;
-    private ArrayList<DevGramBadges.Option> badgeOptions;
-    private boolean badgeSaving;
-    private org.telegram.ui.Components.DevGramFramePickerView framePicker;
-    private boolean frameSaving;
 
     public static boolean isAvailable(int account) {
         try {
@@ -72,16 +69,6 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         });
 
         heroView = new HeroView(context);
-        badgePicker = new org.telegram.ui.Components.DevGramBadgePickerView(context, currentAccount, resourceProvider);
-        badgePicker.setOnSelect(this::chooseBadge);
-        framePicker = new org.telegram.ui.Components.DevGramFramePickerView(context, resourceProvider);
-        framePicker.setSelected(DevGramBadges.borderOf(getUserConfig().getClientUserId()));
-        framePicker.setOnSelect(this::chooseFrame);
-        DevGramBadges.fetchOptions(options -> {
-            badgeOptions = options;
-            refreshBadgePicker();
-            if (listView != null && listView.adapter != null) listView.adapter.update(true);
-        });
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
         org.telegram.ui.Components.DevGramSettingsLayout content =
                 new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
@@ -92,19 +79,15 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(heroView));
 
-        items.add(UItem.asHeader("Ваш значок"));
-        if (badgeOptions == null) {
-            items.add(UItem.asShadow("Загружаю значки…"));
-        } else if (badgeOptions.isEmpty()) {
-            items.add(UItem.asShadow("Скоро здесь появятся значки на выбор."));
-        } else {
-            items.add(UItem.asCustom(badgePicker));
-            items.add(UItem.asShadow("Выбранный значок видят все пользователи DevGram рядом с вашим именем."));
-        }
-
-        items.add(UItem.asHeader("Обводка сообщений"));
-        items.add(UItem.asCustom(framePicker));
-        items.add(UItem.asShadow("Рамку вокруг ваших сообщений видят все пользователи DevGram."));
+        items.add(UItem.asHeader("Оформление"));
+        long uid = getUserConfig().getClientUserId();
+        DevGramBadges.Badge badge = DevGramBadges.badgeOf(uid);
+        boolean customBadge = badge != null && badge.emojiId != badge.originalEmojiId;
+        items.add(UItem.asButton(ID_BADGE, R.drawable.msg_premium_badge, "Значок у ника", customBadge ? "Свой" : "Выданный"));
+        int frame = DevGramBadges.borderOf(uid);
+        org.telegram.ui.Components.DevGramMessageFrame.Style st = org.telegram.ui.Components.DevGramMessageFrame.get(frame);
+        items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, "Обводка сообщений", st != null ? st.title : "Нет"));
+        items.add(UItem.asShadow("Значок и обводку видят все пользователи DevGram."));
 
         items.add(UItem.asHeader("Ваши возможности"));
         items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Защищённое подключение")
@@ -124,48 +107,18 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             if (listView != null && listView.adapter != null) listView.adapter.update(true);
         } else if (item.id == ID_UPDATE_CHANNEL) {
             toggleUpdateChannel();
+        } else if (item.id == ID_BADGE) {
+            presentFragment(new DevGramBadgeChoiceActivity());
+        } else if (item.id == ID_FRAME) {
+            presentFragment(new DevGramFrameChoiceActivity());
         }
     }
 
-    private void refreshBadgePicker() {
-        if (badgePicker == null || badgeOptions == null) return;
-        DevGramBadges.Badge b = DevGramBadges.badgeOf(getUserConfig().getClientUserId());
-        long original = b != null ? b.originalEmojiId : DevGramBadges.EMOJI_SUPPORTER;
-        long current = b != null ? b.emojiId : original;
-        badgePicker.setData(original, current, badgeOptions);
-    }
-
-    private void chooseBadge(long emojiId) {
-        if (badgeSaving) return;
-        badgeSaving = true;
-        badgePicker.setSelected(emojiId);
-        DevGramBadges.updateSelf(currentAccount, emojiId, null, (ok, error) -> {
-            badgeSaving = false;
-            refreshBadgePicker();
-            if (heroView != null) heroView.updateBadge();
-            if (ok) {
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Значок обновлён").show();
-            } else {
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сменить значок").show();
-            }
-        });
-    }
-
-    private void chooseFrame(int style) {
-        if (frameSaving) return;
-        frameSaving = true;
-        int previous = DevGramBadges.borderOf(getUserConfig().getClientUserId());
-        framePicker.setSelected(style);
-        DevGramBadges.updateSelf(currentAccount, null, style, (ok, error) -> {
-            frameSaving = false;
-            if (ok) {
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                        style == 0 ? "Обводка убрана" : "Обводка «" + org.telegram.ui.Components.DevGramMessageFrame.get(style).title + "» включена").show();
-            } else {
-                framePicker.setSelected(previous);
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сменить обводку").show();
-            }
-        });
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (listView != null && listView.adapter != null) listView.adapter.update(false);
+        if (heroView != null) heroView.updateBadge();
     }
 
     // Основной/бета. Бета включается только после активации токена (клиент сам получает его у бота).
