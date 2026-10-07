@@ -3,7 +3,6 @@ package org.telegram.messenger;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 
-import java.util.ArrayList;
 
 /**
  * Бета-канал DevGram. Доступ только поддержавшим (значок ACCESS_SUPPORTER).
@@ -16,8 +15,6 @@ import java.util.ArrayList;
  */
 public final class DevGramBeta {
 
-    public static final String BOT_USERNAME = DevGramPackages.CATALOG_BOT_USERNAME; // officialdevgram_bot
-    private static final String TOKEN_MARKER = "DEVGRAM_BETA_TOKEN:";
 
     private DevGramBeta() {}
 
