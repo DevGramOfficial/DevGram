@@ -938,6 +938,15 @@ public class DevGramBadges {
         if (doc != null) {
             // эмодзи-значок как иконка + многострочный текст
             b = bf.createSimpleMultiBulletin(doc, text);
+            // значок в плашке — анимированный, как у ника (а не статичное превью документа)
+            try {
+                if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.TwoLineLayout) {
+                    org.telegram.ui.Components.BackupImageView iv = ((org.telegram.ui.Components.Bulletin.TwoLineLayout) b.getLayout()).imageView;
+                    iv.setAnimatedEmojiDrawable(org.telegram.ui.Components.AnimatedEmojiDrawable.make(
+                            UserConfig.selectedAccount, org.telegram.ui.Components.AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, emojiId));
+                }
+            } catch (Throwable ignore) {
+            }
         } else {
             // фолбэк: статичная картинка по роли + делаем текст многострочным вручную
             int res = emojiId == EMOJI_CHANNEL ? R.drawable.devgram_channel : R.drawable.devgram_supporter;
