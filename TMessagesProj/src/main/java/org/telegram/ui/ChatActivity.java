@@ -7118,9 +7118,8 @@ public class ChatActivity extends BaseFragment implements
         chatListView.setVerticalScrollBarEnabled(!SharedConfig.chatBlurEnabled());
         chatListView.setAdapter(chatAdapter = new ChatActivityAdapter(context));
         chatListView.setClipToPadding(false);
-        if (ChatObject.isMonoForum(currentChat) || ChatObject.areTabsEnabled(currentChat)) {
-            chatListView.setClipChildren(false);
-        }
+        // DevGram: всегда без обрезки — украшения обводки поддержавших выходят за край ячейки
+        chatListView.setClipChildren(false);
         chatListView.setAnimateEmptyView(true, RecyclerListView.EMPTY_VIEW_ANIMATION_TYPE_ALPHA_SCALE);
         chatListView.setScrollBarStyle(View.SCROLLBARS_OUTSIDE_OVERLAY);
         chatListViewPaddingsAnimator = new ChatListViewPaddingsAnimator(chatListView);

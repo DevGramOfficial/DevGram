@@ -156,6 +156,7 @@ public class DevGramBadges {
     // Сообщить всему UI, что значки изменились: reloadInterface (профиль/шапка) + updateInterfaces
     // (список чатов пересобирает ячейки через DialogCell.update). Всегда на UI-потоке.
     private static void notifyBadgesChanged() {
+        borderCache.clear();
         AndroidUtilities.runOnUIThread(() -> {
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
@@ -553,11 +554,17 @@ public class DevGramBadges {
     }
 
     // Стиль обводки сообщений этого пользователя (0 — нет). Только у поддержавших.
+    // Зовётся при отрисовке сообщений — поэтому кэш в памяти, сбрасывается при любом изменении значков.
+    private static final java.util.concurrent.ConcurrentHashMap<Long, Integer> borderCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     public static int borderOf(long userId) {
         if (userId <= 0) return 0;
+        Integer cached = borderCache.get(userId);
+        if (cached != null) return cached;
         Badge b = badgeOf(userId);
-        if (b == null || (b.access & (ACCESS_SUPPORTER | ACCESS_DEVELOPER)) == 0 && b.originalEmojiId != EMOJI_TEAM) return 0;
-        return b.border;
+        int border = b == null || (b.access & (ACCESS_SUPPORTER | ACCESS_DEVELOPER)) == 0 && b.originalEmojiId != EMOJI_TEAM ? 0 : b.border;
+        borderCache.put(userId, border);
+        return border;
     }
 
     // ---- значки на выбор (поддержавшие) ----

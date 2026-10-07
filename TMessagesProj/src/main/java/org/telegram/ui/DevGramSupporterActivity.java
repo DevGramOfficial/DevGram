@@ -47,6 +47,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private org.telegram.ui.Components.DevGramBadgePickerView badgePicker;
     private ArrayList<DevGramBadges.Option> badgeOptions;
     private boolean badgeSaving;
+    private org.telegram.ui.Components.DevGramFramePickerView framePicker;
+    private boolean frameSaving;
 
     public static boolean isAvailable(int account) {
         try {
@@ -72,6 +74,9 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         heroView = new HeroView(context);
         badgePicker = new org.telegram.ui.Components.DevGramBadgePickerView(context, currentAccount, resourceProvider);
         badgePicker.setOnSelect(this::chooseBadge);
+        framePicker = new org.telegram.ui.Components.DevGramFramePickerView(context, resourceProvider);
+        framePicker.setSelected(DevGramBadges.borderOf(getUserConfig().getClientUserId()));
+        framePicker.setOnSelect(this::chooseFrame);
         DevGramBadges.fetchOptions(options -> {
             badgeOptions = options;
             refreshBadgePicker();
@@ -96,6 +101,10 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             items.add(UItem.asCustom(badgePicker));
             items.add(UItem.asShadow("Выбранный значок видят все пользователи DevGram рядом с вашим именем."));
         }
+
+        items.add(UItem.asHeader("Обводка сообщений"));
+        items.add(UItem.asCustom(framePicker));
+        items.add(UItem.asShadow("Рамку вокруг ваших сообщений видят все пользователи DevGram."));
 
         items.add(UItem.asHeader("Ваши возможности"));
         items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Защищённое подключение")
@@ -138,6 +147,23 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Значок обновлён").show();
             } else {
                 BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сменить значок").show();
+            }
+        });
+    }
+
+    private void chooseFrame(int style) {
+        if (frameSaving) return;
+        frameSaving = true;
+        int previous = DevGramBadges.borderOf(getUserConfig().getClientUserId());
+        framePicker.setSelected(style);
+        DevGramBadges.updateSelf(currentAccount, null, style, (ok, error) -> {
+            frameSaving = false;
+            if (ok) {
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
+                        style == 0 ? "Обводка убрана" : "Обводка «" + org.telegram.ui.Components.DevGramMessageFrame.get(style).title + "» включена").show();
+            } else {
+                framePicker.setSelected(previous);
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сменить обводку").show();
             }
         });
     }

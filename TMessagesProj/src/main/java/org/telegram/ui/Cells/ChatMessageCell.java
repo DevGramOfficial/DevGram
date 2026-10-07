@@ -21120,12 +21120,37 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
             }
         }
+        drawDevGramFrame(canvas, fromParent);
         if (currentMessageObject != null && currentMessageObject.isRoundVideo()) {
             currentBackgroundDrawable.setRoundingRadius(0);
         }
         canvas.restoreToCount(restoreCount);
 
         return true;
+    }
+
+    // DevGram: обводка сообщений поддержавших (стиль — поле «b» значка отправителя, видят все)
+    private final RectF devgramFrameRect = new RectF();
+
+    private void drawDevGramFrame(Canvas canvas, boolean fromParent) {
+        if (currentMessageObject == null || currentBackgroundDrawable == null || currentPosition != null
+                || !(drawBackground || transitionParams.animateDrawBackground) || currentMessageObject.isRoundVideo()) {
+            return;
+        }
+        long senderId = currentMessageObject.getFromChatId();
+        int style = senderId > 0 ? org.telegram.messenger.DevGramBadges.borderOf(senderId) : 0;
+        if (style == 0) {
+            return;
+        }
+        Rect b = currentBackgroundDrawable.getBounds();
+        int padding = dp(2);
+        boolean out = currentMessageObject.isOutOwner();
+        // тело пузыря без хвоста — как его строит MessageDrawable
+        devgramFrameRect.set(out ? b.left + padding : b.left + dp(8), b.top + padding,
+                out ? b.right - dp(8) : b.right - padding, b.bottom - padding);
+        float radius = Math.min(dp(SharedConfig.bubbleRadius), (b.height() - padding) / 2f);
+        float alpha = fromParent ? alphaInternal * getAlpha() : alphaInternal;
+        org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha);
     }
 
     private void animateCheckboxTranslation() {
