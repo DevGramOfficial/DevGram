@@ -452,19 +452,32 @@ public class DevGramConfig {
     }
 
     // Персональный токен доступа к бете (выдаёт @officialdevgram_bot по значку поддержавшего).
+    // Токен привязан к Telegram-аккаунту, поэтому хранится отдельно на каждый uid. Старый общий
+    // «betaToken» (до разделения) — запасной вариант, пока аккаунт не получит свой.
     public static String betaToken = "";
 
     public static String getBetaToken() {
-        if ((betaToken == null || betaToken.isEmpty()) && preferences != null) {
-            betaToken = preferences.getString("betaToken", "");
-        }
-        return betaToken == null ? "" : betaToken;
+        return getBetaToken(UserConfig.getInstance(UserConfig.selectedAccount).getClientUserId());
     }
 
-    public static void setBetaToken(String v) {
-        betaToken = v == null ? "" : v;
+    public static String getBetaToken(long uid) {
+        if (preferences == null) return "";
+        String own = preferences.getString("betaToken_" + uid, "");
+        if (!own.isEmpty()) return own;
+        if (preferences.getBoolean("betaTokenNoLegacy_" + uid, false)) return "";
+        return preferences.getString("betaToken", "");
+    }
+
+    public static void setBetaToken(long uid, String v) {
         if (preferences != null) {
-            preferences.edit().putString("betaToken", betaToken).apply();
+            preferences.edit().putString("betaToken_" + uid, v == null ? "" : v).apply();
+        }
+    }
+
+    // Сервер не принял токен этого аккаунта — забыть его (и общий запасной для этого аккаунта)
+    public static void clearBetaToken(long uid) {
+        if (preferences != null) {
+            preferences.edit().remove("betaToken_" + uid).putBoolean("betaTokenNoLegacy_" + uid, true).apply();
         }
     }
 

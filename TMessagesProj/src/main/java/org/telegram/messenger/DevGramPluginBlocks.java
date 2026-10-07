@@ -117,7 +117,7 @@ public final class DevGramPluginBlocks {
             return;
         }
         Runnable send = () -> sendChange(account, uid, pluginId, sha256, name, fingerprint, blocked, callback);
-        if (DevGramConfig.getBetaToken().isEmpty()) {
+        if (DevGramConfig.getBetaToken(uid).isEmpty()) {
             DevGramBeta.activate(account, (ok, error) -> {
                 if (ok) send.run();
                 else callback.onResult(new Status(false, false,
@@ -131,7 +131,7 @@ public final class DevGramPluginBlocks {
     private static void sendChange(int account, long uid, String pluginId, String sha256, String name,
                                    Fingerprint fingerprint, boolean blocked, Callback callback) {
         Utilities.globalQueue.postRunnable(() -> {
-            Status result = sendChangeBlocking(uid, DevGramConfig.getBetaToken(), pluginId, sha256,
+            Status result = sendChangeBlocking(uid, DevGramConfig.getBetaToken(uid), pluginId, sha256,
                     name, fingerprint, blocked);
             AndroidUtilities.runOnUIThread(() -> callback.onResult(result));
         });

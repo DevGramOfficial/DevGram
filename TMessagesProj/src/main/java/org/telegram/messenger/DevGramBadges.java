@@ -618,6 +618,10 @@ public class DevGramBadges {
     // Поддержавший меняет своё оформление: emojiId (0 — вернуть выданный, null — не менять) и
     // border (0 — без обводки, null — не менять). Личность подтверждает персональный токен беты.
     public static void updateSelf(int account, Long emojiId, Integer border, Callback callback) {
+        updateSelf(account, emojiId, border, callback, true);
+    }
+
+    private static void updateSelf(int account, Long emojiId, Integer border, Callback callback, boolean retryToken) {
         DevGramBeta.activate(account, (tokenOk, tokenError) -> {
             if (!tokenOk) {
                 callback.onResult(false, tokenError != null ? tokenError : "Не удалось подтвердить аккаунт");
@@ -625,18 +629,21 @@ public class DevGramBadges {
             }
             final long uid = UserConfig.getInstance(account).getClientUserId();
             Utilities.globalQueue.postRunnable(() -> {
-                String error = "Не удалось сохранить";
                 boolean ok = false;
+                String serverError = null;
                 try {
                     JSONObject req = new JSONObject();
                     req.put("uid", uid);
-                    req.put("token", DevGramConfig.getBetaToken());
+                    req.put("token", DevGramConfig.getBetaToken(uid));
                     if (emojiId != null) req.put("e", emojiId);
                     if (border != null) req.put("b", border);
-                    String res = httpSend("POST", RTDB_BASE + "/badges/self", req.toString());
-                    if (res != null) {
-                        JSONObject r = new JSONObject(res);
+                    String[] errorBody = new String[1];
+                    String res = httpSendWithError("POST", RTDB_BASE + "/badges/self", req.toString(), errorBody);
+                    String body = res != null ? res : errorBody[0];
+                    if (body != null && body.trim().startsWith("{")) {
+                        JSONObject r = new JSONObject(body);
                         ok = r.optBoolean("ok", false);
+                        serverError = r.optString("error", null);
                         JSONObject badge = r.optJSONObject("badge");
                         SharedPreferences p = prefs();
                         if (ok && badge != null && p != null) {
@@ -647,13 +654,64 @@ public class DevGramBadges {
                     FileLog.e(e);
                 }
                 final boolean fOk = ok;
-                final String fErr = error;
+                final String fServerError = serverError;
                 AndroidUtilities.runOnUIThread(() -> {
-                    if (fOk) notifyBadgesChanged();
-                    callback.onResult(fOk, fOk ? null : fErr);
+                    if (fOk) {
+                        notifyBadgesChanged();
+                        callback.onResult(true, null);
+                    } else if ("token".equals(fServerError) && retryToken) {
+                        // токен не от этого аккаунта (или устарел) — получаем новый и пробуем ещё раз
+                        DevGramConfig.clearBetaToken(uid);
+                        updateSelf(account, emojiId, border, callback, false);
+                    } else {
+                        callback.onResult(false, selfErrorText(fServerError));
+                    }
                 });
             });
         });
+    }
+
+    private static String selfErrorText(String code) {
+        if ("not_supporter".equals(code)) return "Нужен значок поддержавшего";
+        if ("emoji_not_offered".equals(code)) return "Этот значок больше недоступен";
+        if ("token".equals(code)) return "Не удалось подтвердить аккаунт";
+        return "Не удалось сохранить";
+    }
+
+    // как httpSend, но тело ошибки (не 2xx) отдаётся в errorBody[0]
+    private static String httpSendWithError(String method, String urlStr, String body, String[] errorBody) {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) new URL(urlStr).openConnection();
+            conn.setRequestMethod(method);
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            if (body != null) {
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(body.getBytes(StandardCharsets.UTF_8));
+                }
+            }
+            int code = conn.getResponseCode();
+            boolean ok = code >= 200 && code < 300;
+            InputStream is = ok ? conn.getInputStream() : conn.getErrorStream();
+            StringBuilder sb = new StringBuilder();
+            if (is != null) {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) sb.append(line);
+                }
+            }
+            if (ok) return sb.toString();
+            errorBody[0] = sb.toString();
+            return null;
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return null;
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
     }
 
     public static boolean isSupporter(long userId) {
