@@ -13526,6 +13526,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                                  boolean topNear,
                                  boolean firstInChat,
                                  boolean lastInChatList) {
+        // DevGram: ячейку с обводкой поддержавшего поднимаем над соседями — иначе соседнее сообщение,
+        // нарисованное позже, перекрывает украшения, выходящие за край пузыря
+        long devgramSender = messageObject != null ? messageObject.getFromChatId() : 0;
+        float devgramZ = devgramSender > 0 && org.telegram.messenger.DevGramBadges.borderOf(devgramSender) != 0 ? 1f : 0f;
+        if (getTranslationZ() != devgramZ) {
+            setTranslationZ(devgramZ);
+            setOutlineProvider(devgramZ > 0 ? null : android.view.ViewOutlineProvider.BACKGROUND); // без тени
+        }
         if (attachedToWindow && !frozen) {
             setMessageContent(messageObject, groupedMessages, bottomNear, topNear, firstInChat, lastInChatList);
         } else {
@@ -21157,8 +21165,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
         }
         // рамка — по настоящему контуру пузыря, вместе с хвостиком
-        Paint border = org.telegram.ui.Components.DevGramMessageFrame.borderPaint(style, b.left, b.top, b.right, b.bottom, alpha);
-        if (border != null) currentBackgroundDrawable.draw(canvas, border);
+        org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, style, alpha);
         org.telegram.ui.Components.DevGramMessageFrame.draw(canvas, devgramFrameRect, radius, style, alpha, false);
     }
 

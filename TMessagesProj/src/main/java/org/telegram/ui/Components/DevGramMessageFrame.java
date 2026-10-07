@@ -124,6 +124,22 @@ public final class DevGramMessageFrame {
         return strokePaint;
     }
 
+    // Рамка по контуру пузыря (с хвостом) — ВНУТРЕННЯЯ: рисование обрезано по самому пузырю, а линия
+    // двойной толщины, поэтому видна только внутренняя половина и ничего не срезается краем ячейки.
+    public static void drawBorder(Canvas canvas, org.telegram.ui.ActionBar.MessageDrawable drawable, int styleId, float alpha) {
+        android.graphics.Rect b = drawable.getBounds();
+        Paint p = borderPaint(styleId, b.left, b.top, b.right, b.bottom, alpha);
+        if (p == null) return;
+        float w = p.getStrokeWidth();
+        android.graphics.Path clip = new android.graphics.Path(drawable.makePath(null));
+        canvas.save();
+        canvas.clipPath(clip);
+        p.setStrokeWidth(w * 2);
+        drawable.draw(canvas, p);
+        p.setStrokeWidth(w);
+        canvas.restore();
+    }
+
     // Рамка по прямоугольнику (для превью) + украшения. rect — тело пузыря, radius — его скругление.
     public static void draw(Canvas canvas, RectF rect, float radius, int styleId, float alpha) {
         draw(canvas, rect, radius, styleId, alpha, true);

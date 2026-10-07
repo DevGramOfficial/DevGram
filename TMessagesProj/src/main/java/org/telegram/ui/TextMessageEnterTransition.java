@@ -527,8 +527,7 @@ public class TextMessageEnterTransition implements MessageEnterTransitionContain
                 android.graphics.Rect bb = drawable.getBounds();
                 android.graphics.Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(dgStyle, bb.left, bb.top, bb.right, bb.bottom, alphaProgress);
                 if (fill != null) drawable.draw(canvas, fill);
-                android.graphics.Paint border = org.telegram.ui.Components.DevGramMessageFrame.borderPaint(dgStyle, bb.left, bb.top, bb.right, bb.bottom, alphaProgress);
-                if (border != null) drawable.draw(canvas, border);
+                org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, drawable, dgStyle, alphaProgress);
             }
             drawable.setDrawFullBubble(false);
             drawable.setAlpha(255);
