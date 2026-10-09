@@ -213,7 +213,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         }
         items.add(UItem.asShadow(null));
 
-        // Обновления DevGram (GitHub-релизы firedragoq/DevGram)
+        // Обновления DevGram (GitHub-релизы DevGramOfficial/DevGram)
         items.add(UItem.asHeader("Обновления"));
         items.add(UItem.asButton(ID_CHECK_UPDATE, R.drawable.msg_download, "Проверить обновления"));
         items.add(UItem.asButton(ID_UPDATE_INTERVAL, R.drawable.msg_autodelete, "Интервал проверки", getUpdateIntervalText()));

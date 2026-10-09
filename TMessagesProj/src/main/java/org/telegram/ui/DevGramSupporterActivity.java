@@ -124,9 +124,6 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private void maybeShowWelcome() {
         String key = "devgramBetaInvite_" + getUserConfig().getClientUserId();
         android.content.SharedPreferences prefs = getMessagesController().getGlobalMainSettings();
-        android.util.Log.d("DevGramBeta", "welcome: access=" + DevGramBeta.hasAccess(currentAccount)
-                + " member=" + DevGramBeta.isBetaChannelMember(currentAccount) + " answered=" + prefs.getBoolean(key, false)
-                + " shown=" + welcomeShown);
         if (!DevGramBeta.hasAccess(currentAccount) || DevGramBeta.isBetaChannelMember(currentAccount)) return;
         if (prefs.getBoolean(key, false) || welcomeShown || getParentActivity() == null) return;
         org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourceProvider);

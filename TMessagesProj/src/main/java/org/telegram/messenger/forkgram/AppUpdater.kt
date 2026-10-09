@@ -70,7 +70,7 @@ object AppUpdater {
 
     /**
      * Java-дружелюбная точка входа: проверяет обновления DevGram (GitHub-релизы
-     * firedragoq/DevGram) и сама показывает диалог установки. Зовётся из
+     * DevGramOfficial/DevGram) и сама показывает диалог установки. Зовётся из
      * LaunchActivity.checkAppUpdate — и по кнопке (manual=true), и авто при запуске.
      */
     @JvmStatic
@@ -135,7 +135,7 @@ object AppUpdater {
                 return
             }
 
-            // Основной канал: релизы на GitHub (firedragoq/DevGram). Telegram-канал —
+            // Основной канал: релизы на GitHub (DevGramOfficial/DevGram). Telegram-канал —
             // ТОЛЬКО если задан реальный UPDATE_CHANNEL_USERNAME и есть активная сессия.
             val updateChannel = BuildVars.UPDATE_CHANNEL_USERNAME ?: ""
             if (updateChannel.length > 1 &&
