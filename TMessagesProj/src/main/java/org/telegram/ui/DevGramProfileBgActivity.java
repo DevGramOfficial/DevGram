@@ -41,7 +41,7 @@ import java.util.ArrayList;
 
 // DevGram: свой фон шапки профиля (фото/видео/GIF) для поддержавших. Видят все пользователи DevGram,
 // поэтому новый фон сначала проходит модерацию; видео — первые 15 секунд, без звука, до 720p.
-public class DevGramProfileBgActivity extends DevGramSettingsFragment {
+public class DevGramProfileBgActivity extends DevGramSettingsFragment implements org.telegram.messenger.NotificationCenter.NotificationCenterDelegate {
 
     private static final int REQUEST_PICK = 7301;
     private static final int ID_PICK = 1;
@@ -109,9 +109,31 @@ public class DevGramProfileBgActivity extends DevGramSettingsFragment {
         return fragmentView = content;
     }
 
+    // решение модератора приходит обновлением значков — экран обновляется сам
+    @Override
+    public boolean onFragmentCreate() {
+        org.telegram.messenger.NotificationCenter.getGlobalInstance().addObserver(this, org.telegram.messenger.NotificationCenter.reloadInterface);
+        return super.onFragmentCreate();
+    }
+
+    @Override
+    public void onFragmentDestroy() {
+        org.telegram.messenger.NotificationCenter.getGlobalInstance().removeObserver(this, org.telegram.messenger.NotificationCenter.reloadInterface);
+        super.onFragmentDestroy();
+    }
+
+    @Override
+    public void didReceivedNotification(int id, int account, Object... args) {
+        if (id == org.telegram.messenger.NotificationCenter.reloadInterface) {
+            updatePreview();
+            if (listView != null && listView.adapter != null) listView.adapter.update(true);
+        }
+    }
+
     @Override
     public void onResume() {
         super.onResume();
+        DevGramBadges.syncFromCloud(); // живой поток у части операторов режется — берём свежие значки сразу
         updatePreview();
         if (listView != null && listView.adapter != null) listView.adapter.update(false);
     }

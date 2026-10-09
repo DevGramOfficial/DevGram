@@ -235,6 +235,18 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         glassOnlyBack = true;
     }
 
+    // DevGram: поверх своего фона профиля размытие под «Назад» даёт тёмную кляксу (фона нет в источнике
+    // размытия) — тогда рисуем простой полупрозрачный кружок этого цвета. 0 — обычное стекло.
+    private int glassBackOverrideColor;
+    private Paint glassBackOverridePaint;
+
+    public void setGlassBackOverrideColor(int color) {
+        if (glassBackOverrideColor != color) {
+            glassBackOverrideColor = color;
+            invalidate();
+        }
+    }
+
     public void setChatAvatarContainer(ChatAvatarContainer chatAvatarContainer) {
         this.chatAvatarContainer = chatAvatarContainer;
     }
@@ -2435,8 +2447,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 chatAvatarContainer.setTranslationX(0);
             }
             if (glassDrawableBack != null && hasBackButton) {
-                glassDrawableBack.setBounds(0, t, s + p * 2, b);
-                glassDrawableBack.draw(canvas);
+                if (glassBackOverrideColor != 0) {
+                    if (glassBackOverridePaint == null) glassBackOverridePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    glassBackOverridePaint.setColor(glassBackOverrideColor);
+                    canvas.drawCircle(p + s / 2f, (t + b) / 2f, s / 2f, glassBackOverridePaint);
+                } else {
+                    glassDrawableBack.setBounds(0, t, s + p * 2, b);
+                    glassDrawableBack.draw(canvas);
+                }
             }
             // DevGram: hideGlassMenuPill гасит фон только под «⋮», которую в iOS-режиме
             // перекрывает аватарка — но та же «пилюля» используется и для панели действий

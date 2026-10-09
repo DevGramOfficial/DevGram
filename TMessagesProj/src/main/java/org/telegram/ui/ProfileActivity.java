@@ -1329,11 +1329,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             devgramBgMsg = msgId;
             if (msgId == 0) {
                 devgramBg.clearImage();
+                if (actionBar != null) actionBar.setGlassBackOverrideColor(0);
                 invalidate();
                 return;
             }
             org.telegram.messenger.DevGramProfileBackground.load(currentAccount, msgId, mo -> {
                 if (devgramBgMsg != msgId) return;
+                if (actionBar != null) actionBar.setGlassBackOverrideColor(mo != null ? 0x4D000000 : 0);
                 if (mo == null) {
                     devgramBg.clearImage();
                 } else if (mo.getDocument() != null) {

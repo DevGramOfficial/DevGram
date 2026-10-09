@@ -173,6 +173,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     @Override
     public void onResume() {
         super.onResume();
+        DevGramBadges.syncFromCloud();
         if (listView != null && listView.adapter != null) listView.adapter.update(false);
         AndroidUtilities.runOnUIThread(this::maybeShowWelcome, 400);
     }
