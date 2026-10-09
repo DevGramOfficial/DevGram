@@ -80,11 +80,86 @@ public class DevGramDeleteAccount {
         del.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
         del.setOnClickListener(v -> {
             sheet.dismiss();
-            checkPasswordAndDelete(fragment);
+            confirmByTyping(fragment);
         });
         col.addView(del, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 6));
 
+        android.widget.TextView cancel = new android.widget.TextView(context);
+        cancel.setText(LocaleController.getString(R.string.Cancel));
+        cancel.setGravity(android.view.Gravity.CENTER);
+        cancel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
+        cancel.setTypeface(AndroidUtilities.bold());
+        cancel.setTextColor(Theme.getColor(Theme.key_featuredStickers_addButton, rp));
+        cancel.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(12), 0, Theme.getColor(Theme.key_listSelector, rp)));
+        cancel.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+        cancel.setOnClickListener(v -> sheet.dismiss());
+        col.addView(cancel, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 6));
+
         sheet.show();
+    }
+
+    private static final String CONFIRM_WORD = "УДАЛИТЬ";
+    private static final int CONFIRM_DELAY_SEC = 5;
+
+    // Второй шаг: вписать слово УДАЛИТЬ; кнопка неактивна первые 5 секунд (защита от случайного нажатия)
+    private static void confirmByTyping(BaseFragment fragment) {
+        Context context = fragment.getParentActivity();
+        if (context == null) {
+            return;
+        }
+        final Theme.ResourcesProvider rp = fragment.getResourceProvider();
+        final EditTextBoldCursor edit = new EditTextBoldCursor(context);
+        edit.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18);
+        edit.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
+        edit.setHintText(CONFIRM_WORD);
+        edit.setHintColor(Theme.getColor(Theme.key_dialogTextHint, rp));
+        edit.setBackgroundColor(0);
+        edit.setSingleLine(true);
+        edit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        edit.setCursorColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
+        edit.setCursorSize(AndroidUtilities.dp(20));
+        edit.setCursorWidth(1.5f);
+        FrameLayout wrap = new FrameLayout(context);
+        wrap.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
+        wrap.addView(edit, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+
+        AlertDialog.Builder b = new AlertDialog.Builder(context, rp);
+        b.setTitle("Точно удалить аккаунт?");
+        b.setMessage("Это нельзя отменить. Чтобы подтвердить, впишите слово " + CONFIRM_WORD + ".");
+        b.setView(wrap);
+        b.setPositiveButton("Удалить", (d, w) -> checkPasswordAndDelete(fragment));
+        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        AlertDialog dialog = b.create();
+        fragment.showDialog(dialog);
+        final android.widget.TextView button = (android.widget.TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
+        if (button == null) {
+            return;
+        }
+        button.setTextColor(Theme.getColor(Theme.key_text_RedBold, rp));
+        final int[] left = {CONFIRM_DELAY_SEC};
+        final Runnable refresh = () -> {
+            boolean typed = edit.getText() != null && CONFIRM_WORD.equalsIgnoreCase(edit.getText().toString().trim());
+            boolean ready = left[0] <= 0 && typed;
+            button.setEnabled(ready);
+            button.setAlpha(ready ? 1f : 0.4f);
+            button.setText(left[0] > 0 ? "Удалить (" + left[0] + ")" : "Удалить");
+        };
+        refresh.run();
+        edit.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int c, int d) {}
+            public void onTextChanged(CharSequence s, int a, int c, int d) {}
+            public void afterTextChanged(android.text.Editable s) { refresh.run(); }
+        });
+        final Runnable[] tick = new Runnable[1];
+        tick[0] = () -> {
+            if (!dialog.isShowing()) return;
+            left[0]--;
+            refresh.run();
+            if (left[0] > 0) AndroidUtilities.runOnUIThread(tick[0], 1000);
+        };
+        AndroidUtilities.runOnUIThread(tick[0], 1000);
+        edit.requestFocus();
+        AndroidUtilities.runOnUIThread(() -> AndroidUtilities.showKeyboard(edit), 100);
     }
 
     // Узнаём, включён ли 2FA. Если да — просим пароль, иначе удаляем сразу.
