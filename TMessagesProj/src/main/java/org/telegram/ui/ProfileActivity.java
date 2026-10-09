@@ -1329,13 +1329,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             devgramBgMsg = msgId;
             if (msgId == 0) {
                 devgramBg.clearImage();
-                if (actionBar != null) actionBar.setGlassBackOverrideColor(0);
+                devgramPillsOverMedia(false);
                 invalidate();
                 return;
             }
             org.telegram.messenger.DevGramProfileBackground.load(currentAccount, msgId, mo -> {
                 if (devgramBgMsg != msgId) return;
-                if (actionBar != null) actionBar.setGlassBackOverrideColor(mo != null ? 0x4D000000 : 0);
+                devgramPillsOverMedia(mo != null);
                 if (mo == null) {
                     devgramBg.clearImage();
                 } else if (mo.getDocument() != null) {
@@ -8587,6 +8587,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
+    // DevGram: пилюли под кнопками шапки iOS-профиля поверх своего фона — полупрозрачные
+    private void devgramPillsOverMedia(boolean overMedia) {
+        if (actionBar == null) return;
+        devgramPillOverMedia(actionBar.getBackButton(), overMedia);
+        for (int i = 0; i < actionBar.getChildCount(); i++) devgramPillOverMedia(actionBar.getChildAt(i), overMedia);
+        if (actionBar.menu != null) {
+            for (int i = 0; i < actionBar.menu.getChildCount(); i++) devgramPillOverMedia(actionBar.menu.getChildAt(i), overMedia);
+        }
+    }
+
+    private static void devgramPillOverMedia(View v, boolean overMedia) {
+        if (v != null && v.getBackground() instanceof DgCenteredCircleDrawable) {
+            ((DgCenteredCircleDrawable) v.getBackground()).setOverMedia(overMedia);
+        }
+    }
+
     // DevGram: стеклянная «пилюля» под кнопкой ActionBar (back / Edit) для iOS-профиля
     private void dgGlassPill(View v) {
         if (v == null) {
@@ -8601,16 +8617,29 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         // рендерилось грязно-серым пятном вместо белой «стеклянной» пилюли, как в реальном
         // Settings.app/Telegram-iOS. Берём тему (адаптируется под тёмную/светлую тему), как
         // у остальных белых карточек этого экрана («Изменить фотографию» и т.п.).
-        v.setBackground(new DgCenteredCircleDrawable(getThemedColor(Theme.key_windowBackgroundWhite)));
+        DgCenteredCircleDrawable pill = new DgCenteredCircleDrawable(getThemedColor(Theme.key_windowBackgroundWhite));
+        pill.setOverMedia(topView != null && topView.devgramBgMsg != 0); // меню могли пересоздать уже при своём фоне
+        v.setBackground(pill);
     }
 
     // DevGram: круглый фон, зажатый по меньшей стороне и отцентрированный - в отличие от
     // GradientDrawable(OVAL), не растягивается в эллипс на неквадратных вью.
     private static class DgCenteredCircleDrawable extends Drawable {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final int themeColor;
 
         DgCenteredCircleDrawable(int color) {
+            themeColor = color;
             paint.setColor(color);
+        }
+
+        // поверх своего фона профиля — полупрозрачная тёмная, иначе сплошной круг цвета темы
+        void setOverMedia(boolean overMedia) {
+            int c = overMedia ? 0x4D000000 : themeColor;
+            if (paint.getColor() != c) {
+                paint.setColor(c);
+                invalidateSelf();
+            }
         }
 
         @Override
