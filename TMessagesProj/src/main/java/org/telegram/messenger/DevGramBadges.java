@@ -155,8 +155,16 @@ public class DevGramBadges {
 
     // Сообщить всему UI, что значки изменились: reloadInterface (профиль/шапка) + updateInterfaces
     // (список чатов пересобирает ячейки через DialogCell.update). Всегда на UI-потоке.
-    private static void notifyBadgesChanged() {
+    // растёт при любом изменении значков: ячейки по нему понимают, что запомненный стиль устарел
+    public static volatile int styleVersion;
+
+    private static void invalidateStyles() {
         borderCache.clear();
+        styleVersion++;
+    }
+
+    private static void notifyBadgesChanged() {
+        invalidateStyles();
         AndroidUtilities.runOnUIThread(() -> {
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
@@ -310,6 +318,7 @@ public class DevGramBadges {
                 putBadge(ed, k, payload);
             }
             ed.apply();
+            invalidateStyles(); // иначе новая обводка у собеседника видна только после полной синхронизации
             AndroidUtilities.runOnUIThread(() ->
                     NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface));
         } catch (Throwable e) {
@@ -919,6 +928,7 @@ public class DevGramBadges {
         if (p != null) {
             p.edit().remove(key(dialogId)).apply();
         }
+        invalidateStyles();
         if (isSignedIn()) {
             Utilities.globalQueue.postRunnable(() -> {
                 String tok = ensureFreshToken();

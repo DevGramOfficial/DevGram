@@ -84,26 +84,69 @@ public final class DevGramMessageFrame {
     private static final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private static final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private static final RectF tmpRect = new RectF();
+    private static final android.graphics.Path clipPath = new android.graphics.Path();
+    private static final Style[] BY_ID;
+    // эмодзи-украшения: одна картинка на всё приложение, а не новая на каждый кадр
+    private static final java.util.HashMap<String, Drawable> decorCache = new java.util.HashMap<>();
 
     static {
         strokePaint.setStyle(Paint.Style.STROKE);
+        int max = 0;
+        for (Style s : STYLES) max = Math.max(max, s.id);
+        BY_ID = new Style[max + 1];
+        for (Style s : STYLES) BY_ID[s.id] = s;
+    }
+
+    // Градиенты одного пузыря: пересоздаются, только когда меняются стиль или границы.
+    // Держит сама ячейка — в списке в кадре ни одного нового градиента.
+    public static final class Cache {
+        private int style;
+        private float l, t, r, b;
+        private Shader fill, border;
+
+        private boolean hit(int styleId, float left, float top, float right, float bottom) {
+            if (style == styleId && l == left && t == top && r == right && b == bottom) return true;
+            style = styleId;
+            l = left;
+            t = top;
+            r = right;
+            b = bottom;
+            fill = null;
+            border = null;
+            return false;
+        }
+    }
+
+    private static Shader fillShader(Cache c, Style s, float left, float top, float right, float bottom) {
+        if (c == null) return new LinearGradient(left, top, right, bottom, s.fill, null, Shader.TileMode.CLAMP);
+        c.hit(s.id, left, top, right, bottom);
+        if (c.fill == null) c.fill = new LinearGradient(left, top, right, bottom, s.fill, null, Shader.TileMode.CLAMP);
+        return c.fill;
+    }
+
+    private static Shader borderShader(Cache c, Style s, float left, float top, float right, float bottom) {
+        if (c == null) return new LinearGradient(left, top, right, bottom, s.colors, null, Shader.TileMode.CLAMP);
+        c.hit(s.id, left, top, right, bottom);
+        if (c.border == null) c.border = new LinearGradient(left, top, right, bottom, s.colors, null, Shader.TileMode.CLAMP);
+        return c.border;
     }
 
     private DevGramMessageFrame() {
     }
 
     public static Style get(int id) {
-        for (Style s : STYLES) {
-            if (s.id == id) return s;
-        }
-        return null;
+        return id > 0 && id < BY_ID.length ? BY_ID[id] : null;
     }
 
     // Кисть заливки пузыря (градиент по его границам). null — у стиля нет заливки.
     public static Paint fillPaint(int styleId, float left, float top, float right, float bottom, float alpha) {
+        return fillPaint(null, styleId, left, top, right, bottom, alpha);
+    }
+
+    public static Paint fillPaint(Cache cache, int styleId, float left, float top, float right, float bottom, float alpha) {
         Style s = get(styleId);
         if (s == null || s.fill == null) return null;
-        fillPaint.setShader(s.fill.length == 1 ? null : new LinearGradient(left, top, right, bottom, s.fill, null, Shader.TileMode.CLAMP));
+        fillPaint.setShader(s.fill.length == 1 ? null : fillShader(cache, s, left, top, right, bottom));
         if (s.fill.length == 1) fillPaint.setColor(s.fill[0]);
         fillPaint.setAlpha((int) (255 * alpha));
         return fillPaint;
@@ -111,11 +154,15 @@ public final class DevGramMessageFrame {
 
     // Кисть-обводка по контуру пузыря (вместе с хвостом — её рисует сам MessageDrawable). null — без рамки.
     public static Paint borderPaint(int styleId, float left, float top, float right, float bottom, float alpha) {
+        return borderPaint(null, styleId, left, top, right, bottom, alpha);
+    }
+
+    public static Paint borderPaint(Cache cache, int styleId, float left, float top, float right, float bottom, float alpha) {
         Style s = get(styleId);
         if (s == null || s.border == 0 && !s.gradientBorder) return null;
         strokePaint.setStrokeWidth(AndroidUtilities.dp(s.gradientBorder ? 2f : 1.5f));
         if (s.gradientBorder) {
-            strokePaint.setShader(new LinearGradient(left, top, right, bottom, s.colors, null, Shader.TileMode.CLAMP));
+            strokePaint.setShader(borderShader(cache, s, left, top, right, bottom));
         } else {
             strokePaint.setShader(null);
             strokePaint.setColor(s.border);
@@ -127,13 +174,18 @@ public final class DevGramMessageFrame {
     // Рамка по контуру пузыря (с хвостом) — ВНУТРЕННЯЯ: рисование обрезано по самому пузырю, а линия
     // двойной толщины, поэтому видна только внутренняя половина и ничего не срезается краем ячейки.
     public static void drawBorder(Canvas canvas, org.telegram.ui.ActionBar.MessageDrawable drawable, int styleId, float alpha) {
+        drawBorder(canvas, drawable, null, styleId, alpha);
+    }
+
+    public static void drawBorder(Canvas canvas, org.telegram.ui.ActionBar.MessageDrawable drawable, Cache cache, int styleId, float alpha) {
         android.graphics.Rect b = drawable.getBounds();
-        Paint p = borderPaint(styleId, b.left, b.top, b.right, b.bottom, alpha);
+        Paint p = borderPaint(cache, styleId, b.left, b.top, b.right, b.bottom, alpha);
         if (p == null) return;
         float w = p.getStrokeWidth();
-        android.graphics.Path clip = new android.graphics.Path(drawable.makePath(null));
+        // копия контура в общий объект: draw() ниже перестраивает внутренний путь пузыря
+        clipPath.set(drawable.makePath(null));
         canvas.save();
-        canvas.clipPath(clip);
+        canvas.clipPath(clipPath);
         p.setStrokeWidth(w * 2);
         drawable.draw(canvas, p);
         p.setStrokeWidth(w);
@@ -142,18 +194,26 @@ public final class DevGramMessageFrame {
 
     // Рамка по прямоугольнику (для превью) + украшения. rect — тело пузыря, radius — его скругление.
     public static void draw(Canvas canvas, RectF rect, float radius, int styleId, float alpha) {
-        draw(canvas, rect, radius, styleId, alpha, true);
+        draw(canvas, rect, radius, null, styleId, alpha, true);
+    }
+
+    public static void draw(Canvas canvas, RectF rect, float radius, Cache cache, int styleId, float alpha) {
+        draw(canvas, rect, radius, cache, styleId, alpha, true);
     }
 
     // drawBorder=false — рамку уже нарисовали по настоящему контуру пузыря, нужны только украшения
     public static void draw(Canvas canvas, RectF rect, float radius, int styleId, float alpha, boolean drawBorder) {
+        draw(canvas, rect, radius, null, styleId, alpha, drawBorder);
+    }
+
+    public static void draw(Canvas canvas, RectF rect, float radius, Cache cache, int styleId, float alpha, boolean drawBorder) {
         Style s = get(styleId);
         if (s == null || alpha <= 0f || rect.width() <= 0 || rect.height() <= 0) return;
         if (drawBorder && (s.border != 0 || s.gradientBorder)) {
             float stroke = AndroidUtilities.dp(s.gradientBorder ? 2f : 1.5f);
             strokePaint.setStrokeWidth(stroke);
             if (s.gradientBorder) {
-                strokePaint.setShader(new LinearGradient(rect.left, rect.top, rect.right, rect.bottom, s.colors, null, Shader.TileMode.CLAMP));
+                strokePaint.setShader(borderShader(cache, s, rect.left, rect.top, rect.right, rect.bottom));
             } else {
                 strokePaint.setShader(null);
                 strokePaint.setColor(s.border);
@@ -200,12 +260,16 @@ public final class DevGramMessageFrame {
     // Кружок (видеосообщение): кольцо по краю видео. Рисует сама ячейка — после видео, но до
     // длительности и времени, чтобы кольцо не перекрывало эти плашки.
     public static void drawRoundRing(Canvas canvas, RectF circle, int styleId, float alpha) {
+        drawRoundRing(canvas, circle, null, styleId, alpha);
+    }
+
+    public static void drawRoundRing(Canvas canvas, RectF circle, Cache cache, int styleId, float alpha) {
         Style s = get(styleId);
         if (s == null || alpha <= 0f || circle.width() <= 0) return;
         float stroke = AndroidUtilities.dp(3);
         strokePaint.setStrokeWidth(stroke);
         if (s.gradientBorder || s.border == 0) {
-            strokePaint.setShader(new LinearGradient(circle.left, circle.top, circle.right, circle.bottom, s.colors, null, Shader.TileMode.CLAMP));
+            strokePaint.setShader(borderShader(cache, s, circle.left, circle.top, circle.right, circle.bottom));
         } else {
             strokePaint.setShader(null);
             strokePaint.setColor(s.border);
@@ -231,8 +295,12 @@ public final class DevGramMessageFrame {
 
     private static void drawDecor(Canvas canvas, String emoji, float cx, float cy, float size, float rotation, float alpha) {
         if (emoji == null) return;
-        Drawable d = Emoji.getEmojiDrawable(emoji);
-        if (d == null) return;
+        Drawable d = decorCache.get(emoji);
+        if (d == null) {
+            d = Emoji.getEmojiDrawable(emoji);
+            if (d == null) return;
+            decorCache.put(emoji, d);
+        }
         int half = (int) (size / 2f);
         d.setBounds((int) cx - half, (int) cy - half, (int) cx + half, (int) cy + half);
         d.setAlpha((int) (255 * alpha));

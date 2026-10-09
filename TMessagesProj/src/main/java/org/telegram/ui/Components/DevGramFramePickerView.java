@@ -15,6 +15,8 @@ import org.telegram.ui.ActionBar.Theme;
 // Первая карточка — «Без обводки» (0).
 public class DevGramFramePickerView extends View implements org.telegram.messenger.NotificationCenter.NotificationCenterDelegate {
 
+    private DevGramMessageFrame.Cache[] shaderCaches = new DevGramMessageFrame.Cache[0]; // градиенты превью не пересоздаются каждый кадр
+
     public interface OnSelect {
         void run(int styleId);
     }
@@ -93,9 +95,11 @@ public class DevGramFramePickerView extends View implements org.telegram.messeng
             float cx = rect.centerX(), top = rect.top + AndroidUtilities.dp(18);
             bubble.set(cx - bw / 2f, top, cx + bw / 2f, top + bh);
             float br = AndroidUtilities.dp(10);
-            Paint fill = style != 0 ? DevGramMessageFrame.fillPaint(style, bubble.left, bubble.top, bubble.right, bubble.bottom, 1f) : null;
+            if (shaderCaches.length != count()) shaderCaches = new DevGramMessageFrame.Cache[count()];
+            if (shaderCaches[i] == null) shaderCaches[i] = new DevGramMessageFrame.Cache();
+            Paint fill = style != 0 ? DevGramMessageFrame.fillPaint(shaderCaches[i], style, bubble.left, bubble.top, bubble.right, bubble.bottom, 1f) : null;
             canvas.drawRoundRect(bubble, br, br, fill != null ? fill : bubblePaint);
-            if (style != 0) DevGramMessageFrame.draw(canvas, bubble, br, style, 1f);
+            if (style != 0) DevGramMessageFrame.draw(canvas, bubble, br, shaderCaches[i], style, 1f);
             String title = style == 0 ? "Без обводки" : DevGramMessageFrame.get(style).title;
             canvas.drawText(title, cx, rect.bottom - AndroidUtilities.dp(10), titlePaint);
         }

@@ -20599,7 +20599,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         // DevGram: кольцо обводки у кружка — поверх видео, но под длительностью и временем
         if (devgramDecorRound && devgramDecorStyle != 0 && currentMessageObject != null && currentMessageObject.isRoundVideo()) {
-            org.telegram.ui.Components.DevGramMessageFrame.drawRoundRing(canvas, devgramDecorRect, devgramDecorStyle, alphaInternal);
+            org.telegram.ui.Components.DevGramMessageFrame.drawRoundRing(canvas, devgramDecorRect, devgramShaders, devgramDecorStyle, alphaInternal);
         }
         if ((!autoPlayingMedia || !MediaController.getInstance().isPlayingMessageAndReadyToDraw(currentMessageObject) || isRoundVideo) && !transitionParams.animateBackgroundBoundsInner && !(currentMessageObject != null && currentMessageObject.preview)) {
             drawOverlays(canvas);
@@ -21146,11 +21146,25 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private int devgramDecorStyle;
     private boolean devgramDecorRound;
     private int devgramDecorMsgId;
+    private final org.telegram.ui.Components.DevGramMessageFrame.Cache devgramShaders = new org.telegram.ui.Components.DevGramMessageFrame.Cache();
+    // стиль отправителя запоминается и пересчитывается только при смене отправителя или значков
+    private long devgramStyleSender;
+    private int devgramStyleVersion = -1, devgramStyleValue;
+    private org.telegram.ui.Components.DevGramMessageFrame.Style devgramStyleObj;
+    private int devgramColorOut;
 
     private int devgramStyle() {
         if (currentMessageObject == null) return 0;
         long senderId = currentMessageObject.getFromChatId();
-        return senderId > 0 ? org.telegram.messenger.DevGramBadges.borderOf(senderId) : 0;
+        if (senderId <= 0) return 0;
+        int version = org.telegram.messenger.DevGramBadges.styleVersion;
+        if (senderId != devgramStyleSender || version != devgramStyleVersion) {
+            devgramStyleSender = senderId;
+            devgramStyleVersion = version;
+            devgramStyleValue = org.telegram.messenger.DevGramBadges.borderOf(senderId);
+            devgramStyleObj = org.telegram.ui.Components.DevGramMessageFrame.get(devgramStyleValue);
+        }
+        return devgramStyleValue;
     }
 
     // смещение рисования внутри ячейки (как в onDraw: верхние плашки и адаптивная ширина)
@@ -21218,11 +21232,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         float alpha = fromParent ? alphaInternal * getAlpha() : alphaInternal;
         // заливка всего пузыря (вместе с хвостом) цветом стиля; при выделении — не перекрываем подсветку
         if (currentSelectedBackgroundAlpha <= 0f) {
-            Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(style, b.left, b.top, b.right, b.bottom, alpha);
+            Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(devgramShaders, style, b.left, b.top, b.right, b.bottom, alpha);
             if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
         }
         // рамка — по настоящему контуру пузыря, вместе с хвостиком
-        org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, style, alpha);
+        org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, devgramShaders, style, alpha);
         devgramDecorRect.set(devgramFrameRect);
         devgramDecorRadius = radius;
         devgramDecorStyle = style;
@@ -29570,29 +29584,32 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     public int getThemedColor(int key) {
-        Integer frameColor = devgramFrameColor(key);
-        if (frameColor != null) return frameColor;
+        if (devgramFrameColor(key)) return devgramColorOut;
         return Theme.getColor(key, resourcesProvider);
     }
 
     // DevGram: у сообщения с залитым пузырём (обводка поддержавшего) текст, ссылки и время
     // берут цвета стиля — иначе на светлой заливке в тёмной теме текст не читается
-    private Integer devgramFrameColor(int key) {
-        if (currentMessageObject == null || currentMessageObject.isRoundVideo() || currentPosition != null) return null;
+    // true — цвет подменён, он в devgramColorOut (без Integer: зовётся десятки раз на кадр)
+    private boolean devgramFrameColor(int key) {
         if (key != Theme.key_chat_messageTextIn && key != Theme.key_chat_messageTextOut
                 && key != Theme.key_chat_messageLinkIn && key != Theme.key_chat_messageLinkOut
                 && key != Theme.key_chat_inTimeText && key != Theme.key_chat_outTimeText
                 && key != Theme.key_chat_inViews && key != Theme.key_chat_outViews) {
-            return null;
+            return false;
         }
-        long senderId = currentMessageObject.getFromChatId();
-        int styleId = senderId > 0 ? org.telegram.messenger.DevGramBadges.borderOf(senderId) : 0;
-        if (styleId == 0) return null;
-        org.telegram.ui.Components.DevGramMessageFrame.Style st = org.telegram.ui.Components.DevGramMessageFrame.get(styleId);
-        if (st == null || st.text == 0) return null;
-        if (key == Theme.key_chat_messageLinkIn || key == Theme.key_chat_messageLinkOut) return st.link;
-        if (key == Theme.key_chat_messageTextIn || key == Theme.key_chat_messageTextOut) return st.text;
-        return ColorUtils.setAlphaComponent(st.text, 0x99); // время и просмотры — приглушённо
+        if (currentMessageObject == null || currentMessageObject.isRoundVideo() || currentPosition != null) return false;
+        if (devgramStyle() == 0) return false;
+        org.telegram.ui.Components.DevGramMessageFrame.Style st = devgramStyleObj;
+        if (st == null || st.text == 0) return false;
+        if (key == Theme.key_chat_messageLinkIn || key == Theme.key_chat_messageLinkOut) {
+            devgramColorOut = st.link;
+        } else if (key == Theme.key_chat_messageTextIn || key == Theme.key_chat_messageTextOut) {
+            devgramColorOut = st.text;
+        } else {
+            devgramColorOut = ColorUtils.setAlphaComponent(st.text, 0x99); // время и просмотры — приглушённо
+        }
+        return true;
     }
 
     private Drawable getThemedDrawable(String key) {

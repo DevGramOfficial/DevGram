@@ -25,6 +25,8 @@ import org.telegram.ui.ActionBar.Theme;
 // и сообщение в выбранной обводке. Меняется сразу при выборе, ещё до сохранения на сервере.
 public class DevGramAppearancePreview extends View implements NotificationCenter.NotificationCenterDelegate {
 
+    private final DevGramMessageFrame.Cache shaderCache = new DevGramMessageFrame.Cache();
+
     private final int account;
     private final Theme.ResourcesProvider resourcesProvider;
     private final ImageReceiver avatarImage = new ImageReceiver(this);
@@ -124,13 +126,13 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
         float bubbleW = Math.max(textLayout.getWidth(), nameW) + AndroidUtilities.dp(24);
         bubble.set(left, avatarY + avatarSize - bubbleH, left + bubbleW, avatarY + avatarSize);
         float br = AndroidUtilities.dp(16);
-        Paint fill = st != null ? DevGramMessageFrame.fillPaint(frameStyle, bubble.left, bubble.top, bubble.right, bubble.bottom, 1f) : null;
+        Paint fill = st != null ? DevGramMessageFrame.fillPaint(shaderCache, frameStyle, bubble.left, bubble.top, bubble.right, bubble.bottom, 1f) : null;
         if (fill == null) {
             bubblePaint.setColor(Theme.getColor(Theme.key_chat_inBubble, resourcesProvider));
             fill = bubblePaint;
         }
         canvas.drawRoundRect(bubble, br, br, fill);
-        if (st != null) DevGramMessageFrame.draw(canvas, bubble, br, frameStyle, 1f);
+        if (st != null) DevGramMessageFrame.draw(canvas, bubble, br, shaderCache, frameStyle, 1f);
 
         // ник со значком
         float x = bubble.left + AndroidUtilities.dp(12), y = bubble.top + AndroidUtilities.dp(10);
