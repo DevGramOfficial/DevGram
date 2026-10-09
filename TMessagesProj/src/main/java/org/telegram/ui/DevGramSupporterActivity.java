@@ -131,7 +131,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         b.setTopAnimation(R.raw.email_setup_heart, 72, false, Theme.getColor(Theme.key_dialogTopBackground, resourceProvider));
         b.setTitle("Спасибо за поддержку!");
         b.setMessage("Вы помогаете DevGram развиваться — спасибо ❤️\n\nВ благодарность вам открыт закрытый канал беты: "
-                + "новые версии выходят там раньше всех, а обновления из него качаются без VPN.\n\n"
+                + "новые версии и новости там появляются раньше всех.\n\n"
                 + "Ссылка персональная и сработает один раз — только для вас. Вступить можно и позже, кнопкой в этом разделе.");
         b.setPositiveButton("Присоединиться", (d, w) -> {
             prefs.edit().putBoolean(key, true).apply();
