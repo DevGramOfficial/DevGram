@@ -21146,6 +21146,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private int devgramDecorStyle;
     private boolean devgramDecorRound;
     private int devgramDecorMsgId;
+    private boolean devgramDecorGrouped; // кусок альбома — украшения рисуются одни на весь альбом
     private final org.telegram.ui.Components.DevGramMessageFrame.Cache devgramShaders = new org.telegram.ui.Components.DevGramMessageFrame.Cache();
     private final org.telegram.ui.Components.DevGramNickColor.Cache devgramNickShader = new org.telegram.ui.Components.DevGramNickColor.Cache();
     // стиль отправителя запоминается и пересчитывается только при смене отправителя или значков
@@ -21192,8 +21193,40 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     // Слой украшений поверх списка. Холст — координаты списка; рисуем, только если сообщение то же.
+    // Кусок альбома в координатах списка (для общих украшений альбома). false — не альбом или без обводки.
+    public boolean getDevGramAlbumPiece(RectF out) {
+        if (!devgramDecorGrouped || devgramDecorStyle == 0 || currentMessageObject == null || currentMessagesGroup == null
+                || devgramDecorMsgId != currentMessageObject.getId() || getVisibility() != VISIBLE || devgramStyle() != devgramDecorStyle) {
+            return false;
+        }
+        out.set(devgramDecorRect);
+        out.offset(getX() + devgramDecorOffX, getY() + devgramDecorOffY);
+        return true;
+    }
+
+    public long getDevGramAlbumId() {
+        return currentMessagesGroup != null ? currentMessagesGroup.groupId : 0;
+    }
+
+    public int getDevGramDecorStyle() {
+        return devgramDecorStyle;
+    }
+
+    public float getDevGramDecorAlpha() {
+        return devgramDecorAlpha * getAlpha();
+    }
+
+    // верх альбома свободен (нет сообщения вплотную сверху) / низ свободен
+    public boolean isDevGramAlbumTopFree() {
+        return currentPosition != null && (currentPosition.flags & MessageObject.POSITION_FLAG_TOP) != 0 && !isPinnedTop();
+    }
+
+    public boolean isDevGramAlbumBottomFree() {
+        return currentPosition != null && (currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) != 0 && !isPinnedBottom();
+    }
+
     public void drawDevGramDecorOverlay(Canvas canvas) {
-        if (devgramDecorStyle == 0 || currentMessageObject == null || devgramDecorMsgId != currentMessageObject.getId()
+        if (devgramDecorStyle == 0 || devgramDecorGrouped || currentMessageObject == null || devgramDecorMsgId != currentMessageObject.getId()
                 || getVisibility() != VISIBLE || devgramStyle() != devgramDecorStyle) {
             return;
         }
@@ -21231,14 +21264,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 out ? b.right - dp(8) : b.right - padding, b.bottom - padding);
         float radius = Math.min(dp(SharedConfig.bubbleRadius), (b.height() - padding) / 2f);
         float alpha = fromParent ? alphaInternal * getAlpha() : alphaInternal;
-        // заливка всего пузыря (вместе с хвостом) цветом стиля; при выделении — не перекрываем подсветку
-        if (currentSelectedBackgroundAlpha <= 0f) {
-            Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(devgramShaders, style, b.left, b.top, b.right, b.bottom, alpha);
-            if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
-        }
-        // рамка — по настоящему контуру пузыря, вместе с хвостиком. В альбоме кусок пузыря каждой картинки
-        // заходит под соседей — рамку режем по его «собственной» части, чтобы линия шла только по внешнему краю
-        if (currentPosition != null) {
+        // в альбоме кусок пузыря каждой картинки заходит под соседей — заливку и рамку режем по его
+        // «собственной» части, иначе краска ложится поверх соседних картинок
+        final boolean grouped = currentPosition != null;
+        if (grouped) {
             canvas.save();
             int r = dp(SharedConfig.bubbleRadius + 2), rv = dp(SharedConfig.bubbleRadius + 3);
             canvas.clipRect(
@@ -21246,13 +21275,31 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     (currentPosition.flags & MessageObject.POSITION_FLAG_TOP) == 0 ? b.top + rv : b.top - dp(4),
                     (currentPosition.flags & MessageObject.POSITION_FLAG_RIGHT) == 0 ? b.right - r : b.right + dp(4),
                     (currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) == 0 ? b.bottom - rv : b.bottom + dp(4));
+        }
+        // заливка всего пузыря (вместе с хвостом) цветом стиля; при выделении — не перекрываем подсветку
+        if (currentSelectedBackgroundAlpha <= 0f) {
+            Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(devgramShaders, style, b.left, b.top, b.right, b.bottom, alpha);
+            if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
+        }
+        // рамка — по настоящему контуру пузыря, вместе с хвостиком. В альбоме кусок пузыря каждой картинки
+        // заходит под соседей — рамку режем по его «собственной» части, чтобы линия шла только по внешнему краю
+        if (grouped) {
             org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, devgramShaders, style, alpha);
             canvas.restore();
-            devgramDecorStyle = 0; // украшения — по одному на альбом, не на каждую картинку
-            return;
+            // украшения — по одному на альбом: картинка запоминает свою часть, слой поверх чата склеит их
+            int r = dp(SharedConfig.bubbleRadius + 2), rv = dp(SharedConfig.bubbleRadius + 3);
+            int f = currentPosition.flags;
+            devgramDecorRect.set(
+                    (f & MessageObject.POSITION_FLAG_LEFT) != 0 ? (out ? b.left + padding : b.left + dp(8)) : b.left + r,
+                    (f & MessageObject.POSITION_FLAG_TOP) != 0 ? b.top + padding : b.top + rv,
+                    (f & MessageObject.POSITION_FLAG_RIGHT) != 0 ? (out ? b.right - dp(8) : b.right - padding) : b.right - r,
+                    (f & MessageObject.POSITION_FLAG_BOTTOM) != 0 ? b.bottom - padding : b.bottom - rv);
+            devgramDecorGrouped = true;
+        } else {
+            org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, devgramShaders, style, alpha);
+            devgramDecorRect.set(devgramFrameRect);
+            devgramDecorGrouped = false;
         }
-        org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, devgramShaders, style, alpha);
-        devgramDecorRect.set(devgramFrameRect);
         devgramDecorRadius = radius;
         devgramDecorStyle = style;
         devgramDecorAlpha = alphaInternal;

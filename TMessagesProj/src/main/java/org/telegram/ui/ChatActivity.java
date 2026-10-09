@@ -6233,13 +6233,47 @@ public class ChatActivity extends BaseFragment implements
                 }
             }
 
+            // DevGram: куски альбомов с обводкой, склеенные в общий прямоугольник (переиспользуются между кадрами)
+            private final java.util.ArrayList<float[]> devgramAlbums = new java.util.ArrayList<>();
+            private final RectF devgramPiece = new RectF();
+            private long[] devgramAlbumIds = new long[8];
+
             protected void drawChatForegroundElements(Canvas canvas, RectF position) {
                 // DevGram: украшения обводки поддержавших — поверх всех сообщений
+                int albums = 0;
                 for (int i = 0, n = getChildCount(); i < n; i++) {
                     View child = getChildAt(i);
                     if (child instanceof ChatMessageCell) {
-                        ((ChatMessageCell) child).drawDevGramDecorOverlay(canvas);
+                        ChatMessageCell cell = (ChatMessageCell) child;
+                        cell.drawDevGramDecorOverlay(canvas);
+                        if (cell.getDevGramAlbumPiece(devgramPiece)) {
+                            // [-, left, top, right, bottom, style, alpha, topFree, bottomFree], id альбома — в devgramAlbumIds
+                            long id = cell.getDevGramAlbumId();
+                            float[] a = null;
+                            for (int k = 0; k < albums; k++) {
+                                if (devgramAlbumIds[k] == id) { a = devgramAlbums.get(k); break; }
+                            }
+                            if (a == null) {
+                                if (albums < devgramAlbums.size()) a = devgramAlbums.get(albums); else devgramAlbums.add(a = new float[9]);
+                                if (albums >= devgramAlbumIds.length) devgramAlbumIds = java.util.Arrays.copyOf(devgramAlbumIds, albums * 2);
+                                devgramAlbumIds[albums] = id;
+                                albums++;
+                                a[1] = devgramPiece.left; a[2] = devgramPiece.top; a[3] = devgramPiece.right; a[4] = devgramPiece.bottom;
+                                a[5] = cell.getDevGramDecorStyle(); a[6] = cell.getDevGramDecorAlpha(); a[7] = 0; a[8] = 0;
+                            } else {
+                                a[1] = Math.min(a[1], devgramPiece.left); a[2] = Math.min(a[2], devgramPiece.top);
+                                a[3] = Math.max(a[3], devgramPiece.right); a[4] = Math.max(a[4], devgramPiece.bottom);
+                                a[6] = Math.min(a[6], cell.getDevGramDecorAlpha());
+                            }
+                            if (cell.isDevGramAlbumTopFree()) a[7] = 1;
+                            if (cell.isDevGramAlbumBottomFree()) a[8] = 1;
+                        }
                     }
+                }
+                for (int k = 0; k < albums; k++) {
+                    float[] a = devgramAlbums.get(k);
+                    devgramPiece.set(a[1], a[2], a[3], a[4]);
+                    org.telegram.ui.Components.DevGramMessageFrame.drawDecorations(canvas, devgramPiece, (int) a[5], a[6], a[7] != 0, a[8] != 0);
                 }
                 int size = drawTimeAfter.size();
                 if (size > 0) {
