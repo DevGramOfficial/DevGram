@@ -1340,7 +1340,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     devgramBg.clearImage();
                 } else if (mo.getDocument() != null) {
                     TLRPC.Document doc = mo.getDocument();
-                    TLRPC.PhotoSize thumb = FileLoader.getClosestPhotoSizeWithSize(doc.thumbs, 320);
+                    TLRPC.PhotoSize thumb = org.telegram.messenger.DevGramProfileBackground.strippedThumb(doc.thumbs);
+                    if (thumb == null) thumb = FileLoader.getClosestPhotoSizeWithSize(doc.thumbs, 320);
                     devgramBg.setAllowStartAnimation(true);
                     devgramBg.setAutoRepeat(1);
                     devgramBg.setImage(ImageLocation.getForDocument(doc), ImageLoader.AUTOPLAY_FILTER,
@@ -1348,7 +1349,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else if (mo.messageOwner.media != null && mo.messageOwner.media.photo != null) {
                     TLRPC.Photo photo = mo.messageOwner.media.photo;
                     TLRPC.PhotoSize big = FileLoader.getClosestPhotoSizeWithSize(photo.sizes, 1280);
-                    TLRPC.PhotoSize small = FileLoader.getClosestPhotoSizeWithSize(photo.sizes, 90);
+                    TLRPC.PhotoSize small = org.telegram.messenger.DevGramProfileBackground.strippedThumb(photo.sizes);
+                    if (small == null) small = FileLoader.getClosestPhotoSizeWithSize(photo.sizes, 90);
                     devgramBg.setImage(ImageLocation.getForObject(big, photo), null,
                             ImageLocation.getForObject(small, photo), "b", big != null ? big.size : 0, null, mo, 1);
                 }
@@ -2165,6 +2167,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     @Override
     public boolean onFragmentCreate() {
         userId = arguments.getLong("user_id", 0);
+        // DevGram: пост со своим фоном профиля начинаем грузить сразу, ещё до анимации открытия
+        if (userId > 0) {
+            int devgramBg = DevGramBadges.backgroundOf(userId);
+            if (devgramBg != 0) org.telegram.messenger.DevGramProfileBackground.load(currentAccount, devgramBg, mo -> {});
+        }
         chatId = arguments.getLong("chat_id", 0);
         topicId = arguments.getLong("topic_id", 0);
         saved = arguments.getBoolean("saved", false);

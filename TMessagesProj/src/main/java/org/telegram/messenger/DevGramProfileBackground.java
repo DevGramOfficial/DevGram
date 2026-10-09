@@ -30,7 +30,9 @@ public final class DevGramProfileBackground {
             return;
         }
         MessageObject cached = cache.get(msgId);
+        if (cached == null) cached = fromDisk(account, msgId);
         if (cached != null) {
+            cache.put(msgId, cached);
             callback.run(cached);
             return;
         }
@@ -63,10 +65,57 @@ public final class DevGramProfileBackground {
                         }
                     }
                 }
-                if (result != null) cache.put(msgId, result);
+                if (result != null) {
+                    cache.put(msgId, result);
+                    toDisk(msgId, result.messageOwner);
+                }
                 finish(msgId, result);
             }));
         });
+    }
+
+    // Пост с фоном храним и на диске: после первого раза фон берётся без запросов в сеть
+    private static android.content.SharedPreferences diskPrefs() {
+        return ApplicationLoader.applicationContext.getSharedPreferences("devgram_bg_cache", android.content.Context.MODE_PRIVATE);
+    }
+
+    private static MessageObject fromDisk(int account, int msgId) {
+        try {
+            String b64 = diskPrefs().getString(String.valueOf(msgId), null);
+            if (b64 == null) return null;
+            org.telegram.tgnet.SerializedData data = new org.telegram.tgnet.SerializedData(android.util.Base64.decode(b64, android.util.Base64.NO_WRAP));
+            TLRPC.Message m = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
+            data.cleanup();
+            if (m == null || m.media == null) return null;
+            return new MessageObject(account, m, false, false);
+        } catch (Throwable e) {
+            FileLog.e(e);
+            return null;
+        }
+    }
+
+    private static void toDisk(int msgId, TLRPC.Message m) {
+        try {
+            org.telegram.tgnet.SerializedData data = new org.telegram.tgnet.SerializedData(m.getObjectSize());
+            m.serializeToStream(data);
+            String b64 = android.util.Base64.encodeToString(data.toByteArray(), android.util.Base64.NO_WRAP);
+            data.cleanup();
+            android.content.SharedPreferences p = diskPrefs();
+            android.content.SharedPreferences.Editor ed = p.edit();
+            if (p.getAll().size() > 300) ed.clear(); // не копим бесконечно
+            ed.putString(String.valueOf(msgId), b64).apply();
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+    }
+
+    // Крошечная размытая миниатюра, которая лежит прямо в посте — показывается сразу, без загрузки
+    public static TLRPC.PhotoSize strippedThumb(java.util.ArrayList<TLRPC.PhotoSize> sizes) {
+        if (sizes == null) return null;
+        for (TLRPC.PhotoSize s : sizes) {
+            if (s instanceof TLRPC.TL_photoStrippedSize) return s;
+        }
+        return null;
     }
 
     private static void finish(int msgId, MessageObject media) {
