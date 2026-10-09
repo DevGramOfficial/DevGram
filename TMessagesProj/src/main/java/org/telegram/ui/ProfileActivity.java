@@ -1306,12 +1306,52 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         protected void onAttachedToWindow() {
             super.onAttachedToWindow();
             emoji.attach();
+            devgramBg.onAttachedToWindow();
         }
 
         @Override
         protected void onDetachedFromWindow() {
             super.onDetachedFromWindow();
             emoji.detach();
+            devgramBg.onDetachedFromWindow();
+        }
+
+        // DevGram: свой фон профиля поддержавшего (фото/видео/GIF) — поверх цвета профиля, под затемнением.
+        // Видео играет без звука и только пока профиль на экране (ImageReceiver сам ставит на паузу).
+        private final ImageReceiver devgramBg = new ImageReceiver(this);
+        private final AnimatedFloat devgramBgAlpha = new AnimatedFloat(this, 0, 320, CubicBezierInterpolator.EASE_OUT_QUINT);
+        private final android.graphics.drawable.GradientDrawable devgramScrim = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x66000000, 0x1A000000, 0x80000000});
+        private int devgramBgMsg;
+
+        public void setDevGramBackground(int msgId) {
+            if (msgId == devgramBgMsg) return;
+            devgramBgMsg = msgId;
+            if (msgId == 0) {
+                devgramBg.clearImage();
+                invalidate();
+                return;
+            }
+            org.telegram.messenger.DevGramProfileBackground.load(currentAccount, msgId, mo -> {
+                if (devgramBgMsg != msgId) return;
+                if (mo == null) {
+                    devgramBg.clearImage();
+                } else if (mo.getDocument() != null) {
+                    TLRPC.Document doc = mo.getDocument();
+                    TLRPC.PhotoSize thumb = FileLoader.getClosestPhotoSizeWithSize(doc.thumbs, 320);
+                    devgramBg.setAllowStartAnimation(true);
+                    devgramBg.setAutoRepeat(1);
+                    devgramBg.setImage(ImageLocation.getForDocument(doc), ImageLoader.AUTOPLAY_FILTER,
+                            ImageLocation.getForDocument(thumb, doc), "b", doc.size, null, mo, 1);
+                } else if (mo.messageOwner.media != null && mo.messageOwner.media.photo != null) {
+                    TLRPC.Photo photo = mo.messageOwner.media.photo;
+                    TLRPC.PhotoSize big = FileLoader.getClosestPhotoSizeWithSize(photo.sizes, 1280);
+                    TLRPC.PhotoSize small = FileLoader.getClosestPhotoSizeWithSize(photo.sizes, 90);
+                    devgramBg.setImage(ImageLocation.getForObject(big, photo), null,
+                            ImageLocation.getForObject(small, photo), "b", big != null ? big.size : 0, null, mo, 1);
+                }
+                invalidate();
+            });
         }
 
         public final AnimatedFloat emojiLoadedT = new AnimatedFloat(this, 0, 440, CubicBezierInterpolator.EASE_OUT_QUINT);
@@ -1384,7 +1424,23 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     backgroundPaint.setAlpha((int) (0xFF * progressToGradient));
                     canvas.drawRect(0, 0, getMeasuredWidth(), y1, backgroundPaint);
                 }
-                if (hasEmoji) {
+                float devgramBgShown = devgramBgMsg != 0 ? devgramBgAlpha.set(devgramBg.getDrawable() != null) : devgramBgAlpha.set(false);
+                if (devgramBgShown > 0) {
+                    final float a = devgramBgShown * (playProfileAnimation == 0 ? 1f : avatarAnimationProgress);
+                    final int w = getMeasuredWidth();
+                    // картинка — во всю раскрытую шапку; при сворачивании просто обрезается сверху вниз
+                    final float imageH = Math.max(y1, w * 0.75f);
+                    canvas.save();
+                    canvas.clipRect(0, 0, w, y1);
+                    devgramBg.setImageCoords(0, 0, w, imageH);
+                    devgramBg.setAlpha(a);
+                    devgramBg.draw(canvas);
+                    devgramScrim.setBounds(0, 0, w, y1);
+                    devgramScrim.setAlpha((int) (255 * a));
+                    devgramScrim.draw(canvas);
+                    canvas.restore();
+                }
+                if (hasEmoji && devgramBgShown < 1f) {
                     final float loadedScale = emojiLoadedT.set(isEmojiLoaded());
                     boolean shoudIgnore = openAnimationInProgress && playProfileAnimation == 2;
                     if (!shoudIgnore && loadedScale > 0 && avatarContainer != null) {
@@ -11764,6 +11820,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             if (topView != null) {
                 topView.setBackgroundEmojiId(UserObject.getProfileEmojiId(user), user != null && user.emoji_status instanceof TLRPC.TL_emojiStatusCollectible, true);
+                topView.setDevGramBackground(user != null ? DevGramBadges.backgroundOf(user.id) : 0);
             }
             if (ratingView != null) {
                 ratingView.updateColors(peerColor);

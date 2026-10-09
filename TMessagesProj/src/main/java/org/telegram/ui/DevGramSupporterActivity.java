@@ -44,6 +44,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_BADGE = 3;
     private static final int ID_FRAME = 4;
     private static final int ID_BETA_CHANNEL = 5;
+    private static final int ID_PROFILE_BG = 6;
     private boolean welcomeShown;
 
     private UniversalRecyclerView listView;
@@ -89,7 +90,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         int frame = DevGramBadges.borderOf(uid);
         org.telegram.ui.Components.DevGramMessageFrame.Style st = org.telegram.ui.Components.DevGramMessageFrame.get(frame);
         items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, "Обводка сообщений", st != null ? st.title : "Нет"));
-        items.add(UItem.asShadow("Значок и обводку видят все пользователи DevGram."));
+        items.add(UItem.asButton(ID_PROFILE_BG, R.drawable.msg_photos, "Фон профиля", DevGramProfileBgActivity.statusText(currentAccount)));
+        items.add(UItem.asShadow("Значок, обводку и фон профиля видят все пользователи DevGram."));
 
         items.add(UItem.asHeader("Ваши возможности"));
         items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Защищённое подключение")
@@ -115,6 +117,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramBadgeChoiceActivity());
         } else if (item.id == ID_FRAME) {
             presentFragment(new DevGramFrameChoiceActivity());
+        } else if (item.id == ID_PROFILE_BG) {
+            presentFragment(new DevGramProfileBgActivity());
         } else if (item.id == ID_BETA_CHANNEL) {
             openBetaChannel();
         }

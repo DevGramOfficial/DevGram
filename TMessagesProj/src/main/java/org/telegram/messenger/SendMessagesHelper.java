@@ -12021,6 +12021,34 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         return bitmap;
     }
 
+    // DevGram: видео для фона профиля — первые maxSeconds секунд, без звука, не больше maxSide по большей
+    // стороне (фон видят все пользователи DevGram — файл должен быть лёгким). null — формат не поддержан.
+    public static VideoEditedInfo createDevGramBackgroundVideo(String videoPath, int maxSeconds, int maxSide) {
+        VideoEditedInfo info = createCompressionSettings(videoPath, 0);
+        if (info == null) return null;
+        long durationMs = info.originalDuration > 0 ? info.originalDuration / 1000 : info.estimatedDuration;
+        if (durationMs > maxSeconds * 1000L) {
+            info.startTime = 0;
+            info.endTime = maxSeconds * 1000L * 1000L;
+            info.estimatedDuration = maxSeconds * 1000L;
+        }
+        info.muted = true;
+        int ow = info.originalWidth, oh = info.originalHeight;
+        int side = Math.max(ow, oh);
+        if (side > maxSide && side > 0) {
+            float scale = maxSide / (float) side;
+            info.resultWidth = Math.round(ow * scale / 2) * 2;
+            info.resultHeight = Math.round(oh * scale / 2) * 2;
+        } else {
+            info.resultWidth = ow;
+            info.resultHeight = oh;
+        }
+        info.bitrate = MediaController.makeVideoBitrate(oh, ow, info.bitrate, info.resultHeight, info.resultWidth);
+        int encoderBitrate = MediaController.extractRealEncoderBitrate(info.resultWidth, info.resultHeight, info.bitrate, false);
+        info.estimatedSize = Math.max(1, (long) (Math.min(durationMs, maxSeconds * 1000L) / 1000f * encoderBitrate / 8));
+        return info;
+    }
+
     private static VideoEditedInfo createCompressionSettings(String videoPath, long videoOffset) {
         int[] params = new int[AnimatedFileInfo.PARAM_NUM_COUNT];
         AnimatedFileNative.getVideoInfo(videoPath, params, videoOffset);

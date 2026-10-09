@@ -65,6 +65,9 @@ public class DevGramBadges {
         // Роли (команда/канал/официальный) определяются по нему, а не по выбранному.
         public long originalEmojiId;
         public int border; // стиль обводки сообщений (0 — нет)
+        public int bgMsg;          // фон профиля: номер поста в архиве (0 — нет), ставит бот после модерации
+        public boolean bgVideo;    // фон — видео/GIF (иначе фото)
+        public int[] nick;         // цвет ника: 1 цвет или 2 для градиента (null — обычный)
         public Badge(long emojiId, String text) {
             this(emojiId, text, 0);
         }
@@ -552,6 +555,13 @@ public class DevGramBadges {
                 Badge b = new Badge(emojiId, o.optString("t", ""), access);
                 b.originalEmojiId = original;
                 b.border = o.optInt("b", 0);
+                b.bgMsg = o.optInt("g", 0);
+                b.bgVideo = "video".equals(o.optString("gt", ""));
+                org.json.JSONArray n = o.optJSONArray("n");
+                if (n != null && n.length() > 0) {
+                    b.nick = new int[Math.min(2, n.length())];
+                    for (int i = 0; i < b.nick.length; i++) b.nick[i] = (int) n.optLong(i);
+                }
                 return b;
             } catch (Throwable ignore) {
                 return null;
@@ -666,10 +676,15 @@ public class DevGramBadges {
     // Поддержавший меняет своё оформление: emojiId (0 — вернуть выданный, null — не менять) и
     // border (0 — без обводки, null — не менять). Личность подтверждает персональный токен беты.
     public static void updateSelf(int account, Long emojiId, Integer border, Callback callback) {
-        updateSelf(account, emojiId, border, callback, true);
+        updateSelf(account, emojiId, border, null, callback, true);
     }
 
-    private static void updateSelf(int account, Long emojiId, Integer border, Callback callback, boolean retryToken) {
+    // Любые свои поля значка (n — цвет ника, g=0 — убрать фон и т.п.)
+    public static void updateSelfFields(int account, JSONObject fields, Callback callback) {
+        updateSelf(account, null, null, fields, callback, true);
+    }
+
+    private static void updateSelf(int account, Long emojiId, Integer border, JSONObject fields, Callback callback, boolean retryToken) {
         DevGramBeta.activate(account, (tokenOk, tokenError) -> {
             if (!tokenOk) {
                 callback.onResult(false, tokenError != null ? tokenError : "Не удалось подтвердить аккаунт");
@@ -685,6 +700,12 @@ public class DevGramBadges {
                     req.put("token", DevGramConfig.getBetaToken(uid));
                     if (emojiId != null) req.put("e", emojiId);
                     if (border != null) req.put("b", border);
+                    if (fields != null) {
+                        for (java.util.Iterator<String> it = fields.keys(); it.hasNext(); ) {
+                            String k = it.next();
+                            req.put(k, fields.get(k));
+                        }
+                    }
                     String[] errorBody = new String[1];
                     String res = httpSendWithError("POST", RTDB_BASE + "/badges/self", req.toString(), errorBody);
                     String body = res != null ? res : errorBody[0];
@@ -710,7 +731,7 @@ public class DevGramBadges {
                     } else if ("token".equals(fServerError) && retryToken) {
                         // токен не от этого аккаунта (или устарел) — получаем новый и пробуем ещё раз
                         DevGramConfig.clearBetaToken(uid);
-                        updateSelf(account, emojiId, border, callback, false);
+                        updateSelf(account, emojiId, border, fields, callback, false);
                     } else {
                         callback.onResult(false, selfErrorText(fServerError));
                     }
@@ -722,6 +743,7 @@ public class DevGramBadges {
     private static String selfErrorText(String code) {
         if ("not_supporter".equals(code)) return "Нужен значок поддержавшего";
         if ("emoji_not_offered".equals(code)) return "Этот значок больше недоступен";
+        if ("bad_nick".equals(code)) return "Неподходящий цвет";
         if ("token".equals(code)) return "Не удалось подтвердить аккаунт";
         return "Не удалось сохранить";
     }
@@ -760,6 +782,26 @@ public class DevGramBadges {
         } finally {
             if (conn != null) conn.disconnect();
         }
+    }
+
+    // Значок с правами поддержавшего (свои фон/ник/обводка работают только у них), иначе null
+    public static Badge supporterBadge(long userId) {
+        if (userId <= 0) return null;
+        Badge b = badgeOf(userId);
+        if (b == null || (b.access & (ACCESS_SUPPORTER | ACCESS_DEVELOPER)) == 0 && b.originalEmojiId != EMOJI_TEAM) return null;
+        return b;
+    }
+
+    // Фон профиля: номер поста в архиве (0 — нет)
+    public static int backgroundOf(long userId) {
+        Badge b = supporterBadge(userId);
+        return b == null ? 0 : b.bgMsg;
+    }
+
+    // Цвет ника: 1 цвет или 2 для градиента; null — обычный
+    public static int[] nickColorsOf(long userId) {
+        Badge b = supporterBadge(userId);
+        return b == null ? null : b.nick;
     }
 
     public static boolean isSupporter(long userId) {
