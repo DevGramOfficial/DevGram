@@ -122,11 +122,13 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
 
     // Первый заход: благодарность и приглашение в закрытый канал беты (один раз на аккаунт)
     private void maybeShowWelcome() {
-        if (!DevGramBeta.hasAccess(currentAccount) || DevGramBeta.isBetaChannelMember(currentAccount)) return;
         String key = "devgramBetaInvite_" + getUserConfig().getClientUserId();
         android.content.SharedPreferences prefs = getMessagesController().getGlobalMainSettings();
+        android.util.Log.d("DevGramBeta", "welcome: access=" + DevGramBeta.hasAccess(currentAccount)
+                + " member=" + DevGramBeta.isBetaChannelMember(currentAccount) + " answered=" + prefs.getBoolean(key, false)
+                + " shown=" + welcomeShown);
+        if (!DevGramBeta.hasAccess(currentAccount) || DevGramBeta.isBetaChannelMember(currentAccount)) return;
         if (prefs.getBoolean(key, false) || welcomeShown || getParentActivity() == null) return;
-        welcomeShown = true;
         org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourceProvider);
         b.setTopAnimation(R.raw.email_setup_heart, 72, false, Theme.getColor(Theme.key_dialogTopBackground, resourceProvider));
         b.setTitle("Спасибо за поддержку!");
@@ -138,7 +140,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             openBetaChannel();
         });
         b.setNegativeButton("Отказаться", (d, w) -> prefs.edit().putBoolean(key, true).apply());
-        showDialog(b.create());
+        // пока идёт анимация открытия экрана, showDialog отказывает — тогда покажем в следующий раз
+        welcomeShown = showDialog(b.create()) != null;
     }
 
     // Участник — открываем канал, иначе запрашиваем персональную ссылку-заявку (бот одобрит её сразу)
@@ -171,6 +174,12 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         super.onResume();
         if (listView != null && listView.adapter != null) listView.adapter.update(false);
         AndroidUtilities.runOnUIThread(this::maybeShowWelcome, 400);
+    }
+
+    @Override
+    public void onTransitionAnimationEnd(boolean isOpen, boolean backward) {
+        super.onTransitionAnimationEnd(isOpen, backward);
+        if (isOpen) maybeShowWelcome();
         if (heroView != null) heroView.updateBadge();
     }
 
