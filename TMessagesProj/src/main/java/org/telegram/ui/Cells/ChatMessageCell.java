@@ -21212,7 +21212,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     private void drawDevGramFrame(Canvas canvas, boolean fromParent) {
-        if (currentMessageObject == null || currentBackgroundDrawable == null || currentPosition != null
+        if (currentMessageObject == null || currentBackgroundDrawable == null
                 || !(drawBackground || transitionParams.animateDrawBackground) || currentMessageObject.isRoundVideo()
                 || enterTransitionInProgress && !currentMessageObject.isVoice()) { // пузырь в анимации отправки рисует сама анимация
             if (currentMessageObject != null && !currentMessageObject.isRoundVideo()) devgramDecorStyle = 0;
@@ -21236,7 +21236,21 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(devgramShaders, style, b.left, b.top, b.right, b.bottom, alpha);
             if (fill != null) currentBackgroundDrawable.draw(canvas, fill);
         }
-        // рамка — по настоящему контуру пузыря, вместе с хвостиком
+        // рамка — по настоящему контуру пузыря, вместе с хвостиком. В альбоме кусок пузыря каждой картинки
+        // заходит под соседей — рамку режем по его «собственной» части, чтобы линия шла только по внешнему краю
+        if (currentPosition != null) {
+            canvas.save();
+            int r = dp(SharedConfig.bubbleRadius + 2), rv = dp(SharedConfig.bubbleRadius + 3);
+            canvas.clipRect(
+                    (currentPosition.flags & MessageObject.POSITION_FLAG_LEFT) == 0 ? b.left + r : b.left - dp(4),
+                    (currentPosition.flags & MessageObject.POSITION_FLAG_TOP) == 0 ? b.top + rv : b.top - dp(4),
+                    (currentPosition.flags & MessageObject.POSITION_FLAG_RIGHT) == 0 ? b.right - r : b.right + dp(4),
+                    (currentPosition.flags & MessageObject.POSITION_FLAG_BOTTOM) == 0 ? b.bottom - rv : b.bottom + dp(4));
+            org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, devgramShaders, style, alpha);
+            canvas.restore();
+            devgramDecorStyle = 0; // украшения — по одному на альбом, не на каждую картинку
+            return;
+        }
         org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, currentBackgroundDrawable, devgramShaders, style, alpha);
         devgramDecorRect.set(devgramFrameRect);
         devgramDecorRadius = radius;
@@ -29603,7 +29617,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 && key != Theme.key_chat_inViews && key != Theme.key_chat_outViews) {
             return false;
         }
-        if (currentMessageObject == null || currentMessageObject.isRoundVideo() || currentPosition != null) return false;
+        if (currentMessageObject == null || currentMessageObject.isRoundVideo()) return false;
         if (devgramStyle() == 0) return false;
         org.telegram.ui.Components.DevGramMessageFrame.Style st = devgramStyleObj;
         if (st == null || st.text == 0) return false;
