@@ -1294,7 +1294,32 @@ public class SimpleTextView extends View implements Drawable.Callback {
             + (rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() : 0);
     }
 
+    // DevGram: цвет/градиент ника поддержавшего. Кладётся прямо при отрисовке — так его не перебивают
+    // анимации, которые постоянно меняют цвет текста (setTextColor в шапке профиля и чата).
+    private int[] devgramNickColors;
+    private final org.telegram.ui.Components.DevGramNickColor.Cache devgramNickShader = new org.telegram.ui.Components.DevGramNickColor.Cache();
+
+    public void setDevGramNickColors(int[] colors) {
+        if (!java.util.Arrays.equals(devgramNickColors, colors)) {
+            devgramNickColors = colors;
+            invalidate();
+        }
+    }
+
     private void drawLayout(Canvas canvas) {
+        if (devgramNickColors == null || layout == null) {
+            drawLayoutInternal(canvas);
+            return;
+        }
+        final int color = textPaint.getColor();
+        org.telegram.ui.Components.DevGramNickColor.apply(textPaint, devgramNickColors,
+                layout.getLineCount() > 0 ? layout.getLineWidth(0) : 0, devgramNickShader, true);
+        drawLayoutInternal(canvas);
+        textPaint.setShader(null);
+        textPaint.setColor(color);
+    }
+
+    private void drawLayoutInternal(Canvas canvas) {
         if (fullAlpha > 0 && fullLayoutLeftOffset != 0) {
             canvas.save();
             canvas.translate(-fullLayoutLeftOffset * fullAlpha + fullLayoutLeftCharactersOffset * fullAlpha, 0);

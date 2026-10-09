@@ -45,6 +45,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_FRAME = 4;
     private static final int ID_BETA_CHANNEL = 5;
     private static final int ID_PROFILE_BG = 6;
+    private static final int ID_NICK = 7;
     private boolean welcomeShown;
 
     private UniversalRecyclerView listView;
@@ -90,6 +91,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         int frame = DevGramBadges.borderOf(uid);
         org.telegram.ui.Components.DevGramMessageFrame.Style st = org.telegram.ui.Components.DevGramMessageFrame.get(frame);
         items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, "Обводка сообщений", st != null ? st.title : "Нет"));
+        items.add(UItem.asButton(ID_NICK, R.drawable.msg_colors, "Цвет ника", nickTitle(uid)));
         items.add(UItem.asButton(ID_PROFILE_BG, R.drawable.msg_photos, "Фон профиля", DevGramProfileBgActivity.statusText(currentAccount)));
         items.add(UItem.asShadow("Значок, обводку и фон профиля видят все пользователи DevGram."));
 
@@ -117,11 +119,22 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramBadgeChoiceActivity());
         } else if (item.id == ID_FRAME) {
             presentFragment(new DevGramFrameChoiceActivity());
+        } else if (item.id == ID_NICK) {
+            presentFragment(new DevGramNickColorActivity());
         } else if (item.id == ID_PROFILE_BG) {
             presentFragment(new DevGramProfileBgActivity());
         } else if (item.id == ID_BETA_CHANNEL) {
             openBetaChannel();
         }
+    }
+
+    private static String nickTitle(long uid) {
+        int[] c = DevGramBadges.nickColorsOf(uid);
+        if (c == null) return "Обычный";
+        for (org.telegram.ui.Components.DevGramNickColor.Preset p : org.telegram.ui.Components.DevGramNickColor.PRESETS) {
+            if (java.util.Arrays.equals(p.colors, c)) return p.title;
+        }
+        return "Свой";
     }
 
     // Первый заход: благодарность и приглашение в закрытый канал беты (один раз на аккаунт)

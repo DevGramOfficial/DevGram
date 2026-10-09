@@ -11962,6 +11962,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 } else {
                     nameTextView[a].setText(newString);
                 }
+                nameTextView[a].setDevGramNickColors(org.telegram.ui.Components.DevGramNickColor.of(user.id)); // DevGram: цвет ника
                 if (a == 0 && onlineTextOverride != null) {
                     onlineTextView[a].setText(onlineTextOverride);
                 } else if (a == 0 && copyFromChatActivity) {

@@ -21147,6 +21147,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private boolean devgramDecorRound;
     private int devgramDecorMsgId;
     private final org.telegram.ui.Components.DevGramMessageFrame.Cache devgramShaders = new org.telegram.ui.Components.DevGramMessageFrame.Cache();
+    private final org.telegram.ui.Components.DevGramNickColor.Cache devgramNickShader = new org.telegram.ui.Components.DevGramNickColor.Cache();
     // стиль отправителя запоминается и пересчитывается только при смене отправителя или значков
     private long devgramStyleSender;
     private int devgramStyleVersion = -1, devgramStyleValue;
@@ -22639,10 +22640,14 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
 
             canvas.translate(nx, ny);
+            // DevGram: цвет/градиент ника поддержавшего (виден всем пользователям DevGram)
+            final boolean devgramNick = currentUser != null && currentMessageObject.isFromUser() && !currentMessageObject.isOutOwner()
+                    && org.telegram.ui.Components.DevGramNickColor.apply(Theme.chat_namePaint, currentUser.id, nameLayoutWidth, devgramNickShader);
             oldAlpha = Theme.chat_namePaint.getAlpha();
             Theme.chat_namePaint.setAlpha((int) (oldAlpha * nameAlpha));
             nameLayout.draw(canvas);
             Theme.chat_namePaint.setAlpha(oldAlpha);
+            if (devgramNick) org.telegram.ui.Components.DevGramNickColor.reset(Theme.chat_namePaint);
             canvas.restore();
 
             float end;

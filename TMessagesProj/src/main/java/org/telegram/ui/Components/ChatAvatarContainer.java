@@ -1030,6 +1030,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     // DevGram: значок бренда для шапки — ставим кастом-эмодзи по роли диалога.
     private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable getDevGramBadgeDrawable(long dialogId) {
         devgramBadgeDrawable.set(DevGramBadges.emojiIdOf(dialogId), false);
+        titleTextView.setDevGramNickColors(dialogId > 0 && dialogId != org.telegram.messenger.UserConfig.getInstance(org.telegram.messenger.UserConfig.selectedAccount).getClientUserId()
+                ? org.telegram.ui.Components.DevGramNickColor.of(dialogId) : null); // DevGram: цвет ника
         devgramBadgeDrawable.setParticles(true, true); // DevGram: звёздочки вокруг значка
         return devgramBadgeDrawable;
     }

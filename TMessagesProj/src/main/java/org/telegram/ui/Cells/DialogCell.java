@@ -581,6 +581,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     public StaticLayout nameLayout;
     private boolean nameLayoutFits;
     public float nameLayoutTranslateX;
+    private final org.telegram.ui.Components.DevGramNickColor.Cache devgramNickShader = new org.telegram.ui.Components.DevGramNickColor.Cache();
     private boolean nameLayoutEllipsizeLeft;
     private boolean nameLayoutEllipsizeByGradient;
     private Paint fadePaint;
@@ -4355,9 +4356,14 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 } else {
                     Theme.dialogs_namePaint[paintIndex].setColor(Theme.dialogs_namePaint[paintIndex].linkColor = Theme.getColor(Theme.key_chats_name, resourcesProvider));
                 }
+                // DevGram: цвет/градиент ника поддержавшего
+                final boolean devgramNick = currentDialogFolderId == 0 && encryptedChat == null && user != null && !user.self
+                        && org.telegram.ui.Components.DevGramNickColor.apply(Theme.dialogs_namePaint[paintIndex], user.id,
+                        nameLayout.getLineCount() > 0 ? nameLayout.getLineWidth(0) : 0, devgramNickShader);
                 canvas.save();
                 canvas.translate(nameLeft + nameLayoutTranslateX, nameTop);
                 SpoilerEffect.layoutDrawMaybe(nameLayout, canvas);
+                if (devgramNick) org.telegram.ui.Components.DevGramNickColor.reset(Theme.dialogs_namePaint[paintIndex]);
                 AnimatedEmojiSpan.drawAnimatedEmojis(canvas, nameLayout, animatedEmojiStackName, -.075f, null, 0, 0, 0, 1f, getAdaptiveEmojiColorFilter(0, nameLayout.getPaint().getColor()));
                 canvas.restore();
                 if (nameLayoutEllipsizeByGradient && !nameLayoutFits) {
