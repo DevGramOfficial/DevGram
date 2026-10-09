@@ -46,6 +46,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_BETA_CHANNEL = 5;
     private static final int ID_PROFILE_BG = 6;
     private static final int ID_NICK = 7;
+    private static final int ID_ICONS = 8;
     private boolean welcomeShown;
 
     private UniversalRecyclerView listView;
@@ -93,6 +94,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, "Обводка сообщений", st != null ? st.title : "Нет"));
         items.add(UItem.asButton(ID_NICK, R.drawable.msg_colors, "Цвет ника", nickTitle(uid)));
         items.add(UItem.asButton(ID_PROFILE_BG, R.drawable.msg_photos, "Фон профиля", DevGramProfileBgActivity.statusText(currentAccount)));
+        items.add(UItem.asButton(ID_ICONS, R.drawable.msg_customize, "Иконки приложения", "6 эксклюзивных"));
         items.add(UItem.asShadow("Значок, обводку и фон профиля видят все пользователи DevGram."));
 
         items.add(UItem.asHeader("Ваши возможности"));
@@ -119,6 +121,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramBadgeChoiceActivity());
         } else if (item.id == ID_FRAME) {
             presentFragment(new DevGramFrameChoiceActivity());
+        } else if (item.id == ID_ICONS) {
+            presentFragment(new DevGramAppIconsActivity());
         } else if (item.id == ID_NICK) {
             presentFragment(new DevGramNickColorActivity());
         } else if (item.id == ID_PROFILE_BG) {

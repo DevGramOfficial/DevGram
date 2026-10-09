@@ -40,6 +40,24 @@
     <style name="Theme.TMessages.Start.DgIconMonet" parent="Theme.TMessages.Start">
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_monet_launcher</item>
     </style>
+    <style name="Theme.TMessages.Start.DgIconSupGold" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_gold_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupNeon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_neon_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupEmerald" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_emerald_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupRuby" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_ruby_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupNight" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_night_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupCarbon" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_carbon_launcher</item>
+    </style>
     <style name="Theme.TMessages.Start.DgIconSunset" parent="Theme.TMessages.Start">
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sunset_launcher</item>
     </style>

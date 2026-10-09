@@ -6038,6 +6038,12 @@
     <string name="DevGramAppIconZima">Zima</string>
     <string name="DevGramAppIconMonet">Monet</string>
     <string name="DevGramAppIconSunset">Sunset</string>
+    <string name="DevGramAppIconSupGold">Золото</string>
+    <string name="DevGramAppIconSupNeon">Неон</string>
+    <string name="DevGramAppIconSupEmerald">Изумруд</string>
+    <string name="DevGramAppIconSupRuby">Рубин</string>
+    <string name="DevGramAppIconSupNight">Ночь</string>
+    <string name="DevGramAppIconSupCarbon">Карбон</string>
     <string name="DevGramAppIconAmethyst">Amethyst</string>
     <string name="DevGramAppIconAurore">Aurore</string>
     <string name="DevGramAppIconGoogle">Google</string>

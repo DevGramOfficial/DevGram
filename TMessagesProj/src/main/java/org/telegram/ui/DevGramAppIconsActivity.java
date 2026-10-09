@@ -169,7 +169,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
     private static ArrayList<LauncherIconController.LauncherIcon> availableIcons() {
         ArrayList<LauncherIconController.LauncherIcon> list = new ArrayList<>();
         for (LauncherIconController.LauncherIcon icon : LauncherIconController.LauncherIcon.values()) {
-            if (!icon.disguise) {
+            if (!icon.disguise && !icon.supporter) {
                 list.add(icon);
             }
         }
@@ -189,6 +189,13 @@ public class DevGramAppIconsActivity extends BaseFragment {
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         for (LauncherIconController.LauncherIcon icon : availableIcons()) {
             items.add(IconCell.Factory.of(icon, icon == previewIcon));
+        }
+        // DevGram: эксклюзивные иконки — только поддержавшим
+        if (DevGramSupporterActivity.isAvailable(currentAccount)) {
+            items.add(UItem.asHeader("Для поддержавших"));
+            for (LauncherIconController.LauncherIcon icon : LauncherIconController.LauncherIcon.values()) {
+                if (icon.supporter) items.add(IconCell.Factory.of(icon, icon == previewIcon));
+            }
         }
     }
 

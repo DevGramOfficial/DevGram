@@ -82,6 +82,12 @@ public class LauncherIconController {
             case AURORE: theme = R.style.Theme_TMessages_Start_DgIconAurore; break;
             case GOOGLE: theme = R.style.Theme_TMessages_Start_DgIconGoogle; break;
             case GOOGLE26: theme = R.style.Theme_TMessages_Start_DgIconGoogle26; break;
+            case SUP_GOLD: theme = R.style.Theme_TMessages_Start_DgIconSupGold; break;
+            case SUP_NEON: theme = R.style.Theme_TMessages_Start_DgIconSupNeon; break;
+            case SUP_EMERALD: theme = R.style.Theme_TMessages_Start_DgIconSupEmerald; break;
+            case SUP_RUBY: theme = R.style.Theme_TMessages_Start_DgIconSupRuby; break;
+            case SUP_NIGHT: theme = R.style.Theme_TMessages_Start_DgIconSupNight; break;
+            case SUP_CARBON: theme = R.style.Theme_TMessages_Start_DgIconSupCarbon; break;
             default: theme = R.style.Theme_TMessages_Start; break;
         }
         try {
@@ -103,6 +109,13 @@ public class LauncherIconController {
         AURORE("NoxIcon", R.drawable.transparent, R.drawable.icon_dg_aurore_preview, R.string.DevGramAppIconAurore),
         GOOGLE("AdaptiveIcon", R.drawable.transparent, R.drawable.icon_dg_google_preview, R.string.DevGramAppIconGoogle),
         GOOGLE26("Google26Icon", R.drawable.transparent, R.drawable.icon_dg_google26_preview, R.string.DevGramAppIconGoogle26),
+        // DevGram: эксклюзивные иконки поддержавших (видны и выбираются только со значком)
+        SUP_GOLD("SupGoldIcon", R.drawable.transparent, R.drawable.icon_dg_sup_gold_preview, R.string.DevGramAppIconSupGold, false, false, true),
+        SUP_NEON("SupNeonIcon", R.drawable.transparent, R.drawable.icon_dg_sup_neon_preview, R.string.DevGramAppIconSupNeon, false, false, true),
+        SUP_EMERALD("SupEmeraldIcon", R.drawable.transparent, R.drawable.icon_dg_sup_emerald_preview, R.string.DevGramAppIconSupEmerald, false, false, true),
+        SUP_RUBY("SupRubyIcon", R.drawable.transparent, R.drawable.icon_dg_sup_ruby_preview, R.string.DevGramAppIconSupRuby, false, false, true),
+        SUP_NIGHT("SupNightIcon", R.drawable.transparent, R.drawable.icon_dg_sup_night_preview, R.string.DevGramAppIconSupNight, false, false, true),
+        SUP_CARBON("SupCarbonIcon", R.drawable.transparent, R.drawable.icon_dg_sup_carbon_preview, R.string.DevGramAppIconSupCarbon, false, false, true),
         // DevGram: маскировка — alias с собственным android:label (меняет и иконку, и имя приложения).
         // disguise=true => не показывается в стоковом premium-селекторе иконок, только в разделе «Маскировка».
         CALCULATOR("CalculatorIcon", R.drawable.devgram_mask_calc_bg, R.drawable.devgram_mask_calc_fg, R.string.DevGramMaskCalculator, false, true),
@@ -117,6 +130,7 @@ public class LauncherIconController {
         public final int title;
         public final boolean premium;
         public final boolean disguise; // DevGram
+        public final boolean supporter; // DevGram: только для поддержавших
 
         // DevGram: картинка-превью целиком на всю карточку селектора (без вылета за края)
         public boolean isFullImage() {
@@ -141,6 +155,11 @@ public class LauncherIconController {
         }
 
         LauncherIcon(String key, int background, int foreground, int title, boolean premium, boolean disguise) {
+            this(key, background, foreground, title, premium, disguise, false);
+        }
+
+        LauncherIcon(String key, int background, int foreground, int title, boolean premium, boolean disguise, boolean supporter) {
+            this.supporter = supporter;
             this.key = key;
             this.background = background;
             this.foreground = foreground;
