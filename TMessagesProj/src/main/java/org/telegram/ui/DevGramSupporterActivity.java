@@ -47,9 +47,6 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_PROFILE_BG = 6;
     private static final int ID_NICK = 7;
     private static final int ID_ICONS = 8;
-    private static final int ID_BACKUP_SAVE = 9;
-    private static final int ID_BACKUP_RESTORE = 10;
-    private boolean backupBusy;
     private boolean welcomeShown;
 
     private UniversalRecyclerView listView;
@@ -110,14 +107,6 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
                     DevGramBeta.isBetaChannelMember(currentAccount) ? "Открыть" : "Вступить"));
         }
         items.add(UItem.asShadow("Бета-канал получает новые версии раньше всех. Новые возможности для поддержавших будут появляться в этом разделе."));
-
-        items.add(UItem.asHeader("Облачная копия"));
-        long last = org.telegram.messenger.DevGramBackup.lastBackupTime();
-        items.add(UItem.asButton(ID_BACKUP_SAVE, R.drawable.msg_download, backupBusy ? "Сохраняю…" : "Сохранить настройки в облако",
-                last == 0 ? "" : org.telegram.messenger.LocaleController.formatDateAudio(last / 1000, false)));
-        items.add(UItem.asButton(ID_BACKUP_RESTORE, R.drawable.msg_retry, "Восстановить из облака"));
-        items.add(UItem.asShadow("Копия всех настроек DevGram и плагинов сохраняется файлом в ваше «Избранное» — "
-                + "её можно восстановить на любом телефоне. Ключи доступа в копию не попадают."));
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
@@ -132,21 +121,6 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramBadgeChoiceActivity());
         } else if (item.id == ID_FRAME) {
             presentFragment(new DevGramFrameChoiceActivity());
-        } else if (item.id == ID_BACKUP_SAVE) {
-            if (backupBusy) return;
-            backupBusy = true;
-            if (listView != null && listView.adapter != null) listView.adapter.update(true);
-            org.telegram.messenger.DevGramBackup.save(currentAccount, error -> {
-                backupBusy = false;
-                if (listView != null && listView.adapter != null) listView.adapter.update(true);
-                if (error == null) {
-                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Копия настроек отправлена в «Избранное»").show();
-                } else {
-                    BulletinFactory.of(this).createErrorBulletin(error).show();
-                }
-            });
-        } else if (item.id == ID_BACKUP_RESTORE) {
-            confirmRestore();
         } else if (item.id == ID_ICONS) {
             presentFragment(new DevGramAppIconsActivity());
         } else if (item.id == ID_NICK) {
@@ -165,37 +139,6 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             if (java.util.Arrays.equals(p.colors, c)) return p.title;
         }
         return "Свой";
-    }
-
-    private void confirmRestore() {
-        if (getParentActivity() == null || backupBusy) return;
-        org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourceProvider);
-        b.setTitle("Восстановить настройки?");
-        b.setMessage("Возьму последнюю копию из «Избранного» и заменю ею текущие настройки DevGram и плагины. После этого приложение перезапустится.");
-        b.setPositiveButton("Восстановить", (d, w) -> {
-            backupBusy = true;
-            org.telegram.ui.ActionBar.AlertDialog progress = new org.telegram.ui.ActionBar.AlertDialog(getParentActivity(), org.telegram.ui.ActionBar.AlertDialog.ALERT_TYPE_SPINNER);
-            progress.setCanCancel(false);
-            showDialog(progress);
-            org.telegram.messenger.DevGramBackup.restore(currentAccount, error -> {
-                backupBusy = false;
-                try { progress.dismiss(); } catch (Exception ignore) {}
-                if (error != null) {
-                    BulletinFactory.of(this).createErrorBulletin(error).show();
-                    return;
-                }
-                if (getParentActivity() == null) return;
-                org.telegram.ui.ActionBar.AlertDialog.Builder done = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourceProvider);
-                done.setTitle("Настройки восстановлены");
-                done.setMessage("Перезапущу DevGram, чтобы всё применилось.");
-                done.setPositiveButton("Перезапустить", (d2, w2) -> org.telegram.messenger.DevGramBackup.restartApp(getParentActivity()));
-                org.telegram.ui.ActionBar.AlertDialog doneDialog = done.create();
-                doneDialog.setCanCancel(false);
-                showDialog(doneDialog);
-            });
-        });
-        b.setNegativeButton(org.telegram.messenger.LocaleController.getString(R.string.Cancel), null);
-        showDialog(b.create());
     }
 
     // Первый заход: благодарность и приглашение в закрытый канал беты (один раз на аккаунт)
