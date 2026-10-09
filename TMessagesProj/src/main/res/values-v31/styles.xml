@@ -40,23 +40,29 @@
     <style name="Theme.TMessages.Start.DgIconMonet" parent="Theme.TMessages.Start">
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_monet_launcher</item>
     </style>
-    <style name="Theme.TMessages.Start.DgIconSupGold" parent="Theme.TMessages.Start">
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_gold_launcher</item>
+    <style name="Theme.TMessages.Start.DgIconSupSynthwave" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_synthwave_launcher</item>
     </style>
-    <style name="Theme.TMessages.Start.DgIconSupNeon" parent="Theme.TMessages.Start">
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_neon_launcher</item>
+    <style name="Theme.TMessages.Start.DgIconSupMatrix" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_matrix_launcher</item>
     </style>
-    <style name="Theme.TMessages.Start.DgIconSupEmerald" parent="Theme.TMessages.Start">
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_emerald_launcher</item>
+    <style name="Theme.TMessages.Start.DgIconSupPixel" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_pixel_launcher</item>
     </style>
-    <style name="Theme.TMessages.Start.DgIconSupRuby" parent="Theme.TMessages.Start">
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_ruby_launcher</item>
+    <style name="Theme.TMessages.Start.DgIconSupHolo" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_holo_launcher</item>
     </style>
-    <style name="Theme.TMessages.Start.DgIconSupNight" parent="Theme.TMessages.Start">
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_night_launcher</item>
+    <style name="Theme.TMessages.Start.DgIconSupGlitch" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_glitch_launcher</item>
     </style>
-    <style name="Theme.TMessages.Start.DgIconSupCarbon" parent="Theme.TMessages.Start">
-        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_carbon_launcher</item>
+    <style name="Theme.TMessages.Start.DgIconSupSpace" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_space_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupTerminal" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_terminal_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupBlueprint" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_blueprint_launcher</item>
     </style>
     <style name="Theme.TMessages.Start.DgIconSunset" parent="Theme.TMessages.Start">
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sunset_launcher</item>

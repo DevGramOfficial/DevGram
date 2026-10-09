@@ -82,12 +82,14 @@ public class LauncherIconController {
             case AURORE: theme = R.style.Theme_TMessages_Start_DgIconAurore; break;
             case GOOGLE: theme = R.style.Theme_TMessages_Start_DgIconGoogle; break;
             case GOOGLE26: theme = R.style.Theme_TMessages_Start_DgIconGoogle26; break;
-            case SUP_GOLD: theme = R.style.Theme_TMessages_Start_DgIconSupGold; break;
-            case SUP_NEON: theme = R.style.Theme_TMessages_Start_DgIconSupNeon; break;
-            case SUP_EMERALD: theme = R.style.Theme_TMessages_Start_DgIconSupEmerald; break;
-            case SUP_RUBY: theme = R.style.Theme_TMessages_Start_DgIconSupRuby; break;
-            case SUP_NIGHT: theme = R.style.Theme_TMessages_Start_DgIconSupNight; break;
-            case SUP_CARBON: theme = R.style.Theme_TMessages_Start_DgIconSupCarbon; break;
+            case SUP_SYNTHWAVE: theme = R.style.Theme_TMessages_Start_DgIconSupSynthwave; break;
+            case SUP_MATRIX: theme = R.style.Theme_TMessages_Start_DgIconSupMatrix; break;
+            case SUP_PIXEL: theme = R.style.Theme_TMessages_Start_DgIconSupPixel; break;
+            case SUP_HOLO: theme = R.style.Theme_TMessages_Start_DgIconSupHolo; break;
+            case SUP_GLITCH: theme = R.style.Theme_TMessages_Start_DgIconSupGlitch; break;
+            case SUP_SPACE: theme = R.style.Theme_TMessages_Start_DgIconSupSpace; break;
+            case SUP_TERMINAL: theme = R.style.Theme_TMessages_Start_DgIconSupTerminal; break;
+            case SUP_BLUEPRINT: theme = R.style.Theme_TMessages_Start_DgIconSupBlueprint; break;
             default: theme = R.style.Theme_TMessages_Start; break;
         }
         try {
@@ -110,12 +112,14 @@ public class LauncherIconController {
         GOOGLE("AdaptiveIcon", R.drawable.transparent, R.drawable.icon_dg_google_preview, R.string.DevGramAppIconGoogle),
         GOOGLE26("Google26Icon", R.drawable.transparent, R.drawable.icon_dg_google26_preview, R.string.DevGramAppIconGoogle26),
         // DevGram: эксклюзивные иконки поддержавших (видны и выбираются только со значком)
-        SUP_GOLD("SupGoldIcon", R.drawable.transparent, R.drawable.icon_dg_sup_gold_preview, R.string.DevGramAppIconSupGold, false, false, true),
-        SUP_NEON("SupNeonIcon", R.drawable.transparent, R.drawable.icon_dg_sup_neon_preview, R.string.DevGramAppIconSupNeon, false, false, true),
-        SUP_EMERALD("SupEmeraldIcon", R.drawable.transparent, R.drawable.icon_dg_sup_emerald_preview, R.string.DevGramAppIconSupEmerald, false, false, true),
-        SUP_RUBY("SupRubyIcon", R.drawable.transparent, R.drawable.icon_dg_sup_ruby_preview, R.string.DevGramAppIconSupRuby, false, false, true),
-        SUP_NIGHT("SupNightIcon", R.drawable.transparent, R.drawable.icon_dg_sup_night_preview, R.string.DevGramAppIconSupNight, false, false, true),
-        SUP_CARBON("SupCarbonIcon", R.drawable.transparent, R.drawable.icon_dg_sup_carbon_preview, R.string.DevGramAppIconSupCarbon, false, false, true),
+        SUP_SYNTHWAVE("SupGoldIcon", R.drawable.transparent, R.drawable.icon_dg_sup_synthwave_preview, R.string.DevGramAppIconSupSynthwave, false, false, true),
+        SUP_MATRIX("SupNeonIcon", R.drawable.transparent, R.drawable.icon_dg_sup_matrix_preview, R.string.DevGramAppIconSupMatrix, false, false, true),
+        SUP_PIXEL("SupEmeraldIcon", R.drawable.transparent, R.drawable.icon_dg_sup_pixel_preview, R.string.DevGramAppIconSupPixel, false, false, true),
+        SUP_HOLO("SupRubyIcon", R.drawable.transparent, R.drawable.icon_dg_sup_holo_preview, R.string.DevGramAppIconSupHolo, false, false, true),
+        SUP_GLITCH("SupCarbonIcon", R.drawable.transparent, R.drawable.icon_dg_sup_glitch_preview, R.string.DevGramAppIconSupGlitch, false, false, true),
+        SUP_SPACE("SupNightIcon", R.drawable.transparent, R.drawable.icon_dg_sup_space_preview, R.string.DevGramAppIconSupSpace, false, false, true),
+        SUP_TERMINAL("SupTerminalIcon", R.drawable.transparent, R.drawable.icon_dg_sup_terminal_preview, R.string.DevGramAppIconSupTerminal, false, false, true),
+        SUP_BLUEPRINT("SupBlueprintIcon", R.drawable.transparent, R.drawable.icon_dg_sup_blueprint_preview, R.string.DevGramAppIconSupBlueprint, false, false, true),
         // DevGram: маскировка — alias с собственным android:label (меняет и иконку, и имя приложения).
         // disguise=true => не показывается в стоковом premium-селекторе иконок, только в разделе «Маскировка».
         CALCULATOR("CalculatorIcon", R.drawable.devgram_mask_calc_bg, R.drawable.devgram_mask_calc_fg, R.string.DevGramMaskCalculator, false, true),
