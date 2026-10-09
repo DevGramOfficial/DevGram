@@ -43,6 +43,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_UPDATE_CHANNEL = 2;
     private static final int ID_BADGE = 3;
     private static final int ID_FRAME = 4;
+    private static final int ID_BETA_CHANNEL = 5;
+    private boolean welcomeShown;
 
     private UniversalRecyclerView listView;
     private HeroView heroView;
@@ -95,6 +97,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         if (DevGramBeta.hasAccess(currentAccount)) {
             items.add(UItem.asButton(ID_UPDATE_CHANNEL, R.drawable.msg_channel, "Канал обновлений",
                     DevGramConfig.updateChannel == 1 ? "Бета" : "Основной"));
+            items.add(UItem.asButton(ID_BETA_CHANNEL, R.drawable.msg_groups, "Закрытый канал беты",
+                    DevGramBeta.isBetaChannelMember(currentAccount) ? "Открыть" : "Вступить"));
         }
         items.add(UItem.asShadow("Бета-канал получает новые версии раньше всех. Новые возможности для поддержавших будут появляться в этом разделе."));
     }
@@ -111,13 +115,62 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             presentFragment(new DevGramBadgeChoiceActivity());
         } else if (item.id == ID_FRAME) {
             presentFragment(new DevGramFrameChoiceActivity());
+        } else if (item.id == ID_BETA_CHANNEL) {
+            openBetaChannel();
         }
+    }
+
+    // Первый заход: благодарность и приглашение в закрытый канал беты (один раз на аккаунт)
+    private void maybeShowWelcome() {
+        if (!DevGramBeta.hasAccess(currentAccount) || DevGramBeta.isBetaChannelMember(currentAccount)) return;
+        String key = "devgramBetaWelcome_" + getUserConfig().getClientUserId();
+        android.content.SharedPreferences prefs = getMessagesController().getGlobalMainSettings();
+        if (prefs.getBoolean(key, false) || welcomeShown || getParentActivity() == null) return;
+        welcomeShown = true;
+        org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourceProvider);
+        b.setTopAnimation(R.raw.email_setup_heart, 72, false, Theme.getColor(Theme.key_dialogTopBackground, resourceProvider));
+        b.setTitle("Спасибо за поддержку!");
+        b.setMessage("Вы помогаете DevGram развиваться — спасибо ❤️\n\nВ благодарность вам открыт закрытый канал беты: "
+                + "новые версии выходят там раньше всех, а обновления из него качаются без VPN.\n\n"
+                + "Ссылка персональная и сработает один раз — только для вас. Вступить можно и позже, кнопкой в этом разделе.");
+        b.setPositiveButton("Присоединиться", (d, w) -> {
+            prefs.edit().putBoolean(key, true).apply();
+            openBetaChannel();
+        });
+        b.setNegativeButton("Отказаться", (d, w) -> prefs.edit().putBoolean(key, true).apply());
+        showDialog(b.create());
+    }
+
+    // Участник — открываем канал, иначе запрашиваем персональную ссылку-заявку (бот одобрит её сразу)
+    private void openBetaChannel() {
+        if (DevGramBeta.isBetaChannelMember(currentAccount)) {
+            android.os.Bundle args = new android.os.Bundle();
+            args.putLong("chat_id", DevGramBeta.getBetaChannel());
+            presentFragment(new ChatActivity(args));
+            return;
+        }
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Получаю персональную ссылку…").show();
+        DevGramBeta.requestInvite(currentAccount, (link, error) -> {
+            if (link == null) {
+                if ("Канал беты ещё не готов".equals(error)) {
+                    // канал ещё не подключён — приглашение покажем снова, когда появится
+                    getMessagesController().getGlobalMainSettings().edit()
+                            .remove("devgramBetaWelcome_" + getUserConfig().getClientUserId()).apply();
+                }
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось получить ссылку").show();
+                return;
+            }
+            if (getParentActivity() != null) {
+                org.telegram.messenger.browser.Browser.openUrl(getParentActivity(), link);
+            }
+        });
     }
 
     @Override
     public void onResume() {
         super.onResume();
         if (listView != null && listView.adapter != null) listView.adapter.update(false);
+        AndroidUtilities.runOnUIThread(this::maybeShowWelcome, 400);
         if (heroView != null) heroView.updateBadge();
     }
 

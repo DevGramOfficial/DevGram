@@ -211,4 +211,67 @@ public final class DevGramBeta {
             AndroidUtilities.runOnUIThread(() -> done.run(fOk));
         });
     }
+
+    // ---- закрытый канал беты: персональная ссылка-заявка ----
+    // Сервер выдаёт её только поддержавшему (ключ + значок) и подписывает его id; бот одобряет заявку
+    // только от этого же человека и сразу отзывает ссылку — переслать её другому бесполезно.
+    public interface InviteCallback { void onResult(String link, String error); }
+
+    public static long getBetaChannel() {
+        return MessagesController.getGlobalMainSettings().getLong("devgramBetaChannel", 0);
+    }
+
+    public static boolean isBetaChannelMember(int account) {
+        long channel = getBetaChannel();
+        if (channel == 0) return false;
+        TLRPC.Chat chat = MessagesController.getInstance(account).getChat(channel);
+        return chat != null && !ChatObject.isNotInChat(chat);
+    }
+
+    public static void requestInvite(final int account, final InviteCallback callback) {
+        activate(account, (ok, error) -> {
+            if (!ok) {
+                callback.onResult(null, error);
+                return;
+            }
+            final long uid = UserConfig.getInstance(account).getClientUserId();
+            final String token = DevGramConfig.getBetaToken(uid);
+            Utilities.globalQueue.postRunnable(() -> {
+                String link = null;
+                String err = "Не удалось получить ссылку";
+                try {
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL("https://" + AUTH_HOST
+                            + "/api/beta/invite?uid=" + uid + "&token=" + java.net.URLEncoder.encode(token, "UTF-8")).openConnection();
+                    conn.setConnectTimeout(15000);
+                    conn.setReadTimeout(30000);
+                    int code = conn.getResponseCode();
+                    java.io.InputStream is = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+                    StringBuilder sb = new StringBuilder();
+                    if (is != null) {
+                        try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
+                            String line;
+                            while ((line = br.readLine()) != null) sb.append(line);
+                        }
+                    }
+                    conn.disconnect();
+                    if (code == 403) {
+                        err = "Нет доступа к бете";
+                    } else if (code == 503) {
+                        err = "Канал беты ещё не готов";
+                    } else if (code == 200) {
+                        org.json.JSONObject r = new org.json.JSONObject(sb.toString());
+                        String l = r.optString("link", "");
+                        if (r.optBoolean("ok") && l.startsWith("https://t.me/")) {
+                            link = l;
+                            MessagesController.getGlobalMainSettings().edit().putLong("devgramBetaChannel", r.optLong("channel", 0)).apply();
+                        }
+                    }
+                } catch (Throwable e) {
+                    FileLog.e(e);
+                }
+                final String fLink = link, fErr = link != null ? null : err;
+                AndroidUtilities.runOnUIThread(() -> callback.onResult(fLink, fErr));
+            });
+        });
+    }
 }

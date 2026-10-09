@@ -249,25 +249,35 @@ object AppUpdater {
         val accessUrl = "https://api.devgram.space/api/beta/access?uid=$uid&token=" +
                 java.net.URLEncoder.encode(token, "UTF-8")
         httpRequest("GET", accessUrl) { resp ->
-            val channelId = try { if (resp == null) 0L else JSONObject(resp).optLong("channel", 0L) } catch (_: Exception) { 0L }
+            val access = try { if (resp == null) null else JSONObject(resp) } catch (_: Exception) { null }
+            val channelId = access?.optLong("channel", 0L) ?: 0L
             if (channelId <= 0L) { fallback(); return@httpRequest }
-            findBetaApk(channelId, size) { message ->
+            findBetaApk(channelId, access?.optInt("msg", 0) ?: 0, size) { message ->
                 if (message == null) fallback()
                 else loadBetaApk(parentActivity, message, size, sha256, fallback)
             }
         }
     }
 
-    // Сообщение с APK беты в закрытом канале: документ ровно того размера, что в манифесте.
+    // Сообщение с APK беты в закрытом канале: документ ровно того размера, что в манифесте. Номер
+    // сообщения даёт сервер (его записывает бот при публикации), без него — ищем среди последних постов.
     // Не участник канала — Telegram сообщения не отдаст, вернём null.
-    private fun findBetaApk(channelId: Long, size: Long, callback: (TLRPC.Message?) -> Unit) {
+    private fun findBetaApk(channelId: Long, msgId: Int, size: Long, callback: (TLRPC.Message?) -> Unit) {
         val account = UserConfig.selectedAccount
         val mc = MessagesController.getInstance(account)
         val chat = mc.getChat(channelId)
         if (chat == null || org.telegram.messenger.ChatObject.isNotInChat(chat)) { callback(null); return }
-        val req = TLRPC.TL_messages_getHistory()
-        req.peer = mc.getInputPeer(-channelId)
-        req.limit = 30
+        val req: org.telegram.tgnet.TLObject = if (msgId > 0) {
+            TLRPC.TL_channels_getMessages().apply {
+                channel = mc.getInputChannel(channelId)
+                id.add(msgId)
+            }
+        } else {
+            TLRPC.TL_messages_getHistory().apply {
+                peer = mc.getInputPeer(-channelId)
+                limit = 30
+            }
+        }
         ConnectionsManager.getInstance(account).sendRequest(req) { response, _ ->
             AndroidUtilities.runOnUIThread {
                 if (response !is TLRPC.messages_Messages) { callback(null); return@runOnUIThread }
