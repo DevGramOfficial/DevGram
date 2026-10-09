@@ -11505,6 +11505,26 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         return String.valueOf(did);
     }
 
+    // DevGram: дата из самого чата. Telegram отдаёт в поле date дату создания (обычная группа, чат, где
+    // вы не состоите, или вы создатель), а участнику канала/супергруппы — дату его вступления.
+    private void showDevGramChatDate() {
+        TLRPC.Chat chat = currentChat;
+        if (chat == null || chat.date == 0 || getParentActivity() == null) return;
+        String name = chat.title != null ? chat.title : "";
+        String date = LocaleController.formatDateChat(chat.date);
+        boolean supergroupOrChannel = ChatObject.isChannel(chat);
+        boolean created = !supergroupOrChannel || !ChatObject.isInChat(chat) || chat.creator;
+        String text;
+        if (created) {
+            text = "«" + name + "» " + (ChatObject.isChannelAndNotMegaGroup(chat) ? "создан " : "создана ") + date;
+        } else {
+            text = "Вы вступили в «" + name + "» " + date;
+        }
+        BulletinFactory.of(ProfileActivity.this)
+                .createSimpleBulletin(ContextCompat.getDrawable(getParentActivity(), R.drawable.msg_calendar2), text)
+                .show();
+    }
+
     // DevGram: показать примерную дату регистрации по ID пользователя.
     private void showDevGramRegDate(long uid) {
         String date = DevGramRegDate.estimate(uid);
@@ -14308,6 +14328,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         detailCell.setImage(drawable, "Дата регистрации");
                         final long uid = userId;
                         detailCell.setImageClickListener(v -> showDevGramRegDate(uid));
+                    } else if (position == idRow && chatId != 0 && currentChat != null && currentChat.date != 0) {
+                        // DevGram: календарик справа от ID канала/группы — дата создания или вступления
+                        Drawable drawable = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_calendar2);
+                        drawable.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_switch2TrackChecked), PorterDuff.Mode.MULTIPLY));
+                        detailCell.setImage(drawable, "Дата создания");
+                        detailCell.setImageClickListener(v -> showDevGramChatDate());
                     } else {
                         detailCell.setImage(null);
                         detailCell.setImageClickListener(null);
