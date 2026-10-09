@@ -64,6 +64,30 @@
     <style name="Theme.TMessages.Start.DgIconSupBlueprint" parent="Theme.TMessages.Start">
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_blueprint_launcher</item>
     </style>
+    <style name="Theme.TMessages.Start.DgIconSupLava" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_lava_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupComic" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_comic_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupNeonSign" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_neon_sign_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupMosaic" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_mosaic_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupMarble" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_marble_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupCrt" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_crt_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupHalloween" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_halloween_launcher</item>
+    </style>
+    <style name="Theme.TMessages.Start.DgIconSupGarland" parent="Theme.TMessages.Start">
+        <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sup_garland_launcher</item>
+    </style>
     <style name="Theme.TMessages.Start.DgIconSunset" parent="Theme.TMessages.Start">
         <item name="android:windowSplashScreenAnimatedIcon">@mipmap/icon_dg_sunset_launcher</item>
     </style>

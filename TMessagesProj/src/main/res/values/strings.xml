@@ -6046,6 +6046,14 @@
     <string name="DevGramAppIconSupSpace">Космос</string>
     <string name="DevGramAppIconSupTerminal">Терминал</string>
     <string name="DevGramAppIconSupBlueprint">Чертёж</string>
+    <string name="DevGramAppIconSupLava">Лава-лампа</string>
+    <string name="DevGramAppIconSupComic">Комикс</string>
+    <string name="DevGramAppIconSupNeonSign">Неоновая вывеска</string>
+    <string name="DevGramAppIconSupMosaic">Мозаика</string>
+    <string name="DevGramAppIconSupMarble">Мрамор</string>
+    <string name="DevGramAppIconSupCrt">Ретро-ТВ</string>
+    <string name="DevGramAppIconSupHalloween">Хэллоуин</string>
+    <string name="DevGramAppIconSupGarland">Гирлянда</string>
     <string name="DevGramAppIconAmethyst">Amethyst</string>
     <string name="DevGramAppIconAurore">Aurore</string>
     <string name="DevGramAppIconGoogle">Google</string>

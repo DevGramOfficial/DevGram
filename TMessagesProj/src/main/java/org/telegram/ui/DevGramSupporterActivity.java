@@ -94,7 +94,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, "Обводка сообщений", st != null ? st.title : "Нет"));
         items.add(UItem.asButton(ID_NICK, R.drawable.msg_colors, "Цвет ника", nickTitle(uid)));
         items.add(UItem.asButton(ID_PROFILE_BG, R.drawable.msg_photos, "Фон профиля", DevGramProfileBgActivity.statusText(currentAccount)));
-        items.add(UItem.asButton(ID_ICONS, R.drawable.msg_customize, "Иконки приложения", "8 эксклюзивных"));
+        items.add(UItem.asButton(ID_ICONS, R.drawable.msg_customize, "Иконки приложения", "16 эксклюзивных"));
         items.add(UItem.asShadow("Значок, обводку и фон профиля видят все пользователи DevGram."));
 
         items.add(UItem.asHeader("Ваши возможности"));

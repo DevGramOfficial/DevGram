@@ -90,6 +90,14 @@ public class LauncherIconController {
             case SUP_SPACE: theme = R.style.Theme_TMessages_Start_DgIconSupSpace; break;
             case SUP_TERMINAL: theme = R.style.Theme_TMessages_Start_DgIconSupTerminal; break;
             case SUP_BLUEPRINT: theme = R.style.Theme_TMessages_Start_DgIconSupBlueprint; break;
+            case SUP_LAVA: theme = R.style.Theme_TMessages_Start_DgIconSupLava; break;
+            case SUP_COMIC: theme = R.style.Theme_TMessages_Start_DgIconSupComic; break;
+            case SUP_NEON_SIGN: theme = R.style.Theme_TMessages_Start_DgIconSupNeonSign; break;
+            case SUP_MOSAIC: theme = R.style.Theme_TMessages_Start_DgIconSupMosaic; break;
+            case SUP_MARBLE: theme = R.style.Theme_TMessages_Start_DgIconSupMarble; break;
+            case SUP_CRT: theme = R.style.Theme_TMessages_Start_DgIconSupCrt; break;
+            case SUP_HALLOWEEN: theme = R.style.Theme_TMessages_Start_DgIconSupHalloween; break;
+            case SUP_GARLAND: theme = R.style.Theme_TMessages_Start_DgIconSupGarland; break;
             default: theme = R.style.Theme_TMessages_Start; break;
         }
         try {
@@ -120,6 +128,14 @@ public class LauncherIconController {
         SUP_SPACE("SupNightIcon", R.drawable.transparent, R.drawable.icon_dg_sup_space_preview, R.string.DevGramAppIconSupSpace, false, false, true),
         SUP_TERMINAL("SupTerminalIcon", R.drawable.transparent, R.drawable.icon_dg_sup_terminal_preview, R.string.DevGramAppIconSupTerminal, false, false, true),
         SUP_BLUEPRINT("SupBlueprintIcon", R.drawable.transparent, R.drawable.icon_dg_sup_blueprint_preview, R.string.DevGramAppIconSupBlueprint, false, false, true),
+        SUP_LAVA("SupLavaIcon", R.drawable.transparent, R.drawable.icon_dg_sup_lava_preview, R.string.DevGramAppIconSupLava, false, false, true),
+        SUP_COMIC("SupComicIcon", R.drawable.transparent, R.drawable.icon_dg_sup_comic_preview, R.string.DevGramAppIconSupComic, false, false, true),
+        SUP_NEON_SIGN("SupNeonSignIcon", R.drawable.transparent, R.drawable.icon_dg_sup_neon_sign_preview, R.string.DevGramAppIconSupNeonSign, false, false, true),
+        SUP_MOSAIC("SupMosaicIcon", R.drawable.transparent, R.drawable.icon_dg_sup_mosaic_preview, R.string.DevGramAppIconSupMosaic, false, false, true),
+        SUP_MARBLE("SupMarbleIcon", R.drawable.transparent, R.drawable.icon_dg_sup_marble_preview, R.string.DevGramAppIconSupMarble, false, false, true),
+        SUP_CRT("SupCrtIcon", R.drawable.transparent, R.drawable.icon_dg_sup_crt_preview, R.string.DevGramAppIconSupCrt, false, false, true),
+        SUP_HALLOWEEN("SupHalloweenIcon", R.drawable.transparent, R.drawable.icon_dg_sup_halloween_preview, R.string.DevGramAppIconSupHalloween, false, false, true),
+        SUP_GARLAND("SupGarlandIcon", R.drawable.transparent, R.drawable.icon_dg_sup_garland_preview, R.string.DevGramAppIconSupGarland, false, false, true),
         // DevGram: маскировка — alias с собственным android:label (меняет и иконку, и имя приложения).
         // disguise=true => не показывается в стоковом premium-селекторе иконок, только в разделе «Маскировка».
         CALCULATOR("CalculatorIcon", R.drawable.devgram_mask_calc_bg, R.drawable.devgram_mask_calc_fg, R.string.DevGramMaskCalculator, false, true),
