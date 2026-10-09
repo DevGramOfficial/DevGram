@@ -123,7 +123,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     // Первый заход: благодарность и приглашение в закрытый канал беты (один раз на аккаунт)
     private void maybeShowWelcome() {
         if (!DevGramBeta.hasAccess(currentAccount) || DevGramBeta.isBetaChannelMember(currentAccount)) return;
-        String key = "devgramBetaWelcome_" + getUserConfig().getClientUserId();
+        String key = "devgramBetaInvite_" + getUserConfig().getClientUserId();
         android.content.SharedPreferences prefs = getMessagesController().getGlobalMainSettings();
         if (prefs.getBoolean(key, false) || welcomeShown || getParentActivity() == null) return;
         welcomeShown = true;
@@ -155,7 +155,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
                 if ("Канал беты ещё не готов".equals(error)) {
                     // канал ещё не подключён — приглашение покажем снова, когда появится
                     getMessagesController().getGlobalMainSettings().edit()
-                            .remove("devgramBetaWelcome_" + getUserConfig().getClientUserId()).apply();
+                            .remove("devgramBetaInvite_" + getUserConfig().getClientUserId()).apply();
                 }
                 BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось получить ссылку").show();
                 return;

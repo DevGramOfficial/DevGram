@@ -218,7 +218,7 @@ public final class DevGramBeta {
     public interface InviteCallback { void onResult(String link, String error); }
 
     public static long getBetaChannel() {
-        return MessagesController.getGlobalMainSettings().getLong("devgramBetaChannel", 0);
+        return MessagesController.getGlobalMainSettings().getLong("devgramBetaInviteChannel", 0);
     }
 
     public static boolean isBetaChannelMember(int account) {
@@ -263,7 +263,7 @@ public final class DevGramBeta {
                         String l = r.optString("link", "");
                         if (r.optBoolean("ok") && l.startsWith("https://t.me/")) {
                             link = l;
-                            MessagesController.getGlobalMainSettings().edit().putLong("devgramBetaChannel", r.optLong("channel", 0)).apply();
+                            MessagesController.getGlobalMainSettings().edit().putLong("devgramBetaInviteChannel", r.optLong("channel", 0)).apply();
                         }
                     }
                 } catch (Throwable e) {
