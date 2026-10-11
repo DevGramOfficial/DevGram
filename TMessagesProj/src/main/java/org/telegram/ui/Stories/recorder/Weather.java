@@ -5,6 +5,7 @@ import static org.telegram.messenger.LocaleController.getString;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.os.Looper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -383,6 +384,12 @@ public class Weather {
 
     private static void fetchInternal(boolean withProgress, boolean pillStackRequest, Utilities.Callback<State> whenFetched) {
         if (whenFetched == null) return;
+        // DevGram: прогресс-диалог должен создаваться в главном потоке — иначе его закрытие уходит
+        // в чужой Looper и роняет приложение (CalledFromWrongThreadException в Dialog.dismissDialog)
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            AndroidUtilities.runOnUIThread(() -> fetchInternal(withProgress, pillStackRequest, whenFetched));
+            return;
+        }
         // DevGram: погода в историях по умолчанию выключена — не дёргаем гео и попап разрешения.
         if (!pillStackRequest && !org.telegram.messenger.DevGramConfig.weatherInStories) {
             whenFetched.run(null);

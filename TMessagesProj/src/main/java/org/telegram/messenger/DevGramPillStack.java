@@ -101,7 +101,8 @@ public final class DevGramPillStack {
             if (!ids.contains(id)) ids.add(id);
         }
         if (previous != null) previous.closeExcept(callbacks);
-        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.pillStackLayoutChanged);
+        // плагины регистрируют пилюли из потока загрузки: перестраивать шапку можно только в главном
+        AndroidUtilities.runOnUIThread(() -> NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.pillStackLayoutChanged));
         return id;
     }
 
