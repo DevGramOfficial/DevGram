@@ -389,7 +389,9 @@ public class DevGramPlugins {
         // Раньше держали постоянный SSE-стрим (1 соединение/устройство → упор в лимит Firebase
         // 100 одновременных). Заменили на периодический опрос — короткие GET'ы соединение не держат.
         scheduleRegistryPoll();
-        initHooks();            // инициализируем Pine до загрузки плагинов (on_load может хукать)
+        if (!isSafeMode()) {
+            initHooks();        // обычно уже поднято в ApplicationLoader из главного потока (on_load может хукать)
+        }
         try {
             File dir = pluginsDir();
             // Раньше при первом запуске сюда клали демо-плагин hello.py («Привет DevGram»).

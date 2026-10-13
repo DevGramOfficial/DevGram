@@ -374,6 +374,12 @@ public class ApplicationLoader extends Application {
         }
 
         DevGramConfig.loadConfig(); // DevGram: гарантируем загрузку конфига с готовым контекстом
+        // DevGram: LSPlant при инициализации патчит функции ART — делаем это здесь, в главном потоке,
+        // до старта своих фоновых потоков (телеметрия, плагины, значки). Иначе init в globalQueue гоняется с инициализацией классов
+        // в главном потоке, и тот прыгает на недописанный трамплин (SIGSEGV, pc 0 в ClassLinker).
+        if (!DevGramPlugins.isSafeMode()) {
+            DevGramPlugins.initHooks();
+        }
         // DevGram: своя телеметрия (analytics/crashes в RTDB через REST, без Google-SDK) — ставит
         // обработчик крашей и выгружает накопленное; сбор идёт только если включены тумблеры «Google»
         DevGramTelemetry.init();
