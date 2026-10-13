@@ -58,7 +58,7 @@ public class CropAreaView extends ViewGroup {
 
     private float lockAspectRatio;
 
-    private Control activeControl;
+    private Control activeControl = Control.NONE; // DevGram: MOVE может прийти без DOWN — switch по null падал
     private RectF actualRect = new RectF();
     private RectF tempRect = new RectF();
     private int previousX;
