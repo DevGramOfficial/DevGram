@@ -887,6 +887,10 @@ public class ChatActivityEnterView extends FrameLayout implements
     private int stickersExpandedHeight;
     private boolean stickersDragging;
     private AnimatedArrowDrawable stickersArrow;
+    // DevGram: стрелки может не быть (кнопка разворота не создана) — тогда пустая анимация вместо null-цели
+    private android.animation.Animator stickersArrowAnimator(float to) {
+        return stickersArrow != null ? ObjectAnimator.ofFloat(stickersArrow, "animationProgress", to) : ValueAnimator.ofFloat(0f, 1f);
+    }
     private boolean removeEmojiViewAfterAnimation;
 
     private Runnable onFinishInitCameraRunnable = new Runnable() {
@@ -14114,13 +14118,13 @@ public class ChatActivityEnterView extends FrameLayout implements
                     anims.playTogether(
                             ObjectAnimator.ofInt(-(stickersExpandedHeight - origHeight)),
                             ObjectAnimator.ofInt(-(stickersExpandedHeight - origHeight)),
-                            ObjectAnimator.ofFloat(stickersArrow, "animationProgress", 1)
+                            stickersArrowAnimator(1)
                     );
                 } else {
                     anims.playTogether(
                             ObjectAnimator.ofInt(this, roundedTranslationYProperty, -(stickersExpandedHeight - origHeight)),
                             ObjectAnimator.ofInt(emojiView, roundedTranslationYProperty, -(stickersExpandedHeight - origHeight)),
-                            ObjectAnimator.ofFloat(stickersArrow, "animationProgress", 1)
+                            stickersArrowAnimator(1)
                     );
                 }
                 anims.setDuration(300);
@@ -14172,13 +14176,13 @@ public class ChatActivityEnterView extends FrameLayout implements
                     anims.playTogether(
                             ObjectAnimator.ofInt(0),
                             ObjectAnimator.ofInt(0),
-                            ObjectAnimator.ofFloat(stickersArrow, "animationProgress", 0)
+                            stickersArrowAnimator(0)
                     );
                 } else {
                     anims.playTogether(
                             ObjectAnimator.ofInt(this, roundedTranslationYProperty, 0),
                             ObjectAnimator.ofInt(emojiView, roundedTranslationYProperty, 0),
-                            ObjectAnimator.ofFloat(stickersArrow, "animationProgress", 0)
+                            stickersArrowAnimator(0)
                     );
                 }
                 anims.setDuration(300);
