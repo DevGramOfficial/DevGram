@@ -154,9 +154,20 @@ public final class PillStackConfig {
     public static List<Integer> getActivePills() { synchronized (sync) { load(); return activePills; } }
     public static List<Integer> getHiddenPills() { synchronized (sync) { load(); return hiddenPills; } }
 
-    // Дружелюбный дефолт DevGram (у exteraGram — пусто): Погода + USD + GRAM, как на скринах.
+    // Дефолт DevGram: USD + GRAM. Погоду не включаем сами — ей нужна геолокация, пусть включают осознанно.
     public static ArrayList<Integer> getDefaultActivePills() {
-        return new ArrayList<>(Arrays.asList(WEATHER, USD, GRAM));
+        return new ArrayList<>(Arrays.asList(USD, GRAM));
+    }
+
+    /** Убрать пилюлю из активных в скрытые (например, погоду после отказа в геолокации). */
+    public static void deactivate(int id) {
+        synchronized (sync) {
+            load();
+            if (!activePills.remove((Integer) id)) return;
+            if (!hiddenPills.contains(id)) hiddenPills.add(id);
+            savePillsLayoutInternal(prefs());
+        }
+        AndroidUtilities.runOnUIThread(() -> NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.pillStackLayoutChanged));
     }
 
     private static void load() {

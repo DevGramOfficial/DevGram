@@ -103,8 +103,44 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
         onUpdateData(true);
     }
 
+    // одновременно может быть несколько стеков (разные экраны) — спрашиваем гео только один раз
+    private static boolean askingLocation;
+
+    private static boolean hasLocationSource() {
+        return !android.text.TextUtils.isEmpty(Weather.getManualCity())
+                || org.telegram.ui.Components.PermissionRequest.hasPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                || org.telegram.ui.Components.PermissionRequest.hasPermission(android.Manifest.permission.ACCESS_FINE_LOCATION);
+    }
+
     @Override
     public void onUpdateData(boolean forceRefresh) {
+        // DevGram: без гео и без ручного города спрашиваем разрешение один раз. Отказ — погода сама
+        // выключается и больше не просит гео, пока её снова не включат в настройках Pill Stack.
+        if (!hasLocationSource()) {
+            if (askingLocation) return;
+            askingLocation = true;
+            // Системное окно разрешения напрямую: штатный ensureEitherPermission при первом запросе
+            // показывает «Откройте настройки» и сразу отвечает отказом — погода выключилась бы зря.
+            org.telegram.ui.Components.PermissionRequest.requestPermissions(new String[]{
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION}, results -> {
+                askingLocation = false;
+                if (hasLocationSource()) {
+                    fetchWeather(forceRefresh);
+                } else {
+                    PillStackConfig.deactivate(PillStackConfig.WEATHER);
+                    BaseFragment f = LaunchActivity.getSafeLastFragment();
+                    if (f != null) {
+                        org.telegram.ui.Components.BulletinFactory.of(f).createSimpleBulletin(R.raw.info,
+                                "Погода выключена. Включить снова можно в настройках Pill Stack").show();
+                    }
+                }
+            });
+            return;
+        }
+        fetchWeather(forceRefresh);
+    }
+
+    private void fetchWeather(boolean forceRefresh) {
         startLoading();
         Weather.fetchForPill(forceRefresh, state -> {
             if (state != null) {
