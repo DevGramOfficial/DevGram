@@ -32,11 +32,11 @@ CMD mkdir -p /home/source/TMessagesProj/build/outputs/apk && \
     mkdir -p /home/source/TMessagesProj/build/outputs/native-debug-symbols && \
     cp -R /home/source/. /home/gradle && \
     cd /home/gradle && \
-    gradle :TMessagesProj_App:bundleBundleAfat_SDK23Release && \
-    gradle :TMessagesProj_App:bundleBundleAfatRelease && \
-    gradle :TMessagesProj_AppStandalone:assembleAfatStandalone && \
-    gradle :TMessagesProj_App:assembleAfatRelease && \
-    gradle :TMessagesProj_AppHuawei:assembleAfatRelease && \
+    gradle --parallel \
+        :TMessagesProj_App:bundleBundleAfatRelease \
+        :TMessagesProj_AppStandalone:assembleAfatStandalone \
+        :TMessagesProj_App:assembleAfatRelease \
+        :TMessagesProj_AppHuawei:assembleAfatRelease --stacktrace && \
     cp -R /home/gradle/TMessagesProj_App/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
     cp -R /home/gradle/TMessagesProj_AppHuawei/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \
     cp -R /home/gradle/TMessagesProj_AppStandalone/build/outputs/apk/. /home/source/TMessagesProj/build/outputs/apk && \

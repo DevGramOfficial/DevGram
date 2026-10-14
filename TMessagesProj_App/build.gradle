@@ -55,7 +55,6 @@ android {
 
     defaultConfig.applicationId = "org.devgram.messenger"
 
-    sourceSets.main.jniLibs.srcDirs = ['../TMessagesProj/jni/']
 
     lintOptions {
         disable 'MissingTranslation'
@@ -75,12 +74,19 @@ android {
         localeFilters += ["zz"]
     }
 
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     def fdroid = Utils['isFdroid']()
     def appSuffix = fdroid ? "" : ".beta"
     def flavorsConfig = fdroid ? "release" : "debug"
     if (fdroid) {
         defaultConfig.applicationId = "org.forkgram.messenger"
     }
+
 
     signingConfigs {
         if (fdroid) {
@@ -120,6 +126,7 @@ android {
             }
         }
     }
+
 
     buildTypes {
         debug {
@@ -213,6 +220,7 @@ android {
             }
             buildConfigField "boolean", "BUNDLE", "true"
         }
+
         afat {
             ndk {
                 // Только ARM: нативка (TMessagesProj CMake+Chaquopy) собирается лишь под arm.

@@ -55,7 +55,6 @@ import kotlinx.coroutines.GlobalScope;
 import kotlinx.coroutines.Job;
 import kotlinx.coroutines.JobCancellationException;
 
-@RequiresApi(api = 28)
 public class PasskeysController {
 
     private static final String WEBAUTHN_ORIGIN = "https://telegram.org";
@@ -73,6 +72,8 @@ public class PasskeysController {
             throw new RuntimeException(e);
         }
     }
+
+    @RequiresApi(api = 28)
 
     public static void create(Context context, int currentAccount, Utilities.Callback2<TL_account.Passkey, String> done) {
         if (!BuildVars.SUPPORTS_PASSKEYS) return;
@@ -184,6 +185,7 @@ public class PasskeysController {
         );
     }
 
+    @RequiresApi(api = 28)
     public static Runnable login(Context context, int currentAccount, boolean clickedButton, Utilities.Callback3<Long, TLRPC.auth_Authorization, String> done) {
         if (!BuildVars.SUPPORTS_PASSKEYS) return null;
 

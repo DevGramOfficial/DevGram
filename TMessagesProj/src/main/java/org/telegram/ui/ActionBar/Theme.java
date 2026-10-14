@@ -3427,6 +3427,10 @@ public class Theme {
     public static final int key_telegram_color = colorsCount++;
     public static final int key_telegram_color_text = colorsCount++;
 
+    public static final int key_wallet_comment = colorsCount++;
+    public static final int key_wallet_out_commentBorder = colorsCount++;
+    public static final int key_wallet_inputCurrency = colorsCount++;
+
     public static final String key_drawable_botInline = "drawableBotInline";
     public static final String key_drawable_botLink = "drawableBotLink";
     public static final String key_drawable_botWebView = "drawableBotWebView";
@@ -3717,7 +3721,9 @@ public class Theme {
         fallbackKeys.put(key_telegram_color, Theme.key_chat_messagePanelSend);
         fallbackKeys.put(key_telegram_color_text, Theme.key_windowBackgroundWhiteBlueText4);
 
-
+        fallbackKeys.put(key_wallet_comment, Theme.key_dialogBackgroundGray);
+        fallbackKeys.put(key_wallet_out_commentBorder, Theme.key_divider);
+        fallbackKeys.put(key_wallet_inputCurrency, Theme.key_color_green);
 
 
         // fallbackKeys.put(key_chat_msgIvButtonDefaultIn, );
@@ -4279,7 +4285,7 @@ public class Theme {
                 oldEditorNew.commit();
             }
 
-            selectedAutoNightType = preferences.getInt("selectedAutoNightType", Build.VERSION.SDK_INT >= 29 ? AUTO_NIGHT_TYPE_SYSTEM : AUTO_NIGHT_TYPE_NONE);
+            selectedAutoNightType = preferences.getInt("selectedAutoNightType", AUTO_NIGHT_TYPE_SYSTEM);
             autoNightScheduleByLocation = preferences.getBoolean("autoNightScheduleByLocation", false);
             autoNightBrighnessThreshold = preferences.getFloat("autoNightBrighnessThreshold", 0.25f);
             autoNightDayStartTime = preferences.getInt("autoNightDayStartTime", 22 * 60);

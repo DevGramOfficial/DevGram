@@ -2371,6 +2371,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     public boolean doNotDrawGlassMenu;
+    private boolean drawGlassTitle = true;
+
+    public void setDrawGlassTitle(boolean draw) {
+        if (drawGlassTitle != draw) {
+            drawGlassTitle = draw;
+            invalidate();
+        }
+    }
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
