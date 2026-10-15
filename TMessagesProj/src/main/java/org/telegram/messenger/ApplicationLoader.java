@@ -384,16 +384,8 @@ public class ApplicationLoader extends Application {
         // обработчик крашей и выгружает накопленное; сбор идёт только если включены тумблеры «Google»
         DevGramTelemetry.init();
         DevGramAnimGuard.install(); // ловушка NPE setScaleX у анимаций с пустой целью (+ отчёт о месте создания)
-        DevGramPluginNotifications.init();
         // DevGram: система плагинов (Python/Chaquopy) — грузим в фоне, чтобы не тормозить старт
         Utilities.globalQueue.postRunnable(DevGramPlugins::loadAll);
-        DevGramBadges.startSync();   // DevGram: подтягиваем значки из облака (Firebase) для всех
-        DevGramStreaks.startSync();  // DevGram: подтягиваем свои стрики (огоньки) из облака
-        DevGramStreaks.startLossWatcher(); // DevGram: следим за потерей огонька даже когда сидим в приложении
-        // DevGram: спрятать прокси из стандартного меню (миграция со старых версий) + поднять скрытый
-        AndroidUtilities.runOnUIThread(DevGramProxy::migrate, 2500);
-        // DevGram: уведомление о потерянных огоньках — с задержкой, чтобы юзеры прогрузились
-        AndroidUtilities.runOnUIThread(DevGramStreaks::checkLostStreaks, 6000);
 
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
 
@@ -423,6 +415,17 @@ public class ApplicationLoader extends Application {
         }
 
         applicationHandler = new Handler(applicationContext.getMainLooper());
+
+        // DevGram: всё, что ставит таймеры через runOnUIThread, — только после applicationHandler:
+        // до него runOnUIThread молча ничего не делает (опрос значков, живой поток, огоньки, прокси)
+        DevGramPluginNotifications.init(); // опрос уведомлений каталога плагинов
+        DevGramBadges.startSync();   // значки: снимок + живой поток, пока приложение на экране
+        DevGramStreaks.startSync();  // свои стрики (огоньки) из облака
+        DevGramStreaks.startLossWatcher(); // следим за потерей огонька, пока сидим в приложении
+        // спрятать прокси из стандартного меню (миграция со старых версий) + поднять скрытый
+        AndroidUtilities.runOnUIThread(DevGramProxy::migrate, 2500);
+        // уведомление о потерянных огоньках — с задержкой, чтобы юзеры прогрузились
+        AndroidUtilities.runOnUIThread(DevGramStreaks::checkLostStreaks, 6000);
 
         AndroidUtilities.runOnUIThread(ApplicationLoader::startPushService);
 

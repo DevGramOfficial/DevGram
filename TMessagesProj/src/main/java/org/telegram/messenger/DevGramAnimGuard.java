@@ -48,7 +48,10 @@ public final class DevGramAnimGuard {
                 return;
             }
             prefs.edit().putBoolean("boot_pending", true).commit();
-            AndroidUtilities.runOnUIThread(() -> prefs.edit().putBoolean("boot_pending", false).apply(), 15_000);
+            // напрямую через главный Looper: install() зовётся до applicationHandler, и runOnUIThread тут
+            // молча ничего не делал — флаг не снимался, и ловушка отключала себя на каждом втором запуске
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    () -> prefs.edit().putBoolean("boot_pending", false).apply(), 15_000);
             de.robv.android.xposed.XC_MethodHook hook = new de.robv.android.xposed.XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
