@@ -156,8 +156,6 @@ public class DevGramBadges {
         void onResult(boolean ok, String error);
     }
 
-    // Сообщить всему UI, что значки изменились: reloadInterface (профиль/шапка) + updateInterfaces
-    // (список чатов пересобирает ячейки через DialogCell.update). Всегда на UI-потоке.
     // растёт при любом изменении значков: ячейки по нему понимают, что запомненный стиль устарел
     public static volatile int styleVersion;
 
@@ -166,10 +164,11 @@ public class DevGramBadges {
         styleVersion++;
     }
 
+    // Перерисовать то, что показывает значки/обводку/цвет ника/фон профиля. Без reloadInterface:
+    // тот пересобирает все экраны, а события теперь приходят живым потоком.
     private static void notifyBadgesChanged() {
         invalidateStyles();
         AndroidUtilities.runOnUIThread(() -> {
-            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                 if (UserConfig.getInstance(a).isClientActivated()) {
                     NotificationCenter.getInstance(a).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_ALL);
@@ -222,10 +221,52 @@ public class DevGramBadges {
         }
         syncStarted = true;
         syncFromCloud(); // быстрый первый снимок
-        // ВАЖНО: постоянный SSE-стрим держал 1 соединение на устройство (лимит бесплатного
-        // Firebase — 100 одновременных). Заменили на периодический опрос: короткие GET'ы
-        // соединение не держат, поэтому число юзеров лимит соединений не упирает.
+        // Значки отдаёт наш сервер (лимита Firebase на соединения больше нет): пока приложение на
+        // экране, держим живой поток — выдача значка или одобрение фона прилетают всем сразу.
+        // Опрос остаётся запасным вариантом, если поток режет сеть.
         schedulePoll();
+        AndroidUtilities.runOnUIThread(DevGramBadges::attachForeground);
+    }
+
+    private static void attachForeground() {
+        org.telegram.ui.Components.ForegroundDetector fd = org.telegram.ui.Components.ForegroundDetector.getInstance();
+        if (fd == null) { // создаётся чуть позже в ApplicationLoader.onCreate
+            AndroidUtilities.runOnUIThread(DevGramBadges::attachForeground, 1000);
+            return;
+        }
+        fd.addListener(new org.telegram.ui.Components.ForegroundDetector.Listener() {
+            @Override
+            public void onBecameForeground() {
+                setStreamWanted(true);
+            }
+
+            @Override
+            public void onBecameBackground() {
+                setStreamWanted(false);
+            }
+        });
+        if (fd.isForeground()) {
+            setStreamWanted(true);
+        }
+    }
+
+    private static final Object streamLock = new Object();
+    private static volatile boolean streamWanted;
+    private static volatile HttpURLConnection streamConn;
+
+    private static void setStreamWanted(boolean wanted) {
+        streamWanted = wanted;
+        if (wanted) {
+            startStream();
+            synchronized (streamLock) {
+                streamLock.notifyAll();
+            }
+        } else {
+            final HttpURLConnection c = streamConn;
+            if (c != null) {
+                Utilities.globalQueue.postRunnable(c::disconnect); // свернули — соединение не держим
+            }
+        }
     }
 
     private static void schedulePoll() {
@@ -255,33 +296,51 @@ public class DevGramBadges {
     }
 
     private static void streamLoop() {
+        long backoff = 3000;
         while (true) {
+            synchronized (streamLock) {
+                while (!streamWanted) {
+                    try {
+                        streamLock.wait();
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
+            }
             HttpURLConnection conn = null;
+            boolean gotData = false;
             try {
-                URL url = new URL(RTDB_BASE + "/badges.json");
-                conn = (HttpURLConnection) url.openConnection();
+                conn = (HttpURLConnection) new URL(RTDB_BASE + "/badges.json").openConnection();
                 conn.setRequestProperty("Accept", "text/event-stream");
                 conn.setConnectTimeout(15000);
-                conn.setReadTimeout(90000); // > keep-alive Firebase (~30с): тишина 90с → реконнект
+                conn.setReadTimeout(60000); // сервер шлёт keep-alive каждые 25 с: тишина 60 с → реконнект
+                streamConn = conn;
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                     String line, event = null;
-                    while ((line = br.readLine()) != null) {
+                    while (streamWanted && (line = br.readLine()) != null) {
                         if (line.startsWith("event:")) {
                             event = line.substring(6).trim();
                         } else if (line.startsWith("data:")) {
+                            gotData = true;
                             handleStreamData(event, line.substring(5).trim());
                         }
                     }
                 }
             } catch (Throwable ignore) {
-                // обрыв/таймаут — переподключимся
+                // обрыв/таймаут/свернули приложение — переподключимся, когда снова нужно
             } finally {
+                streamConn = null;
                 if (conn != null) {
                     conn.disconnect();
                 }
             }
+            if (!streamWanted) {
+                backoff = 3000;
+                continue;
+            }
+            backoff = gotData ? 3000 : Math.min(backoff * 2, 60000);
             try {
-                Thread.sleep(5000); // пауза перед реконнектом
+                Thread.sleep(backoff);
             } catch (InterruptedException e) {
                 return;
             }
@@ -321,9 +380,7 @@ public class DevGramBadges {
                 putBadge(ed, k, payload);
             }
             ed.apply();
-            invalidateStyles(); // иначе новая обводка у собеседника видна только после полной синхронизации
-            AndroidUtilities.runOnUIThread(() ->
-                    NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface));
+            notifyBadgesChanged(); // чаты, список чатов и профиль перерисуются сразу
         } catch (Throwable e) {
             FileLog.e(e);
         }
