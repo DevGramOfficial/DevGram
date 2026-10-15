@@ -5,7 +5,10 @@ import android.graphics.Paint;
 import android.graphics.Shader;
 import android.util.LongSparseArray;
 
+import androidx.core.graphics.ColorUtils;
+
 import org.telegram.messenger.DevGramBadges;
+import org.telegram.ui.ActionBar.Theme;
 
 // DevGram: цвет или градиент ника поддержавших — виден всем пользователям DevGram (поле n в значке).
 // Цвет пользователя кэшируется и пересчитывается только при изменении значков; градиент — у каждого
@@ -45,9 +48,30 @@ public final class DevGramNickColor {
     };
 
     public static final class Cache {
-        private int c0, c1;
+        private int c0, c1, bg;
         private float width;
         private Shader shader;
+    }
+
+    // Минимальная контрастность ника с фоном (как у крупного текста по WCAG). Ниже — цвет
+    // подмешивается к белому (тёмная тема) или чёрному (светлая), пока ник не станет читаемым:
+    // градиент «светлый → чёрный» на тёмной теме иначе растворяется в фоне.
+    private static final double MIN_CONTRAST = 3.0;
+
+    public static int readable(int color, int background) {
+        int c = color | 0xFF000000;
+        int bg = background | 0xFF000000;
+        if (ColorUtils.calculateContrast(c, bg) >= MIN_CONTRAST) return c;
+        int target = ColorUtils.calculateLuminance(bg) < 0.5 ? 0xFFFFFFFF : 0xFF000000;
+        for (int i = 1; i < 10; i++) {
+            int mixed = ColorUtils.blendARGB(c, target, i / 10f);
+            if (ColorUtils.calculateContrast(mixed, bg) >= MIN_CONTRAST) return mixed;
+        }
+        return target;
+    }
+
+    private static int background() {
+        return Theme.getColor(Theme.key_windowBackgroundWhite);
     }
 
     private static final LongSparseArray<int[]> cache = new LongSparseArray<>();
@@ -87,24 +111,29 @@ public final class DevGramNickColor {
     // forceShader — и сплошной цвет кладём шейдером: так его не перебьёт setTextColor (SimpleTextView в шапках)
     public static boolean apply(Paint paint, int[] c, float width, Cache holder, boolean forceShader) {
         int alpha = paint.getAlpha();
+        final int bg = background();
+        final int raw1 = c.length > 1 ? c[1] : c[0];
         if (!forceShader && c.length == 1 || width <= 0) {
             paint.setShader(null);
-            paint.setColor(c[0]);
+            paint.setColor(readable(c[0], bg));
         } else {
-            final int c1 = c.length > 1 ? c[1] : c[0];
             Shader shader;
-            if (holder != null && holder.shader != null && holder.c0 == c[0] && holder.c1 == c1 && holder.width == width) {
+            int first;
+            if (holder != null && holder.shader != null && holder.c0 == c[0] && holder.c1 == raw1 && holder.width == width && holder.bg == bg) {
                 shader = holder.shader;
+                first = readable(c[0], bg);
             } else {
-                shader = new LinearGradient(0, 0, width, 0, c[0], c1, Shader.TileMode.CLAMP);
+                first = readable(c[0], bg);
+                shader = new LinearGradient(0, 0, width, 0, first, readable(raw1, bg), Shader.TileMode.CLAMP);
                 if (holder != null) {
                     holder.c0 = c[0];
-                    holder.c1 = c1;
+                    holder.c1 = raw1;
+                    holder.bg = bg;
                     holder.width = width;
                     holder.shader = shader;
                 }
             }
-            paint.setColor(c[0]); // цвет под шейдером — для подкраски эмодзи в имени
+            paint.setColor(first); // цвет под шейдером — для подкраски эмодзи в имени
             paint.setShader(shader);
         }
         paint.setAlpha(alpha);
