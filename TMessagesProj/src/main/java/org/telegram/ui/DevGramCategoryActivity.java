@@ -74,7 +74,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_CLEAR_SPY_DATABASE = 729;
     private static final int ID_EXPORT_SPY_DATABASE = 730;
     private static final int ID_IMPORT_SPY_DATABASE = 731;
-    private static final int ID_ALLOW_RESTRICTED = 732; // обход запрета пересылки/скриншотов
     private static final int ID_DELETED_ICON = 700;      // значок пометки удалённого
     private static final int ID_DELETED_ICON_COLOR = 701; // цвет пометки удалённого
     private static final int ID_DELETED_TRANSPARENT = 702; // полупрозрачные удалённые
@@ -724,10 +723,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     index -> DevGramConfig.setMediaCacheLimit(MEDIA_CACHE_LIMITS[index])
             ).setId(ID_MEDIA_CACHE_LIMIT));
             items.add(UItem.asShadow("Если папка превысит лимит, самые старые вложения будут удалены с устройства."));
-            items.add(UItem.asHeader("Защищённый контент"));
-            items.add(UItem.asCheck(ID_ALLOW_RESTRICTED, org.telegram.messenger.DevGramNewBadge.mark("Обходить запрет пересылки", org.telegram.messenger.DevGramNewBadge.ALLOW_RESTRICTED))
-                    .setChecked(DevGramConfig.allowRestricted()));
-            items.add(UItem.asShadow("Разрешает пересылку, сохранение и скриншоты в каналах и чатах, где это запрещено. Защищённые посты пересылаются как новые сообщения."));
             items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, "Экспорт базы данных"));
             items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, R.drawable.msg_archive, "Импорт базы данных"));
             items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, R.drawable.msg_clear, "Очистить"));
@@ -1381,8 +1376,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             DevGramConfig.setSaveReadDate(!DevGramConfig.saveReadDate);
         } else if (item.id == ID_SAVE_LOCAL_ONLINE) {
             DevGramConfig.setSaveLocalOnline(!DevGramConfig.saveLocalOnline);
-        } else if (item.id == ID_ALLOW_RESTRICTED) {
-            DevGramConfig.setAllowRestricted(!DevGramConfig.allowRestricted());
         } else if (item.id == ID_MEDIA_SAVE_PATH) {
             showSavedMediaFolderDialog(); return;
         } else if (item.id == ID_CLEAR_SPY_DATABASE) {

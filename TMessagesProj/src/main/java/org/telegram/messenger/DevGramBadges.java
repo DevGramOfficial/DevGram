@@ -315,6 +315,7 @@ public class DevGramBadges {
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(60000); // сервер шлёт keep-alive каждые 25 с: тишина 60 с → реконнект
                 streamConn = conn;
+                android.util.Log.i("DevGramBadges", "поток значков: HTTP " + conn.getResponseCode());
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                     String line, event = null;
                     while (streamWanted && (line = br.readLine()) != null) {
@@ -326,8 +327,11 @@ public class DevGramBadges {
                         }
                     }
                 }
-            } catch (Throwable ignore) {
+            } catch (Throwable e) {
                 // обрыв/таймаут/свернули приложение — переподключимся, когда снова нужно
+                if (streamWanted) {
+                    android.util.Log.w("DevGramBadges", "поток значков оборвался: " + e);
+                }
             } finally {
                 streamConn = null;
                 if (conn != null) {

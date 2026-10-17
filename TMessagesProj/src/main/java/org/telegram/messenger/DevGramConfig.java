@@ -227,13 +227,10 @@ public class DevGramConfig {
         MessagesController.getGlobalMainSettings().edit().putBoolean("useSystemEmoji", v).apply();
     }
 
-    // Обход запрета пересылки/скриншотов (noforwards) — как в AyuGram.
+    // Обход запрета пересылки, сохранения и скриншотов (noforwards и купленные за звёзды медиа) —
+    // всегда включён, без тумблера.
     public static boolean allowRestricted() {
-        return MessagesController.getGlobalMainSettings().getBoolean("dg_allowRestricted", false);
-    }
-
-    public static void setAllowRestricted(boolean v) {
-        MessagesController.getGlobalMainSettings().edit().putBoolean("dg_allowRestricted", v).apply();
+        return true;
     }
 
     // Размер стикеров (0..N) — pref в глобальных настройках, читается ChatMessageCell/LocaleController.
