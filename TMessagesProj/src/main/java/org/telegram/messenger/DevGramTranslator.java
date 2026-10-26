@@ -131,7 +131,7 @@ public final class DevGramTranslator {
         return isTargetSupported(target) ? configuredProvider : 1;
     }
 
-    /** Перевод с entities: разметка передаётся сервису в HTML-режиме (Google, Яндекс). */
+    /** Перевод с entities: разметка передаётся сервису в виде HTML (Google, Яндекс, Microsoft, DeepL). */
     public static void translate(TLRPC.TL_textWithEntities text, String fromLanguage, String toLanguage, Callback callback) {
         if (callback == null) {
             return;
@@ -153,11 +153,13 @@ public final class DevGramTranslator {
 
     private static TLRPC.TL_textWithEntities translateBlocking(TLRPC.TL_textWithEntities input, String source,
                                                                 String target, int provider) throws Exception {
-        if (provider != 3 && DevGramTranslationMarkup.hasFormatting(input)) {
+        if (DevGramTranslationMarkup.hasFormatting(input)) {
             try {
                 String html = DevGramTranslationMarkup.toHtml(input);
+                // DeepL переносит HTML-теги в перевод как есть, поэтому разметка идёт тем же путём
                 String translatedHtml = provider == 2 ? translateYandex(html, target, true)
                         : provider == 4 ? translateMicrosoft(html, source, target, true)
+                        : provider == 3 ? translateDeepL(html, source, target)
                         : translateGoogleHtml(html, source, target);
                 TLRPC.TL_textWithEntities formatted = TextUtils.isEmpty(translatedHtml) ? null : DevGramTranslationMarkup.fromHtml(translatedHtml, input);
                 if (formatted != null && !TextUtils.isEmpty(formatted.text)) {
