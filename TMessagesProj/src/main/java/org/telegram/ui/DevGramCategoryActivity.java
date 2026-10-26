@@ -401,6 +401,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_MD3_TITLE = 55;
     private static final int ID_MD3_BOTTOMNAV = 56;
     private static final int ID_MD3_FAB = 57;
+    private static final int ID_MD3_PROFILE = 7704;
     private static final int ID_NEW_PLAYER = 7701;
     private static final int ID_HIDE_NAV_LABELS = 7702;
     private static final int ID_PREDICTIVE_BACK = 7703;
@@ -828,6 +829,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                         .setChecked(gPref("dg_md3_bottomnav", false)));
                 items.add(UItem.asRoundCheckbox(ID_MD3_FAB, "Плавающие кнопки")
                         .setChecked(gPref("dg_md3_fab", false)));
+                items.add(UItem.asRoundCheckbox(ID_MD3_PROFILE, "Кнопки профиля")
+                        .setChecked(gPref("dg_md3_profile", false)));
             }
             items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, "Скрыть подписи в нижней панели")
                     .setChecked(gPref("dg_hideNavLabels", false)));
@@ -1598,6 +1601,10 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_MD3_FAB) {
             gToggle("dg_md3_fab", false);
             refreshThenRebuildAppearanceScreens();
+            return;
+        } else if (item.id == ID_MD3_PROFILE) {
+            gToggle("dg_md3_profile", false);
+            listView.adapter.update(true);
             return;
         } else if (item.id == ID_TRANSITION_ANIMATION) {
             showChoice("Анимация переходов", TRANSITION_ANIMATIONS, "dg_transitionAnimation",

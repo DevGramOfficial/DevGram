@@ -36,6 +36,10 @@ public class DevGramMaterial3 {
         return enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_bottomnav", false);
     }
 
+    public static boolean profileButtonsEnabled() {
+        return enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_profile", false);
+    }
+
     public static boolean fabEnabled() {
         return enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_fab", false);
     }

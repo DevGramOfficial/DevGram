@@ -3974,7 +3974,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         sharedMediaLayout.initBlurCapture((ViewGroup) fragmentView);
 //        sharedMediaLayout.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         if (userId == 0 || imageUpdater == null || myProfile) {
-            actionsView = new ProfileActionsView(context, dp(74));
+            actionsView = new ProfileActionsView(context, org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
             setActionsMode();
             updateNotifications(false);
 
@@ -6237,7 +6237,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int getActionsExtraHeight(boolean withPills) {
         if (userId != 0 && imageUpdater != null && !myProfile)
             return 0;
-        return dp(74);
+        return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight();
     }
 
     private int getHeaderExtraHeight() {
@@ -11726,11 +11726,11 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             float vh = avatarContainer.getHeight() * avatarContainer.getScaleY();
             actionsView.clipHeight = avatarContainer.getY() + vh;
             actionsView.setAlpha(avatarAnimationProgress);
-            actionsView.updatePosition(listView.getMeasuredWidth(), dp(74));
+            actionsView.updatePosition(listView.getMeasuredWidth(), org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         } else {
             actionsView.clipHeight = -1;
             float bottom = extraHeight + newTop;
-            float height = Math.min(dp(74), bottom - newTop);
+            float height = Math.min(org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), bottom - newTop);
             actionsView.updatePosition(bottom - height, height);
         }
 
@@ -11756,16 +11756,16 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 //            float vh = avatarContainer.getHeight() * avatarContainer.getScaleY();
 //            musicView.clipHeight = avatarContainer.getY() + vh;
             musicView.setAlpha(avatarAnimationProgress);
-            musicView.updatePosition(listView.getMeasuredWidth() + dp(74), getActionsExtraHeight() - dp(74));
+            musicView.updatePosition(listView.getMeasuredWidth() + org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), getActionsExtraHeight() - org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         } else {
             if (openAnimationInProgress) {
                 musicView.setAlpha(avatarAnimationProgress);
             }
 
 //            musicView.clipHeight = -1;
-            float bottom = extraHeight + newTop + dp(74);
+            float bottom = extraHeight + newTop + org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight();
             float height = Math.min(getActionsExtraHeight(), bottom - newTop);
-            musicView.updatePosition(bottom - height, height - dp(74));
+            musicView.updatePosition(bottom - height, height - org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         }
     }
 
