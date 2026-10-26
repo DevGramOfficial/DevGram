@@ -33,11 +33,15 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     public static final int CATEGORY_SPY = 2;
     public static final int CATEGORY_APPEARANCE = 3;
     public static final int CATEGORY_CHATS = 4;
+    public static final int CATEGORY_NAVIGATION = 6;
     public static final int CATEGORY_AI = 5; // DevGram: отдельный экран «ИИ-чат» (как AiPreferencesActivity у exteraGram)
 
     // DevGram: кнопки-переходы из «Чаты» (как asButtonWithSubtext AI/CHAT_SETTINGS у exteraGram)
     private static final int ID_OPEN_AI = 150;
     private static final int ID_OPEN_CHAT_SETTINGS = 151;
+    private static final int ID_AI_FEATURES = 7705;
+    private static final int ID_OPEN_NAVIGATION = 7706;
+    private static final int ID_OPEN_APP_ICON = 7707;
     private static final int ID_OPEN_SWIPE_ACTIONS = 149;
     // DevGram: экран AI Chat (повтор AiPreferencesActivity exteraGram)
     static final int ID_AI_SERVICES = 152;
@@ -596,6 +600,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 return "Чаты";
             case CATEGORY_AI:
                 return "ИИ-чат";
+            case CATEGORY_NAVIGATION:
+                return "Навигация приложения";
             default:
                 return "Основные";
         }
@@ -807,9 +813,16 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asButton(ID_DEF_FOLDER, "Папка по умолчанию", defaultFolderLabel()));
             items.add(UItem.asShadow("Иконки папок синхронизируются с вашим аккаунтом."));
 
+            // Переходы с иконками — как у exteraGram после папок.
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_NAVIGATION, R.drawable.msg_newphone, "Навигация приложения",
+                    "Нижняя панель, переходы и жест «назад»"));
+            items.add(UItem.asButton(ID_OPEN_APP_ICON, R.drawable.menu_edit_appearance, "Иконка приложения"));
+            items.add(UItem.asButtonWithSubtext(ID_PILL_STACK, R.drawable.outline_header_search, "Pill Stack",
+                    "Интерактивные виджеты в поле поиска"));
+            items.add(UItem.asShadow(null));
+
             // — Внешний вид —
             items.add(UItem.asHeader("Внешний вид"));
-            items.add(UItem.asButton(ID_PILL_STACK, "Pill Stack", "Интерактивные виджеты в поле поиска"));
             items.add(UItem.asCustom(getFabPreview()));
             items.add(UItem.asCheck(ID_SYSTEM_FONTS, "Системные шрифты")
                     .setChecked(gPref("dg_systemFonts", true)));
@@ -835,28 +848,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 items.add(UItem.asRoundCheckbox(ID_NEW_PLAYER, "Плеер")
                         .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()));
             }
-            items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, "Скрыть подписи в нижней панели")
-                    .setChecked(gPref("dg_hideNavLabels", false)));
-            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
-                    TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
-            items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
-            if (android.os.Build.VERSION.SDK_INT >= 34) {
-                items.add(UItem.asHeader("Сила жеста «назад»"));
-                items.add(UItem.asIntSlideView(1, 0, Math.round(org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.intensity() * 10), 20,
-                        val -> val <= 0 ? "Выкл." : val >= 20 ? "Макс." : val % 10 == 0 ? String.valueOf(val / 10) : String.format(java.util.Locale.US, "%.1f", val / 10f),
-                        val -> {
-                            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putFloat("dg_predictiveBack", val / 10f).apply();
-                            // включение/выключение анимации применяется только после перезапуска
-                            if ((val <= 0) != PREDICTIVE_BACK_OFF_AT_START) {
-                                scheduleRestart();
-                            } else {
-                                cancelRestart();
-                            }
-                        }).setId(ID_PREDICTIVE_BACK));
-                items.add(UItem.asShadow("Насколько сдвигается экран при жесте «назад»."));
-            }
             items.add(UItem.asCheck(ID_GOOEY, "«Липкая» анимация аватарок")
                     .setChecked(gPref("dg_gooey", true)));
+            items.add(UItem.asShadow(null));
             items.add(UItem.asHeader("Интерфейс DevGram"));
             items.add(UItem.asCheck(ID_GHOST_STATUS, "Показывать значок режима призрака")
                     .setChecked(DevGramConfig.displayGhostStatus));
@@ -906,6 +900,29 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     org.telegram.messenger.LocaleController.getString(R.string.DevGramLockedChats),
                     lockedChatsSubtitle()));
             items.add(UItem.asShadow(org.telegram.messenger.LocaleController.getString(R.string.DevGramLockedChatsInfo)));
+        } else if (category == CATEGORY_NAVIGATION) {
+            // Экран «Навигация приложения» — как AppNavigationPreferencesActivity у exteraGram.
+            items.add(UItem.asHeader("Общие"));
+            items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, "Скрыть подписи в нижней панели")
+                    .setChecked(gPref("dg_hideNavLabels", false)));
+            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
+                    TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
+            items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                items.add(UItem.asHeader("Сила жеста «назад»"));
+                items.add(UItem.asIntSlideView(1, 0, Math.round(org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.intensity() * 10), 20,
+                        val -> val <= 0 ? "Выкл." : val >= 20 ? "Макс." : val % 10 == 0 ? String.valueOf(val / 10) : String.format(java.util.Locale.US, "%.1f", val / 10f),
+                        val -> {
+                            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putFloat("dg_predictiveBack", val / 10f).apply();
+                            // включение/выключение анимации применяется только после перезапуска
+                            if ((val <= 0) != PREDICTIVE_BACK_OFF_AT_START) {
+                                scheduleRestart();
+                            } else {
+                                cancelRestart();
+                            }
+                        }).setId(ID_PREDICTIVE_BACK));
+                items.add(UItem.asShadow("Насколько сдвигается экран при жесте «назад»."));
+            }
         } else if (category == CATEGORY_CHATS) {
             // Порядок и состав повторяют ChatsPreferencesActivity ExteraGram.
             items.add(UItem.asHeader("Стикеры"));
@@ -918,10 +935,6 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     }).setId(ID_STICKER_SIZE));
             items.add(UItem.asCheck(ID_HIDE_STICKER_TIME, "Скрыть время на стикерах")
                     .setChecked(DevGramConfig.hideStickerTime));
-            items.add(UItem.asCheck(ID_FULL_RECENT_STICKERS, "Не ограничивать недавние стикеры")
-                    .setChecked(gPref("fullRecentStickers", true)));
-            items.add(UItem.asCheck(ID_SHOW_ARCHIVED_STICKERS, "Показывать архивные стикеры")
-                    .setChecked(gPref("showArchivedStickers", false)));
             items.add(UItem.asCheck(ID_REPLY_ELEMENTS, "Оформление ответов  "
                     + ((gPref("dg_replyColors", true) ? 1 : 0)
                     + (gPref("dg_replyEmoji", true) ? 1 : 0)
@@ -941,17 +954,20 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asCustom(getStickerShapePreview()));
             items.add(UItem.asShadow(null));
 
-            // Кнопки-переходы двухстрочным стилем (как asButtonWithSubtext AI/CHAT_SETTINGS у exteraGram):
-            // «AI Chat» — все функции ИИ вынесены на отдельный экран; «Настройки чатов» — стоковый экран Telegram.
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_SWIPE_ACTIONS, R.drawable.menu_reply, org.telegram.messenger.DevGramNewBadge.mark("Действия свайпом", org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS),
-                    "Выбор, порядок и поведение действий"));
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_AI, R.drawable.msg2_ask_question, "AI Chat",
-                    "Сервисы, роли, история и генерация"));
+            // Переходы с иконками — та же тройка и порядок, что у exteraGram.
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_AI, R.drawable.ai_chat, "ИИ-чат",
+                    "Сервисы, роли и история"));
+            items.add(UItem.asButtonWithSubtext(ID_INLINE_CALC, R.drawable.msg_calculator, "Результаты в поле ввода",
+                    "Калькулятор, валюты, единицы и часовые пояса"));
             items.add(UItem.asButtonWithSubtext(ID_OPEN_CHAT_SETTINGS, R.drawable.msg_discussion, "Настройки чатов",
                     "Размер текста, обои и темы"));
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Стикеры и реакции"));
+            items.add(UItem.asHeader("Стикеры"));
+            items.add(UItem.asCheck(ID_FULL_RECENT_STICKERS, "Не ограничивать недавние стикеры")
+                    .setChecked(gPref("fullRecentStickers", true)));
+            items.add(UItem.asCheck(ID_SHOW_ARCHIVED_STICKERS, "Показывать архивные стикеры")
+                    .setChecked(gPref("showArchivedStickers", false)));
             items.add(UItem.asCheck(ID_DISABLE_QUICK_REACTION, "Отключить быструю реакцию")
                     .setChecked(gPref("disableQuickReaction", false)));
             items.add(UItem.asCheck(ID_HIDE_SAVED_TAGS, "Скрыть теги в Избранном")
@@ -971,7 +987,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             }
             items.add(UItem.asShadow("Настройка скрывает реакции только в выбранных типах чатов."));
 
-            items.add(UItem.asHeader("Двойное нажатие"));
+            items.add(UItem.asHeader("Жесты"));
             items.add(UItem.asCustom(getDoubleTapPreview()));
             items.add(UItem.asButton(ID_DOUBLE_TAP_IN, "Входящие сообщения",
                     org.telegram.messenger.DevGramDoubleTapUtils.currentLabel(false)));
@@ -979,28 +995,20 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     org.telegram.messenger.DevGramDoubleTapUtils.currentLabel(true)));
             items.add(UItem.asButton(ID_DOUBLE_TAP_REACTION, "Реакция по двойному нажатию",
                     doubleTapReactionLabel()));
+            items.add(UItem.asButton(ID_OPEN_SWIPE_ACTIONS, org.telegram.messenger.DevGramNewBadge.mark("Действия свайпом", org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS), ""));
             items.add(UItem.asShadow("Действие по двойному нажатию — отдельно для входящих и исходящих. Для действия «Реакции» выбери саму реакцию выше."));
 
             items.add(UItem.asHeader("Чаты"));
-            items.add(UItem.asCheck(ID_HIDE_SEND_AS, "Скрыть кнопку «Отправить от имени»")
-                    .setChecked(gPref("hideSendAs", false)));
-            items.add(UItem.asCheck(ID_HIDE_KEYBOARD_ON_SCROLL, "Скрывать клавиатуру при прокрутке")
-                    .setChecked(DevGramConfig.hideKeyboardOnScroll));
-            items.add(UItem.asCheck(ID_DISABLE_GREETING, "Скрыть приветственный стикер")
-                    .setChecked(DevGramConfig.disableGreetingSticker));
-            items.add(UItem.asCheck(ID_COMMA_AFTER_MENTION, "Запятая после упоминания")
-                    .setChecked(DevGramConfig.addCommaAfterMention));
-            items.add(UItem.asCheck(ID_DISABLE_MARKDOWN, "Отключить Markdown")
-                    .setChecked(DevGramConfig.disableMarkdown));
-            items.add(UItem.asButton(ID_INLINE_CALC, "Результаты в поле ввода", DevGramConfig.inlineCalc ? "Вкл." : "Выкл."));
-            items.add(UItem.asCheck(ID_WEATHER_STORIES, "Виджет погоды в историях")
-                    .setChecked(DevGramConfig.weatherInStories));
-            items.add(UItem.asCheck(ID_REPLACE_FORWARD, "Заменять пересылку")
-                    .setChecked(gPref("replaceForward", true)));
-            items.add(UItem.asCheck(ID_MENTION_BY_NAME, "Упоминать по имени")
-                    .setChecked(gPref("mentionByName", false)));
-            items.add(UItem.asCheck(ID_DISABLE_LINK_PREVIEW, "Не создавать предпросмотр ссылок")
-                    .setChecked(gPref("disableLinkPreviewByDefault", false)));
+            items.add(UItem.asCheck(ID_AI_FEATURES, "ИИ-функции  "
+                    + ((gPref("hideAiEditor", false) ? 0 : 1)
+                    + (gPref("dg_hideAiSummaries", false) ? 0 : 1)) + "/2")
+                    .setChecked(gPref("dg_aiFeatures", true)));
+            if (gPref("dg_aiFeatures", true)) {
+                items.add(UItem.asRoundCheckbox(ID_AI_EDITOR, "Редактор")
+                        .setChecked(!gPref("hideAiEditor", false)));
+                items.add(UItem.asRoundCheckbox(ID_AI_SUMMARIES, "Краткие пересказы")
+                        .setChecked(!gPref("dg_hideAiSummaries", false)));
+            }
             items.add(UItem.asCheck(ID_QUICK_TRANSITIONS, "Быстрые переходы  "
                     + ((gPref("dg_quickTransitionsChannels", true) ? 1 : 0)
                     + (gPref("dg_quickTransitionsTopics", true) ? 1 : 0)) + "/2")
@@ -1011,7 +1019,25 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 items.add(UItem.asRoundCheckbox(ID_QUICK_TRANSITIONS_TOPICS, "Между темами")
                         .setChecked(gPref("dg_quickTransitionsTopics", true)));
             }
-            items.add(UItem.asShadow("Переход свайпом можно отдельно отключить для каналов и тем."));
+            items.add(UItem.asCheck(ID_DISABLE_GREETING, "Скрыть приветственный стикер")
+                    .setChecked(DevGramConfig.disableGreetingSticker));
+            items.add(UItem.asCheck(ID_HIDE_KEYBOARD_ON_SCROLL, "Скрывать клавиатуру при прокрутке")
+                    .setChecked(DevGramConfig.hideKeyboardOnScroll));
+            items.add(UItem.asCheck(ID_COMMA_AFTER_MENTION, "Запятая после упоминания")
+                    .setChecked(DevGramConfig.addCommaAfterMention));
+            items.add(UItem.asCheck(ID_HIDE_SEND_AS, "Скрыть кнопку «Отправить от имени»")
+                    .setChecked(gPref("hideSendAs", false)));
+            items.add(UItem.asCheck(ID_DISABLE_MARKDOWN, "Отключить Markdown")
+                    .setChecked(DevGramConfig.disableMarkdown));
+            items.add(UItem.asCheck(ID_WEATHER_STORIES, "Виджет погоды в историях")
+                    .setChecked(DevGramConfig.weatherInStories));
+            items.add(UItem.asCheck(ID_REPLACE_FORWARD, "Заменять пересылку")
+                    .setChecked(gPref("replaceForward", true)));
+            items.add(UItem.asCheck(ID_MENTION_BY_NAME, "Упоминать по имени")
+                    .setChecked(gPref("mentionByName", false)));
+            items.add(UItem.asCheck(ID_DISABLE_LINK_PREVIEW, "Не создавать предпросмотр ссылок")
+                    .setChecked(gPref("disableLinkPreviewByDefault", false)));
+            items.add(UItem.asShadow("Кнопка «Отправить от имени» скрывается в чатах, где можно писать от лица канала."));
 
             items.add(UItem.asHeader("Сообщения"));
             items.add(UItem.asCustom(getMessagesPreview()));
@@ -1780,10 +1806,18 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_DOUBLE_TAP_REACTION) {
             presentFragment(new org.telegram.ui.ReactionsDoubleTapManageActivity());
             return;
+        } else if (item.id == ID_AI_FEATURES) {
+            gToggle("dg_aiFeatures", true);
         } else if (item.id == ID_AI_EDITOR) {
             gToggle("hideAiEditor", false);
         } else if (item.id == ID_AI_SUMMARIES) {
             gToggle("dg_hideAiSummaries", false);
+        } else if (item.id == ID_OPEN_NAVIGATION) {
+            presentFragment(new DevGramCategoryActivity(CATEGORY_NAVIGATION));
+            return;
+        } else if (item.id == ID_OPEN_APP_ICON) {
+            presentFragment(new DevGramAppIconsActivity());
+            return;
         } else if (item.id == ID_OPEN_AI) {
             presentFragment(new DevGramCategoryActivity(CATEGORY_AI));
             return;

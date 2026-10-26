@@ -7119,7 +7119,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
             }
             drawSummarizeButton = TranslateController.isSummarizable(messageObject)
-                    && !MessagesController.getGlobalMainSettings().getBoolean("dg_hideAiSummaries", false);
+                    && !(MessagesController.getGlobalMainSettings().getBoolean("dg_hideAiSummaries", false) || !MessagesController.getGlobalMainSettings().getBoolean("dg_aiFeatures", true));
             hasReplyQuote = false;
             isReplyQuote = false;
             isReplyTaskOrPollOption = false;

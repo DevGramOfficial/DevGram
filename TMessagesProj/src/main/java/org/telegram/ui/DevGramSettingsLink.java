@@ -109,6 +109,7 @@ public final class DevGramSettingsLink {
             case "appicon":    return new DevGramAppIconsActivity();
             case "supporter":  return new DevGramSupporterActivity();
             case "ai":         return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_AI);
+            case "navigation": return new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_NAVIGATION);
             case "other":      return new DevGramOtherActivity();
             case "locked":     return new DevGramLockedChatsActivity();
             default:           return null;
@@ -123,6 +124,7 @@ public final class DevGramSettingsLink {
             case DevGramCategoryActivity.CATEGORY_APPEARANCE: return "appearance";
             case DevGramCategoryActivity.CATEGORY_CHATS:      return "chats";
             case DevGramCategoryActivity.CATEGORY_AI:         return "ai";
+            case DevGramCategoryActivity.CATEGORY_NAVIGATION: return "navigation";
             default:                                          return "general";
         }
     }
