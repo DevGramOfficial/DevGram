@@ -221,6 +221,118 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
     protected boolean dimBehind = true;
     protected int dimBehindAlpha = 51;
 
+    // Предиктивный «назад» (Android 14+): лист уезжает вниз и гаснет вслед за жестом
+    private android.window.OnBackInvokedDispatcher onBackInvokedDispatcher;
+    private android.window.OnBackAnimationCallback backAnimationCallback;
+    private boolean isBackCallbackRegistered;
+    private boolean predictiveBackAnimationInProgress;
+
+    private void updateBackCallbackState() {
+        if (Build.VERSION.SDK_INT < 34 || onBackInvokedDispatcher == null || backAnimationCallback == null) return;
+        // с открытой клавиатурой «назад» сначала прячет её
+        if (keyboardVisible && isBackCallbackRegistered) {
+            onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backAnimationCallback);
+            isBackCallbackRegistered = false;
+        } else if (!keyboardVisible && !isBackCallbackRegistered) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY, backAnimationCallback);
+            isBackCallbackRegistered = true;
+        }
+    }
+
+    private void registerBackCallback() {
+        if (Build.VERSION.SDK_INT < 34 || backAnimationCallback != null || !org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.isEnabled()) {
+            return;
+        }
+        if (container != null && container.isAttachedToWindow()) {
+            onBackInvokedDispatcher = container.findOnBackInvokedDispatcher();
+        }
+        if (onBackInvokedDispatcher == null && getWindow() != null) {
+            onBackInvokedDispatcher = getWindow().getOnBackInvokedDispatcher();
+        }
+        if (onBackInvokedDispatcher == null && getContext() instanceof android.app.Activity) {
+            onBackInvokedDispatcher = ((android.app.Activity) getContext()).getOnBackInvokedDispatcher();
+        }
+        if (onBackInvokedDispatcher == null) {
+            if (container != null) {
+                container.post(this::registerBackCallback);
+            }
+            return;
+        }
+        backAnimationCallback = new android.window.OnBackAnimationCallback() {
+            @Override
+            public void onBackStarted(@NonNull android.window.BackEvent backEvent) {
+                predictiveBackAnimationInProgress = true;
+                if (container != null) container.resetTouch();
+            }
+
+            @Override
+            public void onBackProgressed(@NonNull android.window.BackEvent backEvent) {
+                if (dismissed || container == null || containerView == null) return;
+                float progress = backEvent.getProgress();
+                containerView.setTranslationY(containerView.getMeasuredHeight() * .15f * progress);
+                onContainerViewTranslation();
+                if (backDrawable != null) {
+                    backDrawable.setAlpha((int) (dimBehindAlpha * (1f - progress)));
+                }
+            }
+
+            @Override
+            public void onBackInvoked() {
+                if (delegate != null && !delegate.canDismiss()) {
+                    onBackCancelled();
+                    return;
+                }
+                predictiveBackAnimationInProgress = false;
+                if (container != null) container.resetTouch();
+                // подклассы могут перехватывать «назад» (закрыть поиск и т.п.) — тогда лист возвращаем на место
+                onBackPressed();
+                if (!dismissed) {
+                    onBackCancelled();
+                }
+            }
+
+            @Override
+            public void onBackCancelled() {
+                predictiveBackAnimationInProgress = false;
+                if (container == null || containerView == null) return;
+                container.resetTouch();
+                container.cancelCurrentAnimation();
+                ObjectAnimator translation = ObjectAnimator.ofFloat(containerView, View.TRANSLATION_Y, 0);
+                translation.addUpdateListener(a -> onContainerViewTranslation());
+                AnimatorSet set = new AnimatorSet();
+                set.playTogether(translation);
+                if (backDrawable != null) {
+                    set.playTogether(ObjectAnimator.ofInt(backDrawable, AnimationProperties.COLOR_DRAWABLE_ALPHA, dimBehind ? dimBehindAlpha : 0));
+                }
+                set.setDuration(250);
+                set.setInterpolator(CubicBezierInterpolator.DEFAULT);
+                set.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        if (container.currentAnimation == animation) {
+                            container.currentAnimation = null;
+                        }
+                    }
+                });
+                container.currentAnimation = set;
+                set.start();
+            }
+        };
+        if (!keyboardVisible) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_OVERLAY, backAnimationCallback);
+            isBackCallbackRegistered = true;
+        }
+    }
+
+    private void unregisterBackCallback() {
+        if (Build.VERSION.SDK_INT >= 34 && isBackCallbackRegistered && onBackInvokedDispatcher != null && backAnimationCallback != null) {
+            onBackInvokedDispatcher.unregisterOnBackInvokedCallback(backAnimationCallback);
+        }
+        isBackCallbackRegistered = false;
+        backAnimationCallback = null;
+        onBackInvokedDispatcher = null;
+    }
+
     protected boolean allowNestedScroll = true;
 
     protected Drawable shadowDrawable;
@@ -296,6 +408,83 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
         private Rect rect = new Rect();
         private Paint backgroundPaint = new Paint();
         private boolean keyboardChanged;
+        // касание у системного края экрана придерживаем: если это жест «назад» (горизонтальный),
+        // содержимое листа его не получает; вертикальное — отдаём как обычно
+        private final int[] edgeLocation = new int[2];
+        private MotionEvent heldEdgeDown;
+        private boolean heldEdgeDownMoved;
+
+        void resetTouch() {
+            startedTracking = false;
+            maybeStartTracking = false;
+            startedTrackingPointerId = -1;
+            if (velocityTracker != null) {
+                velocityTracker.recycle();
+                velocityTracker = null;
+            }
+        }
+
+        private boolean isInSystemGestureEdge(MotionEvent event) {
+            if (Build.VERSION.SDK_INT < 29) return false;
+            WindowInsets insets = getRootWindowInsets();
+            if (insets == null) return false;
+            android.graphics.Insets gesture = insets.getSystemGestureInsets();
+            if (gesture.left == 0 && gesture.right == 0) return false;
+            getLocationInWindow(edgeLocation);
+            float x = edgeLocation[0] + event.getX();
+            return x < gesture.left || x > getRootView().getWidth() - gesture.right;
+        }
+
+        private void dropHeldEdgeDown() {
+            if (heldEdgeDown != null) {
+                heldEdgeDown.recycle();
+                heldEdgeDown = null;
+            }
+            heldEdgeDownMoved = false;
+        }
+
+        private boolean flushHeldEdgeDown(MotionEvent event) {
+            MotionEvent down = heldEdgeDown;
+            heldEdgeDown = null;
+            heldEdgeDownMoved = false;
+            super.dispatchTouchEvent(down);
+            down.recycle();
+            return super.dispatchTouchEvent(event);
+        }
+
+        @Override
+        public boolean dispatchTouchEvent(MotionEvent event) {
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                dropHeldEdgeDown();
+                if (!dismissed && isInSystemGestureEdge(event)) {
+                    heldEdgeDown = MotionEvent.obtain(event);
+                    return true;
+                }
+            } else if (heldEdgeDown != null) {
+                if (action == MotionEvent.ACTION_CANCEL) {
+                    dropHeldEdgeDown();
+                    return true;
+                }
+                if (action == MotionEvent.ACTION_MOVE) {
+                    float dx = event.getX() - heldEdgeDown.getX();
+                    float dy = event.getY() - heldEdgeDown.getY();
+                    if (!heldEdgeDownMoved && Math.hypot(dx, dy) > touchSlop) {
+                        heldEdgeDownMoved = true;
+                        if (Math.abs(dy) > Math.abs(dx)) {
+                            return flushHeldEdgeDown(event);
+                        }
+                    }
+                    return true;
+                }
+                if (action == MotionEvent.ACTION_UP && heldEdgeDownMoved) {
+                    dropHeldEdgeDown();
+                    return true;
+                }
+                return flushHeldEdgeDown(event);
+            }
+            return super.dispatchTouchEvent(event);
+        }
 
         public ContainerView(Context context) {
             super(context);
@@ -585,6 +774,9 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
 
         @Override
         public boolean onTouchEvent(MotionEvent ev) {
+            if (predictiveBackAnimationInProgress) {
+                return true;
+            }
             return processTouchEvent(ev, false);
         }
 
@@ -611,7 +803,11 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
             if (oldKeyboardHeight != keyboardHeight) {
                 keyboardChanged = true;
             }
+            boolean wasKeyboardVisible = keyboardVisible;
             keyboardVisible = keyboardHeight > dp(20);
+            if (wasKeyboardVisible != keyboardVisible && Build.VERSION.SDK_INT >= 34) {
+                updateBackCallbackState();
+            }
             if (lastInsets != null) {
                 bottomInset = lastInsets.getSystemWindowInsetBottom();
                 leftInset = lastInsets.getSystemWindowInsetLeft();
@@ -796,6 +992,9 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
 
         @Override
         public boolean onInterceptTouchEvent(MotionEvent event) {
+            if (predictiveBackAnimationInProgress) {
+                return true;
+            }
             if (canDismissWithSwipe() || canSwipeToBack(event)) {
                 return processTouchEvent(event, true);
             }
@@ -1252,6 +1451,9 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
             @Override
             protected void onAttachedToWindow() {
                 super.onAttachedToWindow();
+                if (Build.VERSION.SDK_INT >= 34) {
+                    registerBackCallback();
+                }
                 Bulletin.addDelegate(this, new Bulletin.Delegate() {
                     @Override
                     public int getTopOffset(int tag) {
@@ -1263,6 +1465,9 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
             @Override
             protected void onDetachedFromWindow() {
                 super.onDetachedFromWindow();
+                if (Build.VERSION.SDK_INT >= 34) {
+                    unregisterBackCallback();
+                }
                 Bulletin.removeDelegate(this);
             }
         };
