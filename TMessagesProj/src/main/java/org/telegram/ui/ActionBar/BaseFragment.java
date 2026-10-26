@@ -717,7 +717,8 @@ public abstract class BaseFragment {
     }
 
     public boolean dismissDialogOnPause(Dialog dialog) {
-        return true;
+        // плеер остаётся открытым, когда приложение уходит в фон
+        return !(dialog instanceof org.telegram.messenger.devgram.player.MusicPlayerSheet && ApplicationLoader.mainInterfacePaused);
     }
 
     public boolean canBeginSlide() {

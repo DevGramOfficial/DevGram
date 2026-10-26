@@ -219,8 +219,11 @@ public class PlayerSettingsSheet extends BottomSheetWithRecyclerListView {
         boolean playerCoverColors = PlayerConfig.getPlayerCoverColors();
         boolean playerMiniCoverColors = PlayerConfig.getPlayerMiniCoverColors();
         final int i = (playerCoverColors ? 1 : 0) + (playerMiniCoverColors ? 1 : 0);
-        arrayList.add(UItem.asCheck(6, LocaleController.getString(R.string.PlayerCoverColorsFull)).setChecked(playerCoverColors));
-        arrayList.add(UItem.asCheck(7, LocaleController.getString(R.string.PlayerCoverColorsMini)).setChecked(playerMiniCoverColors));
+        arrayList.add(UItem.asExpandableSwitch(1, LocaleController.getString(R.string.PlayerCoverColors), i + "/2").setChecked(i > 0).setCollapsed(!this.coverColorsExpanded).setClickCallback(view -> lambda_fillItems_2(i, view)));
+        if (this.coverColorsExpanded) {
+            arrayList.add(UItem.asRoundCheckbox(6, LocaleController.getString(R.string.PlayerCoverColorsFull)).setChecked(playerCoverColors).pad());
+            arrayList.add(UItem.asRoundCheckbox(7, LocaleController.getString(R.string.PlayerCoverColorsMini)).setChecked(playerMiniCoverColors).pad());
+        }
         arrayList.add(UItem.asCheck(2, LocaleController.getString(R.string.PlayerMotionCovers), LocaleController.getString(R.string.PlayerMotionCoversEnabled), true).setChecked(PlayerConfig.getPlayerMotionCovers()));
         arrayList.add(UItem.asCheck(5, LocaleController.getString(R.string.PlayerRhythmBackground), LocaleController.getString(R.string.PlayerRhythmBackgroundInfo), true).setChecked(PlayerConfig.getPlayerRhythmBackground()));
         arrayList.add(UItem.asCheck(8, LocaleController.getString(R.string.PlayerParticles), LocaleController.getString(R.string.PlayerParticlesInfo), true).setChecked(PlayerConfig.getPlayerParticles()));
