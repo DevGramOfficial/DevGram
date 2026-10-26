@@ -84,7 +84,9 @@ public final class DevGramTranslator {
         final int provider = resolvedProvider(target);
         TRANSLATION_EXECUTOR.execute(() -> {
             try {
-                TLRPC.TL_textWithEntities result = translateBlocking(text, source, target, provider);
+                TLRPC.TL_textWithEntities input = new TLRPC.TL_textWithEntities();
+                input.text = text;
+                TLRPC.TL_textWithEntities result = translateBlocking(input, source, target, provider);
                 AndroidUtilities.runOnUIThread(() -> callback.run(result, null));
             } catch (Throwable error) {
                 FileLog.e(error);
@@ -109,7 +111,12 @@ public final class DevGramTranslator {
             try {
                 ArrayList<TLRPC.TL_textWithEntities> result = new ArrayList<>(sourceTexts.size());
                 for (TLRPC.TL_textWithEntities text : sourceTexts) {
-                    result.add(translateBlocking(text == null ? "" : text.text, source, target, provider));
+                    TLRPC.TL_textWithEntities input = text;
+                    if (input == null) {
+                        input = new TLRPC.TL_textWithEntities();
+                        input.text = "";
+                    }
+                    result.add(translateBlocking(input, source, target, provider));
                 }
                 AndroidUtilities.runOnUIThread(() -> callback.run(result, null));
             } catch (Throwable error) {
@@ -124,11 +131,44 @@ public final class DevGramTranslator {
         return isTargetSupported(target) ? configuredProvider : 1;
     }
 
-    private static TLRPC.TL_textWithEntities translateBlocking(String text, String source,
+    /** Перевод с entities: разметка передаётся сервису в HTML-режиме (Google, Яндекс). */
+    public static void translate(TLRPC.TL_textWithEntities text, String fromLanguage, String toLanguage, Callback callback) {
+        if (callback == null) {
+            return;
+        }
+        final String source = TextUtils.isEmpty(fromLanguage) || TranslateController.UNKNOWN_LANGUAGE.equals(fromLanguage)
+                ? "auto" : normalize(fromLanguage);
+        final String target = normalize(toLanguage);
+        final int provider = resolvedProvider(target);
+        TRANSLATION_EXECUTOR.execute(() -> {
+            try {
+                TLRPC.TL_textWithEntities result = translateBlocking(text, source, target, provider);
+                AndroidUtilities.runOnUIThread(() -> callback.run(result, null));
+            } catch (Throwable error) {
+                FileLog.e(error);
+                AndroidUtilities.runOnUIThread(() -> callback.run(null, error));
+            }
+        });
+    }
+
+    private static TLRPC.TL_textWithEntities translateBlocking(TLRPC.TL_textWithEntities input, String source,
                                                                 String target, int provider) throws Exception {
+        if (provider != 3 && DevGramTranslationMarkup.hasFormatting(input)) {
+            try {
+                String html = DevGramTranslationMarkup.toHtml(input);
+                String translatedHtml = provider == 2 ? translateYandex(html, target, true) : translateGoogleHtml(html, source, target);
+                TLRPC.TL_textWithEntities formatted = TextUtils.isEmpty(translatedHtml) ? null : DevGramTranslationMarkup.fromHtml(translatedHtml, input);
+                if (formatted != null && !TextUtils.isEmpty(formatted.text)) {
+                    return formatted;
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+        }
+        String text = input.text == null ? "" : input.text;
         String translated;
         if (provider == 2) {
-            translated = translateYandex(text, target);
+            translated = translateYandex(text, target, false);
         } else if (provider == 3) {
             translated = translateDeepL(text, source, target);
         } else {
@@ -163,8 +203,21 @@ public final class DevGramTranslator {
         return result.toString();
     }
 
-    private static String translateYandex(String text, String to) throws Exception {
-        String body = "lang=" + URLEncoder.encode(to, "UTF-8")
+    private static String translateGoogleHtml(String html, String from, String to) throws Exception {
+        String url = "https://translate.googleapis.com/translate_a/t?client=gtx&dt=t&format=html&ie=UTF-8&oe=UTF-8"
+                + "&sl=" + URLEncoder.encode(TextUtils.isEmpty(from) ? "auto" : from, "UTF-8")
+                + "&tl=" + URLEncoder.encode(to, "UTF-8");
+        String response = request("POST", url, "q=" + URLEncoder.encode(html, "UTF-8"), "application/x-www-form-urlencoded",
+                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36");
+        Object parsed = new org.json.JSONTokener(response).nextValue();
+        while (parsed instanceof JSONArray && ((JSONArray) parsed).length() > 0) {
+            parsed = ((JSONArray) parsed).get(0);
+        }
+        return parsed instanceof String ? (String) parsed : null;
+    }
+
+    private static String translateYandex(String text, String to, boolean html) throws Exception {
+        String body = "lang=" + URLEncoder.encode(to, "UTF-8") + (html ? "&format=html" : "")
                 + "&text=" + URLEncoder.encode(text == null ? "" : text, "UTF-8");
         JSONObject json = new JSONObject(request("POST",
                 "https://translate.yandex.net/api/v1/tr.json/translate?&srv=android&id=" + YANDEX_UUID + "-0-0",

@@ -438,7 +438,7 @@ public class TranslateAlert2 extends BottomSheet implements NotificationCenter.N
         }
 
         if (DevGramTranslator.usesExternalProvider()) {
-            DevGramTranslator.translate(textWithEntities.text, fromLanguage, lang, (translatedText, error) -> {
+            DevGramTranslator.translate(textWithEntities, fromLanguage, lang, (translatedText, error) -> {
                 if (translatedText != null && translatedText.text != null) {
                     firstTranslation = false;
                     CharSequence translated = SpannableStringBuilder.valueOf(translatedText.text);
