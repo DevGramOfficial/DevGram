@@ -572,6 +572,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_QUICK_TRANSITIONS_CHANNELS = 111;
     private static final int ID_QUICK_TRANSITIONS_TOPICS = 112;
     private static final int ID_SHOW_ONLINE_STATUS = 113;
+    private static final int ID_SHOW_FORWARDS_COUNT = 7708;
     private static final int ID_SHOW_POLL_RESULTS = 114;
     private static final int ID_MSGMENU_GENERATE = 115;
     private static final int ID_GROUP_MESSAGE_MENU = 116;
@@ -1049,6 +1050,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     .setChecked(DevGramConfig.replaceEditedWithIcon));
             items.add(UItem.asCheck(ID_SHOW_ONLINE_STATUS, "Показывать онлайн на аватарах")
                     .setChecked(gPref("dg_showOnlineStatus", false)));
+            items.add(UItem.asCheck(ID_SHOW_FORWARDS_COUNT, "Показывать число пересылок")
+                    .setChecked(gPref("dg_showForwardsCount", false)));
             items.add(UItem.asCheck(ID_HIDE_SHARE_BUTTON, "Скрыть кнопку «Поделиться»")
                     .setChecked(DevGramConfig.hideShareButton));
             items.add(UItem.asCheck(ID_SHOW_POLL_RESULTS, "Показывать результаты опроса до голоса")
@@ -1784,6 +1787,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             DevGramConfig.setRecognitionAiPostProcessing(!DevGramConfig.isRecognitionAiPostProcessing());
         } else if (item.id == ID_SHOW_ONLINE_STATUS) {
             gToggle("dg_showOnlineStatus", false);
+            if (messagesPreview != null) messagesPreview.reloadMessages();
+        } else if (item.id == ID_SHOW_FORWARDS_COUNT) {
+            gToggle("dg_showForwardsCount", false);
             if (messagesPreview != null) messagesPreview.reloadMessages();
         } else if (item.id == ID_SHOW_POLL_RESULTS) {
             gToggle("dg_showPollResults", false);

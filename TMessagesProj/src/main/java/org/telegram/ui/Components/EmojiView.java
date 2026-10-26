@@ -4759,13 +4759,19 @@ public class EmojiView extends FrameLayout implements
 
     private void invalidateBlurCaptures(int flags) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && scrollableViewNoiseSuppressor != null) {
-            ViewPositionWatcher.computeRectInParent(typeTabs, this, blurredRectF);
-            blurredRectF.inset(
-                LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48),
-                LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48)
-            );
-            blurredRectF.right = getMeasuredWidth();
-            blurredRectF.bottom = Math.min(blurredRectF.bottom, getMeasuredHeight());
+            // без typeTabs (или если он не в иерархии) прямоугольник раньше оставался прошлым
+            // и каждый кадр расширялся ещё на 48dp — размытие росло и съедало память
+            View tabs = typeTabs != null ? typeTabs : bottomTabContainer;
+            if (tabs != null && ViewPositionWatcher.computeRectInParent(tabs, this, blurredRectF)) {
+                blurredRectF.inset(
+                    LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48),
+                    LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48)
+                );
+                blurredRectF.right = getMeasuredWidth();
+                blurredRectF.bottom = Math.min(blurredRectF.bottom, getMeasuredHeight());
+            } else {
+                blurredRectF.setEmpty();
+            }
 
             scrollableViewNoiseSuppressor.setupRenderNodes(blurredRectList, blurredRectF.isEmpty() ? 0 : 1);
             scrollableViewNoiseSuppressor.invalidateResultRenderNodes(blurCaptureMethod, getWidth(), getHeight());

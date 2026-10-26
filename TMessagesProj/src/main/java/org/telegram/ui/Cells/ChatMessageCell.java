@@ -1853,6 +1853,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     private float alphaInternal = 1f;
 
     public final TransitionParams transitionParams = new TransitionParams();
+    private final org.telegram.ui.Components.devgram.ForwardsCountUiHelper forwardsCountUiHelper = new org.telegram.ui.Components.devgram.ForwardsCountUiHelper();
     private boolean edited;
     private boolean imageDrawn;
     private boolean photoImageOutOfBounds;
@@ -6347,6 +6348,9 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     private boolean isUserDataChanged() {
         if (currentMessageObject != null && (!hasLinkPreview && MessageObject.getMedia(currentMessageObject.messageOwner) != null && MessageObject.getMedia(currentMessageObject.messageOwner).webpage instanceof TLRPC.TL_webPage)) {
+            return true;
+        }
+        if (currentMessageObject != null && forwardsCountUiHelper.isChanged(currentMessageObject, currentMessagesGroup)) {
             return true;
         }
         if (currentMessageObject == null || currentUser == null && currentChat == null) {
@@ -18773,6 +18777,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             float drawableWidth = Theme.chat_msgInViewsDrawable.getIntrinsicWidth() * (Theme.chat_timePaint.getTextSize() - dp(2)) / Theme.chat_msgInViewsDrawable.getIntrinsicHeight();
             timeWidth += viewsTextWidth + drawableWidth + dp(10);
         }
+        timeWidth += forwardsCountUiHelper.measure(getContext(), messageObject, currentMessagesGroup, !isInWelcomeMessages);
         if (messageObject.type == MessageObject.TYPE_EXTENDED_MEDIA_PREVIEW) {
             String str = formatString(R.string.PaymentCheckoutPay, LocaleController.getInstance().formatCurrencyString(messageObject.messageOwner.media.total_amount, messageObject.messageOwner.media.currency).toUpperCase(Locale.ROOT));
             currentUnlockString = str.length() >= 2 ? str.substring(0, 1).toUpperCase(Locale.ROOT) + str.substring(1).toLowerCase(Locale.ROOT) : str;
@@ -25059,6 +25064,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         float offsetX = reactionsLayoutInBubble.isSmall ? reactionsLayoutInBubble.getCurrentWidth(1f) : 0;
         int timeAlpha = Theme.chat_timePaint.getAlpha();
         float timeY = getTimeY(timeYOffset);
+        offsetX += forwardsCountUiHelper.draw(canvas, this, timeX, timeY, offsetX, alpha, progress, drawSelectionBackground);
         if (repliesLayout != null || transitionParams.animateReplies) {
             float repliesX = (transitionParams.shouldAnimateTimeX ? this.timeX : timeX) + offsetX;
             boolean inAnimation = transitionParams.animateReplies && transitionParams.animateRepliesLayout == null && repliesLayout != null;
@@ -27846,6 +27852,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         sb.append("\n");
                         sb.append(formatPluralString("AccDescrNumberOfViews", currentMessageObject.messageOwner.views));
                     }
+                    forwardsCountUiHelper.appendAccessibilityText(sb);
                     sb.append("\n");
 
                     CharacterStyle[] links = sb.getSpans(0, sb.length(), ClickableSpan.class);
@@ -28986,6 +28993,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             this.lastViewsCount = getMessageObject().messageOwner.views;
             lastRepliesLayout = repliesLayout;
             lastViewsLayout = viewsLayout;
+            forwardsCountUiHelper.recordDrawingState();
 
             lastIsPinned = isPinned;
 
@@ -29361,6 +29369,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
             boolean timeDrawablesIsChanged = false;
 
+            if (forwardsCountUiHelper.animateChange()) {
+                changed = true;
+                timeDrawablesIsChanged = true;
+                accessibilityText = null;
+            }
+
             if (lastIsPinned != isPinned) {
                 animatePinned = true;
                 changed = true;
@@ -29599,6 +29613,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             animateComments = false;
             animateCommentsLayout = null;
             animateViewsLayout = null;
+            forwardsCountUiHelper.resetAnimation();
             animateShouldDrawTimeOnMedia = false;
             animateShouldDrawMenuDrawable = false;
             shouldAnimateTimeX = false;
