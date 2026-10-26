@@ -233,16 +233,62 @@ public abstract class ExchangeRates {
         return CURRENCIES.contains(normalize(str));
     }
 
-    private static String localeCurrency() {
+    // Валюта страны: сначала по номеру телефона аккаунта, потом по стране системной локали.
+    // Раньше брали Locale.getDefault(): у языка приложения «ru» нет страны, Currency падал,
+    // и «своей» валютой становился USD — «4$=» переводилось в те же доллары и не показывалось.
+    private static String localeCurrency(int account) {
+        String byPhone = currencyByPhone(org.telegram.messenger.UserConfig.getInstance(account).getClientPhone());
+        if (byPhone != null) {
+            return byPhone;
+        }
+        java.util.Locale system = org.telegram.messenger.LocaleController.getInstance().getSystemDefaultLocale();
+        String currency = currencyOfCountry(system != null ? system.getCountry() : null);
+        return currency != null ? currency : "USD";
+    }
+
+    private static String currencyByPhone(String phone) {
+        if (phone == null || phone.isEmpty()) {
+            return null;
+        }
         try {
-            return java.util.Currency.getInstance(java.util.Locale.getDefault()).getCurrencyCode();
+            String digits = org.telegram.PhoneFormat.PhoneFormat.stripExceptNumbers(phone);
+            org.telegram.PhoneFormat.CallingCodeInfo info = digits.isEmpty() ? null : org.telegram.PhoneFormat.PhoneFormat.getInstance().findCallingCodeInfo(digits);
+            if (info == null || info.countries == null || info.countries.isEmpty()) {
+                return null;
+            }
+            // у одного кода бывает несколько стран (+7 — Россия и Казахстан): предпочитаем страну системы
+            String country = info.countries.get(0);
+            java.util.Locale system = org.telegram.messenger.LocaleController.getInstance().getSystemDefaultLocale();
+            String systemCountry = system != null ? system.getCountry() : null;
+            if (systemCountry != null && !systemCountry.isEmpty()) {
+                for (String c : info.countries) {
+                    if (systemCountry.equalsIgnoreCase(c)) {
+                        country = c;
+                        break;
+                    }
+                }
+            }
+            return country.startsWith("_") ? null : currencyOfCountry(country);
         } catch (Exception e) {
-            return "USD";
+            FileLog.e(e);
+            return null;
+        }
+    }
+
+    private static String currencyOfCountry(String country) {
+        if (country == null || country.isEmpty()) {
+            return null;
+        }
+        try {
+            java.util.Currency currency = java.util.Currency.getInstance(new java.util.Locale("", country.toUpperCase(Locale.ROOT)));
+            return currency != null ? currency.getCurrencyCode() : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 
     public static String getLocalCurrency(int i) {
-        String strNormalize = normalize(localeCurrency());
+        String strNormalize = normalize(localeCurrency(i));
         if (CURRENCIES.contains(strNormalize)) {
             return strNormalize;
         }
