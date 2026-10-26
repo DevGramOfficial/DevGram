@@ -328,6 +328,10 @@ public class MiniPlayerUiHelper implements NotificationCenter.NotificationCenter
 
     private int resolveCapsuleRadiusDp() {
         for (ViewParent parent = this.host.getParent(); parent != null; parent = parent.getParent()) {
+            // в профиле и списке чатов панель скруглена сильнее — карточка должна совпадать с подложкой
+            if (parent instanceof org.telegram.ui.Components.DialogsActivityTopPanelLayout) {
+                return ((org.telegram.ui.Components.DialogsActivityTopPanelLayout) parent).getDefaultRadiusDp();
+            }
             if (parent instanceof ChatActivityTopPanelLayout) {
                 return 18;
             }

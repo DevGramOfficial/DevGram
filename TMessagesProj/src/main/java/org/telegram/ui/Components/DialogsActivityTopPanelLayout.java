@@ -77,6 +77,10 @@ public class DialogsActivityTopPanelLayout extends AnimatedLinearLayout {
         this.defaultRadiusDp = defaultRadius;
     }
 
+    public int getDefaultRadiusDp() {
+        return defaultRadiusDp;
+    }
+
     public void updateColors() {
         if (backgroundDrawable != null) {
             backgroundDrawable.updateColors();
