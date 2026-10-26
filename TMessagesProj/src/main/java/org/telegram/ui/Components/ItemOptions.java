@@ -2045,6 +2045,11 @@ public class ItemOptions {
 
     /** Выбор начинается, только когда палец сдвинулся дальше порога — простое отпускание ничего не нажимает. */
     private boolean isHoverArmed(MotionEvent event) {
+        if (!hoverArmed && isOutsideSource(event)) {
+            // палец уже ушёл с кнопки, от которой открыли меню, — значит, он ведёт по меню;
+            // раньше порог считался от первого движения, и быстрый рывок с отпусканием на пункте не выбирал его
+            hoverArmed = true;
+        }
         if (!hoverArmed) {
             if (Float.isNaN(hoverStartX)) {
                 hoverStartX = event.getRawX();
@@ -2054,6 +2059,18 @@ public class ItemOptions {
             }
         }
         return hoverArmed;
+    }
+
+    private boolean isOutsideSource(MotionEvent event) {
+        if (scrimView == null || !scrimView.isAttachedToWindow()) {
+            return false;
+        }
+        int[] location = new int[2];
+        scrimView.getLocationOnScreen(location);
+        int slop = android.view.ViewConfiguration.get(scrimView.getContext()).getScaledTouchSlop();
+        float x = event.getRawX(), y = event.getRawY();
+        return x < location[0] - slop || x > location[0] + scrimView.getWidth() + slop
+                || y < location[1] - slop || y > location[1] + scrimView.getHeight() + slop;
     }
 
     private void resetHoverArming() {
