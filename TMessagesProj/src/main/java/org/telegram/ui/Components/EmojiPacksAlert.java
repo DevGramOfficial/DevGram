@@ -1461,6 +1461,8 @@ public class EmojiPacksAlert extends BottomSheet implements NotificationCenter.N
         }
     }
 
+    private boolean refreshingSet;
+
     private void onSubItemClick(int id) {
         if (customEmojiPacks == null || customEmojiPacks.stickerSets == null || customEmojiPacks.stickerSets.isEmpty()) {
             return;
@@ -1471,6 +1473,49 @@ public class EmojiPacksAlert extends BottomSheet implements NotificationCenter.N
             stickersUrl = "https://" + MessagesController.getInstance(currentAccount).linkPrefix + "/addemoji/" + stickerSet.set.short_name;
         } else {
             stickersUrl = "https://" + MessagesController.getInstance(currentAccount).linkPrefix + "/addstickers/" + stickerSet.set.short_name;
+        }
+        if (id == 4) {
+            // обновить пак с сервера: новые эмодзи появляются без переустановки
+            if (refreshingSet || stickerSet.set == null) {
+                return;
+            }
+            refreshingSet = true;
+            TLRPC.TL_messages_getStickerSet req = new TLRPC.TL_messages_getStickerSet();
+            req.stickerset = MediaDataController.getInputStickerSet(stickerSet.set);
+            ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+                refreshingSet = false;
+                if (!isShowing()) {
+                    return;
+                }
+                if (!(response instanceof TLRPC.TL_messages_stickerSet)) {
+                    BulletinFactory.of((FrameLayout) containerView, resourcesProvider).createErrorBulletin(LocaleController.getString(R.string.ErrorOccurred)).show();
+                    return;
+                }
+                TLRPC.TL_messages_stickerSet updated = (TLRPC.TL_messages_stickerSet) response;
+                MediaDataController.getInstance(currentAccount).putStickerSet(updated);
+                customEmojiPacks.stickerSets.set(0, updated);
+                customEmojiPacks.putStickerSet(0, updated);
+                customEmojiPacks.onUpdate();
+            }));
+            return;
+        }
+        if (id == 3) {
+            // создатель пака: его ID зашит в ID набора
+            if (stickerSet.set == null) {
+                return;
+            }
+            long ownerId = org.telegram.messenger.devgram.media.DevGramChatUtils.extractOwnerId(stickerSet.set.id);
+            TLRPC.User owner = MessagesController.getInstance(currentAccount).getUser(ownerId);
+            if (owner != null && fragment != null) {
+                android.os.Bundle args = new android.os.Bundle();
+                args.putLong("user_id", ownerId);
+                dismiss();
+                fragment.presentFragment(new ProfileActivity(args));
+            } else {
+                AndroidUtilities.addToClipboard(String.valueOf(ownerId));
+                BulletinFactory.of((FrameLayout) containerView, resourcesProvider).createCopyBulletin(LocaleController.getString(R.string.ChannelCreator) + ": ID " + ownerId).show();
+            }
+            return;
         }
         if (id == 1) {
             Context context = null;
@@ -1729,6 +1774,8 @@ public class EmojiPacksAlert extends BottomSheet implements NotificationCenter.N
                 addView(optionsButton, LayoutHelper.createFrame(40, 40, Gravity.TOP | Gravity.RIGHT, 0, 5, 5 - backgroundPaddingLeft / AndroidUtilities.density, 0));
                 optionsButton.addSubItem(1, R.drawable.msg_share, LocaleController.getString(R.string.StickersShare));
                 optionsButton.addSubItem(2, R.drawable.msg_link, LocaleController.getString(R.string.CopyLink));
+                optionsButton.addSubItem(3, R.drawable.msg_openprofile, LocaleController.getString(R.string.ChannelCreator));
+                optionsButton.addSubItem(4, R.drawable.msg_retry, LocaleController.getString(R.string.Refresh));
                 optionsButton.setOnClickListener(v -> optionsButton.toggleSubMenu());
                 optionsButton.setDelegate(EmojiPacksAlert.this::onSubItemClick);
                 optionsButton.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
