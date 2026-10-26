@@ -1856,6 +1856,81 @@ public class ItemOptions {
     private androidx.recyclerview.widget.RecyclerView hoverListView;
     private androidx.recyclerview.widget.RecyclerView.OnItemTouchListener hoverItemTouchListener;
 
+    /** Ведём палец по произвольному меню (ActionBarPopupWindowLayout): подсветка и нажатие при отпускании. */
+    public static boolean dispatchCapturedTouchEvent(android.view.ViewGroup menu, MotionEvent event) {
+        boolean clicked = false;
+        if (menu == null || menu.getParent() == null) {
+            return false;
+        }
+        MotionEvent copy = MotionEvent.obtain(event);
+        int[] location = new int[2];
+        menu.getLocationOnScreen(location);
+        copy.offsetLocation(-location[0], -location[1]);
+        menu.dispatchTouchEvent(copy);
+        if (event.getAction() == MotionEvent.ACTION_MOVE) {
+            highlightViewsAt(menu, event.getRawX(), event.getRawY());
+        } else if (event.getAction() == MotionEvent.ACTION_UP) {
+            clicked = clickViewAt(menu, event.getRawX(), event.getRawY());
+            clearPressedViews(menu);
+        } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+            clearPressedViews(menu);
+        }
+        copy.recycle();
+        return clicked;
+    }
+
+    private static void highlightViewsAt(android.view.ViewGroup group, float x, float y) {
+        int[] loc = new int[2];
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child == null || child.getVisibility() != View.VISIBLE) continue;
+            child.getLocationOnScreen(loc);
+            boolean inside = x >= loc[0] && x <= loc[0] + child.getWidth() && y >= loc[1] && y <= loc[1] + child.getHeight();
+            if (child.isClickable()) {
+                if (inside && !child.isPressed()) {
+                    child.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP, android.view.HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+                }
+                if (child.isPressed() != inside) {
+                    child.setPressed(inside);
+                }
+                if (inside) {
+                    child.drawableHotspotChanged(x - loc[0], y - loc[1]);
+                }
+            }
+            if (child instanceof android.view.ViewGroup) {
+                highlightViewsAt((android.view.ViewGroup) child, x, y);
+            }
+        }
+    }
+
+    private static boolean clickViewAt(android.view.ViewGroup group, float x, float y) {
+        int[] loc = new int[2];
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child == null || child.getVisibility() != View.VISIBLE) continue;
+            child.getLocationOnScreen(loc);
+            if (x >= loc[0] && x <= loc[0] + child.getWidth() && y >= loc[1] && y <= loc[1] + child.getHeight()) {
+                if (child.isClickable()) {
+                    child.performClick();
+                    return true;
+                }
+                if (child instanceof android.view.ViewGroup && clickViewAt((android.view.ViewGroup) child, x, y)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void clearPressedViews(android.view.ViewGroup group) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child == null) continue;
+            if (child.isPressed()) child.setPressed(false);
+            if (child instanceof android.view.ViewGroup) clearPressedViews((android.view.ViewGroup) child);
+        }
+    }
+
     /** Меню на экране: в своём окне или встроено в другой диалог (ScrimOptions). */
     private boolean canHandleCapturedTouch() {
         if (layout == null) {

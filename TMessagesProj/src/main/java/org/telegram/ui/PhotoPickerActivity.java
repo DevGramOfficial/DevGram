@@ -1072,6 +1072,17 @@ public class PhotoPickerActivity extends BaseFragment implements NotificationCen
                     sendSelectedPhotos(true, 0, 0);
                 }
             });
+            writeButton.setOnTouchListener((v, event) -> {
+                // палец после долгого нажатия ведёт по меню отправки
+                if (sendPopupWindow == null || !sendPopupWindow.isShowing() || sendPopupLayout == null) {
+                    return false;
+                }
+                if (v.getParent() != null) {
+                    v.getParent().requestDisallowInterceptTouchEvent(true);
+                }
+                org.telegram.ui.Components.ItemOptions.dispatchCapturedTouchEvent(sendPopupLayout, event);
+                return false;
+            });
             writeButton.setOnLongClickListener(view -> {
                 if (chatActivity == null || maxSelectedPhotos == 1) {
                     return false;
