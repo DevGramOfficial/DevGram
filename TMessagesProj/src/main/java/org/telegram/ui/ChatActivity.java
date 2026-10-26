@@ -1488,7 +1488,41 @@ public class ChatActivity extends BaseFragment implements
         if (obj.isForwarded()) {
             sb.append("\nПереслано");
         }
-        final String text = sb.toString();
+        if (obj.isVoice() || obj.isRoundVideo() || obj.isPhoto()) {
+            java.io.File file = getFileLoader().getPathToMessage(obj.messageOwner);
+            if (file != null && file.exists()) {
+                final String path = file.getAbsolutePath();
+                Utilities.globalQueue.postRunnable(() -> {
+                    String platform = null;
+                    try {
+                        if (obj.isVoice()) {
+                            platform = org.telegram.messenger.devgram.media.MediaUtils.getVoicePlatform(org.telegram.messenger.devgram.media.OpusFingerprint.parse(path));
+                        } else if (obj.isRoundVideo()) {
+                            platform = org.telegram.messenger.devgram.media.MediaUtils.getRoundVideoPlatform(org.telegram.messenger.devgram.media.Mp4Fingerprint.parse(path));
+                        } else {
+                            platform = org.telegram.messenger.devgram.media.MediaUtils.getPhotoPlatform(org.telegram.messenger.devgram.media.JpegFingerprint.parse(path));
+                        }
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                    final String found = platform;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (!TextUtils.isEmpty(found)) {
+                            sb.append("\nОтправлено с: ").append(found);
+                        }
+                        devgramShowMessageDetailsDialog(sb.toString());
+                    });
+                });
+                return;
+            }
+        }
+        devgramShowMessageDetailsDialog(sb.toString());
+    }
+
+    private void devgramShowMessageDetailsDialog(String text) {
+        if (getParentActivity() == null) {
+            return;
+        }
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
         b.setTitle("Детали сообщения");
         b.setMessage(text);
