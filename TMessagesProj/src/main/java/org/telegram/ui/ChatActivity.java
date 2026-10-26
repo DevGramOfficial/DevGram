@@ -32870,7 +32870,8 @@ public class ChatActivity extends BaseFragment implements
             final boolean isReactionsAvailableFinal = !suggestEdit && isReactionsAvailable;
 
             int flags = 0;
-            if (isReactionsViewAvailable || showMessageSeen || showSponsorInfo) {
+            // DevGram: «Подробности» открываются подменю — без swipe-back меню падало (например, в Избранном)
+            if (isReactionsViewAvailable || showMessageSeen || showSponsorInfo || options.contains(OPTION_DEVGRAM_DETAILS)) {
                 flags |= ActionBarPopupWindow.ActionBarPopupWindowLayout.FLAG_USE_SWIPEBACK;
             }
 
@@ -33681,7 +33682,7 @@ public class ChatActivity extends BaseFragment implements
                         }
                         processSelectedOption(options.get(i));
                     });
-                    if (option == OPTION_DEVGRAM_DETAILS && selectedObject != null) {
+                    if (option == OPTION_DEVGRAM_DETAILS && selectedObject != null && popupLayout.getSwipeBack() != null) {
                         // подробности открываются подменю внутри того же меню
                         final MessageObject detailsObject = selectedObject;
                         final int detailsIndex = popupLayout.addViewToSwipeBack(new org.telegram.messenger.devgram.media.MessageDetailsPopupWrapper(this, popupLayout.getSwipeBack(), detailsObject, themeDelegate) {
