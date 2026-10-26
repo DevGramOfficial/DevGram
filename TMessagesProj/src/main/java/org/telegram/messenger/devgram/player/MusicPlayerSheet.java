@@ -414,7 +414,7 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
         clippingTextViewSwitcher.setPivotX(0.0f);
         clippingTextViewSwitcher.setPivotY(0.0f);
         playerLayout.addOwnView(clippingTextViewSwitcher);
-        AnonymousClass7 anonymousClass7 = new AnonymousClass7(context, context);
+        AnonymousClass7 anonymousClass7 = new AnonymousClass7(context);
         this.artistView = anonymousClass7;
         anonymousClass7.setPivotX(0.0f);
         anonymousClass7.setPivotY(0.0f);
@@ -635,17 +635,15 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
         }
     }
     public class AnonymousClass7 extends AudioPlayerAlert.ClippingTextViewSwitcher {
-        final /* synthetic */ Context val$context;
 
-        /* JADX WARN: 'super' call moved to the top of the method (can break code semantics) */
-        public AnonymousClass7(Context context, Context context2) {
+        public AnonymousClass7(Context context) {
             super(context);
-            this.val$context = context2;
         }
 
         @Override
         public TextView createTextView() {
-            final TextView textView = new TextView(this.val$context);
+            // вызывается из конструктора родителя — берём контекст самой вьюшки, поля ещё не заданы
+            final TextView textView = new TextView(getContext());
             textView.setTextSize(1, 15.0f);
             textView.setTypeface(AndroidUtilities.regular());
             textView.setPadding(AndroidUtilities.dp(6.0f), 0, AndroidUtilities.dp(6.0f), 0);
