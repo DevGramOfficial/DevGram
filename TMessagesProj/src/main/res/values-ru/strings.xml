@@ -622,4 +622,11 @@
     <string name="PhotoUploadFailed">Не удалось загрузить фото</string>
     <string name="SearchPhotoInfo">Сервисы могут использовать изображения в соответствии со своими политиками конфиденциальности и условиями.</string>
     <string name="SentFrom">Отправлено с %1$s</string>
+    <string name="Datacenter">Дата-центр</string>
+    <string name="Date">Дата</string>
+    <string name="EditedDate">Дата изменения</string>
+    <string name="ForwardedDate">Дата пересылки</string>
+    <string name="MimeType">MIME-тип</string>
+    <string name="Platform">Платформа</string>
+    <string name="Resolution">Разрешение</string>
 </resources>

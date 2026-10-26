@@ -12088,4 +12088,11 @@
     <string name="PhotoUploadFailed">Failed to upload photo.</string>
     <string name="SearchPhotoInfo">Services can use images following their privacy policies and terms of use.</string>
     <string name="SentFrom">Sent from %1$s</string>
+    <string name="Datacenter">Datacenter</string>
+    <string name="Date">Date</string>
+    <string name="EditedDate">Edit Date</string>
+    <string name="ForwardedDate">Forward Date</string>
+    <string name="MimeType">Mime Type</string>
+    <string name="Platform">Platform</string>
+    <string name="Resolution">Resolution</string>
 </resources>

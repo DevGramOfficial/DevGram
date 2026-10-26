@@ -33681,6 +33681,25 @@ public class ChatActivity extends BaseFragment implements
                         }
                         processSelectedOption(options.get(i));
                     });
+                    if (option == OPTION_DEVGRAM_DETAILS && selectedObject != null) {
+                        // подробности открываются подменю внутри того же меню
+                        final MessageObject detailsObject = selectedObject;
+                        final int detailsIndex = popupLayout.addViewToSwipeBack(new org.telegram.messenger.devgram.media.MessageDetailsPopupWrapper(this, popupLayout.getSwipeBack(), detailsObject, themeDelegate) {
+                            @Override
+                            public void copy(String text) {
+                                if (AndroidUtilities.addToClipboard(text)) {
+                                    BulletinFactory.of(Bulletin.BulletinWindow.make(getParentActivity()), themeDelegate).createCopyBulletin(LocaleController.getString(R.string.TextCopied)).show();
+                                }
+                            }
+
+                            @Override
+                            public void closeMenu() {
+                                ChatActivity.this.closeMenu();
+                            }
+                        }.swipeBack);
+                        cell.setRightIcon(R.drawable.msg_arrowright);
+                        cell.setOnClickListener(v1 -> popupLayout.getSwipeBack().openForeground(detailsIndex));
+                    }
                     if (option == OPTION_TRANSLATE) {
                         final boolean translateEnabled = getMessagesController().getTranslateController().isContextTranslateEnabled();
                         String toLangDefault = LocaleController.getInstance().getCurrentLocale().getLanguage();
@@ -48670,7 +48689,7 @@ public class ChatActivity extends BaseFragment implements
                 icons.add(R.drawable.msg_clearcache);
             }
             if (!options.contains(OPTION_DEVGRAM_DETAILS)) {
-                items.add("Детали");
+                items.add(LocaleController.getString(R.string.Details));
                 options.add(OPTION_DEVGRAM_DETAILS);
                 icons.add(R.drawable.msg_info);
             }
