@@ -46,24 +46,36 @@ public class DevGramPluginInstallSheet {
     public static void showPackage(BaseFragment fragment, String path, long sourceDialogId, org.telegram.messenger.MessageObject originMessage) {
         Context context = fragment.getParentActivity();
         if (context == null || path == null) return;
-        String validationError = DevGramPlugins.packageValidationError(path);
-        if (!validationError.isEmpty()) {
-            org.telegram.ui.Components.BulletinFactory.of(fragment)
-                    .createErrorBulletin(validationError).show();
-            return;
-        }
-        String[] m = DevGramPlugins.packageMeta(path).split("\u001f", -1);
+        // разбор архива и хеш — в фоне: на больших пакетах это заметная пауза главного потока
+        org.telegram.messenger.Utilities.globalQueue.postRunnable(() -> {
+            String validationError = DevGramPlugins.packageValidationError(path);
+            String meta = validationError.isEmpty() ? DevGramPlugins.packageMeta(path) : null;
+            String capabilities = validationError.isEmpty() ? DevGramPlugins.packageMainSource(path) : null;
+            String pkgSha = validationError.isEmpty() ? org.telegram.messenger.DevGramPackages.sha256File(new java.io.File(path)) : null;
+            AndroidUtilities.runOnUIThread(() -> {
+                if (fragment.getParentActivity() == null) return;
+                if (!validationError.isEmpty()) {
+                    org.telegram.ui.Components.BulletinFactory.of(fragment)
+                            .createErrorBulletin(validationError).show();
+                    return;
+                }
+                showPackageCard(fragment, path, sourceDialogId, originMessage, meta, capabilities, pkgSha);
+            });
+        });
+    }
+
+    private static void showPackageCard(BaseFragment fragment, String path, long sourceDialogId,
+                                        org.telegram.messenger.MessageObject originMessage,
+                                        String meta, String capabilities, String pkgSha) {
+        String[] m = meta.split("\u001f", -1);
         final String id = m.length > 0 ? m[0] : "";
         String name = m.length > 1 && !m[1].isEmpty() ? m[1] : (id.isEmpty() ? "Плагин" : id);
         String ver = m.length > 2 ? m[2] : "";
         String author = m.length > 3 ? m[3] : "";
         String desc = m.length > 4 ? m[4] : "";
         String iconUrl = m.length > 5 ? m[5] : "";
-        // возможности сканируем по входному файлу архива (как по исходнику у .plugin)
-        String capabilities = DevGramPlugins.packageMainSource(path);
         // у пакета нет единого «source»-текста для реестра/каталога — verifySource=null:
         // это отключает source-зависимые кнопки (проверка/публикация), карточка при этом та же.
-        String pkgSha = org.telegram.messenger.DevGramPackages.sha256File(new java.io.File(path));
         showCard(fragment, id, name, ver, author, desc, iconUrl,
                 org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId, new java.io.File(path)),
                 originMessage, new java.io.File(path),
@@ -91,13 +103,25 @@ public class DevGramPluginInstallSheet {
         if (context == null || source == null) {
             return;
         }
-        String foreign = DevGramPlugins.foreignPlatform(source);
+        org.telegram.messenger.Utilities.globalQueue.postRunnable(() -> {
+            String foreign = DevGramPlugins.foreignPlatform(source);
+            String meta = foreign == null || foreign.isEmpty() ? DevGramPlugins.parseMeta(source) : null;
+            String hash = DevGramPlugins.sha256(source);
+            AndroidUtilities.runOnUIThread(() -> {
+                if (fragment.getParentActivity() == null) return;
+                showSourceCard(fragment, source, sourceDialogId, originMessage, localFile, foreign, meta, hash);
+            });
+        });
+    }
+
+    private static void showSourceCard(BaseFragment fragment, String source, long sourceDialogId,
+                                       org.telegram.messenger.MessageObject originMessage, java.io.File localFile,
+                                       String foreign, String meta, String hash) {
         if (foreign != null && !foreign.isEmpty()) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
                     .createErrorBulletin("Это плагин для " + foreign + " — в DevGram он не работает").show();
             return;
         }
-        String meta = DevGramPlugins.parseMeta(source);
         if (meta == null || meta.isEmpty()) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
                     .createErrorBulletin("Это не похоже на плагин DevGram").show();
@@ -114,7 +138,7 @@ public class DevGramPluginInstallSheet {
         showCard(fragment, id, name, ver, author, desc, iconUrl,
                 org.telegram.messenger.DevGramPluginOrigin.originDialog(originMessage, sourceDialogId, localFile),
                 originMessage, localFile,
-                source, DevGramPlugins.sha256(source), source, null,
+                source, hash, source, null,
                 enableAfter -> DevGramPlugins.install(fSource, id, enableAfter));
     }
 
@@ -247,16 +271,24 @@ public class DevGramPluginInstallSheet {
         warn.addView(warnText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         root.addView(warn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 18, 0, 0));
 
-        // ---- что умеет плагин (по коду) ----
-        java.util.ArrayList<org.telegram.messenger.DevGramPluginInfo.Capability> caps =
-                org.telegram.messenger.DevGramPluginInfo.capabilities(capabilitiesSource);
-        if (!caps.isEmpty()) {
-            LinearLayout capsCard = infoCard(context);
-            capsCard.addView(cardTitle(context, "Что умеет плагин"));
-            org.telegram.ui.Components.DevGramPluginInfoViews.addCapabilities(context, capsCard, caps);
-            org.telegram.ui.Components.DevGramPluginInfoViews.makeCollapsible(capsCard, false);
-            root.addView(capsCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
-        }
+        // ---- статический анализ кода: идёт в фоне, по готовности открывается отчёт ----
+        final org.telegram.ui.Components.devgram.PluginAnalysisViews.SummaryView analysisView =
+                new org.telegram.ui.Components.devgram.PluginAnalysisViews.SummaryView(context, fragment.getResourceProvider());
+        android.widget.FrameLayout analysisCard = new android.widget.FrameLayout(context);
+        analysisCard.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), Theme.getColor(Theme.key_windowBackgroundGray)));
+        analysisCard.setClipToOutline(true);
+        analysisCard.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View v, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, v.getWidth(), v.getHeight(), AndroidUtilities.dp(18));
+            }
+        });
+        analysisCard.addView(analysisView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        root.addView(analysisCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
+        final boolean[] analysisRunning = {true};
+        final boolean[] riskAcknowledged = {false};
+        final org.telegram.messenger.devgram.plugins.PluginAnalysisReport[] analysisReport = {null};
+        final java.util.List<org.telegram.messenger.devgram.plugins.PluginAnalysisReport.Statement>[] analysisNew = new java.util.List[]{null};
 
         // ---- сведения ----
         java.io.File infoFile = packagePath != null ? new java.io.File(packagePath) : localFile;
@@ -337,11 +369,25 @@ public class DevGramPluginInstallSheet {
             } else if (blockState[0]) {
                 installRef.setText("⛔ Установка заблокирована");
                 installRef.setEnabled(false);
+            } else if (analysisRunning[0]) {
+                installRef.setText("Проверяем код…");
+                installRef.setEnabled(false);
+            } else if (needsRiskAcknowledgement(analysisReport[0], vv, riskAcknowledged[0])) {
+                int danger = org.telegram.ui.Components.devgram.PluginAnalysisViews.severityColor(
+                        org.telegram.messenger.devgram.plugins.PluginAnalysisReport.SEVERITY_CRITICAL, fragment.getResourceProvider());
+                installRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18), danger,
+                        Theme.multAlpha(danger, .8f)));
+                installRef.setText("Посмотреть отчёт");
+                installRef.setEnabled(true);
+                return;
             } else {
                 installRef.setText(installed ? "Обновить плагин"
                         : (vv ? "Установить плагин" : "Установить неизвестный плагин"));
                 installRef.setEnabled(true);
             }
+            installRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
+                    Theme.getColor(Theme.key_featuredStickers_addButton),
+                    Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
         };
 
         final boolean team = org.telegram.messenger.DevGramBadges.isTeam(fragment.getUserConfig().getClientUserId());
@@ -675,7 +721,12 @@ public class DevGramPluginInstallSheet {
                         .createErrorBulletin(installed ? "Не удалось обновить плагин" : "Не удалось установить плагин").show();
             }
         };
+        final Runnable[] openReport = new Runnable[1];
         install.setOnClickListener(v -> {
+            if (needsRiskAcknowledgement(analysisReport[0], vState[0], riskAcknowledged[0])) {
+                openReport[0].run();
+                return;
+            }
             install.setEnabled(false);
             install.setText("Проверяю блокировку…");
             DevGramPluginBlocks.check(id, verifyHash, blockFingerprint, status -> {
@@ -696,8 +747,33 @@ public class DevGramPluginInstallSheet {
             });
         });
 
+        openReport[0] = () -> {
+            if (analysisReport[0] == null) return;
+            boolean confirm = needsRiskAcknowledgement(analysisReport[0], vState[0], riskAcknowledged[0]);
+            new org.telegram.ui.Components.devgram.PluginAnalysisReportSheet(fragment, analysisReport[0], analysisNew[0],
+                    confirm ? (installed ? "Понимаю риски, обновить" : "Понимаю риски, установить") : null,
+                    confirm ? () -> {
+                        riskAcknowledged[0] = true;
+                        applyBlock.run();
+                        install.performClick();
+                    } : null).show();
+        };
         sheet.show();
         refreshBlock[0].run();
+        java.io.File previous = installed ? DevGramPlugins.pluginInstalledFile(id) : null;
+        org.telegram.messenger.devgram.plugins.PluginAnalyzer.analyze(
+                packagePath == null ? capabilitiesSource : null, packagePath, name + ".plugin",
+                previous != null ? previous.getAbsolutePath() : null, result -> {
+                    analysisRunning[0] = false;
+                    if (result.status == org.telegram.messenger.devgram.plugins.PluginAnalyzer.STATUS_OK && result.report != null) {
+                        analysisReport[0] = result.report;
+                        analysisNew[0] = result.newStatements;
+                        analysisView.setReport(result.report, result.newStatements.size(), v -> openReport[0].run());
+                    } else {
+                        analysisView.setFailed(result.status);
+                    }
+                    if (sheet.isShowing()) applyBlock.run();
+                });
 
         // Пересланный/перезалитый файл: ищем его в каналах-разработчиках (🧩) — по id документа
         // или по содержимому (SHA-256 копии из поста совпадает с нашим файлом)
@@ -709,6 +785,13 @@ public class DevGramPluginInstallSheet {
                 applyBlock.run();
             });
         }
+    }
+
+    // Критичный отчёт у непроверенного плагина: перед установкой нужно открыть отчёт и подтвердить риск.
+    private static boolean needsRiskAcknowledgement(org.telegram.messenger.devgram.plugins.PluginAnalysisReport report,
+                                                    boolean trusted, boolean acknowledged) {
+        return report != null && !trusted && !acknowledged
+                && report.maxSeverity >= org.telegram.messenger.devgram.plugins.PluginAnalysisReport.SEVERITY_CRITICAL;
     }
 
     private static LinearLayout infoCard(Context context) {

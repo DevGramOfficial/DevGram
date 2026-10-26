@@ -77,6 +77,11 @@ public final class DevGramSensitiveRequests {
         TITLES.put(name, title);
     }
 
+    /** Имена TL-классов опасных запросов — для статического анализа плагинов. */
+    public static String[] names() {
+        return CATEGORIES.keySet().toArray(new String[0]);
+    }
+
     public interface Result {
         void run(boolean allowed);
     }
