@@ -59,6 +59,25 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         // что и MD3-навигация — см. DevGramMaterial3.iosNavigation()/mainTabsHeightDp().
         return DevGramMaterial3.navigationEnabled() || DevGramMaterial3.iosNavigation();
     }
+    /** Нижняя панель без подписей: только иконки по центру. */
+    public static boolean hideLabels() {
+        return org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("dg_hideNavLabels", false);
+    }
+
+    private static float iconTopDp() {
+        if (material3Navigation()) {
+            return hideLabels() ? (DevGramMaterial3.mainTabsHeightDp() - 32) / 2f + 4 : 10;
+        }
+        return hideLabels() ? 12 : 4;
+    }
+
+    private void applyLabelVisibility() {
+        if (hideLabels()) {
+            textView.setVisibility(GONE);
+            setContentDescription(textView.getText());
+        }
+    }
+
     private final TextView textView;
     private final RLottieImageView imageView;
     private BackupImageView backupImageView;
@@ -166,7 +185,8 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
                 float width = Math.min(dp(56), Math.max(0, viewWidth - dp(8)));
                 float height = Math.min(dp(32), getHeight());
                 float left = (viewWidth - width) / 2f;
-                tmpRectF.set(left, dp(6), left + width, dp(6) + height);
+                float top = hideLabels() ? (getHeight() - height) / 2f : dp(6);
+                tmpRectF.set(left, top, left + width, top + height);
             } else {
                 tmpRectF.set(0, 0, viewWidth, getHeight());
             }
@@ -192,7 +212,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
 
             final float gap = dpf2(1.33f);
             final float cx = viewWidth / 2f + dpf2(11);
-            final float cy = dpf2(material3Navigation() ? 16 : 10);
+            final float cy = dpf2(iconTopDp() + 6);
             final float height = dpf2(16);
             final float width = Math.max(height, counter.getCurrentWidth() + dp(8));
             final float rOuter = dpf2(9.333f);
@@ -422,9 +442,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         tab.tabAnimation = tabAnimation;
         tab.textView.setText(LocaleController.getString(stringRes));
         tab.checkPlayAnimation(false);
-        tab.imageView.setLayoutParams(LayoutHelper.createFrame(24, 24, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 4, 0, 0));
+        tab.imageView.setLayoutParams(LayoutHelper.createFrame(24, 24, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, iconTopDp(), 0, 0));
+        tab.applyLabelVisibility();
         if (material3Navigation()) {
-            tab.imageView.setLayoutParams(LayoutHelper.createFrame(24, 24, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 10, 0, 0));
             tab.textView.setIncludeFontPadding(false);
             tab.textView.setLetterSpacing(0.04166667f);
             tab.textView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 16, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 42, 0, 0));
@@ -449,9 +469,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         backupImageView.setRoundRadius(dp(11));
         tab.backupImageView = backupImageView;
 
-        tab.addView(backupImageView, LayoutHelper.createFrame(22, 22, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 5, 0, 0));
+        tab.addView(backupImageView, LayoutHelper.createFrame(22, 22, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, iconTopDp() + 1, 0, 0));
+        tab.applyLabelVisibility();
         if (material3Navigation()) {
-            backupImageView.setLayoutParams(LayoutHelper.createFrame(22, 22, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 11, 0, 0));
             tab.textView.setIncludeFontPadding(false);
             tab.textView.setLetterSpacing(0.04166667f);
             tab.textView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 16, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 42, 0, 0));
