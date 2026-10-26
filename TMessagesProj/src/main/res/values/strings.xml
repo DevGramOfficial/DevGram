@@ -6101,6 +6101,7 @@
     <string name="DevGramNoSuchSetting">Такой настройки нет</string>
     <!-- DevGram: скрытые (запароленные) чаты -->
     <string name="DevGramLockedChats">Безопасность</string>
+    <string name="DevGramProfileActionsMore">Ещё</string>
     <string name="DevGramLockedChatsInfo">Спрячьте выбранные чаты из списка. Они откроются только после разблокировки — по пасскоду или отпечатку/лицу.</string>
     <string name="DevGramLockedChatsHide">Скрыть чат</string>
     <string name="DevGramLockedChatsShow">Показать чат</string>

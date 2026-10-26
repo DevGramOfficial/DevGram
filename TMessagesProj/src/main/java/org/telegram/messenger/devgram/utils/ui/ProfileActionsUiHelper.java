@@ -9,7 +9,6 @@ import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
 
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.Components.DevGramMaterial3;
 import org.telegram.ui.Components.Text;
@@ -21,7 +20,8 @@ public final class ProfileActionsUiHelper {
     }
 
     public static boolean isMaterial3Style() {
-        return DevGramMaterial3.profileButtonsEnabled() && !DevGramConfig.iosProfile;
+        // явно включённый стиль перекрывает круглые iOS-кнопки
+        return DevGramMaterial3.profileButtonsEnabled();
     }
 
     /** Высота полосы кнопок под шапкой профиля. */
