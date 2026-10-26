@@ -1783,6 +1783,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         playlist.clear();
         playlistMap.clear();
         shuffledPlaylist.clear();
+        detachedPlayingObject = null;
+        detachedAnchor = null;
         playlistClassGuid = 0;
         playlistEndReached[0] = playlistEndReached[1] = false;
         playlistMergeDialogId = 0;
@@ -2068,6 +2070,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     int newIndex = playlist.indexOf(playingMessageObject);
                     if (newIndex >= 0) {
                         currentPlaylistNum = newIndex;
+                    } else if (isPlayingDetached()) {
+                        restoreDetachedIndex(playlist);
                     } else {
                         if (currentPlaylistNum < 0 || currentPlaylistNum >= playlist.size()) {
                             currentPlaylistNum = 0;
@@ -2844,10 +2848,15 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         ArrayList<MessageObject> all = new ArrayList<>(playlist);
         shuffledPlaylist.clear();
 
+        boolean detached = isPlayingDetached();
+        int currentIndex = playingMessageObject != null ? playlist.indexOf(playingMessageObject) : -1;
+        if (currentIndex < 0) {
+            currentIndex = currentPlaylistNum;
+        }
         MessageObject messageObject = null;
-        if (currentPlaylistNum >= 0 && currentPlaylistNum < playlist.size()) {
-            messageObject = playlist.get(currentPlaylistNum);
-            all.remove(currentPlaylistNum);
+        if (!detached && currentIndex >= 0 && currentIndex < playlist.size()) {
+            messageObject = playlist.get(currentIndex);
+            all.remove(currentIndex);
         }
 
         int count = all.size();
@@ -2859,6 +2868,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         if (messageObject != null) {
             shuffledPlaylist.add(messageObject);
             currentPlaylistNum = shuffledPlaylist.size() - 1;
+        } else if (detached) {
+            // удалённый из очереди трек доигрывает сам по себе, дальше — весь перемешанный список
+            currentPlaylistNum = shuffledPlaylist.size();
+            detachedAnchor = null;
         }
     }
 
@@ -3084,12 +3097,16 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private void playNextMessageWithoutOrder(boolean byStop) {
         ArrayList<MessageObject> currentPlayList = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
 
-        if (byStop && (SharedConfig.repeatMode == 2 || SharedConfig.repeatMode == 1 && currentPlayList.size() == 1) && !forceLoopCurrentPlaylist) {
+        boolean detached = isPlayingDetached();
+        if (byStop && (SharedConfig.repeatMode == 2 || SharedConfig.repeatMode == 1 && currentPlayList.size() == 1 && !detached) && !forceLoopCurrentPlaylist) {
+            MessageObject messageObject = detached ? playingMessageObject : null;
             cleanupPlayer(false, false);
-            if (currentPlaylistNum < 0 || currentPlaylistNum >= currentPlayList.size()) {
-                return;
+            if (messageObject == null) {
+                if (currentPlaylistNum < 0 || currentPlaylistNum >= currentPlayList.size()) {
+                    return;
+                }
+                messageObject = currentPlayList.get(currentPlaylistNum);
             }
-            MessageObject messageObject = currentPlayList.get(currentPlaylistNum);
             messageObject.audioProgress = 0;
             messageObject.audioProgressSec = 0;
             playMessage(messageObject);
@@ -3148,10 +3165,11 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     public void playPreviousMessage() {
         ArrayList<MessageObject> currentPlayList = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
-        if (currentPlayList.isEmpty() || currentPlaylistNum < 0 || currentPlaylistNum >= currentPlayList.size()) {
+        boolean detached = isPlayingDetached();
+        if (currentPlayList.isEmpty() || !detached && (currentPlaylistNum < 0 || currentPlaylistNum >= currentPlayList.size())) {
             return;
         }
-        MessageObject currentSong = currentPlayList.get(currentPlaylistNum);
+        MessageObject currentSong = detached ? playingMessageObject : currentPlayList.get(currentPlaylistNum);
         if (currentSong.audioProgressSec > 10) {
             seekToProgress(currentSong, 0);
             return;
@@ -3166,6 +3184,14 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
     
     private boolean traversePlaylist(ArrayList<MessageObject> playlist, int direction) {
+        if (isPlayingDetached()) {
+            // currentPlaylistNum указывает на трек, вставший на место удалённого
+            detachedPlayingObject = null;
+            detachedAnchor = null;
+            if (direction > 0) {
+                currentPlaylistNum--;
+            }
+        }
         boolean last = false;
         final int wasCurrentPlaylistNum = currentPlaylistNum;
         int connectionState = ConnectionsManager.getInstance(UserConfig.selectedAccount).getConnectionState();
@@ -3235,7 +3261,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
         int nextIndex;
         if (SharedConfig.playOrderReversed) {
-            nextIndex = currentPlaylistNum + 1;
+            nextIndex = isPlayingDetached() ? currentPlaylistNum : currentPlaylistNum + 1;
             if (nextIndex >= currentPlayList.size()) {
                 nextIndex = 0;
             }
@@ -3463,17 +3489,51 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
     }
 
+    // Трек, убранный из очереди во время игры: доигрывает «отвязанным», а следующий
+    // берётся по якорю — треку, который встал на его место.
+    private MessageObject detachedPlayingObject;
+    private MessageObject detachedAnchor;
+
     /** Убрать трек из очереди; текущий доигрывает, следующим будет трек после него. */
     public void removeFromPlaylist(MessageObject messageObject) {
         ArrayList<MessageObject> list = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
+        boolean wasDetached = isPlayingDetached();
         int index = list.indexOf(messageObject);
         playlist.remove(messageObject);
         shuffledPlaylist.remove(messageObject);
         if (index < 0) {
             return;
         }
-        if (index < currentPlaylistNum || messageObject == playingMessageObject) {
-            currentPlaylistNum = Math.max(0, currentPlaylistNum - 1);
+        if (messageObject == playingMessageObject) {
+            detachedPlayingObject = messageObject;
+            currentPlaylistNum = index;
+        } else if (index < currentPlaylistNum) {
+            currentPlaylistNum--;
+        } else if (!wasDetached || index != currentPlaylistNum) {
+            return;
+        }
+        if (isPlayingDetached()) {
+            detachedAnchor = currentPlaylistNum >= 0 && currentPlaylistNum < list.size() ? list.get(currentPlaylistNum) : null;
+        }
+    }
+
+    private boolean isPlayingDetached() {
+        if (detachedPlayingObject == null) {
+            return false;
+        }
+        if (detachedPlayingObject == playingMessageObject && !playlist.contains(detachedPlayingObject)) {
+            return true;
+        }
+        detachedPlayingObject = null;
+        detachedAnchor = null;
+        return false;
+    }
+
+    private void restoreDetachedIndex(ArrayList<MessageObject> list) {
+        int index = detachedAnchor != null ? list.indexOf(detachedAnchor) : -1;
+        currentPlaylistNum = index >= 0 ? index : list.size();
+        if (index < 0) {
+            detachedAnchor = null;
         }
     }
 
@@ -4461,7 +4521,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             } else {
                 if (playingMessageObject != null) {
                     currentPlaylistNum = playlist.indexOf(playingMessageObject);
-                    if (currentPlaylistNum == -1) {
+                    if (currentPlaylistNum == -1 && isPlayingDetached()) {
+                        restoreDetachedIndex(playlist);
+                    } else if (currentPlaylistNum == -1) {
                         clearPlaylist();
                         cleanupPlayer(true, true);
                     }
