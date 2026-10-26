@@ -11640,6 +11640,7 @@
     <string name="RoundVideoCompositionInfo">Disable styling to record a plain square without outside-circle blur, dimming or Telegram overlays.</string>
 
     <string name="AudioRecorderSettings">Voice Messages</string>
+    <string name="AudioRecorderSettingsInfo">New recorder, noise suppression</string>
     <string name="AudioRecorderGeneral">Recorder</string>
     <string name="AudioRecorderUseNewRecorder">Use new recorder</string>
     <string name="AudioRecorderNoiseSuppression">Noise suppression</string>
