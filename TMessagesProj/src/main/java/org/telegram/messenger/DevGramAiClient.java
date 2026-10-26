@@ -206,6 +206,33 @@ public final class DevGramAiClient {
         }, "DevGramAITest").start();
     }
 
+    /** Убрать из запроса параметр, на который ругается сервис; false — ничего подходящего. */
+    private static boolean dropUnsupportedParam(JSONObject body, String error) {
+        String e = error == null ? "" : error.toLowerCase(java.util.Locale.ROOT);
+        if ((e.contains("reasoning") || e.contains("thinking")) && (body.has("reasoning") || body.has("reasoning_effort"))) {
+            body.remove("reasoning");
+            body.remove("reasoning_effort");
+            return true;
+        }
+        if (e.contains("temperature") && body.has("temperature")) {
+            body.remove("temperature");
+            return true;
+        }
+        if (e.contains("max_tokens") && body.has("max_tokens")) {
+            try {
+                body.put("max_completion_tokens", body.get("max_tokens"));
+            } catch (Exception ignore) {
+            }
+            body.remove("max_tokens");
+            return true;
+        }
+        if (e.contains("max_completion_tokens") && body.has("max_completion_tokens")) {
+            body.remove("max_completion_tokens");
+            return true;
+        }
+        return false;
+    }
+
     private static void request(JSONArray conversation, boolean stream, StreamCallback callback) {
         request(conversation, stream, callback, null);
     }
@@ -226,14 +253,6 @@ public final class DevGramAiClient {
                 String model = prefs.getString("dg_aiModel", "gpt-4o-mini");
                 String key = prefs.getString("dg_aiKey", "");
                 if (key.trim().isEmpty()) throw new IllegalStateException("Сначала укажите API-ключ");
-
-                connection = (HttpURLConnection) new URL(endpoint).openConnection();
-                connection.setConnectTimeout(20000);
-                connection.setReadTimeout(120000);
-                connection.setRequestMethod("POST");
-                connection.setRequestProperty("Content-Type", "application/json");
-                connection.setRequestProperty("Authorization", "Bearer " + key);
-                connection.setDoOutput(true);
 
                 JSONObject body = new JSONObject();
                 body.put("model", model);
@@ -264,20 +283,36 @@ public final class DevGramAiClient {
                 }
                 body.put("messages", messages);
 
-                try (OutputStream out = connection.getOutputStream()) {
-                    out.write(body.toString().getBytes(StandardCharsets.UTF_8));
-                }
-                int code = connection.getResponseCode();
-                InputStream in = code >= 200 && code < 300
-                        ? connection.getInputStream() : connection.getErrorStream();
-
-                if (code < 200 || code >= 300) {
+                InputStream in = null;
+                // Сервис может не понимать часть параметров (уровень рассуждений, temperature, max_tokens):
+                // тогда убираем упомянутый в ошибке параметр и повторяем запрос
+                for (int attempt = 0; ; attempt++) {
+                    connection = (HttpURLConnection) new URL(endpoint).openConnection();
+                    connection.setConnectTimeout(20000);
+                    connection.setReadTimeout(120000);
+                    connection.setRequestMethod("POST");
+                    connection.setRequestProperty("Content-Type", "application/json");
+                    connection.setRequestProperty("Authorization", "Bearer " + key);
+                    connection.setDoOutput(true);
+                    try (OutputStream out = connection.getOutputStream()) {
+                        out.write(body.toString().getBytes(StandardCharsets.UTF_8));
+                    }
+                    int code = connection.getResponseCode();
+                    in = code >= 200 && code < 300
+                            ? connection.getInputStream() : connection.getErrorStream();
+                    if (code >= 200 && code < 300) {
+                        break;
+                    }
                     StringBuilder err = new StringBuilder();
                     if (in != null) {
                         try (BufferedReader r = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                             String l;
                             while ((l = r.readLine()) != null) err.append(l);
                         }
+                    }
+                    if ((code == 400 || code == 422) && attempt < 3 && dropUnsupportedParam(body, err.toString())) {
+                        connection.disconnect();
+                        continue;
                     }
                     throw new IllegalStateException("HTTP " + code + ": " + err);
                 }
