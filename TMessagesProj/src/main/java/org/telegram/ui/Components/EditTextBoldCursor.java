@@ -943,6 +943,10 @@ public class EditTextBoldCursor extends EditTextEffects {
         }
 
         int topPadding = getExtendedPaddingTop();
+        // Отступы для калькулятора берём до ignoreTopCount: getTotalPaddingTop() внутри зовёт
+        // getExtendedPaddingTop() и «съел» бы разовый ноль — текст уехал бы вниз на отступ.
+        final int inlineLeft = inlineMath != null ? getTotalPaddingLeft() : 0;
+        final int inlineTop = inlineMath != null ? getTotalPaddingTop() : 0;
         scrollY = Integer.MAX_VALUE;
         try {
             if (mScrollYField != null) {
@@ -960,7 +964,7 @@ public class EditTextBoldCursor extends EditTextEffects {
         ignoreBottomCount = 1;
         canvas.save();
         if (inlineMath != null) {
-            inlineMath.clipReplacedParagraph(canvas, getTotalPaddingTop());
+            inlineMath.clipReplacedParagraph(canvas, inlineTop);
         }
         canvas.translate(0, topPadding);
         try {
@@ -1139,7 +1143,7 @@ public class EditTextBoldCursor extends EditTextEffects {
         }*/
         if (inlineMath != null) {
             // «призрак»-результат калькулятора рисуем в тех же координатах, что и текст
-            inlineMath.draw(canvas, getTotalPaddingLeft(), getTotalPaddingTop(), getScrollY() - offsetY, getScrollY() + getMeasuredHeight() - offsetY);
+            inlineMath.draw(canvas, inlineLeft, inlineTop, getScrollY() - offsetY, getScrollY() + getMeasuredHeight() - offsetY);
         }
     }
 
