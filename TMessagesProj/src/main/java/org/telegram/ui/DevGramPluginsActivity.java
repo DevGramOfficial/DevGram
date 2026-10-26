@@ -59,7 +59,82 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
         org.telegram.ui.Components.DevGramSettingsLayout content =
                 new org.telegram.ui.Components.DevGramSettingsLayout(context, actionBar, listView, resourceProvider);
+        createCatalogButton(context, content);
         return fragmentView = content;
+    }
+
+    // Плавающая кнопка «Каталог» снизу по центру: прячется при прокрутке вниз, появляется при прокрутке вверх.
+    private static final int CATALOG_BUTTON_HEIGHT = 60;
+    private View catalogButton;
+    private boolean catalogButtonScrollShown = true;
+    private int catalogButtonInset;
+    private final me.vkryl.android.animator.BoolAnimator catalogButtonVisibility = new me.vkryl.android.animator.BoolAnimator(0,
+            (id, factor, fraction, callee) -> updateCatalogButtonPosition(),
+            org.telegram.ui.Components.CubicBezierInterpolator.EASE_OUT_QUINT, 380, true);
+
+    private void createCatalogButton(Context context, FrameLayout parent) {
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder("C Каталог");
+        text.setSpan(new org.telegram.ui.Components.ColoredImageSpan(R.drawable.settings_business), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor source = new org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor();
+        source.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
+        ProfileActivity.Button2 button = new ProfileActivity.Button2(context);
+        button.setBackground(new org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory(source)
+                .create(button, new org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProviderThemed(resourceProvider, Theme.key_windowBackgroundWhite))
+                .setPadding(AndroidUtilities.dp(8))
+                .setRadius(AndroidUtilities.dp(22)));
+        org.telegram.ui.Components.ScaleStateListAnimator.apply(button, 0.02f, 1.2f);
+
+        org.telegram.ui.Stories.recorder.ButtonWithCounterView inner = new org.telegram.ui.Stories.recorder.ButtonWithCounterView(context, resourceProvider);
+        inner.setUseWrapContent(true);
+        inner.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
+        inner.setRoundRadius(19);
+        inner.setText(text, false);
+        inner.setStateListAnimator(null);
+        inner.setOnClickListener(v -> presentFragment(new DevGramPluginCatalogActivity()));
+        button.addView(inner, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
+        button.setOnClickListener(v -> presentFragment(new DevGramPluginCatalogActivity()));
+        catalogButton = button;
+        parent.addView(button, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, CATALOG_BUTTON_HEIGHT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+
+        listView.addOnScrollListener(new androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@androidx.annotation.NonNull androidx.recyclerview.widget.RecyclerView recyclerView, int dx, int dy) {
+                if (dy != 0) {
+                    catalogButtonScrollShown = dy < 0;
+                }
+                updateCatalogButton(true);
+            }
+        });
+        updateCatalogButton(false);
+        updateCatalogButtonPosition();
+    }
+
+    private void updateCatalogButton(boolean animated) {
+        // у самого конца списка кнопку показываем всегда, чтобы её можно было найти
+        boolean show = catalogButtonScrollShown || listView == null || !listView.canScrollVertically(1);
+        catalogButtonVisibility.setValue(show, animated);
+    }
+
+    private void updateCatalogButtonPosition() {
+        if (catalogButton == null) {
+            return;
+        }
+        float value = catalogButtonVisibility.getFloatValue();
+        catalogButton.setTranslationY(-catalogButtonInset + AndroidUtilities.dp(CATALOG_BUTTON_HEIGHT) * (1f - value));
+        catalogButton.setAlpha(value);
+        catalogButton.setVisibility(value > 0f ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    @Override
+    public void onInsets(int left, int top, int right, int bottom) {
+        super.onInsets(left, top, right, bottom);
+        catalogButtonInset = bottom;
+        updateCatalogButtonPosition();
+        if (listView != null) {
+            // запас снизу под кнопку, чтобы она не перекрывала последнюю карточку
+            listView.setPadding(listView.getPaddingLeft(), listView.getPaddingTop(), listView.getPaddingRight(), bottom + AndroidUtilities.dp(CATALOG_BUTTON_HEIGHT));
+        }
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -69,12 +144,9 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
             rows.add(s.split("\u001f", -1));
         }
 
-        items.add(UItem.asButton(BTN_CATALOG, R.drawable.devgram_plugins, "Каталог плагинов", "Найти и установить"));
-        items.add(UItem.asShadow(null));
-
         items.add(UItem.asHeader("Плагины (" + rows.size() + ")"));
         if (rows.isEmpty()) {
-            items.add(UItem.asShadow("Плагинов нет."));
+            items.add(UItem.asShadow("Плагинов нет. Найдите их в каталоге."));
         } else {
             for (String[] p : rows) {
                 items.add(UItem.asCustom(createPluginCard(getContext(), p)));
