@@ -34102,7 +34102,9 @@ public class ChatActivity extends BaseFragment implements
                     CharSequence caption = getMessageCaption(selectedObject, selectedObjectGroup);
                     AnimatedEmojiSpan[] animatedEmojiSpans2 = caption instanceof Spanned ? ((Spanned) caption).getSpans(0, caption.length(), AnimatedEmojiSpan.class) : null;
                     int animatedEmojiCount = (animatedEmojiSpans1 == null ? 0 : animatedEmojiSpans1.length) + (animatedEmojiSpans2 == null ? 0 : animatedEmojiSpans2.length);
-                    if (animatedEmojiCount > 0) {
+                    // плюс паки кастомных реакций и иконок кнопок
+                    final ArrayList<TLRPC.InputStickerSet> extraEmojiSets = org.telegram.messenger.DevGramMessageEmojiPacks.collect(currentAccount, selectedObjectGroup != null ? selectedObjectGroup.findPrimaryMessageObject() : message);
+                    if (animatedEmojiCount > 0 || !extraEmojiSets.isEmpty()) {
                         ArrayList<TLRPC.InputStickerSet> stickerSets = new ArrayList<>();
                         int firstCount = (animatedEmojiSpans1 == null ? 0 : animatedEmojiSpans1.length);
                         for (int i = 0; i < animatedEmojiCount; ++i) {
@@ -34126,6 +34128,7 @@ public class ChatActivity extends BaseFragment implements
                                 stickerSets.add(stickerSet);
                             }
                         }
+                        org.telegram.messenger.DevGramMessageEmojiPacks.addAll(stickerSets, extraEmojiSets);
 
                         if (stickerSets.size() > 0 && !getMessagesController().premiumFeaturesBlocked()) {
                             popupLayout.addView(new ActionBarPopupWindow.GapView(contentView.getContext(), themeDelegate), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 8));
