@@ -914,6 +914,13 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         return result;
     }
 
+    public boolean canUseSystemBack() {
+        return viewPager != null && !viewPager.isManualScrolling() && !viewPager.isTouch()
+            && viewPager.getCurrentPosition() == getStartPosition() && !hasShownSheet()
+            && getCurrentVisibleFragment() instanceof DialogsActivity
+            && ((DialogsActivity) getCurrentVisibleFragment()).canUseSystemBack();
+    }
+
     public DialogsActivity prepareDialogsActivity(Bundle bundle) {
         if (bundle == null) {
             bundle = new Bundle();

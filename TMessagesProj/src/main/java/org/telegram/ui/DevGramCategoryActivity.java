@@ -403,6 +403,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_MD3_FAB = 57;
     private static final int ID_NEW_PLAYER = 7701;
     private static final int ID_HIDE_NAV_LABELS = 7702;
+    private static final int ID_PREDICTIVE_BACK = 7703;
     private static final int ID_TRANSITION_ANIMATION = 58;
 
     private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav", "dg_md3_fab"};
@@ -835,6 +836,21 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
                     TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
             items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                items.add(UItem.asHeader("Сила жеста «назад»"));
+                items.add(UItem.asIntSlideView(1, 0, Math.round(org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.intensity() * 10), 20,
+                        val -> val <= 0 ? "Выкл." : val >= 20 ? "Макс." : val % 10 == 0 ? String.valueOf(val / 10) : String.format(java.util.Locale.US, "%.1f", val / 10f),
+                        val -> {
+                            org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putFloat("dg_predictiveBack", val / 10f).apply();
+                            // включение/выключение анимации применяется только после перезапуска
+                            if ((val <= 0) != PREDICTIVE_BACK_OFF_AT_START) {
+                                scheduleRestart();
+                            } else {
+                                cancelRestart();
+                            }
+                        }).setId(ID_PREDICTIVE_BACK));
+                items.add(UItem.asShadow("Насколько сдвигается экран при жесте «назад»."));
+            }
             items.add(UItem.asCheck(ID_GOOEY, "«Липкая» анимация аватарок")
                     .setChecked(gPref("dg_gooey", true)));
             items.add(UItem.asHeader("Интерфейс DevGram"));
@@ -1531,7 +1547,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_SYSTEM_FONTS) {
             gToggle("dg_systemFonts", true);
             org.telegram.messenger.AndroidUtilities.invalidateDevgramSystemFonts();
-            showRestartRequiredBulletin();
+            scheduleRestart();
         } else if (item.id == ID_PILL_STACK) {
             presentFragment(new PillStackPreferencesActivity());
             return;
@@ -1891,14 +1907,37 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         showDialog(b.create());
     }
 
-    private void showRestartRequiredBulletin() {
-        BulletinFactory.of(this).createSimpleBulletin(
-                R.raw.info,
-                "Для применения системного шрифта перезапустите DevGram",
-                "Перезапустить",
-                10_000,
-                this::restartApplication
-        ).show();
+    // Состояние жеста «назад», с которым запущен процесс.
+    private static final boolean PREDICTIVE_BACK_OFF_AT_START =
+            org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.intensity() <= 0;
+
+    private Runnable pendingRestart;
+    private org.telegram.ui.Components.Bulletin restartBulletin;
+
+    // Сначала предупреждаем, потом перезапускаем сами. Повторный вызов не плодит перезапуски,
+    // cancelRestart() отменяет, если настройку вернули обратно (например, ползунком).
+    private void scheduleRestart() {
+        if (pendingRestart != null) {
+            return;
+        }
+        restartBulletin = BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Начинаю перезапуск приложения…").show();
+        pendingRestart = () -> {
+            pendingRestart = null;
+            restartApplication();
+        };
+        org.telegram.messenger.AndroidUtilities.runOnUIThread(pendingRestart, 1500);
+    }
+
+    private void cancelRestart() {
+        if (pendingRestart == null) {
+            return;
+        }
+        org.telegram.messenger.AndroidUtilities.cancelRunOnUIThread(pendingRestart);
+        pendingRestart = null;
+        if (restartBulletin != null) {
+            restartBulletin.hide();
+            restartBulletin = null;
+        }
     }
 
     private void restartApplication() {

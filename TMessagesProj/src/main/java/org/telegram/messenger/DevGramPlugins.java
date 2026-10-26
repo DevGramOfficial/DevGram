@@ -1940,6 +1940,27 @@ public class DevGramPlugins {
         pluginUnhooks.computeIfAbsent(pluginId, k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(unhook);
     }
 
+    // Перехватил ли какой-нибудь плагин метод с таким именем в одном из классов (или их наследниках).
+    public static boolean hasHookOn(String methodName, Class<?>... classes) {
+        if (pluginUnhooks.isEmpty()) {
+            return false;
+        }
+        for (java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook> list : pluginUnhooks.values()) {
+            for (de.robv.android.xposed.XC_MethodHook.Unhook u : list) {
+                java.lang.reflect.Member m = u.getHookedMethod();
+                if (m == null || !methodName.equals(m.getName())) {
+                    continue;
+                }
+                for (Class<?> c : classes) {
+                    if (m.getDeclaringClass().isAssignableFrom(c) || c.isAssignableFrom(m.getDeclaringClass())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     // Снять все хуки плагина (перед reload/выгрузкой), чтобы старые колбэки не висели.
     public static void unhookPlugin(String pluginId) {
         java.util.List<de.robv.android.xposed.XC_MethodHook.Unhook> list = pluginUnhooks.remove(pluginId);

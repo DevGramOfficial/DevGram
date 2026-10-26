@@ -1580,10 +1580,23 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
 
     public void onBackProgress(float t) {
         if (!predictiveInput) return;
+        t = org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.applyIntensity(t);
         final float dx = dp(56) * CubicBezierInterpolator.StandardDecelerate.getInterpolation(t);
         predictiveBackHasProgress = t > 0;
         containerView.setTranslationX(dx);
         setInnerTranslationX(dx);
+    }
+
+    // На корне стека «назад» ничего не закрывает — можно отдать жест системе.
+    public boolean canUseSystemBack() {
+        if (fragmentsStack.size() != 1 || transitionAnimationPreviewMode || startedTracking || isTransitionAnimationInProgress()
+                || predictiveBackInProgress || inActionMode || isInPreviewMode() || storyViewerAttached()) {
+            return false;
+        }
+        if (sheetFragment != null && sheetFragment.hasShownSheet()) {
+            return false;
+        }
+        return currentActionBar == null || !(currentActionBar.isActionModeShowed() || currentActionBar.isSearchFieldVisible());
     }
 
     public void onBackCancelled() {

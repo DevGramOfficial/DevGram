@@ -7600,6 +7600,20 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
     }
 
+    public boolean canUseSystemBack() {
+        if (fragmentView == null || rightSlidingDialogContainer == null || dialogStoriesCell == null || onlySelect
+                || initialDialogsType != DIALOGS_TYPE_DEFAULT || searchString != null || folderId != 0
+                || tabsAnimationInProgress || startedTracking || rightSlidingDialogContainer.hasFragment()
+                || filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE && !filterTabsView.isFirstTabSelected()
+                || getLastStoryViewer() != null && getLastStoryViewer().attachedToParent()
+                || actionBar != null && actionBar.isSearchFieldVisible()
+                // onBackPressed(false) прокрутил бы истории — не дёргаем его, пока они раскрыты
+                || dialogStoriesCell.isFullExpanded()) {
+            return false;
+        }
+        return onBackPressed(false);
+    }
+
     @Override
     public boolean onBackPressed(boolean invoked) {
         if (hasShownSheet()) {

@@ -744,7 +744,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         BackupAgent.requestBackup();
 
         RestrictedLanguagesSelectActivity.checkRestrictedLanguages(false);
-        if (Build.VERSION.SDK_INT >= 34) {
+        if (org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.isEnabled()) {
             if (onBackAnimationCallback == null) {
                 onBackAnimationCallback =  new OnBackAnimationCallback() {
                     private AnimationNotificationsLocker locker = new AnimationNotificationsLocker();
@@ -756,6 +756,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     @Override
                     public void onBackInvoked() {
                         invoked = true;
+                        if (predictiveBackNavigation != null) predictiveBackNavigation.setGestureInProgress(false);
                         if (locked) {
                             locker.unlock();
                             locked = false;
@@ -776,6 +777,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
                     @Override
                     public void onBackStarted(@NonNull BackEvent backEvent) {
+                        if (predictiveBackNavigation != null) predictiveBackNavigation.setGestureInProgress(true);
                         started = true;
                         invoked = false;
                         predictiveBackStarted = false;
@@ -817,6 +819,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
                     @Override
                     public void onBackCancelled() {
+                        if (predictiveBackNavigation != null) predictiveBackNavigation.setGestureInProgress(false);
                         started = false;
                         invoked = false;
                         if (locked) {
@@ -831,10 +834,6 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     }
                 };
             }
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-                (OnBackAnimationCallback) onBackAnimationCallback
-            );
         } else if (Build.VERSION.SDK_INT >= 33) {
             if (onBackInvokedCallback == null) {
                 onBackInvokedCallback = new OnBackInvokedCallback() {
@@ -854,10 +853,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     }
                 };
             }
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-                (OnBackInvokedCallback) onBackInvokedCallback
-            );
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            // колбэк регистрирует хелпер: на корне главного экрана он снимается, и система
+            // показывает свою анимацию выхода
+            OnBackInvokedCallback callback = (OnBackInvokedCallback) (onBackAnimationCallback != null ? onBackAnimationCallback : onBackInvokedCallback);
+            predictiveBackNavigation = new org.telegram.ui.Components.devgram.PredictiveBackNavigationHelper(this, callback, () -> switchingAccount);
         }
 
         //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -886,6 +887,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     private Object onBackAnimationCallback;
     private Object onBackInvokedCallback;
+    private org.telegram.ui.Components.devgram.PredictiveBackNavigationHelper predictiveBackNavigation;
 
     public static void showAttachMenuBot(LaunchActivity launchActivity, int currentAccount, TLRPC.TL_attachMenuBot attachMenuBot, String startApp, boolean sidemenu) {
         BaseFragment lastFragment = getLastFragment();
@@ -7155,14 +7157,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         } catch (Exception e) {
             FileLog.e(e);
         }
-        if (Build.VERSION.SDK_INT >= 34) {
-            if (onBackAnimationCallback instanceof OnBackAnimationCallback) {
-                getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback((OnBackAnimationCallback) onBackAnimationCallback);
-            }
-        } else if (Build.VERSION.SDK_INT >= 33) {
-            if (onBackAnimationCallback instanceof OnBackInvokedCallback) {
-                getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback((OnBackInvokedCallback) onBackInvokedCallback);
-            }
+        if (predictiveBackNavigation != null) {
+            predictiveBackNavigation.detach();
+            predictiveBackNavigation = null;
         }
         Bulletin.removeDelegate(frameLayout);
         VideoAds.dropCache();
