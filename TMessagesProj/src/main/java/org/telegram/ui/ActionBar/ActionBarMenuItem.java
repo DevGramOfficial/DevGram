@@ -2310,7 +2310,13 @@ public class ActionBarMenuItem extends FrameLayout {
             int textSelectedColor = getThemedColor(Theme.key_featuredStickers_buttonText);
 
             mBackgroundColor = ColorUtils.blendARGB(defaultBackgroundColor, selectedBackgroundColor, selectedProgress);
-            titleView.setTextColor(ColorUtils.blendARGB(textDefaultColor, textSelectedColor, selectedProgress));
+            int titleColor = ColorUtils.blendARGB(textDefaultColor, textSelectedColor, selectedProgress);
+            // DevGram: в монохромных темах фон плашки и текст бывают почти одного цвета — подпись пропадала
+            int opaqueBg = ColorUtils.compositeColors(mBackgroundColor, getThemedColor(Theme.key_windowBackgroundWhite) | 0xFF000000);
+            if (ColorUtils.calculateContrast(titleColor | 0xFF000000, opaqueBg) < 2.5) {
+                titleColor = AndroidUtilities.computePerceivedBrightness(opaqueBg) > 0.5f ? 0xFF000000 : 0xFFFFFFFF;
+            }
+            titleView.setTextColor(titleColor);
             closeIconView.setColorFilter(textSelectedColor);
 
             closeIconView.setAlpha(selectedProgress);
