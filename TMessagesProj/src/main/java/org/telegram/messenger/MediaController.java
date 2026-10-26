@@ -3443,6 +3443,40 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         return music ? currentMusicPlaybackSpeed : currentPlaybackSpeed;
     }
 
+    /** Временная скорость при перемотке удержанием (нового плеера). */
+    public void setRewindPlaybackSpeed(float speed) {
+        if (audioPlayer != null) {
+            audioPlayer.setPlaybackSpeed(Math.round(speed * 10f) / 10f);
+        }
+    }
+
+    public void pauseAndStopLoading(MessageObject messageObject) {
+        if (audioPlayer != null && pauseMessage(messageObject)) {
+            audioPlayer.stopLoading();
+        }
+    }
+
+    public void restoreMusicPlaybackSpeed() {
+        if (audioPlayer != null) {
+            audioPlayer.setPlaybackSpeed(Math.round(currentMusicPlaybackSpeed * 10f) / 10f,
+                org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle() && org.telegram.messenger.devgram.player.PlayerConfig.getPlayerSpeedPitch());
+        }
+    }
+
+    /** Убрать трек из очереди; текущий доигрывает, следующим будет трек после него. */
+    public void removeFromPlaylist(MessageObject messageObject) {
+        ArrayList<MessageObject> list = SharedConfig.shuffleMusic ? shuffledPlaylist : playlist;
+        int index = list.indexOf(messageObject);
+        playlist.remove(messageObject);
+        shuffledPlaylist.remove(messageObject);
+        if (index < 0) {
+            return;
+        }
+        if (index < currentPlaylistNum || messageObject == playingMessageObject) {
+            currentPlaylistNum = Math.max(0, currentPlaylistNum - 1);
+        }
+    }
+
     public float getFastPlaybackSpeed(boolean music) {
         return music ? fastMusicPlaybackSpeed : fastPlaybackSpeed;
     }

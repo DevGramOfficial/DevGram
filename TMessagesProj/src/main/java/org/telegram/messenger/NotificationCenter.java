@@ -285,6 +285,7 @@ public class NotificationCenter {
     public static final int pillStackSettingsChanged = totalEvents++;
     public static final int pluginPanelTabsChanged = totalEvents++;
     public static final int profileMusicUpdated = totalEvents++;
+    public static final int playerColorsChanged = totalEvents++;
     public static final int updatedChatRanks = totalEvents++;
     public static final int joinedGroup = totalEvents++;
     public static final int loadedAiComposeTones = totalEvents++;

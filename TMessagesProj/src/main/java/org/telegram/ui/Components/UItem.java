@@ -425,6 +425,20 @@ public class UItem extends AdapterWithDiffUtils.Item {
         return item;
     }
 
+    public static UItem asSlideView(int id, String[] choices, int chosen, Utilities.Callback<Integer> whenChose) {
+        UItem item = asSlideView(choices, chosen, whenChose);
+        item.id = id;
+        return item;
+    }
+
+    /** Галочка с подписью под заголовком. */
+    public static UItem asCheck(int id, CharSequence text, CharSequence subtext, boolean multiline) {
+        UItem item = asCheck(id, text);
+        item.textValue = subtext;
+        item.multiline = multiline;
+        return item;
+    }
+
     public static UItem asSlideView(String[] choices, int chosen, Utilities.Callback<Integer> whenChose) {
         UItem item = new UItem(UniversalAdapter.VIEW_TYPE_SLIDE, false);
         item.texts = choices;

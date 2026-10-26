@@ -401,6 +401,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_MD3_TITLE = 55;
     private static final int ID_MD3_BOTTOMNAV = 56;
     private static final int ID_MD3_FAB = 57;
+    private static final int ID_NEW_PLAYER = 7701;
     private static final int ID_TRANSITION_ANIMATION = 58;
 
     private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav", "dg_md3_fab"};
@@ -826,6 +827,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 items.add(UItem.asRoundCheckbox(ID_MD3_FAB, "Плавающие кнопки")
                         .setChecked(gPref("dg_md3_fab", false)));
             }
+            items.add(UItem.asCheck(ID_NEW_PLAYER, "Новый музыкальный плеер", "Тексты песен, живые обложки и ритмичный фон", true)
+                    .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()));
             items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
                     TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
             items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
@@ -1561,6 +1564,13 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_MD3_BOTTOMNAV) {
             gToggle("dg_md3_bottomnav", false);
             refreshThenRebuildAppearanceScreens();
+            return;
+        } else if (item.id == ID_NEW_PLAYER) {
+            org.telegram.messenger.devgram.player.PlayerConfig.setNewPlayerStyle(!org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle());
+            if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
+                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle());
+            }
+            listView.adapter.update(true);
             return;
         } else if (item.id == ID_MD3_FAB) {
             gToggle("dg_md3_fab", false);

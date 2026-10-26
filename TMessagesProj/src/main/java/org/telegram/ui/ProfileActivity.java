@@ -11819,7 +11819,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private void openProfileMusicPlayer() {
         if (startProfileMusicIfNeeded()) {
-            showDialog(new AudioPlayerAlert(getContext(), getResourceProvider()));
+            showDialog(org.telegram.messenger.devgram.player.PlayerLauncher.create(getContext(), getResourceProvider()));
         }
     }
 

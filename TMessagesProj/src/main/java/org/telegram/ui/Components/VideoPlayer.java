@@ -1519,6 +1519,10 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
     }
 
     public void play() {
+        if (loadingStopped && player != null) {
+            loadingStopped = false;
+            player.prepare();
+        }
         mixedPlayWhenReady = true;
         if (mixedAudio) {
             if (!audioPlayerReady || !videoPlayerReady) {
@@ -1560,6 +1564,25 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 player.setPlaybackParameters(new PlaybackParameters(speed, speed > 1.0f ? 0.98f : 1.0f));
             }
         } catch (Exception ignore) {}
+    }
+
+    /** changePitch — тон меняется вместе со скоростью. */
+    public void setPlaybackSpeed(float speed, boolean changePitch) {
+        try {
+            if (player != null) {
+                player.setPlaybackParameters(new PlaybackParameters(speed, changePitch ? speed : (speed > 1.0f ? 0.98f : 1.0f)));
+            }
+        } catch (Exception ignore) {}
+    }
+
+    private boolean loadingStopped;
+
+    /** Остановить загрузку, сохранив позицию; play() подготовит плеер заново. */
+    public void stopLoading() {
+        if (player != null) {
+            player.stop();
+            loadingStopped = true;
+        }
     }
 
     public float getPlaybackSpeed() {
@@ -1901,6 +1924,18 @@ public class VideoPlayer implements Player.Listener, VideoListener, AnalyticsLis
                 @NonNull Context context,
                 boolean enableFloatOutput,
                 boolean enableAudioTrackPlaybackParams) {
+            if (org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()) {
+                // ритм для фона и частиц нового плеера
+                org.telegram.messenger.devgram.player.rhythm.RhythmTap rhythmTap = new org.telegram.messenger.devgram.player.rhythm.RhythmTap();
+                return rhythmTap.wrap(new DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setAudioProcessors(new AudioProcessor[]{
+                                new TeeAudioProcessor(new VisualizerBufferSink()),
+                                rhythmTap.createProcessor()
+                        })
+                        .build());
+            }
             return new DefaultAudioSink.Builder(context)
                     .setEnableFloatOutput(enableFloatOutput)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
