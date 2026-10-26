@@ -2209,6 +2209,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
     private final static int gallery_menu_delete2 = 26;
     private final static int gallery_menu_fast_fwd = 27;
     private final static int gallery_menu_subtitles = 28;
+    private final static int gallery_menu_sent_from_gap = 54;
+    private final static int gallery_menu_sent_from = 55;
 
     private final static int ads_sponsor_info = 101;
     private final static int ads_about = 102;
@@ -5955,6 +5957,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         menuItem.addSubItem(gallery_menu_hide_translation, R.drawable.msg_translate, getString(R.string.HideTranslation)).setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_delete, R.drawable.msg_delete, getString(R.string.Delete)).setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_cancel_loading, R.drawable.msg_cancel, getString(R.string.StopDownload)).setColors(0xfffafafa, 0xfffafafa);
+        menuItem.addColoredGap(gallery_menu_sent_from_gap).setColor(0xff181818);
+        sentFromTextView = new TextView(activityContext);
+        sentFromTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        sentFromTextView.setTextColor(0xfffafafa);
+        sentFromTextView.setPadding(dp(13), dp(8), dp(13), dp(8));
+        sentFromTextView.setMaxWidth(dp(200));
+        sentFromTextView.setTag(gallery_menu_sent_from);
+        sentFromTextView.setTag(R.id.fit_width_tag, 1);
+        menuItem.getPopupLayout().addView(sentFromTextView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        menuItem.hideSubItem(gallery_menu_sent_from_gap);
+        menuItem.hideSubItem(gallery_menu_sent_from);
         menuItem.redrawPopup(0xf9222222);
         menuItem.hideSubItem(gallery_menu_translate);
         menuItem.hideSubItem(gallery_menu_hide_translation);
@@ -10570,6 +10583,35 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         }
     }
 
+    private TextView sentFromTextView;
+    private MessageObject sentFromMessageObject;
+
+    /** «Отправлено с …» в меню: платформа отправителя по отпечатку JPEG. */
+    private void updateSentFrom(MessageObject messageObject) {
+        if (sentFromTextView == null) {
+            return;
+        }
+        sentFromMessageObject = messageObject;
+        menuItem.hideSubItem(gallery_menu_sent_from_gap);
+        menuItem.hideSubItem(gallery_menu_sent_from);
+        if (messageObject == null || messageObject.messageOwner == null) {
+            return;
+        }
+        Utilities.globalQueue.postRunnable(() -> {
+            File file = FileLoader.getInstance(currentAccount).getPathToMessage(messageObject.messageOwner);
+            String platform = file == null || !file.exists() ? null
+                : org.telegram.messenger.devgram.media.MediaUtils.getPhotoPlatform(org.telegram.messenger.devgram.media.JpegFingerprint.parse(file.getAbsolutePath()));
+            AndroidUtilities.runOnUIThread(() -> {
+                if (sentFromMessageObject != messageObject || TextUtils.isEmpty(platform)) {
+                    return;
+                }
+                sentFromTextView.setText(LocaleController.formatString(R.string.SentFrom, platform));
+                menuItem.showSubItem(gallery_menu_sent_from_gap);
+                menuItem.showSubItem(gallery_menu_sent_from);
+            });
+        });
+    }
+
     private org.telegram.messenger.devgram.media.SearchPhotoPopupWrapper searchPhotoPopupWrapper;
     private ActionBarMenuSubItem searchImageItem;
     private ActionBarPopupWindow.GapView searchImageGap;
@@ -14960,6 +15002,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         menuItem.hideSubItem(gallery_menu_report);
 
         CharSequence title = null;
+        updateSentFrom(null);
         editing = false;
         if (!imagesArr.isEmpty()) {
             if (switchingToIndex < 0 || switchingToIndex >= imagesArr.size()) {
@@ -14967,6 +15010,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             }
             newMessageObject = imagesArr.get(switchingToIndex);
             newMessageObject.updateTranslation();
+            updateSentFrom(!newMessageObject.isVideo() && (newMessageObject.isPhoto() || newMessageObject.canPreviewDocument()) ? newMessageObject : null);
             isLivePhoto = newMessageObject.isLivePhoto();
             isVideo = newMessageObject.isVideo();
 

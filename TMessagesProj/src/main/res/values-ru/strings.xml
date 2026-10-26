@@ -621,4 +621,5 @@
     <string name="InlineDocCurrentTimeText">Добавьте «в» и город, чтобы перевести туда. «сейчас» показывает текущее время.</string>
     <string name="PhotoUploadFailed">Не удалось загрузить фото</string>
     <string name="SearchPhotoInfo">Сервисы могут использовать изображения в соответствии со своими политиками конфиденциальности и условиями.</string>
+    <string name="SentFrom">Отправлено с %1$s</string>
 </resources>
