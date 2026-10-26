@@ -4524,12 +4524,12 @@ public class MessagesStorage extends BaseController {
                 }
 
                 database.executeFast("UPDATE dialogs SET unread_count = 0, unread_count_i = 0 WHERE did = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM messages_v2 WHERE uid = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM messages_topics WHERE uid = " + did).stepThis().dispose();
+                deleteDialogRowsChunked("messages_v2", did);
+                deleteDialogRowsChunked("messages_topics", did);
                 database.executeFast("DELETE FROM bot_keyboard WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM bot_keyboard_topics WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM media_counts_v2 WHERE uid = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM media_v4 WHERE uid = " + did).stepThis().dispose();
+                deleteDialogRowsChunked("media_v4", did);
                 database.executeFast("DELETE FROM messages_holes WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM media_holes_v2 WHERE uid = " + did).stepThis().dispose();
                 getMediaDataController().clearBotKeyboard(did);
@@ -11414,6 +11414,31 @@ public class MessagesStorage extends BaseController {
         });
     }
 
+    // Строки большого чата удаляем пачками: один DELETE на сотни тысяч сообщений надолго держит базу,
+    // и всё, что ждёт её в очереди хранилища, подвисает. secure_delete на это время выключаем — он затирает
+    // каждую страницу нулями и многократно замедляет удаление.
+    private void deleteDialogRowsChunked(String table, long dialogId) throws Exception {
+        database.executeFast("PRAGMA secure_delete = OFF").stepThis().dispose();
+        SQLitePreparedStatement state = null;
+        try {
+            state = database.executeFast("DELETE FROM " + table + " WHERE rowid IN (SELECT rowid FROM " + table + " WHERE uid = ? LIMIT 2000)");
+            while (true) {
+                state.requery();
+                state.bindLong(1, dialogId);
+                state.step();
+                Integer changes = database.executeInt("SELECT changes()");
+                if (changes == null || changes == 0) {
+                    break;
+                }
+            }
+        } finally {
+            if (state != null) {
+                state.dispose();
+            }
+            database.executeFast("PRAGMA secure_delete = ON").stepThis().dispose();
+        }
+    }
+
     public void overwriteChannel(long channelId, TLRPC.TL_updates_channelDifferenceTooLong difference, int newDialogType, Runnable onDone) {
         storageQueue.postRunnable(() -> {
             SQLiteCursor cursor = null;
@@ -11435,19 +11460,19 @@ public class MessagesStorage extends BaseController {
 
                 database.executeFast("DELETE FROM chat_pinned_count WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM chat_pinned_v2 WHERE uid = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM messages_v2 WHERE uid = " + did).stepThis().dispose();
+                deleteDialogRowsChunked("messages_v2", did);
                 database.executeFast("DELETE FROM bot_keyboard WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM bot_keyboard_topics WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("UPDATE media_counts_v2 SET old = 1 WHERE uid = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM media_v4 WHERE uid = " + did).stepThis().dispose();
+                deleteDialogRowsChunked("media_v4", did);
                 database.executeFast("DELETE FROM messages_holes WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("DELETE FROM media_holes_v2 WHERE uid = " + did).stepThis().dispose();
 
                 database.executeFast("DELETE FROM topics WHERE did = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM media_topics WHERE uid = " + did).stepThis().dispose();
+                deleteDialogRowsChunked("media_topics", did);
                 database.executeFast("DELETE FROM media_holes_topics WHERE uid = " + did).stepThis().dispose();
                 database.executeFast("UPDATE media_counts_topics SET old = 1 WHERE uid = " + did).stepThis().dispose();
-                database.executeFast("DELETE FROM messages_topics WHERE uid = " + did).stepThis().dispose();
+                deleteDialogRowsChunked("messages_topics", did);
                 database.executeFast("DELETE FROM messages_holes_topics WHERE uid = " + did).stepThis().dispose();
 
                 getMediaDataController().clearBotKeyboard(did);
