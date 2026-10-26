@@ -143,7 +143,13 @@ public abstract class LyricsRepository {
             if (trackQuery.duration() > 0) {
                 builderAddQueryParameter.addQueryParameter("duration", String.valueOf(trackQuery.duration()));
             }
-            String str = get(builderAddQueryParameter.build());
+            // точный запрос иногда отвечает 5xx — тогда не сдаёмся, а ищем ниже через search
+            String str = null;
+            try {
+                str = get(builderAddQueryParameter.build());
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
             if (str != null && (lyricsFromLrclib = fromLrclib(new JSONObject(str))) != null) {
                 return lyricsFromLrclib;
             }
