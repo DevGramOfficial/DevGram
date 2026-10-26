@@ -619,4 +619,6 @@
     <string name="InlineDocDurationsText">Длительность раскладывается на дни, часы и минуты.</string>
     <string name="InlineDocTimeText">Время в другом поясе переводится в ваше.</string>
     <string name="InlineDocCurrentTimeText">Добавьте «в» и город, чтобы перевести туда. «сейчас» показывает текущее время.</string>
+    <string name="PhotoUploadFailed">Не удалось загрузить фото</string>
+    <string name="SearchPhotoInfo">Сервисы могут использовать изображения в соответствии со своими политиками конфиденциальности и условиями.</string>
 </resources>

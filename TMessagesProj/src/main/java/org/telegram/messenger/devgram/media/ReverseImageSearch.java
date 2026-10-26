@@ -201,4 +201,41 @@ public abstract class ReverseImageSearch {
         bitmapDecodeFile.recycle();
         return byteArrayOutputStream.toByteArray();
     }
+
+    private static Boolean lensAvailable;
+    private static String lensActivity;
+
+    /** Установлен ли Google Lens (через приложение Google). */
+    public static boolean isLensAvailable() {
+        if (lensAvailable == null) {
+            lensAvailable = false;
+            try {
+                android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_SEND)
+                    .setDataAndType(Uri.parse("content://" + ApplicationLoader.getApplicationId() + ".provider"), "image/jpeg")
+                    .setPackage("com.google.android.googlequicksearchbox");
+                for (android.content.pm.ResolveInfo info : ApplicationLoader.applicationContext.getPackageManager().queryIntentActivities(intent, 0)) {
+                    if (info.activityInfo.name.contains("Lens")) {
+                        lensActivity = info.activityInfo.name;
+                        lensAvailable = true;
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+        }
+        return lensAvailable;
+    }
+
+    public static void shareWithLens(android.app.Activity activity, Uri uri) {
+        try {
+            activity.startActivity(new android.content.Intent(android.content.Intent.ACTION_SEND)
+                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                .setClassName("com.google.android.googlequicksearchbox", lensActivity)
+                .setDataAndType(uri, "image/jpeg")
+                .putExtra(android.content.Intent.EXTRA_STREAM, uri));
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
 }

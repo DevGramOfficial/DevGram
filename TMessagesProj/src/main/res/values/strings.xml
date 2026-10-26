@@ -12085,4 +12085,6 @@
     <string name="InlineDocDurationsText">Durations are split into days, hours and minutes.</string>
     <string name="InlineDocTimeText">A time in another zone converts to yours.</string>
     <string name="InlineDocCurrentTimeText">Add \"in\" and a city to convert there. \"now\" shows the current time.</string>
+    <string name="PhotoUploadFailed">Failed to upload photo.</string>
+    <string name="SearchPhotoInfo">Services can use images following their privacy policies and terms of use.</string>
 </resources>

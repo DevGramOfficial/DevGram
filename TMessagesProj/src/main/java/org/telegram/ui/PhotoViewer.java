@@ -2209,7 +2209,6 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
     private final static int gallery_menu_delete2 = 26;
     private final static int gallery_menu_fast_fwd = 27;
     private final static int gallery_menu_subtitles = 28;
-    private final static int gallery_menu_search_image = 41;
 
     private final static int ads_sponsor_info = 101;
     private final static int ads_about = 102;
@@ -5185,8 +5184,6 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                         ads.stop();
                         ads = null;
                     }
-                } else if (id == gallery_menu_search_image) {
-                    devgramSearchImage();
                 } else if (id == gallery_menu_create_sticker) {
                     if (parentFragment == null || placeProvider == null) return;
                     if (currentMessageObject == null || currentMessageObject.messageOwner == null) return;
@@ -5922,6 +5919,12 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             menuItem.toggleSubMenu();
         });
 
+        searchPhotoPopupWrapper = new org.telegram.messenger.devgram.media.SearchPhotoPopupWrapper(activityContext, menuItem.getPopupLayout().getSwipeBack(), this::devgramSearchImage);
+        searchImageItem = menuItem.addSwipeBackItem(R.drawable.msg_search, null, getString(R.string.Search), searchPhotoPopupWrapper.searchSwipeBackLayout);
+        searchImageItem.setColors(0xfffafafa, 0xfffafafa);
+        searchImageItem.getRightIcon().setColorFilter(0xfffafafa);
+        searchImageGap = menuItem.addColoredGap();
+        searchImageGap.setColor(0xff181818);
         galleryButton = menuItem.addSwipeBackItem(R.drawable.msg_gallery, null, getString(R.string.SaveToGallery), chooseDownloadQualityLayout.layout).setColors(0xfffafafa, 0xfffafafa);
         galleryButton.setOnClickListener(v -> {
             if (currentMessageObject != null && currentMessageObject.hasVideoQualities() && chooseDownloadQualityLayout.update(currentMessageObject)) {
@@ -5942,7 +5945,6 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         menuItem.addSubItem(gallery_menu_savegif, R.drawable.msg_gif, getString(R.string.SaveToGIFs)).setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_showinchat, R.drawable.msg_message, getString(R.string.ShowInChat)).setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_create_sticker, R.drawable.msg_sticker, getString(R.string.CreateSticker)).setColors(0xfffafafa, 0xfffafafa);
-        menuItem.addSubItem(gallery_menu_search_image, R.drawable.msg_search, "Поиск по картинке").setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_reply, R.drawable.menu_reply, getString(R.string.Reply)).setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_report, R.drawable.msg_report, getString(R.string.ReportProfilePhoto)).setColors(0xfffafafa, 0xfffafafa);
         menuItem.addSubItem(gallery_menu_share, R.drawable.msg_shareout, getString(R.string.ShareFile)).setColors(0xfffafafa, 0xfffafafa);
@@ -10568,11 +10570,25 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         }
     }
 
-    /** Поиск по текущей картинке: выбор сервиса, загрузка и открытие результата во встроенном браузере. */
-    private void devgramSearchImage() {
+    private org.telegram.messenger.devgram.media.SearchPhotoPopupWrapper searchPhotoPopupWrapper;
+    private ActionBarMenuSubItem searchImageItem;
+    private ActionBarPopupWindow.GapView searchImageGap;
+
+    private void setSearchImageShown(boolean shown) {
+        if (searchImageItem != null) {
+            searchImageItem.setVisibility(shown ? View.VISIBLE : View.GONE);
+        }
+        if (searchImageGap != null) {
+            searchImageGap.setVisibility(shown ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    /** Поиск по текущей картинке выбранным сервисом; результат открывается во встроенном браузере. */
+    private void devgramSearchImage(org.telegram.messenger.devgram.media.ReverseImageSearch.Provider provider) {
         if (parentActivity == null || currentMessageObject == null || currentMessageObject.messageOwner == null) {
             return;
         }
+        menuItem.toggleSubMenu();
         File file = null;
         if (!TextUtils.isEmpty(currentMessageObject.messageOwner.attachPath)) {
             file = new File(currentMessageObject.messageOwner.attachPath);
@@ -10581,33 +10597,28 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             file = FileLoader.getInstance(currentAccount).getPathToMessage(currentMessageObject.messageOwner, true);
         }
         if (file == null || !file.exists()) {
-            BulletinFactory.of(containerView, resourcesProvider).createSimpleBulletin(R.raw.error, "Сначала дождитесь загрузки фото").show();
+            BulletinFactory.of(containerView, resourcesProvider).createSimpleBulletin(R.raw.error, getString(R.string.PhotoUploadFailed)).show();
             return;
         }
-        final File photo = file;
-        final org.telegram.messenger.devgram.media.ReverseImageSearch.Provider[] providers = org.telegram.messenger.devgram.media.ReverseImageSearch.Provider.values();
-        final CharSequence[] names = {"Яндекс", "Google", "Bing", "TinEye"};
-        AlertDialog.Builder builder = new AlertDialog.Builder(parentActivity, resourcesProvider);
-        builder.setTitle("Поиск по картинке");
-        builder.setItems(names, (d, which) -> {
-            if (isPlaying) {
-                pauseVideoOrWeb();
+        if (isPlaying) {
+            pauseVideoOrWeb();
+        }
+        if (provider == org.telegram.messenger.devgram.media.ReverseImageSearch.Provider.GOOGLE && org.telegram.messenger.devgram.media.ReverseImageSearch.isLensAvailable()) {
+            org.telegram.messenger.devgram.media.ReverseImageSearch.shareWithLens(parentActivity,
+                androidx.core.content.FileProvider.getUriForFile(parentActivity, ApplicationLoader.getApplicationId() + ".provider", file));
+            return;
+        }
+        final AlertDialog progress = new AlertDialog(parentActivity, AlertDialog.ALERT_TYPE_SPINNER, resourcesProvider);
+        final Runnable cancel = org.telegram.messenger.devgram.media.ReverseImageSearch.search(file, provider, url -> {
+            progress.dismiss();
+            if (url == null) {
+                BulletinFactory.of(containerView, resourcesProvider).createSimpleBulletin(R.raw.error, getString(R.string.PhotoUploadFailed)).show();
+            } else {
+                org.telegram.messenger.devgram.media.ReverseImageSearch.open(parentActivity, url);
             }
-            final AlertDialog progress = new AlertDialog(parentActivity, AlertDialog.ALERT_TYPE_SPINNER, resourcesProvider);
-            final Runnable cancel = org.telegram.messenger.devgram.media.ReverseImageSearch.search(photo, providers[which], url -> {
-                progress.dismiss();
-                if (url == null) {
-                    BulletinFactory.of(containerView, resourcesProvider).createSimpleBulletin(R.raw.error, "Не удалось загрузить картинку").show();
-                } else {
-                    org.telegram.messenger.devgram.media.ReverseImageSearch.open(parentActivity, url);
-                }
-            });
-            progress.setOnCancelListener(di -> cancel.run());
-            progress.showDelayed(150);
         });
-        builder.setNegativeButton(getString(R.string.Cancel), null);
-        AlertDialog dialog = builder.create();
-        dialog.show();
+        progress.setOnCancelListener(di -> cancel.run());
+        progress.showDelayed(150);
     }
 
     private void pauseVideoOrWeb() {
@@ -14407,7 +14418,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         menuItem.hideSubItem(gallery_menu_showall);
         menuItem.hideSubItem(gallery_menu_showinchat);
         menuItem.hideSubItem(gallery_menu_create_sticker);
-        menuItem.hideSubItem(gallery_menu_search_image);
+        setSearchImageShown(false);
         menuItem.hideSubItem(gallery_menu_reply);
         menuItem.hideSubItem(gallery_menu_report);
         menuItem.hideSubItem(gallery_menu_share);
@@ -14559,7 +14570,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 imagesArr.add(messageObject);
                 menuItem.setSubItemShown(gallery_menu_create_sticker, !noforwards && messageObject.isPhoto() && !messageObject.isLivePhoto());
 
-                menuItem.setSubItemShown(gallery_menu_search_image, messageObject.isPhoto() && !messageObject.isLivePhoto());
+                setSearchImageShown(messageObject.isPhoto() && !messageObject.isLivePhoto());
                 if (messageObject.eventId != 0) {
                     needSearchImageInArr = false;
                 } else if (currentAnimation != null) {
@@ -14654,7 +14665,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             MessageObject openingObject = imagesArr.get(index);
             menuItem.setSubItemShown(gallery_menu_create_sticker, !noforwards && openingObject.isPhoto());
 
-            menuItem.setSubItemShown(gallery_menu_search_image, openingObject.isPhoto());
+            setSearchImageShown(openingObject.isPhoto());
             if (!openingObject.scheduled && !openingObject.isQuickReply() && !openingObject.isSponsored() && (parentChatActivity == null || !parentChatActivity.isThreadChat())) {
                 opennedFromMedia = parentChatActivity == null;
                 if (parentFragment instanceof ProfileActivity) {
@@ -14700,7 +14711,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             menuItem.setVisibility(View.GONE);
             menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-            menuItem.setSubItemShown(gallery_menu_search_image, false);
+            setSearchImageShown(false);
             imagesArrLocals.addAll(photos);
             Object obj = imagesArrLocals.get(index);
             boolean allowCaption;
@@ -16146,7 +16157,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 menuItem.showSubItem(gallery_menu_speed);
                 menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-                menuItem.setSubItemShown(gallery_menu_search_image, false);
+                setSearchImageShown(false);
                 speedGap.setVisibility(menuItem.getVisibleSubItemsCount() > 1 ? View.VISIBLE : View.GONE);
             } else {
                 speedItem.setVisibility(View.GONE);
@@ -16154,7 +16165,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 speedGap.setVisibility(View.GONE);
                 menuItem.setSubItemShown(gallery_menu_create_sticker, !noforwards && currentMessageObject != null && currentMessageObject.isPhoto() && !currentMessageObject.isLivePhoto());
 
-                menuItem.setSubItemShown(gallery_menu_search_image, currentMessageObject != null && currentMessageObject.isPhoto() && !currentMessageObject.isLivePhoto());
+                setSearchImageShown(currentMessageObject != null && currentMessageObject.isPhoto() && !currentMessageObject.isLivePhoto());
                 menuItem.checkHideMenuItem();
             }
             updateQualityItems();
@@ -16177,7 +16188,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             currentSecureDocument = secureDocuments.get(index);
             menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-            menuItem.setSubItemShown(gallery_menu_search_image, false);
+            setSearchImageShown(false);
         } else if (!imagesArrLocations.isEmpty()) {
             if (index < 0 || index >= imagesArrLocations.size()) {
                 closePhoto(false, false);
@@ -16192,7 +16203,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             currentFileLocationVideo = imagesArrLocationsVideo.get(index);
             menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-            menuItem.setSubItemShown(gallery_menu_search_image, false);
+            setSearchImageShown(false);
         } else if (!imagesArrLocals.isEmpty()) {
             if (index < 0 || index >= imagesArrLocals.size()) {
                 closePhoto(false, false);
@@ -16295,7 +16306,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             }
             menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-            menuItem.setSubItemShown(gallery_menu_search_image, false);
+            setSearchImageShown(false);
         } else if (pageBlocksAdapter != null) {
             if (currentIndex < 0 || currentIndex >= pageBlocksAdapter.getItemsCount()) {
                 closePhoto(false, false);
@@ -16307,11 +16318,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             isVideo = pageBlocksAdapter.isVideo(currentIndex) || pageBlocksAdapter.isHardwarePlayer(currentIndex);
             menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-            menuItem.setSubItemShown(gallery_menu_search_image, false);
+            setSearchImageShown(false);
         } else {
             menuItem.setSubItemShown(gallery_menu_create_sticker, false);
 
-            menuItem.setSubItemShown(gallery_menu_search_image, false);
+            setSearchImageShown(false);
         }
         setMenuItemIcon(false, true);
 
