@@ -43670,6 +43670,9 @@ public class ChatActivity extends BaseFragment implements
                     PhotoViewer.getInstance().openPhoto(message, ChatActivity.this, message.type != 0 ? dialog_id : 0, message.type != 0 ? mergeDialogId : 0, message.type != 0 ? getTopicId() : 0, photoViewerProvider);
                     handled = true;
                 }
+                if (!handled && org.telegram.ui.Pdf.ui.PdfViewerActivity.isPdf(message)) {
+                    handled = org.telegram.ui.Pdf.ui.PdfViewerActivity.open(ChatActivity.this, message);
+                }
                 if (MarkdownParser.isMarkdown(message)) {
                     parseMarkdownAsync(message);
                     handled = true;
