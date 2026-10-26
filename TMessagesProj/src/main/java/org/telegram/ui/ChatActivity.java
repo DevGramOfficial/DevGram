@@ -5779,6 +5779,9 @@ public class ChatActivity extends BaseFragment implements
                     if (view instanceof ChatMessageCell || view instanceof ChatActionCell
                             && ((ChatActionCell) view).canSwipeGramTransferReply(e.getX() - view.getX(), e.getY() - view.getY())) {
                         if (slidingView != null) {
+                            if (slidingView instanceof ChatMessageCell) {
+                                setGroupTranslationX((ChatMessageCell) slidingView, 0);
+                            }
                             slidingViewSetOffset(0);
                         }
                         slidingView = view;
@@ -5998,7 +6001,12 @@ public class ChatActivity extends BaseFragment implements
                             updateTextureViewPosition(false, false);
                         }
 
-                        if (trackAnimationProgress == 1f || trackAnimationProgress == 0f) {
+                        // раньше заканчивали и при progress == 0 (первый кадр): пузырь сбрасывался,
+                        // а остальные ячейки альбома так и оставались сдвинутыми
+                        if (trackAnimationProgress == 1f) {
+                            if (slidingView instanceof ChatMessageCell) {
+                                setGroupTranslationX((ChatMessageCell) slidingView, 0);
+                            }
                             slidingViewSetOffset(0);
                             slidingView = null;
                         }

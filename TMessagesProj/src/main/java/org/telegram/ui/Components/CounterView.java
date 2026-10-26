@@ -90,8 +90,10 @@ public class CounterView extends View {
         private float countLayoutWidth;
         private StaticLayout countLayout;
         private StaticLayout countOldLayout;
-        private StaticLayout countAnimationStableLayout;
-        private StaticLayout countAnimationInLayout;
+        // замена цифр рисуется посимвольно: у каждой строки свои позиции символов, иначе с
+        // системным шрифтом (цифры разной ширины) неизменные цифры прыгали
+        private String countAnimationOldText, countAnimationNewText;
+        private float[] countAnimationOldX, countAnimationNewX;
 
         private int countWidthOld;
         private int countWidth;
@@ -232,8 +234,10 @@ public class CounterView extends View {
                     public void onAnimationEnd(Animator animation) {
                         countChangeProgress = 1f;
                         countOldLayout = null;
-                        countAnimationStableLayout = null;
-                        countAnimationInLayout = null;
+                        countAnimationOldText = null;
+                        countAnimationNewText = null;
+                        countAnimationOldX = null;
+                        countAnimationNewX = null;
                         if (parent != null) {
                             if (currentCount == 0 && updateVisibility) {
                                 parent.setVisibility(View.GONE);
@@ -260,22 +264,10 @@ public class CounterView extends View {
                     CharSequence oldStr = currentText; // getStringOfCCount(currentCount);
 
                     if (oldStr.length() == newStr.length() && !isText) {
-                        SpannableStringBuilder oldSpannableStr = new SpannableStringBuilder(oldStr);
-                        SpannableStringBuilder newSpannableStr = new SpannableStringBuilder(newStr);
-                        SpannableStringBuilder stableStr = new SpannableStringBuilder(newStr);
-                        for (int i = 0; i < oldStr.length(); i++) {
-                            if (oldStr.charAt(i) == newStr.charAt(i)) {
-                                oldSpannableStr.setSpan(new EmptyStubSpan(), i, i + 1, 0);
-                                newSpannableStr.setSpan(new EmptyStubSpan(), i, i + 1, 0);
-                            } else {
-                                stableStr.setSpan(new EmptyStubSpan(), i, i + 1, 0);
-                            }
-                        }
-
-                        int countOldWidth = Math.max(AndroidUtilities.dp(12), (int) Math.ceil(textPaint.measureText(oldStr.toString())));
-                        countOldLayout = new StaticLayout(oldSpannableStr, textPaint, countOldWidth, Layout.Alignment.ALIGN_CENTER, 1.0f, 0.0f, false);
-                        countAnimationStableLayout = new StaticLayout(stableStr, textPaint, countOldWidth, Layout.Alignment.ALIGN_CENTER, 1.0f, 0.0f, false);
-                        countAnimationInLayout = new StaticLayout(newSpannableStr, textPaint, countOldWidth, Layout.Alignment.ALIGN_CENTER, 1.0f, 0.0f, false);
+                        countAnimationOldText = oldStr.toString();
+                        countAnimationNewText = newStr.toString();
+                        countAnimationOldX = getCharOffsets(countAnimationOldText);
+                        countAnimationNewX = getCharOffsets(countAnimationNewText);
                     } else {
                         countOldLayout = countLayout;
                     }
@@ -295,6 +287,18 @@ public class CounterView extends View {
             if (parent != null) {
                 parent.invalidate();
             }
+        }
+
+        // смещения символов от центра счётчика — так же, как их кладёт StaticLayout с ALIGN_CENTER
+        private float[] getCharOffsets(String str) {
+            float textWidth = textPaint.measureText(str);
+            int boxWidth = Math.max(AndroidUtilities.dp(12), (int) Math.ceil(textWidth));
+            float start = -boxWidth / 2f + ((boxWidth - (((int) textWidth) & ~1)) >> 1);
+            float[] offsets = new float[str.length()];
+            for (int i = 0; i < str.length(); i++) {
+                offsets[i] = textPaint.measureText(str, 0, i) + start;
+            }
+            return offsets;
         }
 
         public int getCurrentWidth() {
@@ -376,12 +380,22 @@ public class CounterView extends View {
                     canvas.clipRect(rectF);
 
                     boolean increment = reverseAnimation != countAnimationIncrement;
-                    if (countAnimationInLayout != null) {
-                        canvas.save();
-                        canvas.translate(countLeft, countTop + AndroidUtilities.dp(4) + (increment ? AndroidUtilities.dp(13) : -AndroidUtilities.dp(13)) * (1f - progressHalf));
-                        textPaint.setAlpha((int) (255 * progressHalf));
-                        countAnimationInLayout.draw(canvas);
-                        canvas.restore();
+                    if (countAnimationNewText != null && countLayout != null) {
+                        float cx = countLeft + countWidth / 2f;
+                        float baseline = countTop + AndroidUtilities.dp(4) + countLayout.getLineBaseline(0);
+                        float inY = baseline + (increment ? AndroidUtilities.dp(13) : -AndroidUtilities.dp(13)) * (1f - progressHalf);
+                        float outY = baseline + (increment ? -AndroidUtilities.dp(13) : AndroidUtilities.dp(13)) * progressHalf;
+                        for (int i = 0; i < countAnimationNewText.length(); i++) {
+                            if (countAnimationOldText.charAt(i) == countAnimationNewText.charAt(i)) {
+                                textPaint.setAlpha(255);
+                                canvas.drawText(countAnimationNewText, i, i + 1, cx + AndroidUtilities.lerp(countAnimationOldX[i], countAnimationNewX[i], progressHalf), baseline, textPaint);
+                            } else {
+                                textPaint.setAlpha((int) (255 * (1f - progressHalf)));
+                                canvas.drawText(countAnimationOldText, i, i + 1, cx + countAnimationOldX[i], outY, textPaint);
+                                textPaint.setAlpha((int) (255 * progressHalf));
+                                canvas.drawText(countAnimationNewText, i, i + 1, cx + countAnimationNewX[i], inY, textPaint);
+                            }
+                        }
                     } else if (countLayout != null) {
                         canvas.save();
                         canvas.translate(countLeft, countTop + AndroidUtilities.dp(4) + (increment ? AndroidUtilities.dp(13) : -AndroidUtilities.dp(13)) * (1f - progressHalf));
@@ -398,13 +412,6 @@ public class CounterView extends View {
                         canvas.restore();
                     }
 
-                    if (countAnimationStableLayout != null) {
-                        canvas.save();
-                        canvas.translate(countLeft, countTop + AndroidUtilities.dp(4));
-                        textPaint.setAlpha(255);
-                        countAnimationStableLayout.draw(canvas);
-                        canvas.restore();
-                    }
                     textPaint.setAlpha(255);
                     canvas.restore();
                 }
