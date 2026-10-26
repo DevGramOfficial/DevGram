@@ -137,4 +137,159 @@ public final class DevGramSensitiveRequests {
             }
         });
     }
+
+    // ---- подробности для окна подтверждения ----
+
+    private static final class Payment {
+        final long amount;
+        final String currency;
+        final long created = android.os.SystemClock.elapsedRealtime();
+
+        Payment(long amount, String currency) {
+            this.amount = amount;
+            this.currency = currency;
+        }
+    }
+
+    private static final java.util.LinkedHashMap<String, Payment> payments = new java.util.LinkedHashMap<>();
+
+    /** Запомнить сумму из ответа на запрос платёжной формы (по form_id), чтобы показать её при оплате. */
+    public static synchronized void rememberPaymentForm(int account, TLObject response) {
+        if (!(response instanceof org.telegram.tgnet.TLRPC.PaymentForm)) {
+            return;
+        }
+        org.telegram.tgnet.TLRPC.PaymentForm form = (org.telegram.tgnet.TLRPC.PaymentForm) response;
+        if (form.invoice == null || form.invoice.prices == null || form.invoice.prices.isEmpty()) {
+            return;
+        }
+        long total = 0;
+        try {
+            for (org.telegram.tgnet.TLRPC.TL_labeledPrice price : form.invoice.prices) {
+                if (price == null) return;
+                total = Math.addExact(total, price.amount);
+            }
+        } catch (ArithmeticException e) {
+            return;
+        }
+        payments.put(account + ":" + form.form_id, new Payment(total, form.invoice.currency));
+        while (payments.size() > 128) {
+            payments.remove(payments.keySet().iterator().next());
+        }
+    }
+
+    private static synchronized Payment payment(int account, long formId) {
+        String key = account + ":" + formId;
+        Payment p = payments.get(key);
+        if (p != null && android.os.SystemClock.elapsedRealtime() - p.created > 15 * 60_000) {
+            payments.remove(key);
+            return null;
+        }
+        return p;
+    }
+
+    private static String peerName(int account, long dialogId) {
+        MessagesController mc = MessagesController.getInstance(account);
+        if (dialogId > 0) {
+            org.telegram.tgnet.TLRPC.User user = mc.getUser(dialogId);
+            return user != null ? UserObject.getUserName(user) + (org.telegram.messenger.UserObject.getPublicUsername(user) != null ? " (@" + UserObject.getPublicUsername(user) + ")" : "") : "ID " + dialogId;
+        }
+        org.telegram.tgnet.TLRPC.Chat chat = mc.getChat(-dialogId);
+        return chat != null ? chat.title : "ID " + (-dialogId);
+    }
+
+    private static String stars(long amount) {
+        return LocaleController.formatNumber(amount, ',') + " ⭐";
+    }
+
+    private static String ton(long nano) {
+        return java.math.BigDecimal.valueOf(nano, 9).stripTrailingZeros().toPlainString() + " TON";
+    }
+
+    private static String savedGift(org.telegram.tgnet.tl.TL_stars.InputSavedStarGift gift) {
+        if (gift instanceof org.telegram.tgnet.tl.TL_stars.TL_inputSavedStarGiftUser) {
+            return "ID " + ((org.telegram.tgnet.tl.TL_stars.TL_inputSavedStarGiftUser) gift).msg_id;
+        } else if (gift instanceof org.telegram.tgnet.tl.TL_stars.TL_inputSavedStarGiftChat) {
+            return "ID " + ((org.telegram.tgnet.tl.TL_stars.TL_inputSavedStarGiftChat) gift).saved_id;
+        } else if (gift instanceof org.telegram.tgnet.tl.TL_stars.TL_inputSavedStarGiftSlug) {
+            return ((org.telegram.tgnet.tl.TL_stars.TL_inputSavedStarGiftSlug) gift).slug;
+        }
+        return null;
+    }
+
+    /** Строки «название — значение» для окна: аккаунт, получатель, чат, сумма, подарок, запрос. */
+    public static java.util.ArrayList<CharSequence[]> details(int account, TLObject req) {
+        java.util.ArrayList<CharSequence[]> rows = new java.util.ArrayList<>();
+        org.telegram.tgnet.TLRPC.User self = UserConfig.getInstance(account).getCurrentUser();
+        if (self != null) {
+            rows.add(new CharSequence[]{"Аккаунт", peerName(account, self.id)});
+        }
+        try {
+            if (req instanceof org.telegram.tgnet.tl.TL_stars.transferStarGift) {
+                org.telegram.tgnet.tl.TL_stars.transferStarGift r = (org.telegram.tgnet.tl.TL_stars.transferStarGift) req;
+                rows.add(new CharSequence[]{"Получатель", peerName(account, DialogObject.getPeerDialogId(r.to_id))});
+                String g = savedGift(r.stargift);
+                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_stars.updateStarGiftPrice) {
+                org.telegram.tgnet.tl.TL_stars.updateStarGiftPrice r = (org.telegram.tgnet.tl.TL_stars.updateStarGiftPrice) req;
+                String g = savedGift(r.stargift);
+                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+                if (r.resell_amount != null) rows.add(new CharSequence[]{"Цена", stars(r.resell_amount.amount)});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_stars.convertStarGift) {
+                String g = savedGift(((org.telegram.tgnet.tl.TL_stars.convertStarGift) req).stargift);
+                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_stars.upgradeStarGift) {
+                String g = savedGift(((org.telegram.tgnet.tl.TL_stars.upgradeStarGift) req).stargift);
+                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_stars.withdrawStarGift) {
+                String g = savedGift(((org.telegram.tgnet.tl.TL_stars.withdrawStarGift) req).stargift);
+                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_stars.deleteStarGift) {
+                String g = savedGift(((org.telegram.tgnet.tl.TL_stars.deleteStarGift) req).stargift);
+                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_payments.TL_sendStarGiftOffer) {
+                org.telegram.tgnet.tl.TL_payments.TL_sendStarGiftOffer r = (org.telegram.tgnet.tl.TL_payments.TL_sendStarGiftOffer) req;
+                rows.add(new CharSequence[]{"Получатель", peerName(account, DialogObject.getPeerDialogId(r.peer))});
+                if (r.price != null) rows.add(new CharSequence[]{"Сумма", stars(r.price.amount)});
+            } else if (req instanceof org.telegram.tgnet.TLRPC.TL_messages_sendPaidReaction) {
+                org.telegram.tgnet.TLRPC.TL_messages_sendPaidReaction r = (org.telegram.tgnet.TLRPC.TL_messages_sendPaidReaction) req;
+                rows.add(new CharSequence[]{"Чат", peerName(account, DialogObject.getPeerDialogId(r.peer))});
+                rows.add(new CharSequence[]{"Сумма", stars(r.count)});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_stars.TL_payments_sendStarsForm || req instanceof org.telegram.tgnet.TLRPC.TL_payments_sendPaymentForm) {
+                long formId = req instanceof org.telegram.tgnet.tl.TL_stars.TL_payments_sendStarsForm
+                    ? ((org.telegram.tgnet.tl.TL_stars.TL_payments_sendStarsForm) req).form_id
+                    : ((org.telegram.tgnet.TLRPC.TL_payments_sendPaymentForm) req).form_id;
+                Payment p = payment(account, formId);
+                String debit = "Не удалось определить сумму. Это не значит, что операция бесплатная.";
+                if (p != null && "XTR".equals(p.currency)) {
+                    debit = stars(p.amount);
+                } else if (p != null && "TON".equals(p.currency)) {
+                    debit = ton(p.amount);
+                } else if (p != null) {
+                    debit = BillingController.getInstance().formatCurrency(p.amount, p.currency);
+                }
+                rows.add(new CharSequence[]{"Будет списано", debit});
+            } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_editCreator) {
+                org.telegram.tgnet.TLRPC.TL_channels_editCreator r = (org.telegram.tgnet.TLRPC.TL_channels_editCreator) req;
+                rows.add(new CharSequence[]{"Чат", peerName(account, -r.channel.channel_id)});
+                rows.add(new CharSequence[]{"Новый владелец", peerName(account, r.user_id.user_id)});
+            } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_editAdmin) {
+                org.telegram.tgnet.TLRPC.TL_channels_editAdmin r = (org.telegram.tgnet.TLRPC.TL_channels_editAdmin) req;
+                rows.add(new CharSequence[]{"Чат", peerName(account, -r.channel.channel_id)});
+                rows.add(new CharSequence[]{"Пользователь", peerName(account, r.user_id.user_id)});
+            } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_deleteChannel) {
+                rows.add(new CharSequence[]{"Чат", peerName(account, -((org.telegram.tgnet.TLRPC.TL_channels_deleteChannel) req).channel.channel_id)});
+            } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_updateUsername) {
+                org.telegram.tgnet.TLRPC.TL_channels_updateUsername r = (org.telegram.tgnet.TLRPC.TL_channels_updateUsername) req;
+                rows.add(new CharSequence[]{"Чат", peerName(account, -r.channel.channel_id)});
+                rows.add(new CharSequence[]{"Новая ссылка", "@" + r.username});
+            } else if (req instanceof org.telegram.tgnet.tl.TL_wallet.sendTransfer) {
+                org.telegram.tgnet.tl.TL_wallet.sendTransfer r = (org.telegram.tgnet.tl.TL_wallet.sendTransfer) req;
+                if (r.user_id != null) rows.add(new CharSequence[]{"Получатель", peerName(account, r.user_id.user_id)});
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        rows.add(new CharSequence[]{"Запрос", req.getClass().getSimpleName()});
+        return rows;
+    }
 }

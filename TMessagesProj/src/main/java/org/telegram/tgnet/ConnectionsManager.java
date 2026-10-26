@@ -396,8 +396,18 @@ public class ConnectionsManager extends BaseController {
         return requestToken;
     }
 
-    public int sendRequest(final TLObject object, final RequestDelegate onComplete, final RequestDelegateTimestamp onCompleteTimestamp, final QuickAckDelegate onQuickAck, final WriteToSocketDelegate onWriteToSocket, final int flags, final int datacenterId, final int connectionType, final boolean immediate) {
+    public int sendRequest(final TLObject object, RequestDelegate onCompleteParam, final RequestDelegateTimestamp onCompleteTimestamp, final QuickAckDelegate onQuickAck, final WriteToSocketDelegate onWriteToSocket, final int flags, final int datacenterId, final int connectionType, final boolean immediate) {
         final int requestToken = lastRequestToken.getAndIncrement();
+        final RequestDelegate onComplete;
+        if (object instanceof TLRPC.TL_payments_getPaymentForm && onCompleteParam != null) {
+            // сумма формы нужна окну подтверждения, если оплату потом запустит плагин
+            onComplete = (response, error) -> {
+                org.telegram.messenger.DevGramSensitiveRequests.rememberPaymentForm(currentAccount, response);
+                onCompleteParam.run(response, error);
+            };
+        } else {
+            onComplete = onCompleteParam;
+        }
         if (org.telegram.messenger.DevGramSensitiveRequests.needsConfirmation(object)) {
             org.telegram.messenger.DevGramSensitiveRequests.confirm(currentAccount, object, allowed -> Utilities.stageQueue.postRunnable(() -> {
                 if (allowed) {

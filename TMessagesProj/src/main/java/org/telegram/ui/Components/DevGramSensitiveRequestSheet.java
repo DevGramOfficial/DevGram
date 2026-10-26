@@ -61,9 +61,14 @@ public class DevGramSensitiveRequestSheet extends BottomSheet {
 
         TableView table = new TableView(context, resourcesProvider);
         table.addRow("Действие", DevGramSensitiveRequests.getTitle(request));
-        TLRPC.User self = UserConfig.getInstance(account).getCurrentUser();
-        if (self != null) {
-            table.addRow("Аккаунт", UserObject.getUserName(self));
+        java.util.ArrayList<CharSequence[]> rows = DevGramSensitiveRequests.details(account, request);
+        for (int i = 0; i < rows.size(); i++) {
+            CharSequence[] row = rows.get(i);
+            if (i == rows.size() - 1) {
+                table.addRowMonospaced(row[0], row[1].toString(), 13, null);
+            } else {
+                table.addRow(row[0], row[1]);
+            }
         }
         layout.addView(table, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 20, 16, 0));
 
