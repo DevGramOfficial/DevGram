@@ -903,6 +903,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (category == CATEGORY_NAVIGATION) {
             // Экран «Навигация приложения» — как AppNavigationPreferencesActivity у exteraGram.
             items.add(UItem.asHeader("Общие"));
+            items.add(UItem.asCheck(ID_TABLET_MODE, "Отключить планшетный режим")
+                    .setChecked(org.telegram.messenger.SharedConfig.forceDisableTabletMode));
             items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, "Скрыть подписи в нижней панели")
                     .setChecked(gPref("dg_hideNavLabels", false)));
             items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
@@ -1278,10 +1280,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asCheck(ID_SAT_SAVING, "Экономия на спутниковых сетях")
                     .setChecked(gPref("satelliteDataSaving", true)));
             items.add(UItem.asButton(ID_LINK_REPLACE, "Замена ссылок при вставке"));
-            items.add(UItem.asCheck(ID_TABLET_MODE, "Отключить планшетный режим")
-                    .setChecked(org.telegram.messenger.SharedConfig.forceDisableTabletMode));
-            items.add(UItem.asShadow("Планшетный режим — двухколоночный интерфейс на широком экране; "
-                    + "его отключение перезапустит приложение."));
+            items.add(UItem.asShadow(null));
         }
     }
 
@@ -1660,12 +1659,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_TABLET_MODE) {
             org.telegram.messenger.SharedConfig.toggleForceDisableTabletMode();
             refreshList();
-            android.app.Activity activity = getParentActivity();
-            if (activity != null) {
-                android.content.Intent intent = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
-                activity.finishAffinity();
-                activity.startActivity(intent);
-            }
+            scheduleRestart();
             return;
         } else if (item.id == ID_MINI_AVATARS) {
             gToggle("senderMiniAvatars", true);
