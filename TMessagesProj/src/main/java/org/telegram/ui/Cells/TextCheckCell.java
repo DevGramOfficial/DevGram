@@ -399,11 +399,9 @@ public class TextCheckCell extends FrameLayout {
         if (needDivider) {
             Paint dividerPaint = resourcesProvider != null ? resourcesProvider.getPaint(Theme.key_paint_divider) : Theme.dividerPaint;
             if (dividerPaint != null) {
-                if (imageView != null) {
-                    canvas.drawLine(LocaleController.isRTL ? 0 : padding, getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? padding : 0), getMeasuredHeight() - 1, dividerPaint);
-                } else {
-                    canvas.drawLine(LocaleController.isRTL ? 0 : AndroidUtilities.dp(20), getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? AndroidUtilities.dp(20) : 0), getMeasuredHeight() - 1, dividerPaint);
-                }
+                // отступ по видимой иконке: у скрытой иконки разделитель раньше начинался с её отступа
+                int inset = imageView != null && imageView.getVisibility() == VISIBLE ? padding - AndroidUtilities.dp(3) : AndroidUtilities.dp(20);
+                canvas.drawLine(LocaleController.isRTL ? 0 : inset, getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? inset : 0), getMeasuredHeight() - 1, dividerPaint);
             }
         }
     }
