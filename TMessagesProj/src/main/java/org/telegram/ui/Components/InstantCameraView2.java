@@ -122,6 +122,8 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
     private float panTranslationY;
     private float animationTranslationY;
     private float pinchStartDistance;
+    private float pinchStartZoomRatio;
+    private final org.telegram.messenger.devgram.camera.InstantCameraZoomSlider zoomSlider;
     private float zoomProgress;
     private int zoomPointerId1 = -1;
     private int zoomPointerId2 = -1;
@@ -280,6 +282,10 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
         muteImageView.setAlpha(0f);
         addView(muteImageView, LayoutHelper.createFrame(48, 48, Gravity.CENTER));
 
+        zoomSlider = new org.telegram.messenger.devgram.camera.InstantCameraZoomSlider(context, resourcesProvider);
+        zoomSlider.setOpenAlpha(0f);
+        addView(zoomSlider, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+
         textureView.setOnTouchListener(this::handleZoomTouch);
         super.setVisibility(INVISIBLE);
     }
@@ -293,6 +299,7 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
         drawable.setPadding(dp(6));
         drawable.setRadius(dp(21));
         buttonsLayout.setBackground(drawable);
+        zoomSlider.setBlurBackground(factory.create(zoomSlider, colorProvider));
     }
 
     @Override
@@ -311,6 +318,7 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
         muteImageView.setAlpha(0f);
         muteImageView.setScaleX(1f);
         muteImageView.setScaleY(1f);
+        zoomSlider.setOpenAlpha(0f);
         progressView.getPaint().setAlpha(0);
         try {
             Activity activity = (Activity) getContext();
@@ -329,6 +337,7 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
         setRecordingUiFrameClockActive(false);
         cancelCameraFlipAnimation();
         if (zoomResetAnimator != null) zoomResetAnimator.cancel();
+        zoomSlider.unbindSession();
         if (session != null) {
             session.release();
             session = null;
@@ -434,6 +443,7 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
                 ObjectAnimator.ofFloat(cameraContainer, View.SCALE_Y, open ? 1f : 0.1f),
                 ObjectAnimator.ofFloat(cameraContainer, View.TRANSLATION_X, targetTranslationX),
                 ObjectAnimator.ofFloat(muteImageView, View.ALPHA, muted && open ? 1f : 0f),
+                ObjectAnimator.ofFloat(zoomSlider, org.telegram.messenger.devgram.camera.InstantCameraZoomSlider.OPEN_ALPHA, open ? 1f : 0f),
                 translationYAnimator
         );
         visibilityAnimator.setDuration(180L);
@@ -612,6 +622,7 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
             cameraContainer.getLayoutParams().width = newSize + dp(28);
             cameraContainer.getLayoutParams().height = newSize + dp(28);
             ((LayoutParams) muteImageView.getLayoutParams()).topMargin = newSize / 2 - dp(24);
+            zoomSlider.setTextureViewSize(newSize);
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         int width = MeasureSpec.makeMeasureSpec(getMeasuredWidth(), MeasureSpec.EXACTLY);
@@ -698,6 +709,9 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
                     && info.getState() == RoundVideoSession.State.PAUSING) {
                 postRecordStopped(2);
             }
+            if (info.getState() == RoundVideoSession.State.PAUSING) {
+                zoomSlider.unbindSession();
+            }
             updateButtons();
         }
 
@@ -709,11 +723,15 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
             if (cameraCapabilities.getActiveFacing() != null) {
                 SharedSettings.roundVideoLastCamera.set(cameraCapabilities.getActiveFacing());
             }
+            if (session != null) {
+                zoomSlider.bindSession(session, cameraCapabilities);
+            }
             updateButtons();
         }
 
         @Override
         public void onCameraSwitchStarted(@NonNull RoundVideoSession.CameraFacing facing) {
+            zoomSlider.beginCameraSwitch();
             startCameraFlipAnimation(facing);
         }
 
@@ -985,11 +1003,14 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
         }
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
             if (zoomResetAnimator != null) zoomResetAnimator.cancel();
+            zoomSlider.cancelZoomAnimation();
             pinchZoomActive = false;
             zoomPointerId1 = event.getPointerId(0);
             zoomPointerId2 = -1;
             if (stateInfo.getState() == RoundVideoSession.State.PREVIEWING) {
                 togglePreviewMuted();
+            } else if (stateInfo.canControlCamera() && view.getWidth() > 0 && view.getHeight() > 0) {
+                session.setFocusPoint(event.getX() / view.getWidth(), event.getY() / view.getHeight());
             }
             return true;
         }
@@ -1001,6 +1022,10 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
             pinchStartDistance = pointerDistance(event, 0, 1);
             pinchZoomActive = pinchStartDistance > 0f;
             zoomProgress = 0f;
+            if (pinchZoomActive && zoomSlider.isBound()) {
+                pinchStartZoomRatio = zoomSlider.getZoom();
+                zoomSlider.beginPinchZoomGesture();
+            }
             return true;
         }
         if (event.getActionMasked() == MotionEvent.ACTION_MOVE && pinchZoomActive) {
@@ -1011,6 +1036,11 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
                 return true;
             }
             float scale = pointerDistance(event, index1, index2) / pinchStartDistance;
+            if (zoomSlider.isBound()) {
+                // квадрат — чтобы щипок ощущался так же, как в системной камере
+                zoomSlider.setPinchZoomRatio(pinchStartZoomRatio * scale * scale);
+                return true;
+            }
             float maximumZoomRatio = capabilities == null
                     ? 1f
                     : capabilities.getMaximumZoomRatio();
@@ -1053,6 +1083,10 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
         pinchZoomActive = false;
         zoomPointerId1 = -1;
         zoomPointerId2 = -1;
+        if (zoomSlider.isBound()) {
+            zoomSlider.finishPinchZoomGesture();
+            return;
+        }
         animateZoomReset();
     }
 
@@ -1090,6 +1124,7 @@ public final class InstantCameraView2 extends InstantCameraViewBase {
 
     private void updateTranslationY() {
         cameraContainer.setTranslationY(animationTranslationY + panTranslationY);
+        zoomSlider.setBaseTranslationY(animationTranslationY + panTranslationY);
     }
 
     private void showInitialPlaceholder() {

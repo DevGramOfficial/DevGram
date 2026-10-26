@@ -404,8 +404,10 @@ public final class RoundVideoSession {
         private final FrameRate activeFrameRate;
         private final FlashType flashType;
         private final float maximumZoomRatio;
+        private final String activeCameraId;
 
         private CameraCapabilities(
+                String activeCameraId,
                 CameraFacing requestedFacing,
                 CameraFacing activeFacing,
                 CameraResolution requestedResolution,
@@ -423,7 +425,11 @@ public final class RoundVideoSession {
             this.activeFrameRate = activeFrameRate;
             this.flashType = flashType;
             this.maximumZoomRatio = maximumZoomRatio;
+            this.activeCameraId = activeCameraId;
         }
+
+        /** Идентификатор настроенной камеры Camera2, null до готовности. */
+        public @Nullable String getActiveCameraId() { return activeCameraId; }
 
         /** Returns the camera requested for the current or next segment. */
         public @NonNull CameraFacing getRequestedFacing() { return requestedFacing; }
@@ -510,7 +516,7 @@ public final class RoundVideoSession {
     private final ExecutorService outputExecutor = Executors.newSingleThreadExecutor(
             runnable -> new Thread(runnable, "RoundVideoOutput")
     );
-    private final RoundVideoCameraController cameraController;
+    private final RoundVideoCamera cameraController;
     private final RoundVideoDiagnostics diagnostics;
     private final OutputResolution outputResolution;
     private final int videoBitrate;
@@ -524,6 +530,7 @@ public final class RoundVideoSession {
     private CameraFacing activeFacing;
     private CameraResolution activeCameraResolution;
     private FrameRate activeFrameRate;
+    private String activeCameraId;
     private FlashType flashType = FlashType.NONE;
     private float maximumZoomRatio = 1f;
     private float zoomProgress;
@@ -748,6 +755,23 @@ public final class RoundVideoSession {
         return cameraController.setZoom(zoomProgress);
     }
 
+    /** Абсолютный коэффициент зума для ползунка; меньше 1 — широкоугольный объектив. */
+    @MainThread
+    public boolean setZoomRatio(float ratio) {
+        requireMainThread();
+        // принимаем и во время старта: ползунок выставляет начальный зум сразу после настройки камеры
+        if (state != State.STARTING && state != State.RECORDING && state != State.RESUMING) return false;
+        return cameraController.setZoomRatio(ratio);
+    }
+
+    /** Фокус по точке (x, y) в долях превью. */
+    @MainThread
+    public boolean setFocusPoint(float x, float y) {
+        requireMainThread();
+        if (state != State.RECORDING || cameraSwitching) return false;
+        return cameraController.setFocusPoint(x, y);
+    }
+
     /** Enables the rear torch or requests front-camera screen flash. */
     @MainThread
     public boolean setFlashEnabled(boolean enabled) {
@@ -923,6 +947,7 @@ public final class RoundVideoSession {
             boolean cameraSwitch
     ) {
         if (isTerminalState()) return;
+        activeCameraId = info.cameraId;
         activeFacing = info.facing;
         activeCameraResolution = info.cameraResolution;
         activeFrameRate = info.frameRate;
@@ -1360,6 +1385,7 @@ public final class RoundVideoSession {
 
     private void notifyCapabilities() {
         listener.onCameraCapabilitiesChanged(new CameraCapabilities(
+                activeCameraId,
                 requestedFacing,
                 activeFacing,
                 requestedCameraResolution,

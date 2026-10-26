@@ -15,6 +15,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Build;
 import android.os.Handler;
@@ -35,7 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
 
-final class RoundVideoCameraController {
+final class RoundVideoCameraController extends RoundVideoCamera {
 
     interface Callback {
         void onConfigured(@NonNull CameraInfo info, boolean cameraSwitch);
@@ -52,6 +53,7 @@ final class RoundVideoCameraController {
     }
 
     static final class CameraInfo {
+        final String cameraId;
         final RoundVideoSession.CameraFacing facing;
         final RoundVideoSession.CameraResolution cameraResolution;
         final RoundVideoSession.FrameRate frameRate;
@@ -61,6 +63,7 @@ final class RoundVideoCameraController {
         final boolean torchAvailable;
 
         CameraInfo(
+                String cameraId,
                 RoundVideoSession.CameraFacing facing,
                 RoundVideoSession.CameraResolution cameraResolution,
                 RoundVideoSession.FrameRate frameRate,
@@ -69,6 +72,7 @@ final class RoundVideoCameraController {
                 float maximumZoomRatio,
                 boolean torchAvailable
         ) {
+            this.cameraId = cameraId;
             this.facing = facing;
             this.cameraResolution = cameraResolution;
             this.frameRate = frameRate;
@@ -172,6 +176,9 @@ final class RoundVideoCameraController {
     private OutputPair regularFallbackPair;
     private long timelineOffsetUs;
     private volatile float zoomProgress;
+    private volatile float zoomRatio = Float.NaN;
+    private MeteringRectangle focusRegion;
+    private String focusCameraId;
     private float maximumZoomRatio = 1f;
     private boolean torchEnabled;
     private boolean torchVerificationPending;
@@ -286,6 +293,7 @@ final class RoundVideoCameraController {
         previewView.addOnLayoutChangeListener(layoutChangeListener);
     }
 
+    @Override
     void startSegment(
             @NonNull RoundVideoMp4Writer writer,
             long timelineOffsetUs,
@@ -309,6 +317,7 @@ final class RoundVideoCameraController {
         maybeOpenCamera();
     }
 
+    @Override
     boolean setCameraFacing(@NonNull RoundVideoSession.CameraFacing facing) {
         requestedFacing = facing;
         Handler handler = cameraHandler;
@@ -317,8 +326,10 @@ final class RoundVideoCameraController {
         return true;
     }
 
+    @Override
     boolean setZoom(float progress) {
         zoomProgress = clamp(progress, 0f, 1f);
+        zoomRatio = Float.NaN;
         Handler handler = cameraHandler;
         if (!active || handler == null) return false;
         handler.removeCallbacks(applyZoomRunnable);
@@ -326,6 +337,70 @@ final class RoundVideoCameraController {
         return true;
     }
 
+    @Override
+    boolean setZoomRatio(float ratio) {
+        if (!Float.isFinite(ratio) || ratio <= 0f) return false;
+        zoomRatio = ratio;
+        Handler handler = cameraHandler;
+        if (!active || handler == null) return false;
+        handler.removeCallbacks(applyZoomRunnable);
+        handler.post(applyZoomRunnable);
+        return true;
+    }
+
+    private float getCurrentZoomRatio() {
+        float ratio = zoomRatio;
+        if (!Float.isNaN(ratio)) return ratio;
+        return 1f + zoomProgress * (maximumZoomRatio - 1f);
+    }
+
+    @Override
+    boolean setFocusPoint(float x, float y) {
+        Handler handler = cameraHandler;
+        if (!active || handler == null) return false;
+        final int rotation = previewView.getDisplay() != null ? previewView.getDisplay().getRotation() * 90 : 0;
+        handler.post(() -> applyFocusPoint(x, y, rotation));
+        return true;
+    }
+
+    private void applyFocusPoint(float x, float y, int rotation) {
+        Size size = recordingSize;
+        if (!active || captureSession == null || characteristics == null || cameraId == null || size == null) return;
+        MeteringRectangle region = org.telegram.messenger.devgram.camera.RoundVideoCamera2Helper.createFocusRegion(
+                characteristics, size, sourceCropSize, rotation, getCurrentZoomRatio(), x, y);
+        if (region == null) return;
+        focusRegion = region;
+        focusCameraId = cameraId;
+        cameraHandler.removeCallbacks(resetFocusRunnable);
+        cameraHandler.postDelayed(resetFocusRunnable, 5000L);
+        applyRepeatingRequest();
+        triggerAutoFocus();
+    }
+
+    private void triggerAutoFocus() {
+        CameraCaptureSession session = captureSession;
+        CaptureRequest.Builder builder = repeatingBuilder;
+        if (session == null || builder == null) return;
+        Integer afMode = builder.get(CaptureRequest.CONTROL_AF_MODE);
+        if (afMode == null || afMode != CaptureRequest.CONTROL_AF_MODE_AUTO) return;
+        try {
+            builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+            session.capture(builder.build(), null, cameraHandler);
+        } catch (CameraAccessException | IllegalArgumentException | IllegalStateException e) {
+            diagnostics.log("autofocus trigger failed: " + e);
+        } finally {
+            builder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+        }
+    }
+
+    private void clearFocusRegion() {
+        focusRegion = null;
+        focusCameraId = null;
+        Handler handler = cameraHandler;
+        if (handler != null) handler.removeCallbacks(resetFocusRunnable);
+    }
+
+    @Override
     boolean setTorchEnabled(boolean enabled) {
         Handler handler = cameraHandler;
         if (!active || handler == null) return false;
@@ -343,6 +418,7 @@ final class RoundVideoCameraController {
         return true;
     }
 
+    @Override
     boolean stopSegment() {
         Handler handler = cameraHandler;
         if (!active || stopping || handler == null) return false;
@@ -369,6 +445,7 @@ final class RoundVideoCameraController {
         return true;
     }
 
+    @Override
     void release() {
         active = false;
         previewView.setSurfaceTextureListener(null);
@@ -403,6 +480,11 @@ final class RoundVideoCameraController {
     }
 
     private final Runnable applyZoomRunnable = this::applyRepeatingRequest;
+    // фокус по тапу держится 5 секунд, потом снова непрерывный автофокус
+    private final Runnable resetFocusRunnable = () -> {
+        clearFocusRegion();
+        applyRepeatingRequest();
+    };
 
     private final TextureView.SurfaceTextureListener previewListener =
             new TextureView.SurfaceTextureListener() {
@@ -643,6 +725,7 @@ final class RoundVideoCameraController {
         torchEnabled = false;
         torchVerificationPending = false;
         zoomProgress = 0f;
+        zoomRatio = Float.NaN;
         callback.onCameraSwitchStarted(facing);
         cameraSwitchStartedNs = SystemClock.elapsedRealtimeNanos();
         lastSwitchUsedWarmDevice = false;
@@ -762,6 +845,7 @@ final class RoundVideoCameraController {
         previewView.post(RoundVideoCameraController.this::updatePreviewTransform);
         callback.onConfigured(
                 new CameraInfo(
+                        cameraId,
                         activeFacing,
                         activeCameraResolution,
                         activeFrameRate,
@@ -1426,6 +1510,7 @@ final class RoundVideoCameraController {
                         previewView.post(RoundVideoCameraController.this::updatePreviewTransform);
                         callback.onConfigured(
                                 new CameraInfo(
+                                        cameraId,
                                         activeFacing,
                                         activeCameraResolution,
                                         activeFrameRate,
@@ -1658,7 +1743,10 @@ final class RoundVideoCameraController {
                 CaptureRequest.CONTROL_CAPTURE_INTENT,
                 CaptureRequest.CONTROL_CAPTURE_INTENT_VIDEO_RECORD
         );
-        setContinuousVideoAf(builder, selection.characteristics);
+        if (!activeControls || focusRegion == null || !selection.id.equals(focusCameraId)
+                || !org.telegram.messenger.devgram.camera.RoundVideoCamera2Helper.applyFocusRegion(builder, selection.characteristics, focusRegion)) {
+            setContinuousVideoAf(builder, selection.characteristics);
+        }
         if (selection.fpsRange != null) {
             builder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, selection.fpsRange);
             if (logConfiguration) {
@@ -1871,7 +1959,7 @@ final class RoundVideoCameraController {
     }
 
     private void applyZoom(@NonNull CaptureRequest.Builder builder) {
-        float ratio = 1f + zoomProgress * (maximumZoomRatio - 1f);
+        float ratio = getCurrentZoomRatio();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Range<Float> range = characteristics == null
                     ? null
@@ -1885,6 +1973,7 @@ final class RoundVideoCameraController {
                 ? null
                 : characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
         if (activeArray == null) return;
+        ratio = Math.max(1f, ratio);
         int cropWidth = Math.max(1, Math.round(activeArray.width() / ratio));
         int cropHeight = Math.max(1, Math.round(activeArray.height() / ratio));
         int left = activeArray.centerX() - cropWidth / 2;
