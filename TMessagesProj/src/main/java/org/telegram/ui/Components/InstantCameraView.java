@@ -139,7 +139,8 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     private Delegate delegate;
     private Paint paint;
     private RectF rect;
-    private ZoomControlView zoomControlView; // DevGram: слайдер зума камеры кружков
+    private org.telegram.messenger.devgram.camera.InstantCameraZoomSlider zoomSlider; // DevGram: ползунок зума с объективами
+    private float pinchStartZoomRatio;
     // DevGram: кольцо записи — дорожка + дуга текущей минуты + светящаяся точка; таймер текущего кружка
     private Paint ringTrackPaint;
     private Paint ringHeadPaint;
@@ -354,27 +355,10 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         buttonsLayout.setOrientation(LinearLayout.HORIZONTAL);
         addView(buttonsLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 56, Gravity.LEFT | Gravity.BOTTOM, 1, 0, 0, 0));
 
-        // DevGram: слайдер зума камеры кружков (базовый ZoomControlView, показывается по настройке)
-        zoomControlView = new ZoomControlView(context);
-        zoomControlView.setVisibility(org.telegram.messenger.DevGramConfig.isZoomSlider() ? VISIBLE : GONE);
-        zoomControlView.setDelegate(zoom -> {
-            if (useCameraX) {
-                if (cameraXSessionCurrent != null) {
-                    float min = cameraXSessionCurrent.getMinZoom();
-                    float max = cameraXSessionCurrent.getMaxZoom();
-                    cameraXSessionCurrent.setZoom(min + (max - min) * zoom);
-                }
-            } else if (useCamera2) {
-                if (camera2SessionCurrent != null) {
-                    float min = camera2SessionCurrent.getMinZoom();
-                    float max = camera2SessionCurrent.getMaxZoom();
-                    camera2SessionCurrent.setZoom(min + (max - min) * zoom);
-                }
-            } else if (cameraSession != null) {
-                cameraSession.setZoom(zoom);
-            }
-        });
-        addView(zoomControlView, LayoutHelper.createFrame(180, 40, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, 64));
+        // DevGram: ползунок зума с отметками объективов (показывается по настройке «Слайдер зума»)
+        zoomSlider = new org.telegram.messenger.devgram.camera.InstantCameraZoomSlider(context, resourcesProvider);
+        zoomSlider.setOpenAlpha(0f);
+        addView(zoomSlider, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
 
         // DevGram: сколько идёт текущий кружок — над ползунком зума
         recordTimerView = new TextView(context);
@@ -385,7 +369,8 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         recordTimerView.setPadding(dp(12), 0, dp(12), 0);
         recordTimerView.setBackground(Theme.createRoundRectDrawable(dp(14), 0x66000000));
         recordTimerView.setVisibility(GONE);
-        addView(recordTimerView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 28, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, 110));
+        // под ползунком зума: позицию считает updateTranslationY от края кружка
+        addView(recordTimerView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 28, Gravity.CENTER));
 
         switchCameraButton = new FlashViews.ImageViewInvertable(context);
         switchCameraButton.setScaleType(ImageView.ScaleType.CENTER);
@@ -613,6 +598,8 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                 textureOverlayView.getLayoutParams().width = textureOverlayView.getLayoutParams().height = textureViewSize;
                 cameraContainer.getLayoutParams().width = cameraContainer.getLayoutParams().height = textureViewSize;
                 ((LayoutParams) muteImageView.getLayoutParams()).topMargin = textureViewSize / 2 - dp(24);
+                if (zoomSlider != null) zoomSlider.setTextureViewSize(textureViewSize);
+                updateTranslationY();
                 textureOverlayView.setRoundRadius(textureViewSize / 2);
                 cameraContainer.invalidateOutline();
             }
@@ -687,6 +674,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     }
 
     public void destroy(boolean async) {
+        if (zoomSlider != null) zoomSlider.unbindSession();
         if (useCameraX) {
             if (cameraXSessionCurrent != null) {
                 cameraXSessionCurrent.destroy(async);
@@ -749,6 +737,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         muteImageView.setAlpha(0.0f);
         muteImageView.setScaleX(1.0f);
         muteImageView.setScaleY(1.0f);
+        if (zoomSlider != null) zoomSlider.setOpenAlpha(0f);
         cameraContainer.setScaleX(setVisibilityFromPause ? 1f : 0.1f);
         cameraContainer.setScaleY(setVisibilityFromPause ? 1f : 0.1f);
         textureOverlayView.setScaleX(setVisibilityFromPause ? 1f : 0.1f);
@@ -1028,6 +1017,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         animatorSet.playTogether(
                 ObjectAnimator.ofFloat(buttonsLayout, View.ALPHA, open ? 1.0f : 0.0f),
                 ObjectAnimator.ofFloat(muteImageView, View.ALPHA, 0.0f),
+                ObjectAnimator.ofFloat(zoomSlider, org.telegram.messenger.devgram.camera.InstantCameraZoomSlider.OPEN_ALPHA, open ? 1.0f : 0.0f),
                 ObjectAnimator.ofInt(paint, AnimationProperties.PAINT_ALPHA, open ? 255 : 0),
                 ObjectAnimator.ofFloat(cameraContainer, View.ALPHA, open ? 1.0f : 0.0f),
                 ObjectAnimator.ofFloat(cameraContainer, View.SCALE_X, open ? 1.0f : 0.1f),
@@ -1061,6 +1051,11 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     private void updateTranslationY() {
         textureOverlayView.setTranslationY(animationTranslationY + panTranslationY);
         cameraContainer.setTranslationY(animationTranslationY + panTranslationY);
+        if (zoomSlider != null) zoomSlider.setBaseTranslationY(animationTranslationY + panTranslationY);
+        if (recordTimerView != null) {
+            // центр ползунка — на 40dp ниже кружка, таймер — сразу под ним
+            recordTimerView.setTranslationY(animationTranslationY + panTranslationY + textureViewSize / 2f + dp(86));
+        }
     }
 
     public RectF getCameraRect() {
@@ -1088,6 +1083,22 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         }
     }
 
+    // DevGram: привязать ползунок к текущей камере; после переключения камеры сессия новая — привяжется заново
+    private void bindZoomSlider() {
+        if (zoomSlider == null) return;
+        if (useCameraX) {
+            if (cameraXSessionCurrent != null) {
+                zoomSlider.bindTarget(org.telegram.messenger.devgram.camera.InstantCameraZoomSlider.cameraX(cameraXSessionCurrent, isFrontface), cameraXSessionCurrent);
+            }
+        } else if (useCamera2) {
+            if (camera2SessionCurrent != null) {
+                zoomSlider.bindTarget(org.telegram.messenger.devgram.camera.InstantCameraZoomSlider.camera2(camera2SessionCurrent), camera2SessionCurrent);
+            }
+        } else if (cameraSession != null) {
+            zoomSlider.bindTarget(org.telegram.messenger.devgram.camera.InstantCameraZoomSlider.camera1(cameraSession, isFrontface), cameraSession);
+        }
+    }
+
     // DevGram: таймер текущего кружка («● 0:42», после минуты — «● 0:17 · кружок 2»)
     private void updateRecordTimer() {
         if (recordTimerView == null) return;
@@ -1097,6 +1108,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             return;
         }
         if (recordTimerView.getVisibility() != VISIBLE) recordTimerView.setVisibility(VISIBLE);
+        bindZoomSlider();
         long seconds = recordedTime / 1000;
         if (seconds == recordTimerShown) return;
         recordTimerShown = seconds;
@@ -2054,7 +2066,10 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                 if (videoEncoder.started) {
                     if (!cameraReady) {
                         cameraReady = true;
-                        AndroidUtilities.runOnUIThread(() -> textureOverlayView.animate().setDuration(120).alpha(0.0f).setInterpolator(new DecelerateInterpolator()).start());
+                        AndroidUtilities.runOnUIThread(() -> {
+                    textureOverlayView.animate().setDuration(120).alpha(0.0f).setInterpolator(new DecelerateInterpolator()).start();
+                    bindZoomSlider();
+                });
                     }
                 } else {
                     captureFirstFrameThumb = true;
@@ -2956,12 +2971,18 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                     oldCameraTexture[0] = 0;
                     if (!cameraReady) {
                         cameraReady = true;
-                        AndroidUtilities.runOnUIThread(() -> textureOverlayView.animate().setDuration(120).alpha(0.0f).setInterpolator(new DecelerateInterpolator()).start());
+                        AndroidUtilities.runOnUIThread(() -> {
+                    textureOverlayView.animate().setDuration(120).alpha(0.0f).setInterpolator(new DecelerateInterpolator()).start();
+                    bindZoomSlider();
+                });
                     }
                 }
             } else if (!cameraReady) {
                 cameraReady = true;
-                AndroidUtilities.runOnUIThread(() -> textureOverlayView.animate().setDuration(120).alpha(0.0f).setInterpolator(new DecelerateInterpolator()).start());
+                AndroidUtilities.runOnUIThread(() -> {
+                    textureOverlayView.animate().setDuration(120).alpha(0.0f).setInterpolator(new DecelerateInterpolator()).start();
+                    bindZoomSlider();
+                });
             }
         }
 
@@ -4027,6 +4048,11 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                 pointerId1 = ev.getPointerId(0);
                 pointerId2 = ev.getPointerId(1);
                 isInPinchToZoomTouchMode = true;
+                if (zoomSlider != null && zoomSlider.isBound()) {
+                    zoomSlider.cancelZoomAnimation();
+                    pinchStartZoomRatio = zoomSlider.getZoom();
+                    zoomSlider.beginPinchZoomGesture();
+                }
             }
             if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
                 AndroidUtilities.rectTmp.set(cameraContainer.getX(), cameraContainer.getY(), cameraContainer.getX() + cameraContainer.getMeasuredWidth(), cameraContainer.getY() + cameraContainer.getMeasuredHeight());
@@ -4051,7 +4077,10 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                 return false;
             }
             pinchScale = (float) Math.hypot(ev.getX(index2) - ev.getX(index1), ev.getY(index2) - ev.getY(index1)) / pinchStartDistance;
-            if (useCameraX) {
+            if (zoomSlider != null && zoomSlider.isBound()) {
+                // квадрат — чтобы щипок ощущался как в системной камере
+                zoomSlider.setPinchZoomRatio(pinchStartZoomRatio * pinchScale * pinchScale);
+            } else if (useCameraX) {
                 if (cameraXSessionCurrent != null) {
                     float zoom = Utilities.clamp(pinchScale, cameraXSessionCurrent.getMaxZoom(), cameraXSessionCurrent.getMinZoom());
                     cameraXSessionCurrent.setZoom(zoom);
@@ -4078,25 +4107,9 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         if (finishZoomTransition != null) {
             return;
         }
-        // DevGram: статичный зум — не сбрасывать зум после жеста (как exteraGram getStaticZoom)
-        if (org.telegram.messenger.DevGramConfig.isStaticZoom()) {
-            if (zoomControlView != null && zoomControlView.getVisibility() == VISIBLE) {
-                float sliderVal;
-                if (useCameraX && cameraXSessionCurrent != null) {
-                    float min = cameraXSessionCurrent.getMinZoom();
-                    float max = cameraXSessionCurrent.getMaxZoom();
-                    float z = Utilities.clamp(pinchScale, max, min);
-                    sliderVal = max > min ? (z - min) / (max - min) : 0f;
-                } else if (useCamera2 && camera2SessionCurrent != null) {
-                    float min = camera2SessionCurrent.getMinZoom();
-                    float max = camera2SessionCurrent.getMaxZoom();
-                    float z = Utilities.clamp(pinchScale, max, min);
-                    sliderVal = max > min ? (z - min) / (max - min) : 0f;
-                } else {
-                    sliderVal = Math.min(1f, Math.max(0, pinchScale - 1f));
-                }
-                zoomControlView.setZoom(sliderVal, false);
-            }
+        // DevGram: зумом управляет ползунок — он сам решает, сбрасывать ли зум (настройка «Статичный зум»)
+        if (zoomSlider != null && zoomSlider.isBound()) {
+            zoomSlider.finishPinchZoomGesture();
             return;
         }
 

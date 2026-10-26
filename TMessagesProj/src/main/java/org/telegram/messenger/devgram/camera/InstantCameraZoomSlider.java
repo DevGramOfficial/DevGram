@@ -20,9 +20,157 @@ import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.utils.recorder.round.RoundVideoSession;
 
-/** Ползунок зума камеры кружков: привязывается к сессии нового рекордера. */
+/** Ползунок зума камеры кружков: работает с любым бэкендом камеры через {@link Target}. */
 @SuppressLint("ViewConstructor")
 public class InstantCameraZoomSlider extends CameraZoomSliderView {
+
+    /** Камера, которой управляет ползунок. */
+    public interface Target {
+        /** [минимум, максимум] коэффициента зума; null — камера ещё не готова. */
+        float[] zoomRange(Context context);
+
+        /** Идентификатор Camera2 для отметок объективов, null — без них. */
+        String cameraId();
+
+        boolean isFront();
+
+        void setZoomRatio(float ratio);
+
+        /** Кадров в секунду — чтобы не слать зум чаще кадра; 0 — неизвестно. */
+        default int frameRate() {
+            return 0;
+        }
+    }
+
+    public static Target roundVideo(RoundVideoSession session, String cameraId, boolean front, int frameRate) {
+        return new Target() {
+            @Override
+            public float[] zoomRange(Context context) {
+                return RoundVideoCamera2Helper.readZoomRange(context, cameraId);
+            }
+
+            @Override
+            public String cameraId() {
+                return cameraId;
+            }
+
+            @Override
+            public boolean isFront() {
+                return front;
+            }
+
+            @Override
+            public void setZoomRatio(float ratio) {
+                session.setZoomRatio(ratio);
+            }
+
+            @Override
+            public int frameRate() {
+                return frameRate;
+            }
+        };
+    }
+
+    public static Target camera2(org.telegram.messenger.camera.Camera2Session session) {
+        return new Target() {
+            @Override
+            public float[] zoomRange(Context context) {
+                return session.isInitiated() ? new float[]{session.getMinZoom(), session.getMaxZoom()} : null;
+            }
+
+            @Override
+            public String cameraId() {
+                return session.getCameraId();
+            }
+
+            @Override
+            public boolean isFront() {
+                return session.isFrontface();
+            }
+
+            @Override
+            public void setZoomRatio(float ratio) {
+                session.setZoom(ratio);
+            }
+        };
+    }
+
+    public static Target cameraX(org.telegram.messenger.camera.DevGramCameraXSession session, boolean front) {
+        return new Target() {
+            @Override
+            public float[] zoomRange(Context context) {
+                return session.isInitiated() ? new float[]{session.getMinZoom(), session.getMaxZoom()} : null;
+            }
+
+            @Override
+            public String cameraId() {
+                return null;
+            }
+
+            @Override
+            public boolean isFront() {
+                return front;
+            }
+
+            @Override
+            public void setZoomRatio(float ratio) {
+                session.setZoom(ratio);
+            }
+        };
+    }
+
+    /** Camera1 знает только ступени зума: коэффициент переводим в ближайшую ступень. */
+    public static Target camera1(org.telegram.messenger.camera.CameraSession session, boolean front) {
+        return new Target() {
+            private float[] ratios;
+            private int lastIndex = -1;
+
+            @Override
+            public float[] zoomRange(Context context) {
+                if (!session.isInitied()) {
+                    return null;
+                }
+                ratios = session.devgramZoomRatios();
+                if (ratios == null) {
+                    return null;
+                }
+                return ratios.length < 2 ? new float[]{1f, 1f} : new float[]{ratios[0], ratios[ratios.length - 1]};
+            }
+
+            @Override
+            public String cameraId() {
+                return null;
+            }
+
+            @Override
+            public boolean isFront() {
+                return front;
+            }
+
+            @Override
+            public void setZoomRatio(float ratio) {
+                if (ratios == null || ratios.length < 2) {
+                    return;
+                }
+                int index = 0;
+                float best = Float.MAX_VALUE;
+                for (int i = 0; i < ratios.length; i++) {
+                    float d = Math.abs(ratios[i] - ratio);
+                    if (d < best) {
+                        best = d;
+                        index = i;
+                    }
+                }
+                if (index == lastIndex) {
+                    return;
+                }
+                lastIndex = index;
+                int last = ratios.length - 1;
+                // CameraSession превращает долю обратно в индекс через (int) — добавка спасает от округления вниз
+                session.setZoom(index <= 0 ? 0f : index >= last ? 1f : (index + 0.001f) / last);
+            }
+        };
+    }
 
     public static final AnimationProperties.FloatProperty<InstantCameraZoomSlider> OPEN_ALPHA = new AnimationProperties.FloatProperty<InstantCameraZoomSlider>("openAlpha") {
         @Override
@@ -40,7 +188,8 @@ public class InstantCameraZoomSlider extends CameraZoomSliderView {
     private final Runnable bindRunnable = this::tryBind;
     private final Runnable zoomFlushRunnable = this::flushPendingZoom;
 
-    private RoundVideoSession session;
+    private Target session;
+    private Object bindKey;
     private String cameraId;
     private boolean front;
     private int frameRate;
@@ -179,27 +328,37 @@ public class InstantCameraZoomSlider extends CameraZoomSliderView {
         return true;
     }
 
-    /** Привязка к настроенной камере; повторный вызов с той же камерой ничего не делает. */
+    /** Привязка к настроенной камере нового рекордера; повторный вызов с той же камерой ничего не делает. */
     public void bindSession(RoundVideoSession session, RoundVideoSession.CameraCapabilities capabilities) {
         String activeCameraId = capabilities.getActiveCameraId();
         RoundVideoSession.CameraFacing activeFacing = capabilities.getActiveFacing();
         if (session == null || activeCameraId == null || activeFacing == null) {
             return;
         }
-        if (this.session == session && activeCameraId.equals(cameraId)) {
+        RoundVideoSession.FrameRate rate = capabilities.getActiveFrameRate();
+        bindTarget(roundVideo(session, activeCameraId, activeFacing == RoundVideoSession.CameraFacing.FRONT, rate == null ? 0 : rate.getValue()),
+                session.hashCode() + ":" + activeCameraId);
+    }
+
+    /** Привязка к произвольной камере; key отличает одну камеру от другой (после переключения — новый key). */
+    public void bindTarget(Target target, Object key) {
+        if (target == null || key == null) {
             return;
         }
-        boolean animate = getVisibility() == View.VISIBLE && isLaidOut() && (switchingCamera || this.session == session);
+        if (this.session != null && key.equals(bindKey)) {
+            return;
+        }
+        boolean animate = getVisibility() == View.VISIBLE && isLaidOut() && (switchingCamera || this.session != null);
         switchingCamera = false;
         if (animate) {
             prepareZoomConfigurationTransition();
         }
         resetBinding(!animate);
-        this.session = session;
-        cameraId = activeCameraId;
-        front = activeFacing == RoundVideoSession.CameraFacing.FRONT;
-        RoundVideoSession.FrameRate rate = capabilities.getActiveFrameRate();
-        frameRate = rate == null ? 0 : rate.getValue();
+        this.session = target;
+        bindKey = key;
+        cameraId = target.cameraId();
+        front = target.isFront();
+        frameRate = target.frameRate();
         animateNextConfiguration = animate;
         if (animate) {
             setEnabled(false);
@@ -228,6 +387,7 @@ public class InstantCameraZoomSlider extends CameraZoomSliderView {
         resetZoomThrottle();
         setZoom(getZoom());
         session = null;
+        bindKey = null;
         cameraId = null;
         front = false;
         opticalZoomRatios = new float[0];
@@ -248,7 +408,7 @@ public class InstantCameraZoomSlider extends CameraZoomSliderView {
         if (session == null) {
             return;
         }
-        float[] range = RoundVideoCamera2Helper.readZoomRange(getContext(), cameraId);
+        float[] range = session.zoomRange(getContext());
         if (range == null) {
             retryBinding();
             return;
@@ -266,7 +426,7 @@ public class InstantCameraZoomSlider extends CameraZoomSliderView {
         defaultZoom = Utilities.clamp(1f, max, min);
         displayOneZoom = 1f;
         setDisplayNormalizationFactor(1f);
-        opticalZoomRatios = CameraLensStops.opticalZoomRatios(getContext(), cameraId, min);
+        opticalZoomRatios = cameraId == null ? new float[0] : CameraLensStops.opticalZoomRatios(getContext(), cameraId, min);
         float[] toggleStops = CameraLensStops.buildToggleStops(front, min, max, opticalZoomRatios);
         float[] rulerStops = CameraLensStops.buildRulerStops(min, max, toggleStops);
         float zoom = Utilities.clamp(defaultZoom, max, min);

@@ -374,6 +374,14 @@ public class Camera2Session {
         return maxZoom;
     }
 
+    public String getCameraId() {
+        return cameraId;
+    }
+
+    public boolean isFrontface() {
+        return isFront;
+    }
+
     public float getMinZoom() {
         // TODO: support wide zoom camera switching
         return 1f;

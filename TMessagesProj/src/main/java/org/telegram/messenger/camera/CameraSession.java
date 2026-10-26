@@ -474,6 +474,26 @@ public class CameraSession {
         return maxZoom;
     }
 
+    // DevGram: реальные коэффициенты зума Camera1 (для ползунка с отметками 1×, 2×…), null — камера не готова
+    public float[] devgramZoomRatios() {
+        try {
+            android.hardware.Camera camera = cameraInfo != null ? cameraInfo.camera : null;
+            if (camera == null) return null;
+            android.hardware.Camera.Parameters params = camera.getParameters();
+            if (params == null || !params.isZoomSupported()) return new float[0];
+            java.util.List<Integer> ratios = params.getZoomRatios();
+            if (ratios == null || ratios.size() < 2) return new float[0];
+            float[] out = new float[ratios.size()];
+            for (int i = 0; i < out.length; i++) {
+                Integer r = ratios.get(i);
+                out[i] = r == null ? 1f : Math.max(1f, r / 100f);
+            }
+            return out;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public void onStartRecord() {
         isVideo = true;
     }
