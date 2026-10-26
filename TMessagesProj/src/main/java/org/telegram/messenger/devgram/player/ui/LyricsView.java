@@ -643,7 +643,8 @@ public class LyricsView extends FrameLayout {
             if (z) {
                 long displayPositionMs = LyricsView.this.getDisplayPositionMs();
                 long j = this.start;
-                fClamp01 = Utilities.clamp01((displayPositionMs - j) / Math.max(1L, this.end - j));
+                // дробное деление: в long выходил 0 до конца строки, и заливка по словам не рисовалась
+                fClamp01 = Utilities.clamp01((float) (displayPositionMs - j) / Math.max(1L, this.end - j));
             } else {
                 fClamp01 = this.fadingProgress;
             }
