@@ -998,7 +998,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     org.telegram.messenger.DevGramDoubleTapUtils.currentLabel(true)));
             items.add(UItem.asButton(ID_DOUBLE_TAP_REACTION, "Реакция по двойному нажатию",
                     doubleTapReactionLabel()));
-            items.add(UItem.asButton(ID_OPEN_SWIPE_ACTIONS, org.telegram.messenger.DevGramNewBadge.mark("Действия свайпом", org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS), ""));
+            items.add(UItem.asButton(ID_OPEN_SWIPE_ACTIONS, org.telegram.messenger.DevGramNewBadge.mark("Действия свайпом", org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS), swipeActionsValue()));
             items.add(UItem.asShadow("Действие по двойному нажатию — отдельно для входящих и исходящих. Для действия «Реакции» выбери саму реакцию выше."));
 
             items.add(UItem.asHeader("Чаты"));
@@ -2172,6 +2172,33 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
     // Пикер действия двойного нажатия (отдельно для входящих/исходящих), с иконками действий.
     // Селектор «Тип камеры» (Camera 1 / Camera 2) — бэкенд API камеры через SharedConfig.useCamera2Force.
+    // Значение кнопки «Действия свайпом»: значки включённых действий (до пяти) и «+N» за остальные.
+    private CharSequence swipeActionsValue() {
+        java.util.ArrayList<org.telegram.messenger.DevGramSwipeAction> enabled = org.telegram.messenger.DevGramSwipeAction.enabled();
+        if (enabled.isEmpty()) {
+            return "Выкл.";
+        }
+        android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
+        int count = Math.min(enabled.size(), 5);
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                sb.append(' ');
+            }
+            android.graphics.drawable.Drawable icon = androidx.core.content.ContextCompat.getDrawable(getContext(), enabled.get(i).iconRes);
+            if (icon != null) {
+                int start = sb.length();
+                sb.append('*');
+                org.telegram.ui.Components.ColoredImageSpan span = new org.telegram.ui.Components.ColoredImageSpan(icon.mutate());
+                span.setSize(org.telegram.messenger.AndroidUtilities.dp(18));
+                sb.setSpan(span, start, sb.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+        }
+        if (enabled.size() > count) {
+            sb.append(" +").append(String.valueOf(enabled.size() - count));
+        }
+        return sb;
+    }
+
     private static String cameraTypeLabel() {
         if (org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("dg_useCameraX", false)) {
             return "Camera X";
