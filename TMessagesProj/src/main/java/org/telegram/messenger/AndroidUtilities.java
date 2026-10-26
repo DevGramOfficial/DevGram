@@ -241,6 +241,25 @@ import java.util.zip.GZIPOutputStream;
 import me.vkryl.core.BitwiseUtils;
 
 public class AndroidUtilities {
+
+    /**
+     * DevGram: перезапуск приложения. Запускаем главный экран поверх текущего окна (пока оно видимо,
+     * Android это разрешает) и сразу завершаем процесс — система поднимет новый процесс под ожидающую
+     * активность. Будильник не годится: с Android 14 он не может открыть окно из фона.
+     */
+    public static void restartApp(android.app.Activity activity) {
+        try {
+            android.content.Intent launch = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+            if (launch == null) {
+                return;
+            }
+            launch.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            activity.startActivity(launch);
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        Runtime.getRuntime().exit(0);
+    }
     public final static int REPLACING_TAG_TYPE_LINK = 0;
     public final static int REPLACING_TAG_TYPE_BOLD = 1;
     public final static int REPLACING_TAG_TYPE_LINKBOLD = 2;

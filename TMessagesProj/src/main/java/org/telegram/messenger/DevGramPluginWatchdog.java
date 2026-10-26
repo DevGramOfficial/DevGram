@@ -152,17 +152,6 @@ public final class DevGramPluginWatchdog {
     }
 
     private static void restartApp(Activity activity) {
-        AndroidUtilities.runOnUIThread(() -> {
-            try {
-                Intent intent = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
-                activity.finishAffinity();
-                if (intent != null) {
-                    activity.startActivity(intent);
-                }
-            } catch (Throwable e) {
-                FileLog.e(e);
-            }
-            System.exit(0);
-        }, 200L);
+        AndroidUtilities.runOnUIThread(() -> AndroidUtilities.restartApp(activity), 200L);
     }
 }
