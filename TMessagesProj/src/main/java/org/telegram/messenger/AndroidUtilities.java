@@ -3092,7 +3092,8 @@ public class AndroidUtilities {
     }
 
     public static int getTabletLeftFragmentSize(final int fullWidth, final int insetLeft, final int insetRight) {
-        return insetLeft + Math.max(dp(320), (fullWidth - insetLeft - insetRight) * 35 / 100);
+        // ширину левой панели можно менять перетаскиванием разделителя
+        return org.telegram.ui.Components.devgram.TabletSplitUiHelper.getRightPaneStart(fullWidth, insetLeft, insetRight);
     }
 
     public static int getPhotoSize() {

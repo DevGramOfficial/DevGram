@@ -32362,6 +32362,18 @@ public class ChatActivity extends BaseFragment implements
         return false;
     }
 
+    public void onTabletSplitChanged() {
+        if (chatListView == null || chatAdapter == null) {
+            return;
+        }
+        for (int i = 0; i < messages.size(); i++) {
+            MessageObject messageObject = messages.get(i);
+            messageObject.resetLayout();
+            messageObject.forceUpdate = true;
+        }
+        chatAdapter.notifyDataSetChanged(false);
+    }
+
     @Override
     public void onConfigurationChanged(android.content.res.Configuration newConfig) {
         fixLayout();

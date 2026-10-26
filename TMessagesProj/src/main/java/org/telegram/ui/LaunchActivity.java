@@ -314,6 +314,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     public ActionBarLayout rightActionBarLayout;
     private RelativeLayout launchLayout;
     private FrameLayout shadowTablet;
+    private org.telegram.ui.Components.devgram.TabletSplitUiHelper tabletSplit;
     private SizeNotifierFrameLayout backgroundTablet;
     public FrameLayout frameLayout;
     private FireworksOverlay fireworksOverlay;
@@ -964,15 +965,16 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
                     if (!AndroidUtilities.isInMultiwindow && (!AndroidUtilities.isSmallTablet() || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)) {
                         tabletFullSize = false;
-                        final int leftWidth = AndroidUtilities.getTabletLeftFragmentSize(width, insets.left, insets.right);
-                        actionBarLayout.getView().measure(MeasureSpec.makeMeasureSpec(leftWidth, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
-                        rightActionBarLayout.getView().measure(MeasureSpec.makeMeasureSpec(width - leftWidth, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+                        tabletSplit.update(width, insets.left, insets.right);
+                        actionBarLayout.getView().measure(MeasureSpec.makeMeasureSpec(tabletSplit.getLeftPaneWidth(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+                        rightActionBarLayout.getView().measure(MeasureSpec.makeMeasureSpec(width - tabletSplit.getRightPaneStart(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
                     } else {
                         tabletFullSize = true;
                         actionBarLayout.getView().measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
                     }
                     backgroundTablet.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
                     shadowTablet.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+                    tabletSplit.measureHandle(height);
                     layersActionBarLayout.getView().measure(
                         MeasureSpec.makeMeasureSpec(Math.min(dp(500), width - dp(16)), MeasureSpec.EXACTLY),
                         MeasureSpec.makeMeasureSpec(height - insets.top - insets.bottom - dp(16), MeasureSpec.EXACTLY)
@@ -986,9 +988,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     final int width = getMeasuredWidth();
                     final int height = getMeasuredHeight();
                     if (!AndroidUtilities.isInMultiwindow && (!AndroidUtilities.isSmallTablet() || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)) {
-                        final int leftWidth = AndroidUtilities.getTabletLeftFragmentSize(width, insets.left, insets.right);
+                        final int rightStart = tabletSplit.getRightPaneStart();
                         actionBarLayout.getView().layout(0, 0, actionBarLayout.getView().getMeasuredWidth(), actionBarLayout.getView().getMeasuredHeight());
-                        rightActionBarLayout.getView().layout(leftWidth, 0, leftWidth + rightActionBarLayout.getView().getMeasuredWidth(), rightActionBarLayout.getView().getMeasuredHeight());
+                        rightActionBarLayout.getView().layout(rightStart, 0, rightStart + rightActionBarLayout.getView().getMeasuredWidth(), rightActionBarLayout.getView().getMeasuredHeight());
+                        tabletSplit.layoutHandle();
                     } else {
                         actionBarLayout.getView().layout(0, 0, actionBarLayout.getView().getMeasuredWidth(), actionBarLayout.getView().getMeasuredHeight());
                     }
@@ -1006,7 +1009,33 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     }
                     super.dispatchDraw(canvas);
                 }
+
+                @Override
+                public boolean onInterceptTouchEvent(MotionEvent ev) {
+                    return tabletSplit.onInterceptTouchEvent(ev) || super.onInterceptTouchEvent(ev);
+                }
+
+                @Override
+                public boolean onTouchEvent(MotionEvent event) {
+                    return tabletSplit.onTouchEvent(event) || super.onTouchEvent(event);
+                }
             };
+            tabletSplit = new org.telegram.ui.Components.devgram.TabletSplitUiHelper(launchLayout, new org.telegram.ui.Components.devgram.TabletSplitUiHelper.Callback() {
+                @Override
+                public boolean canResize() {
+                    return layerFragmentsStack.isEmpty() && !actionBarLayout.checkTransitionAnimation() && !rightActionBarLayout.checkTransitionAnimation();
+                }
+
+                @Override
+                public void onResized() {
+                    // пузыри сообщений считают ширину от панели — пересобрать разметку открытых чатов
+                    for (BaseFragment fragment : rightActionBarLayout.getFragmentStack()) {
+                        if (fragment instanceof ChatActivity) {
+                            ((ChatActivity) fragment).onTabletSplitChanged();
+                        }
+                    }
+                }
+            });
             if (i != -1) {
                 drawerLayoutContainer.addView(launchLayout, i, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
             } else {
@@ -1034,6 +1063,8 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             rightActionBarLayout.setFragmentStack(rightFragmentsStack);
             rightActionBarLayout.setDelegate(this);
             launchLayout.addView(rightActionBarLayout.getView());
+            tabletSplit.getHandleView().setVisibility(isTabletTwoPane() ? View.VISIBLE : View.GONE);
+            launchLayout.addView(tabletSplit.getHandleView());
 
             shadowTablet = new FrameLayout(this);
             shadowTablet.setVisibility(layerFragmentsStack.isEmpty() ? View.GONE : View.VISIBLE);
@@ -1372,6 +1403,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             }
             rightActionBarLayout.getView().setVisibility(rightActionBarLayout.getFragmentStack().isEmpty() ? View.GONE : View.VISIBLE);
             backgroundTablet.setVisibility(rightActionBarLayout.getFragmentStack().isEmpty() ? View.VISIBLE : View.GONE);
+            if (tabletSplit != null) tabletSplit.getHandleView().setVisibility(View.VISIBLE);
         } else {
             tabletFullSize = true;
             List<BaseFragment> fragmentStack = rightActionBarLayout.getFragmentStack();
@@ -1394,7 +1426,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             }
             rightActionBarLayout.getView().setVisibility(View.GONE);
             backgroundTablet.setVisibility(!actionBarLayout.getFragmentStack().isEmpty() ? View.GONE : View.VISIBLE);
+            if (tabletSplit != null) tabletSplit.getHandleView().setVisibility(View.GONE);
         }
+    }
+
+    private boolean isTabletTwoPane() {
+        return !AndroidUtilities.isInMultiwindow && (!AndroidUtilities.isSmallTablet() || getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE);
     }
 
     private void showUpdateActivity(int account, TLRPC.TL_help_appUpdate update, boolean check) {
