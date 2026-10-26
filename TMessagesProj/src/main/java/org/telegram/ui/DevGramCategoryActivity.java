@@ -407,7 +407,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_PREDICTIVE_BACK = 7703;
     private static final int ID_TRANSITION_ANIMATION = 58;
 
-    private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav", "dg_md3_fab"};
+    private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav", "dg_md3_fab", "dg_md3_profile"};
     private static final String[] TRANSITION_ANIMATIONS = {"По умолчанию", "AOSP", "Пружинная"};
 
     private static int md3Count() {
@@ -415,6 +415,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         for (int i = 0; i < MD3_KEYS.length; i++) {
             if (gPref(MD3_KEYS[i], i < 3)) c++;
         }
+        if (org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()) c++;
         return c;
     }
 
@@ -814,7 +815,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     .setChecked(gPref("dg_systemFonts", true)));
             items.add(UItem.asCheck(ID_SYSTEM_EMOJI, "Системные эмодзи")
                     .setChecked(DevGramConfig.isUseSystemEmoji()));
-            items.add(UItem.asCheck(ID_MD3, org.telegram.messenger.DevGramNewBadge.mark("Material Design 3  " + md3Count() + "/6", org.telegram.messenger.DevGramNewBadge.MATERIAL3))
+            items.add(UItem.asCheck(ID_MD3, org.telegram.messenger.DevGramNewBadge.mark("Material Design 3  " + md3Count() + "/" + (MD3_KEYS.length + 1), org.telegram.messenger.DevGramNewBadge.MATERIAL3))
                     .setChecked(gPref("dg_md3", true)));
             if (gPref("dg_md3", true)) {
                 items.add(UItem.asRoundCheckbox(ID_MD3_PROGRESS, "Индикаторы загрузки")
@@ -831,11 +832,11 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                         .setChecked(gPref("dg_md3_fab", false)));
                 items.add(UItem.asRoundCheckbox(ID_MD3_PROFILE, "Кнопки профиля")
                         .setChecked(gPref("dg_md3_profile", false)));
+                items.add(UItem.asRoundCheckbox(ID_NEW_PLAYER, "Плеер")
+                        .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()));
             }
             items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, "Скрыть подписи в нижней панели")
                     .setChecked(gPref("dg_hideNavLabels", false)));
-            items.add(UItem.asCheck(ID_NEW_PLAYER, "Новый музыкальный плеер", "Тексты песен, живые обложки и ритмичный фон", true)
-                    .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()));
             items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
                     TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
             items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));

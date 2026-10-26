@@ -23,7 +23,8 @@ public final class PlayerConfig {
         prefs().edit().putBoolean(key, value).apply();
     }
 
-    public static boolean getNewPlayerStyle() { return b("newPlayerStyle", false); }
+    // входит в группу Material Design 3: выключена группа — старый плеер
+    public static boolean getNewPlayerStyle() { return b("newPlayerStyle", false) && org.telegram.ui.Components.DevGramMaterial3.enabled(); }
     public static void setNewPlayerStyle(boolean v) { b("newPlayerStyle", v, true); }
 
     public static boolean getPlayerCoverColors() { return b("playerCoverColors", false); }
