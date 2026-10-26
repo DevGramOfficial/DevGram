@@ -1679,7 +1679,8 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     float micAmplitude;
 
     public int getStyleHeight() {
-        return currentStyle == STYLE_INACTIVE_GROUP_CALL ? 48 : 36;
+        // новому мини-плееру нужно 48dp: при 36 низ обложки и подпись обрезались
+        return currentStyle == STYLE_INACTIVE_GROUP_CALL || currentStyle == STYLE_AUDIO_PLAYER && miniPlayer != null ? 48 : 36;
     }
 
     public boolean isCallTypeVisible() {
