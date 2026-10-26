@@ -588,10 +588,21 @@ public abstract class BottomSheetWithRecyclerListView extends BottomSheet {
     protected void resetAdapter(Context context) {
         RecyclerListView.SelectionAdapter adapter = createAdapter(recyclerListView);
         RecyclerListView.SelectionAdapter wrapperAdapter = new RecyclerListView.SelectionAdapter() {
+            // наблюдатель списка → его прокси на внутреннем адаптере; без пары снять наблюдателя нельзя,
+            // и повторный resetAdapter падал с «Observer was not registered»
+            private final java.util.HashMap<RecyclerView.AdapterDataObserver, RecyclerView.AdapterDataObserver> forwardingObservers = new java.util.HashMap<>();
 
             @Override
             public boolean isEnabled(RecyclerView.ViewHolder holder) {
                 return adapter.isEnabled(holder);
+            }
+
+            @Override
+            public void unregisterAdapterDataObserver(@NonNull RecyclerView.AdapterDataObserver observer) {
+                RecyclerView.AdapterDataObserver forwarding = forwardingObservers.remove(observer);
+                if (forwarding != null) {
+                    adapter.unregisterAdapterDataObserver(forwarding);
+                }
             }
 
             @NonNull
@@ -625,7 +636,10 @@ public abstract class BottomSheetWithRecyclerListView extends BottomSheet {
 
             @Override
             public void registerAdapterDataObserver(@NonNull RecyclerView.AdapterDataObserver observer) {
-                adapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+                if (forwardingObservers.containsKey(observer)) {
+                    return;
+                }
+                RecyclerView.AdapterDataObserver forwarding = new RecyclerView.AdapterDataObserver() {
                     @Override
                     public void onChanged() {
                         observer.onChanged();
@@ -655,7 +669,9 @@ public abstract class BottomSheetWithRecyclerListView extends BottomSheet {
                     public void onItemRangeMoved(int fromPosition, int toPosition, int itemCount) {
                         observer.onItemRangeMoved(fromPosition + (reverseLayout ? 0 : 1), toPosition + (reverseLayout ? 0 : 1), itemCount);
                     }
-                });
+                };
+                forwardingObservers.put(observer, forwarding);
+                adapter.registerAdapterDataObserver(forwarding);
             }
         };
         recyclerListView.setAdapter(wrapperAdapter);
