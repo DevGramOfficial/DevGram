@@ -78,6 +78,48 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         }
     }
 
+    // Material 3: размер индикатора и цвет анимируются пружиной
+    private float indicatorSizeProgress, colorProgress;
+    private androidx.dynamicanimation.animation.SpringAnimation indicatorSizeSpring, colorSpring;
+    private static final androidx.dynamicanimation.animation.FloatPropertyCompat<GlassTabView> INDICATOR_SIZE_PROGRESS = new androidx.dynamicanimation.animation.FloatPropertyCompat<GlassTabView>("indicatorSizeProgress") {
+        @Override
+        public float getValue(GlassTabView view) {
+            return view.indicatorSizeProgress;
+        }
+
+        @Override
+        public void setValue(GlassTabView view, float value) {
+            view.indicatorSizeProgress = value;
+            view.invalidate();
+        }
+    };
+    private static final androidx.dynamicanimation.animation.FloatPropertyCompat<GlassTabView> COLOR_PROGRESS = new androidx.dynamicanimation.animation.FloatPropertyCompat<GlassTabView>("colorProgress") {
+        @Override
+        public float getValue(GlassTabView view) {
+            return view.colorProgress;
+        }
+
+        @Override
+        public void setValue(GlassTabView view, float value) {
+            view.colorProgress = value;
+            view.updateColors();
+            view.invalidate();
+        }
+    };
+
+    private boolean useSprings() {
+        if (!material3Navigation()) {
+            return false;
+        }
+        if (indicatorSizeSpring == null) {
+            indicatorSizeSpring = new androidx.dynamicanimation.animation.SpringAnimation(this, INDICATOR_SIZE_PROGRESS).setMinimumVisibleChange(0.01f)
+                .setSpring(new androidx.dynamicanimation.animation.SpringForce(0f).setDampingRatio(0.8f).setStiffness(380f));
+            colorSpring = new androidx.dynamicanimation.animation.SpringAnimation(this, COLOR_PROGRESS).setMinimumVisibleChange(0.01f)
+                .setSpring(new androidx.dynamicanimation.animation.SpringForce(0f).setDampingRatio(1f).setStiffness(1600f));
+        }
+        return true;
+    }
+
     private final TextView textView;
     private final RLottieImageView imageView;
     private BackupImageView backupImageView;
@@ -175,14 +217,15 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
         final float viewWidth = hasVisualWidth ? visualWidth : getWidth();
-        final float selectedFactor = hasGestureSelectedOverride ? gestureSelectedOverride : isSelectedAnimator.getFloatValue();
+        final boolean springs = !hasGestureSelectedOverride && useSprings();
+        final float selectedFactor = hasGestureSelectedOverride ? gestureSelectedOverride : springs ? indicatorSizeProgress : isSelectedAnimator.getFloatValue();
         if (selectedFactor > 0 && !skipDrawSelector) {
-            final float alpha = AnimatorUtils.DECELERATE_INTERPOLATOR.getInterpolation(selectedFactor);
+            final float alpha = springs ? MathUtils.clamp(selectedFactor, 0, 1) : AnimatorUtils.DECELERATE_INTERPOLATOR.getInterpolation(selectedFactor);
 
             boolean md3 = material3Navigation();
             paintCounterBackground.setColor(Theme.multAlpha(colorSelected, (md3 ? 0.125f : 0.09f) * alpha));
             if (md3) {
-                float width = Math.min(dp(56), Math.max(0, viewWidth - dp(8)));
+                float width = Math.min(dp(56), Math.max(0, viewWidth - dp(8))) * (springs ? Math.max(0, selectedFactor) : 1f);
                 float height = Math.min(dp(32), getHeight());
                 float left = (viewWidth - width) / 2f;
                 float top = hideLabels() ? (getHeight() - height) / 2f : dp(6);
@@ -191,7 +234,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
                 tmpRectF.set(0, 0, viewWidth, getHeight());
             }
             final float r = Math.min(tmpRectF.width(), tmpRectF.height()) / 2f;
-            final float sx = lerp(md3 ? 0.4f : 0.6f, 1, selectedFactor) * MathUtils.clamp(attachScale, 0, 1);
+            final float sx = (springs ? 1f : lerp(md3 ? 0.4f : 0.6f, 1, selectedFactor)) * MathUtils.clamp(attachScale, 0, 1);
             final float sy = (md3 ? 1f : sx);
             canvas.save();
             canvas.scale(sx, sy, tmpRectF.centerX(), tmpRectF.centerY());
@@ -266,11 +309,23 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     }
 
     public void setSelected(boolean selected, boolean animated) {
-        if (material3Navigation()) {
-            isSelectedAnimator.setDuration(500L);
-            isSelectedAnimator.setInterpolator(CubicBezierInterpolator.Emphasized);
+        if (useSprings()) {
+            isSelectedAnimator.setValue(selected, false);
+            final float target = selected ? 1f : 0f;
+            if (animated) {
+                indicatorSizeSpring.animateToFinalPosition(target);
+                colorSpring.animateToFinalPosition(target);
+            } else {
+                indicatorSizeSpring.cancel();
+                colorSpring.cancel();
+                indicatorSizeProgress = target;
+                colorProgress = target;
+                updateColors();
+            }
+            invalidate();
+        } else {
+            isSelectedAnimator.setValue(selected, animated);
         }
-        isSelectedAnimator.setValue(selected, animated);
         checkPlayAnimation(animated);
 
         textView.setTypeface(selected ? AndroidUtilities.getTypeface(AndroidUtilities.TYPEFACE_ROBOTO_EXTRA_BOLD) : AndroidUtilities.bold());
@@ -291,8 +346,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     private boolean needUpdateBackupViewColor;
 
     private void updateColors() {
-        final int color = ColorUtils.blendARGB(colorDefault, colorSelected, isSelectedAnimator.getFloatValue());
-        final int colorText = ColorUtils.blendARGB(colorDefault, colorSelectedText, isSelectedAnimator.getFloatValue());
+        final float factor = indicatorSizeSpring != null && material3Navigation() ? MathUtils.clamp(colorProgress, 0, 1) : isSelectedAnimator.getFloatValue();
+        final int color = ColorUtils.blendARGB(colorDefault, colorSelected, factor);
+        final int colorText = ColorUtils.blendARGB(colorDefault, colorSelectedText, factor);
 
         final PorterDuffColorFilter filter = new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN);
         if (backupImageView != null && needUpdateBackupViewColor) {
