@@ -382,16 +382,48 @@ public class ConnectionsManager extends BaseController {
 
     public int sendRequestSync(final TLObject object, final RequestDelegate onComplete, final QuickAckDelegate onQuickAck, final WriteToSocketDelegate onWriteToSocket, final int flags, final int datacenterId, final int connectionType, final boolean immediate) {
         final int requestToken = lastRequestToken.getAndIncrement();
+        if (org.telegram.messenger.DevGramSensitiveRequests.needsConfirmation(object)) {
+            org.telegram.messenger.DevGramSensitiveRequests.confirm(currentAccount, object, allowed -> Utilities.stageQueue.postRunnable(() -> {
+                if (allowed) {
+                    sendRequestInternal(object, onComplete, null, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
+                } else {
+                    declineRequest(onComplete, null);
+                }
+            }));
+            return requestToken;
+        }
         sendRequestInternal(object, onComplete, null, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
         return requestToken;
     }
 
     public int sendRequest(final TLObject object, final RequestDelegate onComplete, final RequestDelegateTimestamp onCompleteTimestamp, final QuickAckDelegate onQuickAck, final WriteToSocketDelegate onWriteToSocket, final int flags, final int datacenterId, final int connectionType, final boolean immediate) {
         final int requestToken = lastRequestToken.getAndIncrement();
+        if (org.telegram.messenger.DevGramSensitiveRequests.needsConfirmation(object)) {
+            org.telegram.messenger.DevGramSensitiveRequests.confirm(currentAccount, object, allowed -> Utilities.stageQueue.postRunnable(() -> {
+                if (allowed) {
+                    sendRequestInternal(object, onComplete, onCompleteTimestamp, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
+                } else {
+                    declineRequest(onComplete, onCompleteTimestamp);
+                }
+            }));
+            return requestToken;
+        }
         Utilities.stageQueue.postRunnable(() -> {
             sendRequestInternal(object, onComplete, onCompleteTimestamp, onQuickAck, onWriteToSocket, flags, datacenterId, connectionType, immediate, requestToken);
         });
         return requestToken;
+    }
+
+    /** Пользователь отклонил опасный запрос плагина — отвечаем ошибкой, как сервер. */
+    private static void declineRequest(RequestDelegate onComplete, RequestDelegateTimestamp onCompleteTimestamp) {
+        TLRPC.TL_error error = new TLRPC.TL_error();
+        error.code = 403;
+        error.text = "REQUEST_DECLINED_BY_USER";
+        if (onComplete != null) {
+            onComplete.run(null, error);
+        } else if (onCompleteTimestamp != null) {
+            onCompleteTimestamp.run(null, error, 0);
+        }
     }
 
     private void sendRequestInternal(TLObject object, RequestDelegate onComplete, RequestDelegateTimestamp onCompleteTimestamp, QuickAckDelegate onQuickAck, WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken) {
