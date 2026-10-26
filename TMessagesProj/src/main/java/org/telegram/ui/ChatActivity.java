@@ -631,6 +631,8 @@ public class ChatActivity extends BaseFragment implements
     private final int searchContainerHeight = 44;
     private FrameLayout searchContainer;
     private ImageView searchCalendarButton;
+    private ImageView searchFilterButton;
+    private final org.telegram.ui.Components.DevGramSearchFilterHelper searchFilterHelper = new org.telegram.ui.Components.DevGramSearchFilterHelper(this);
     private ImageView searchUserButton;
     private AnimatedTextView searchCountText;
     private AnimatedTextView searchExpandList;
@@ -9753,7 +9755,7 @@ public class ChatActivity extends BaseFragment implements
                     updateSearchUpDownButtonVisibility(true);
                     updatePagedownButtonVisibility(true);
                     searchingQuery = searchItem.getSearchField().getText().toString();
-                    getMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, false, searchingUserMessages, searchingChatMessages, !TextUtils.isEmpty(searchingQuery) || searchingReaction != null, searchingReaction);
+                    searchMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, false, searchingUserMessages, searchingChatMessages, !TextUtils.isEmpty(searchingQuery) || searchingReaction != null, searchingReaction);
                     AndroidUtilities.hideKeyboard(searchItem.getSearchField());
                     return true;
                 }
@@ -10016,7 +10018,7 @@ public class ChatActivity extends BaseFragment implements
     public void hitSearch() {
         searchWas = true;
         updateSearchButtons(0, 0, -1);
-        getMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
+        searchMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
         searchItemVisible = searching = !TextUtils.isEmpty(searchingQuery) || searchingReaction != null;
         updateBottomOverlay();
         updateSearchUpDownButtonVisibility(true);
@@ -11402,7 +11404,19 @@ public class ChatActivity extends BaseFragment implements
                     if (searchUserButton != null && searchUserButton.getVisibility() != GONE) {
                         leftMargin += 48;
                     }
+                    if (searchFilterButton != null && searchFilterButton.getVisibility() != GONE) {
+                        leftMargin += 48;
+                    }
                     ((MarginLayoutParams) child.getLayoutParams()).leftMargin = AndroidUtilities.dp(leftMargin);
+                } else if (child == searchFilterButton) {
+                    float left = 2.66f;
+                    if (searchCalendarButton != null && searchCalendarButton.getVisibility() != GONE) {
+                        left += 45.33f;
+                    }
+                    if (searchUserButton != null && searchUserButton.getVisibility() != GONE) {
+                        left += 45.33f;
+                    }
+                    ((MarginLayoutParams) child.getLayoutParams()).leftMargin = AndroidUtilities.dp(left);
                 }
                 super.measureChildWithMargins(child, parentWidthMeasureSpec, widthUsed, parentHeightMeasureSpec, heightUsed);
             }
@@ -11468,6 +11482,9 @@ public class ChatActivity extends BaseFragment implements
                 }
                 searchCalendarButton.setVisibility(View.GONE);
                 searchUserButton.setVisibility(View.GONE);
+                if (searchFilterButton != null) {
+                    searchFilterButton.setVisibility(View.GONE);
+                }
                 searchingForUser = true;
                 searchingUserMessages = null;
                 searchingChatMessages = null;
@@ -11501,7 +11518,25 @@ public class ChatActivity extends BaseFragment implements
                 }, themeDelegate).create());
             });
             searchCalendarButton.setContentDescription(LocaleController.getString(R.string.JumpToDate));
+
+            searchFilterButton = searchFilterHelper.createButton(getContext(), themeDelegate, searchItem, this::onSearchMessagesFilterChanged);
+            searchContainer.addView(searchFilterButton, LayoutHelper.createFrame(44, 44, Gravity.LEFT | Gravity.TOP, 2.66f, 0, 0, 0));
         }
+    }
+
+    private void onSearchMessagesFilterChanged() {
+        if (searchingForUser) {
+            return;
+        }
+        getSearchItemListener().onSearchPressed(searchItem.getSearchField());
+        updateSearchUpDownButtonVisibility(true);
+    }
+
+    /** MediaDataController с выставленным фильтром поиска этого чата. */
+    private MediaDataController searchMediaDataController() {
+        MediaDataController controller = getMediaDataController();
+        controller.searchFilter = searchFilterHelper.getFilter();
+        return controller;
     }
 
     private void showSearchShowOther(boolean show) {
@@ -12245,7 +12280,7 @@ public class ChatActivity extends BaseFragment implements
         mentionContainer.getAdapter().searchUsernameOrHashtag(null, 0, null, false, true);
         searchItem.setSearchFieldHint(null);
         searchItem.clearSearchText();
-        getMediaDataController().searchMessagesInChat(searchingQuery = "", dialog_id, mergeDialogId, classGuid, 0, threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
+        searchMediaDataController().searchMessagesInChat(searchingQuery = "", dialog_id, mergeDialogId, classGuid, 0, threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
     }
 
     private void updateTranslateItemVisibility() {
@@ -37028,7 +37063,7 @@ public class ChatActivity extends BaseFragment implements
         if (searchItem != null) {
             searchItem.setSearchFieldText(text, false);
         }
-        getMediaDataController().searchMessagesInChat(searchingQuery = (text == null ? "" : text), dialog_id, mergeDialogId, classGuid, 0, threadMessageId, false, searchingUserMessages, searchingChatMessages, !TextUtils.isEmpty(text), searchingReaction);
+        searchMediaDataController().searchMessagesInChat(searchingQuery = (text == null ? "" : text), dialog_id, mergeDialogId, classGuid, 0, threadMessageId, false, searchingUserMessages, searchingChatMessages, !TextUtils.isEmpty(text), searchingReaction);
         updatePinnedMessageView(true);
     }
 
@@ -37119,7 +37154,7 @@ public class ChatActivity extends BaseFragment implements
             searchItem.setSearchFieldText(hashtag, false);
             searchItem.setSearchFieldHint(LocaleController.getString(R.string.SearchHashtagsHint));
         }
-        getMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, false, searchingUserMessages, searchingChatMessages, false, searchingReaction);
+        searchMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, false, searchingUserMessages, searchingChatMessages, false, searchingReaction);
         updatePinnedMessageView(true);
         hashtagSearchEmptyView.showProgress(true);
         showMessagesSearchListView(true);
@@ -37189,6 +37224,10 @@ public class ChatActivity extends BaseFragment implements
             if (searchUserButton != null) {
                 searchUserButton.setVisibility(View.GONE);
             }
+            if (searchFilterButton != null) {
+                searchFilterButton.setVisibility(View.GONE);
+            }
+            searchFilterHelper.clear();
         }
         if (searchItem != null) {
             preventReopenSearchWithText = true;
@@ -37248,6 +37287,10 @@ public class ChatActivity extends BaseFragment implements
             if (searchUserButton != null) {
                 searchUserButton.setVisibility(View.GONE);
             }
+            if (searchFilterButton != null) {
+                searchFilterButton.setVisibility(View.GONE);
+            }
+            searchFilterHelper.clear();
         }
         if (searchItem != null) {
             preventReopenSearchWithText = true;
@@ -40515,6 +40558,12 @@ public class ChatActivity extends BaseFragment implements
         @Override
         public void onSearchFilterCleared(FiltersView.MediaFilterData filterData) {
             super.onSearchFilterCleared(filterData);
+            if (searchFilterHelper.onFilterCleared(filterData)) {
+                if (searchItem != null && searchItem.isSearchFieldVisible2()) {
+                    onSearchMessagesFilterChanged();
+                }
+                return;
+            }
             if (actionBarSearchTags != null) {
                 actionBarSearchTags.clear();
             }
@@ -40535,6 +40584,11 @@ public class ChatActivity extends BaseFragment implements
             if (searchUserButton != null) {
                 searchUserButton.setVisibility(View.VISIBLE);
             }
+            if (searchFilterButton != null) {
+                searchFilterButton.setVisibility(View.VISIBLE);
+            }
+            searchFilterHelper.clear();
+            getMediaDataController().searchFilter = null;
             if (searchingForUser) {
                 mentionContainer.getAdapter().searchUsernameOrHashtag(null, 0, null, false, true);
                 searchingForUser = false;
@@ -40769,7 +40823,7 @@ public class ChatActivity extends BaseFragment implements
                 hashtagSearchTabs.tabs.scrollToTab(defaultSearchPage, defaultSearchPage);
             }
 
-            getMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
+            searchMediaDataController().searchMessagesInChat(searchingQuery, dialog_id, mergeDialogId, classGuid, 0, threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
         }
 
         @Override
@@ -40823,6 +40877,9 @@ public class ChatActivity extends BaseFragment implements
                 searchCalendarButton.setVisibility(View.VISIBLE);
                 if (searchUserButton != null) {
                     searchUserButton.setVisibility(View.VISIBLE);
+                }
+                if (searchFilterButton != null) {
+                    searchFilterButton.setVisibility(View.VISIBLE);
                 }
                 searchingUserMessages = null;
                 searchingChatMessages = null;
@@ -49094,7 +49151,7 @@ public class ChatActivity extends BaseFragment implements
         if (chatMode == MODE_SEARCH) {
             HashtagSearchController.getInstance(currentAccount).jumpToMessage(classGuid, hashtagSearchSelectedIndex + (searchUp ? 1 : -1), searchType);
         } else {
-            getMediaDataController().searchMessagesInChat(null, dialog_id, mergeDialogId, classGuid, searchUp ? (reversed ? 2 : 1) : (reversed ? 1 : 2), threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
+            searchMediaDataController().searchMessagesInChat(null, dialog_id, mergeDialogId, classGuid, searchUp ? (reversed ? 2 : 1) : (reversed ? 1 : 2), threadMessageId, searchingUserMessages, searchingChatMessages, searchingReaction);
             showMessagesSearchListView(false);
         }
     }

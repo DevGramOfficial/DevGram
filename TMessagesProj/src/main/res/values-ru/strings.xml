@@ -522,4 +522,13 @@
     <string name="AudioRecorderNoiseSuppressionRNNoise">RNNoise</string>
     <string name="AudioRecorderGeneralInfo">RNNoise убирает фоновый шум, но может искажать музыку и очень тихую речь.</string>
     <string name="InlineMathResultAnnouncement">Результат: %1$s</string>
+    <string name="SearchFilterVoice">Голосовые</string>
+    <string name="SearchFilterVideos">Видео</string>
+    <string name="SearchFilterRound">Кружки</string>
+    <string name="SearchFilterPolls">Опросы</string>
+    <string name="SearchFilterPinned">Закреплённые</string>
+    <string name="SearchFilterPhotos">Фото</string>
+    <string name="SearchFilterMentions">Упоминания</string>
+    <string name="SearchFilterLocations">Геопозиции</string>
+    <string name="SearchFilterByType">Фильтр по типу</string>
 </resources>

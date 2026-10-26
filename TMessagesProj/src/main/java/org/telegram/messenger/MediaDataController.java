@@ -3730,6 +3730,8 @@ public class MediaDataController extends BaseController {
     private long lastReplyMessageId;
     private long lastDialogId;
     private ReactionsLayoutInBubble.VisibleReaction lastReaction;
+    /** Фильтр по типу сообщений для поиска по чату (ставит ChatActivity перед поиском). */
+    public TLRPC.MessagesFilter searchFilter;
     private int lastReqId;
     private int lastGuid;
     private TLRPC.User lastSearchUser;
@@ -4016,7 +4018,7 @@ public class MediaDataController extends BaseController {
                     req.saved_reaction.add(reaction.toTLReaction());
                     req.flags |= 8;
                 }
-                req.filter = new TLRPC.TL_inputMessagesFilterEmpty();
+                req.filter = searchFilter != null ? searchFilter : new TLRPC.TL_inputMessagesFilterEmpty();
                 mergeReqId = getConnectionsManager().sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
                     if (lastMergeDialogId == mergeDialogId) {
                         mergeReqId = 0;
@@ -4101,7 +4103,7 @@ public class MediaDataController extends BaseController {
             req.saved_reaction.add(reaction.toTLReaction());
             req.flags |= 8;
         }
-        req.filter = new TLRPC.TL_inputMessagesFilterEmpty();
+        req.filter = searchFilter != null ? searchFilter : new TLRPC.TL_inputMessagesFilterEmpty();
         lastSearchQuery = query;
         long queryWithDialogFinal = queryWithDialog;
         String finalQuery = query;

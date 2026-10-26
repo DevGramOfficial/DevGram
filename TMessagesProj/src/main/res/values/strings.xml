@@ -11988,4 +11988,13 @@
     <string name="NoPaidMessagesTokenUsedOut">You used the QR code of un1 and can message them for free</string>
     <string name="NoPaidMessagesTokenImported">You can now message **%1$s** for free.</string>
     <string name="InlineMathResultAnnouncement">Result: %1$s</string>
+    <string name="SearchFilterVoice">Voice Messages</string>
+    <string name="SearchFilterVideos">Videos</string>
+    <string name="SearchFilterRound">Video Messages</string>
+    <string name="SearchFilterPolls">Polls</string>
+    <string name="SearchFilterPinned">Pinned</string>
+    <string name="SearchFilterPhotos">Photos</string>
+    <string name="SearchFilterMentions">Mentions</string>
+    <string name="SearchFilterLocations">Locations</string>
+    <string name="SearchFilterByType">Filter by type</string>
 </resources>
