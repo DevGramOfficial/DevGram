@@ -120,6 +120,7 @@ import android.widget.Scroller;
 import android.widget.Space;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.Keep;
@@ -3086,9 +3087,16 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
         @Override
         protected void dispatchDraw(Canvas canvas) {
+            final boolean fade = predictiveBackProgress > 0;
+            if (fade) {
+                canvas.saveLayerAlpha(null, (int) (getPredictiveBackChromeAlpha() * 255));
+            }
             super.dispatchDraw(canvas);
             View overlay = textSelectionHelper.getOverlayView(windowView.getContext());
             overlay.draw(canvas);
+            if (fade) {
+                canvas.restore();
+            }
         }
 
         @Override
@@ -3371,7 +3379,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             PhotoViewer.this.onDraw(canvas);
 
             if (isStatusBarVisible() && AndroidUtilities.statusBarHeight != 0 && actionBar != null) {
-                paint.setAlpha((int) (255 * actionBar.getAlpha() * 0.498f));
+                paint.setAlpha((int) (255 * actionBar.getAlpha() * 0.498f * getPredictiveBackChromeAlpha()));
                 if (getPaddingRight() > 0) {
                     canvas.drawRect(getMeasuredWidth() - getPaddingRight(), 0, getMeasuredWidth(), getMeasuredHeight(), paint);
                 }
@@ -10581,6 +10589,88 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         } else if (photoViewerWebView != null) {
             photoViewerWebView.playVideo();
         }
+    }
+
+    // предиктивный жест «назад»: картинка уменьшается и уезжает вслед за пальцем
+    private final org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper predictiveBackAnimation = new org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper();
+    private final RectF predictiveBackRect = new RectF();
+    private boolean predictiveBackActive;
+    private float predictiveBackProgress, predictiveBackTranslationX, predictiveBackTouchY, predictiveBackDirection = 1f;
+    private ValueAnimator predictiveBackCancelAnimator;
+
+    @androidx.annotation.RequiresApi(34)
+    private OnBackInvokedCallback createPredictiveBackCallback(OnBackInvokedCallback onBack) {
+        return new android.window.OnBackAnimationCallback() {
+            @Override
+            public void onBackStarted(android.window.BackEvent event) {
+                if (predictiveBackCancelAnimator != null) {
+                    predictiveBackCancelAnimator.end();
+                }
+                predictiveBackActive = isVisible() && animationInProgress == 0 && imageMoveAnimation == null && photoViewerWebView == null
+                    && !(qualityChooseView != null && qualityChooseView.getTag() != null) && placeProvider != null && placeProvider.canScrollAway()
+                    && currentEditMode == EDIT_MODE_NONE && sendPhotoType != SELECT_TYPE_AVATAR && sendPhotoType != SELECT_TYPE_STICKER
+                    && scale == 1f && !draggingDown && !moving && !zooming;
+                if (predictiveBackActive) {
+                    predictiveBackTouchY = event.getTouchY();
+                    predictiveBackDirection = event.getSwipeEdge() == android.window.BackEvent.EDGE_LEFT ? 1f : event.getSwipeEdge() == android.window.BackEvent.EDGE_RIGHT ? -1f : 0f;
+                    predictiveBackAnimation.start(getContainerViewWidth(), getContainerViewHeight(), predictiveBackTouchY, true, 0f);
+                }
+            }
+
+            @Override
+            public void onBackProgressed(android.window.BackEvent event) {
+                if (predictiveBackActive && animationInProgress == 0) {
+                    predictiveBackTouchY = event.getTouchY();
+                    applyPredictiveBackProgress(org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.applyIntensity(event.getProgress()));
+                }
+            }
+
+            @Override
+            public void onBackInvoked() {
+                if (predictiveBackCancelAnimator != null) {
+                    predictiveBackCancelAnimator.cancel();
+                }
+                predictiveBackActive = false;
+                onBack.onBackInvoked();
+                if (isVisible && animationInProgress == 0 && predictiveBackProgress > 0) {
+                    onBackCancelled();
+                }
+            }
+
+            @Override
+            public void onBackCancelled() {
+                predictiveBackActive = false;
+                if (predictiveBackProgress <= 0 || animationInProgress != 0) {
+                    return;
+                }
+                predictiveBackCancelAnimator = ValueAnimator.ofFloat(predictiveBackProgress, 0f);
+                predictiveBackCancelAnimator.addUpdateListener(a -> applyPredictiveBackProgress((float) a.getAnimatedValue()));
+                predictiveBackCancelAnimator.addListener(new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        predictiveBackCancelAnimator = null;
+                    }
+                });
+                predictiveBackCancelAnimator.setDuration(250);
+                predictiveBackCancelAnimator.setInterpolator(CubicBezierInterpolator.DEFAULT);
+                predictiveBackCancelAnimator.start();
+            }
+        };
+    }
+
+    private void applyPredictiveBackProgress(float progress) {
+        predictiveBackProgress = progress;
+        predictiveBackAnimation.update(progress, predictiveBackTouchY);
+        predictiveBackAnimation.getClosingRect(predictiveBackRect);
+        scale = predictiveBackAnimation.getClosingScale();
+        translationY = predictiveBackRect.centerY() - getContainerViewHeight() / 2f;
+        predictiveBackTranslationX = (predictiveBackRect.centerX() - getContainerViewWidth() / 2f) * predictiveBackDirection;
+        containerView.invalidate();
+        windowView.invalidate();
+    }
+
+    private float getPredictiveBackChromeAlpha() {
+        return 1f - Math.min(1f, predictiveBackProgress * 2f);
     }
 
     private TextView sentFromTextView;
@@ -17977,18 +18067,25 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 final OnBackInvokedDispatcher dispatcher = windowView.findOnBackInvokedDispatcher();
                 if (dispatcher != null) {
-                    dispatcher.registerOnBackInvokedCallback(
-                        OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-                        () -> {
-                            if (parentActivity instanceof LaunchActivity) {
-                                ((LaunchActivity) parentActivity).onBackPressed();
-                            } else {
-                                if (isVisible()) {
-                                    closePhoto(true, false);
-                                }
+                    OnBackInvokedCallback callback = () -> {
+                        if (parentActivity instanceof LaunchActivity) {
+                            ((LaunchActivity) parentActivity).onBackPressed();
+                        } else {
+                            if (isVisible()) {
+                                closePhoto(true, false);
                             }
                         }
-                    );
+                    };
+                    if (predictiveBackCancelAnimator != null) {
+                        predictiveBackCancelAnimator.end();
+                    }
+                    predictiveBackActive = false;
+                    predictiveBackProgress = 0;
+                    predictiveBackTranslationX = 0;
+                    if (org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.isEnabled()) {
+                        callback = createPredictiveBackCallback(callback);
+                    }
+                    dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
                 }
             }
         } catch (Exception e) {
@@ -19438,6 +19535,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
     Runnable longPressRunnable = this::onLongPress;
 
     private boolean onTouchEvent(MotionEvent ev) {
+        if (predictiveBackProgress > 0) {
+            return true;
+        }
         lastX = ev.getX();
         if (currentEditMode == EDIT_MODE_PAINT && animationStartTime != 0 && (ev.getActionMasked() == MotionEvent.ACTION_DOWN || ev.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN)) {
             if (ev.getPointerCount() >= 2) {
@@ -20032,7 +20132,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     containerView.invalidate();
                 }
             }
-            float progress = Math.abs(translationY) / (getContainerViewHeight() / 2f);
+            float progress = Math.max(Math.abs(translationY) / (getContainerViewHeight() / 2f), predictiveBackProgress);
             if (clippingImageProgress != 0) {
                 progress = progress + (1f - progress) * clippingImageProgress;
             }
@@ -20247,7 +20347,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             containerHeight = getVideoFitHeight();
         }
         if (animationInProgress != 2 && animationInProgress != 4 && !pipAnimationInProgress && !isInline) {
-            if (currentEditMode == EDIT_MODE_NONE && sendPhotoType != SELECT_TYPE_AVATAR && sendPhotoType != SELECT_TYPE_STICKER && scale == 1 && aty != -1 && !zoomAnimation) {
+            if (predictiveBackProgress > 0) {
+                backgroundDrawable.setAlpha((int) ((1f - predictiveBackProgress * 0.5f) * 255));
+            } else if (currentEditMode == EDIT_MODE_NONE && sendPhotoType != SELECT_TYPE_AVATAR && sendPhotoType != SELECT_TYPE_STICKER && scale == 1 && aty != -1 && !zoomAnimation) {
                 float maxValue = containerWidth / 4.0f;
                 backgroundDrawable.setAlpha((int) Math.max(127, 255 * (1.0f - (Math.min(Math.abs(aty), maxValue) / maxValue))));
             } else {
@@ -20371,6 +20473,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             alpha = 1.0f - alpha;
             translateX = maxX;
         }
+        translateX += predictiveBackTranslationX;
         boolean drawTextureView = videoSizeSet && aspectRatioFrameLayout != null && aspectRatioFrameLayout.getVisibility() == View.VISIBLE;
         boolean drawCenterImage = false;
         float livePhotoVideoAlpha = 1.0f;
@@ -20883,7 +20986,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             bottomFancyShadowPaint.setShader(bottomFancyShadow);
         }
 
-        canvas.saveLayerAlpha(0, 0, containerView.getWidth(), containerView.getHeight() + AndroidUtilities.navigationBarHeight, (int) (maxAlpha * (backgroundDrawable.getAlpha() - 127) * (1f / 127f * 255f)), Canvas.ALL_SAVE_FLAG);
+        canvas.saveLayerAlpha(0, 0, containerView.getWidth(), containerView.getHeight() + AndroidUtilities.navigationBarHeight, (int) (maxAlpha * (backgroundDrawable.getAlpha() - 127) * (1f / 127f * 255f) * getPredictiveBackChromeAlpha()), Canvas.ALL_SAVE_FLAG);
         clipFancyShadows.rewind();
         clipFancyShadows.addRect(0, 0, containerView.getWidth(), top, Path.Direction.CW);
         clipFancyShadows.addRect(0, containerView.getHeight() + AndroidUtilities.navigationBarHeight - bottom, containerView.getWidth(), containerView.getHeight() + AndroidUtilities.navigationBarHeight, Path.Direction.CW);
