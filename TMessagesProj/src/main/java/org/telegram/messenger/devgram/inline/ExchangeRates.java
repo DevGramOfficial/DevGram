@@ -233,17 +233,18 @@ public abstract class ExchangeRates {
         return CURRENCIES.contains(normalize(str));
     }
 
-    // Валюта страны: сначала по номеру телефона аккаунта, потом по стране системной локали.
+    // Валюта страны: сначала по региону системы, потом по номеру аккаунта.
     // Раньше брали Locale.getDefault(): у языка приложения «ru» нет страны, Currency падал,
     // и «своей» валютой становился USD — «4$=» переводилось в те же доллары и не показывалось.
+    // Регион системы раньше номера: у виртуальных номеров (+1 и т.п.) страна не та, где живёт человек.
     private static String localeCurrency(int account) {
-        String byPhone = currencyByPhone(org.telegram.messenger.UserConfig.getInstance(account).getClientPhone());
-        if (byPhone != null) {
-            return byPhone;
-        }
         java.util.Locale system = org.telegram.messenger.LocaleController.getInstance().getSystemDefaultLocale();
         String currency = currencyOfCountry(system != null ? system.getCountry() : null);
-        return currency != null ? currency : "USD";
+        if (currency != null) {
+            return currency;
+        }
+        String byPhone = currencyByPhone(org.telegram.messenger.UserConfig.getInstance(account).getClientPhone());
+        return byPhone != null ? byPhone : "USD";
     }
 
     private static String currencyByPhone(String phone) {
