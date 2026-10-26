@@ -15,7 +15,6 @@ import kotlin.collections.MapsKt;
 import kotlin.jvm.internal.Intrinsics;
 import kotlin.math.MathKt;
 import kotlin.text.Typography;
-import org.telegram.messenger.ImageLoader;
 public final class Measures {
     private static final List<String> breakdown;
     private static final HashMap<String, String> compounds;
@@ -45,10 +44,10 @@ public final class Measures {
         _init_$unit$default("mi", "mi", "mi", unitKind, 1609.344d, "km", new String[]{"mi", "mile", "miles", "миля", "мили", "миль", "милях"}, 0.0d, 128, null);
         UnitKind unitKind2 = UnitKind.MASS;
         _init_$unit$default("mg", "mg", "мг", unitKind2, 1.0E-6d, null, new String[]{"mg", "мг", "миллиграмм", "миллиграмма", "миллиграммов", "milligram", "milligrams"}, 0.0d, 128, null);
-        _init_$unit$default(ImageLoader.AUTOPLAY_FILTER, ImageLoader.AUTOPLAY_FILTER, "г", unitKind2, 0.001d, "oz", new String[]{ImageLoader.AUTOPLAY_FILTER, "г", "гр", "грамм", "грамма", "граммов", "граммах", "gram", "grams", "gramme", "grammes"}, 0.0d, 128, null);
+        _init_$unit$default("g", "g", "г", unitKind2, 0.001d, "oz", new String[]{"g", "г", "гр", "грамм", "грамма", "граммов", "граммах", "gram", "grams", "gramme", "grammes"}, 0.0d, 128, null);
         _init_$unit$default("kg", "kg", "кг", unitKind2, 1.0d, "lb", new String[]{"kg", "кг", "килограмм", "килограмма", "килограммов", "килограммах", "kilogram", "kilograms", "kilo", "kilos"}, 0.0d, 128, null);
         _init_$unit$default("t", "t", "т", unitKind2, 1000.0d, "lb", new String[]{"t", "т", "тонна", "тонны", "тонн", "тоннах", "tonne", "tonnes"}, 0.0d, 128, null);
-        _init_$unit$default("oz", "oz", "oz", unitKind2, 0.028349523125d, ImageLoader.AUTOPLAY_FILTER, new String[]{"oz", "ounce", "ounces", "унция", "унции", "унций", "унциях"}, 0.0d, 128, null);
+        _init_$unit$default("oz", "oz", "oz", unitKind2, 0.028349523125d, "g", new String[]{"oz", "ounce", "ounces", "унция", "унции", "унций", "унциях"}, 0.0d, 128, null);
         _init_$unit$default("lb", "lb", "lb", unitKind2, 0.45359237d, "kg", new String[]{"lb", "lbs", "pound", "pounds", "фунт", "фунта", "фунтов", "фунтах"}, 0.0d, 128, null);
         UnitKind unitKind3 = UnitKind.VOLUME;
         _init_$unit$default("ml", "ml", "мл", unitKind3, 0.001d, "floz", new String[]{"ml", "мл", "миллилитр", "миллилитра", "миллилитров", "миллилитрах", "milliliter", "milliliters", "millilitre", "millilitres"}, 0.0d, 128, null);
@@ -86,7 +85,7 @@ public final class Measures {
         map.put("м/с", "ms");
         map.put("fl oz", "floz");
         _init_$ladder(false, "mm", "cm", "m", "km");
-        _init_$ladder(false, "mg", ImageLoader.AUTOPLAY_FILTER, "kg", "t");
+        _init_$ladder(false, "mg", "g", "kg", "t");
         _init_$ladder(false, "ml", "l");
         _init_$ladder(false, "m2", "ha", "km2");
         map2.put("yd", _init_$ladder(true, "in", "ft", "mi"));

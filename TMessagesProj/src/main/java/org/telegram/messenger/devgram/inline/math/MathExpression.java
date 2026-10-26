@@ -416,6 +416,7 @@ public final class MathExpression {
                 if (!mathExpression.isBlank(cCharAt) && cCharAt != 65039) {
                     if (Character.isDigit(cCharAt) || ((cCharAt == '.' || cCharAt == ',') && (i = number + 1) < this.source.length() && Character.isDigit(this.source.charAt(i)))) {
                         number = readNumber(number);
+                        continue;
                     } else if (cCharAt == '(') {
                         this.tokens.add(new Token(2, 0.0d, null, null, 14, null));
                     } else if (cCharAt == ')') {
@@ -424,9 +425,11 @@ public final class MathExpression {
                         this.tokens.add(new Token(5, 0.0d, null, null, 14, null));
                     } else if (cCharAt == 176) {
                         number = readTemperature(number);
+                        continue;
                     } else if (Character.isLetter(cCharAt)) {
                         int iWordEnd = wordEnd(number);
                         number = addWord(this.source.subSequence(number, iWordEnd).toString(), iWordEnd);
+                        continue;
                     } else {
                         MathUnit mathUnitSymbol = null;
                         MathUnit mathUnitSymbol2 = this.options.getUnits() ? Measures.INSTANCE.symbol(cCharAt) : null;
@@ -447,6 +450,7 @@ public final class MathExpression {
                             }
                             this.tokens.add(new Token(1, 0.0d, strMatchSymbol, null, 10, null));
                             number += strMatchSymbol.length();
+                            continue;
                         }
                     }
                 }
