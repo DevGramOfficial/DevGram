@@ -2082,9 +2082,11 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 TypefaceSpan span = new TypefaceSpan(AndroidUtilities.bold(), 0, getThemedColor(Theme.key_inappPlayerPerformer));
                 stringBuilder.setSpan(span, 0, messageObject.getMusicAuthor().length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
                 titleTextView.setText(stringBuilder, !create && wasVisible && isMusic);
-                if (miniPlayer != null) {
-                    miniPlayer.bind(messageObject, !create && wasVisible);
-                }
+            }
+            // DevGram: мини-плеер обновляем на каждую смену состояния — иначе значок пауза/плей
+            // менялся только при смене трека
+            if (miniPlayer != null) {
+                miniPlayer.bind(messageObject, !create && wasVisible);
             }
         }
     }
