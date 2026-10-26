@@ -156,7 +156,9 @@ public final class DevGramTranslator {
         if (provider != 3 && DevGramTranslationMarkup.hasFormatting(input)) {
             try {
                 String html = DevGramTranslationMarkup.toHtml(input);
-                String translatedHtml = provider == 2 ? translateYandex(html, target, true) : translateGoogleHtml(html, source, target);
+                String translatedHtml = provider == 2 ? translateYandex(html, target, true)
+                        : provider == 4 ? translateMicrosoft(html, source, target, true)
+                        : translateGoogleHtml(html, source, target);
                 TLRPC.TL_textWithEntities formatted = TextUtils.isEmpty(translatedHtml) ? null : DevGramTranslationMarkup.fromHtml(translatedHtml, input);
                 if (formatted != null && !TextUtils.isEmpty(formatted.text)) {
                     return formatted;
@@ -169,6 +171,8 @@ public final class DevGramTranslator {
         String translated;
         if (provider == 2) {
             translated = translateYandex(text, target, false);
+        } else if (provider == 4) {
+            translated = translateMicrosoft(text, source, target, false);
         } else if (provider == 3) {
             translated = translateDeepL(text, source, target);
         } else {
@@ -201,6 +205,54 @@ public final class DevGramTranslator {
             }
         }
         return result.toString();
+    }
+
+    private static String translateMicrosoft(String text, String from, String to, boolean html) throws Exception {
+        String path = "api.cognitive.microsofttranslator.com/translate?api-version=3.0&from="
+                + ("auto".equalsIgnoreCase(from) ? "" : from) + "&to=" + to + "&textType=" + (html ? "html" : "plain");
+        String body = new JSONArray().put(new JSONObject().put("Text", text == null ? "" : text)).toString();
+        HttpURLConnection connection = (HttpURLConnection) new URL("https://" + path).openConnection();
+        try {
+            connection.setConnectTimeout(15_000);
+            connection.setReadTimeout(30_000);
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("User-Agent", "okhttp/4.5.0");
+            connection.setRequestProperty("X-Mt-Signature", microsoftSignature(path));
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setDoOutput(true);
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(body.getBytes(StandardCharsets.UTF_8));
+            }
+            int code = connection.getResponseCode();
+            InputStream stream = code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder response = new StringBuilder();
+            if (stream != null) {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                }
+            }
+            if (code < 200 || code >= 300 || !response.toString().startsWith("[")) {
+                throw new IllegalStateException("Microsoft HTTP " + code + ": " + response);
+            }
+            return new JSONArray(response.toString()).getJSONObject(0).getJSONArray("translations").getJSONObject(0).optString("text");
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    /** Подпись запроса, как у приложения Microsoft Translator. */
+    private static String microsoftSignature(String path) throws Exception {
+        String guid = UUID.randomUUID().toString().replace("-", "");
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss", Locale.US);
+        format.setTimeZone(java.util.TimeZone.getTimeZone("GMT"));
+        String date = format.format(new java.util.Date()).toLowerCase(Locale.US) + "GMT";
+        String data = ("MSTranslatorAndroidApp" + URLEncoder.encode(path, "UTF-8") + date + guid).toLowerCase(Locale.US);
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(android.util.Base64.decode("oik6PdDdMnOXemTbwvMn9de/h9lFnfBaCWbGMMZqqoSaQaqUOqjVGm5NqsmjcBI1x+sS9ugjB55HEJWRiFXYFw", 0), "HmacSHA256"));
+        return "MSTranslatorAndroidApp::" + android.util.Base64.encodeToString(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)), android.util.Base64.NO_WRAP) + "::" + date + "::" + guid;
     }
 
     private static String translateGoogleHtml(String html, String from, String to) throws Exception {

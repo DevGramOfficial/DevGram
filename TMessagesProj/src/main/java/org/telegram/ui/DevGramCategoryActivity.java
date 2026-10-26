@@ -192,7 +192,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final String[] DIVIDER_STYLE_OPTIONS = {"Скрыть", "Линия", "Сегменты"};
     // Порядок значений совпадает с enum ExteraGram: GLARE, SOLID, HIDDEN.
     private static final String[] GLASS_OUTLINE_OPTIONS = {"Блики", "Сплошная", "Скрыта"};
-    private static final String[] TRANSLATION_PROVIDERS = {"Telegram", "Google", "Yandex", "DeepL"};
+    private static final String[] TRANSLATION_PROVIDERS = {"Telegram", "Google", "Yandex", "DeepL", "Microsoft"};
     private static final String[] TRANSLATION_FORMALITIES = {"По умолчанию", "Неформально", "Формально"};
     private static final String[] ID_DC_OPTIONS = {"Скрыть", "Telegram API", "Bot API"};
 
