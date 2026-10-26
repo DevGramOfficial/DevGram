@@ -966,8 +966,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     .setChecked(DevGramConfig.addCommaAfterMention));
             items.add(UItem.asCheck(ID_DISABLE_MARKDOWN, "Отключить Markdown")
                     .setChecked(DevGramConfig.disableMarkdown));
-            items.add(UItem.asCheck(ID_INLINE_CALC, "Калькулятор в поле ввода")
-                    .setChecked(DevGramConfig.inlineCalc));
+            items.add(UItem.asButton(ID_INLINE_CALC, "Результаты в поле ввода", DevGramConfig.inlineCalc ? "Вкл." : "Выкл."));
             items.add(UItem.asCheck(ID_WEATHER_STORIES, "Виджет погоды в историях")
                     .setChecked(DevGramConfig.weatherInStories));
             items.add(UItem.asCheck(ID_REPLACE_FORWARD, "Заменять пересылку")
@@ -1621,7 +1620,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_HIDE_KEYBOARD_ON_SCROLL) {
             DevGramConfig.setHideKeyboardOnScroll(!DevGramConfig.hideKeyboardOnScroll);
         } else if (item.id == ID_INLINE_CALC) {
-            DevGramConfig.setInlineCalc(!DevGramConfig.inlineCalc);
+            presentFragment(new DevGramInlineResultsActivity());
+            return;
         } else if (item.id == ID_WEATHER_STORIES) {
             DevGramConfig.setWeatherInStories(!DevGramConfig.weatherInStories);
         } else if (item.id == ID_DISABLE_GREETING) {

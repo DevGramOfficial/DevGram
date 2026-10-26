@@ -84,7 +84,15 @@ public class DevGramConfig {
     public static boolean replaceEditedWithIcon = false;
     public static boolean hideShareButton = false;
     public static boolean hideStickerTime = false; // скрыть время на стикерах (как exteraGram)
-    public static boolean inlineCalc = true;       // инлайн-калькулятор: «2+2=» → дописать «4»
+    public static boolean inlineCalc = true;       // результаты в поле ввода: «2+2=» → дописать «4»
+    public static boolean inlineMath = true;       // калькулятор
+    public static boolean inlineCurrency = true;   // курсы валют
+    public static boolean inlineUnits = true;      // единицы измерения
+    public static boolean inlineTimeZones = false; // часовые пояса
+    public static String inlineTargetCurrency = ""; // валюта по умолчанию ("" — авто)
+    public static int inlineAngleUnit = 0;         // 0 — градусы, 1 — радианы
+    public static int inlineMeasureSystem = 0;     // 0 — авто, 1 — метрическая, 2 — имперская
+    public static boolean inlineDigitGrouping = true; // разделять разряды
     public static boolean weatherInStories = false; // виджет погоды в историях (просит доступ к гео) — по умолчанию ВЫКЛ
     public static int updateChannel = 0;           // канал обновлений: 0 = основной, 1 = бета (нужен значок поддержавшего)
 
@@ -138,6 +146,14 @@ public class DevGramConfig {
             disableMarkdown = preferences.getBoolean("disableMarkdown", false);
             hideKeyboardOnScroll = preferences.getBoolean("hideKeyboardOnScroll", true);
             inlineCalc = preferences.getBoolean("inlineCalc", true);
+            inlineMath = preferences.getBoolean("inlineMath", true);
+            inlineCurrency = preferences.getBoolean("inlineCurrency", true);
+            inlineUnits = preferences.getBoolean("inlineUnits", true);
+            inlineTimeZones = preferences.getBoolean("inlineTimeZones", false);
+            inlineTargetCurrency = preferences.getString("inlineTargetCurrency", "");
+            inlineAngleUnit = preferences.getInt("inlineAngleUnit", 0);
+            inlineMeasureSystem = preferences.getInt("inlineMeasureSystem", 0);
+            inlineDigitGrouping = preferences.getBoolean("inlineDigitGrouping", true);
             weatherInStories = preferences.getBoolean("weatherInStories", false);
             updateChannel = preferences.getInt("updateChannel", 0);
             disableGreetingSticker = preferences.getBoolean("disableGreetingSticker", false);
@@ -431,6 +447,41 @@ public class DevGramConfig {
         inlineCalc = v;
         if (preferences != null) {
             preferences.edit().putBoolean("inlineCalc", v).apply();
+        }
+    }
+
+    public static void setInlineBoolean(String key, boolean v) {
+        switch (key) {
+            case "inlineMath": inlineMath = v; break;
+            case "inlineCurrency": inlineCurrency = v; break;
+            case "inlineUnits": inlineUnits = v; break;
+            case "inlineTimeZones": inlineTimeZones = v; break;
+            case "inlineDigitGrouping": inlineDigitGrouping = v; break;
+            default: return;
+        }
+        if (preferences != null) {
+            preferences.edit().putBoolean(key, v).apply();
+        }
+    }
+
+    public static void setInlineTargetCurrency(String v) {
+        inlineTargetCurrency = v == null ? "" : v;
+        if (preferences != null) {
+            preferences.edit().putString("inlineTargetCurrency", inlineTargetCurrency).apply();
+        }
+    }
+
+    public static void setInlineAngleUnit(int v) {
+        inlineAngleUnit = v;
+        if (preferences != null) {
+            preferences.edit().putInt("inlineAngleUnit", v).apply();
+        }
+    }
+
+    public static void setInlineMeasureSystem(int v) {
+        inlineMeasureSystem = v;
+        if (preferences != null) {
+            preferences.edit().putInt("inlineMeasureSystem", v).apply();
         }
     }
 

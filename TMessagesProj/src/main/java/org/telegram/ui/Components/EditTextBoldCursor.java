@@ -80,14 +80,24 @@ public class EditTextBoldCursor extends EditTextEffects {
 
     // Инлайн-калькулятор поля ввода (порт exteraGram). Создаётся лениво только когда реально
     // нужен (перед кареткой '=' и настройка вкл) — в остальных полях = null, нулевой оверхед.
-    private org.telegram.messenger.DevGramInlineMath inlineMath;
+    private org.telegram.messenger.devgram.inline.InlineMathController inlineMath;
 
-    private org.telegram.messenger.DevGramInlineMath getInlineMath() {
+    private org.telegram.messenger.devgram.inline.InlineMathController getInlineMath() {
         if (!org.telegram.messenger.DevGramConfig.inlineCalc) {
             return inlineMath;   // если выключено — не создаём, но существующий отдаём (для отрисовки/скрытия)
         }
         if (inlineMath == null) {
-            inlineMath = new org.telegram.messenger.DevGramInlineMath(this);
+            inlineMath = new org.telegram.messenger.devgram.inline.InlineMathController(this, new org.telegram.messenger.devgram.inline.InlineMathController.Delegate() {
+                @Override
+                public int accentColor() {
+                    return Theme.getColor(Theme.key_chat_messagePanelCursor);
+                }
+
+                @Override
+                public void runProgrammatic(Runnable action) {
+                    action.run();
+                }
+            });
         }
         return inlineMath;
     }
@@ -607,6 +617,9 @@ public class EditTextBoldCursor extends EditTextEffects {
     @Override
     public void setText(CharSequence text, BufferType type) {
         super.setText(text, type);
+        if (inlineMath != null) {
+            inlineMath.cancel();
+        }
         checkHeaderVisibility(nextSetTextAnimated);
         nextSetTextAnimated = false;
     }
@@ -615,7 +628,9 @@ public class EditTextBoldCursor extends EditTextEffects {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         if (inlineMath != null) {
-            inlineMath.updateOnMeasure();
+            if (inlineMath.updateOnMeasure()) {
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            }
             int extra = inlineMath.getExtraBottom();
             if (extra > 0) {
                 // растим поле, чтобы «призрак»-результат (перенос/detached) поместился
@@ -729,7 +744,7 @@ public class EditTextBoldCursor extends EditTextEffects {
         if (transformHintToHeader && !transformHintToHeaderOnFocus) {
             checkHeaderVisibility(true);
         }
-        org.telegram.messenger.DevGramInlineMath m = getInlineMath();
+        org.telegram.messenger.devgram.inline.InlineMathController m = getInlineMath();
         if (m != null) {
             m.onTextChanged();
         }
@@ -801,7 +816,7 @@ public class EditTextBoldCursor extends EditTextEffects {
     @Override
     public android.view.inputmethod.InputConnection onCreateInputConnection(android.view.inputmethod.EditorInfo outAttrs) {
         android.view.inputmethod.InputConnection ic = super.onCreateInputConnection(outAttrs);
-        org.telegram.messenger.DevGramInlineMath m = getInlineMath();
+        org.telegram.messenger.devgram.inline.InlineMathController m = getInlineMath();
         return (m != null && ic != null) ? m.wrap(ic) : ic;
     }
 
@@ -944,6 +959,9 @@ public class EditTextBoldCursor extends EditTextEffects {
         ignoreTopCount = 1;
         ignoreBottomCount = 1;
         canvas.save();
+        if (inlineMath != null) {
+            inlineMath.clipReplacedParagraph(canvas, getTotalPaddingTop());
+        }
         canvas.translate(0, topPadding);
         try {
             drawInMaim = true;
@@ -986,7 +1004,7 @@ public class EditTextBoldCursor extends EditTextEffects {
                             voffsetCursor = getTotalPaddingTop() - getExtendedPaddingTop();
                         }
                     }
-                    canvas.translate(getPaddingLeft(), getExtendedPaddingTop() + voffsetCursor);
+                    canvas.translate(getPaddingLeft() + (inlineMath != null ? inlineMath.getCursorShiftX() : 0), getExtendedPaddingTop() + voffsetCursor + (inlineMath != null ? inlineMath.getCursorShiftY() : 0));
                     Layout layout = getLayout();
                     int line = layout.getLineForOffset(getSelectionStart());
                     int lineCount = layout.getLineCount();
@@ -1024,7 +1042,7 @@ public class EditTextBoldCursor extends EditTextEffects {
                             voffsetCursor = getTotalPaddingTop() - getExtendedPaddingTop();
                         }
                     }
-                    canvas.translate(getPaddingLeft(), getExtendedPaddingTop() + voffsetCursor);
+                    canvas.translate(getPaddingLeft() + (inlineMath != null ? inlineMath.getCursorShiftX() : 0), getExtendedPaddingTop() + voffsetCursor + (inlineMath != null ? inlineMath.getCursorShiftY() : 0));
                     Layout layout = getLayout();
                     int line = layout.getLineForOffset(getSelectionStart());
                     int lineCount = layout.getLineCount();
@@ -1121,8 +1139,7 @@ public class EditTextBoldCursor extends EditTextEffects {
         }*/
         if (inlineMath != null) {
             // «призрак»-результат калькулятора рисуем в тех же координатах, что и текст
-            inlineMath.draw(canvas, getPaddingLeft() - getScrollX(),
-                    getExtendedPaddingTop() - getScrollY(), 0, getHeight());
+            inlineMath.draw(canvas, getTotalPaddingLeft(), getTotalPaddingTop(), getScrollY() - offsetY, getScrollY() + getMeasuredHeight() - offsetY);
         }
     }
 
@@ -1150,6 +1167,10 @@ public class EditTextBoldCursor extends EditTextEffects {
     private Rect mTempRect;
 
     private int clampHorizontalPosition(final Drawable drawable, float horizontal) {
+        return clampHorizontalPosition(drawable, horizontal, true);
+    }
+
+    private int clampHorizontalPosition(final Drawable drawable, float horizontal, boolean clamp) {
         horizontal = Math.max(0.5f, horizontal - 0.5f);
         if (mTempRect == null) {
             mTempRect = new Rect();
@@ -1165,9 +1186,9 @@ public class EditTextBoldCursor extends EditTextEffects {
         float horizontalDiff = horizontal - scrollX;
         int viewClippedWidth = getWidth() - getCompoundPaddingLeft() - getCompoundPaddingRight();
         final int left;
-        if (horizontalDiff >= (viewClippedWidth - 1f)) {
+        if (clamp && horizontalDiff >= (viewClippedWidth - 1f)) {
             left = viewClippedWidth + scrollX - (drawableWidth - mTempRect.right);
-        } else if (Math.abs(horizontalDiff) <= 1f || (TextUtils.isEmpty(getText()) && (1024 * 1024 - scrollX) <= (viewClippedWidth + 1f) && horizontal <= 1f)) {
+        } else if (clamp && (Math.abs(horizontalDiff) <= 1f || (TextUtils.isEmpty(getText()) && (1024 * 1024 - scrollX) <= (viewClippedWidth + 1f) && horizontal <= 1f))) {
             left = scrollX - mTempRect.left;
         } else {
             left = (int) horizontal - mTempRect.left;
@@ -1176,7 +1197,7 @@ public class EditTextBoldCursor extends EditTextEffects {
     }
 
     private void updateCursorPosition(int top, int bottom, float horizontal) {
-        final int left = clampHorizontalPosition(gradientDrawable, horizontal);
+        final int left = clampHorizontalPosition(gradientDrawable, horizontal, inlineMath == null || !inlineMath.hasCursorShift());
         final int width = dp(cursorWidth);
         gradientDrawable.setBounds(left, top - mTempRect.top, left + width, bottom + mTempRect.bottom);
     }
@@ -1213,6 +1234,9 @@ public class EditTextBoldCursor extends EditTextEffects {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        if (inlineMath != null) {
+            inlineMath.cancel();
+        }
         attachedToWindow = null;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             Choreographer60FpsContent.getInstance().removeFrameCallback(invalidateCallback);

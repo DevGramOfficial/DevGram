@@ -521,4 +521,5 @@
     <string name="AudioRecorderNoiseSuppressionOff">Выкл.</string>
     <string name="AudioRecorderNoiseSuppressionRNNoise">RNNoise</string>
     <string name="AudioRecorderGeneralInfo">RNNoise убирает фоновый шум, но может искажать музыку и очень тихую речь.</string>
+    <string name="InlineMathResultAnnouncement">Результат: %1$s</string>
 </resources>
