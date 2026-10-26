@@ -1851,8 +1851,21 @@ public class ItemOptions {
     private View hoveredItem;
     private final int[] hoverLoc = new int[2];
 
+    private float hoverStartX = Float.NaN, hoverStartY = Float.NaN;
+    private boolean hoverArmed;
+    private androidx.recyclerview.widget.RecyclerView hoverListView;
+    private androidx.recyclerview.widget.RecyclerView.OnItemTouchListener hoverItemTouchListener;
+
+    /** Меню на экране: в своём окне или встроено в другой диалог (ScrimOptions). */
+    private boolean canHandleCapturedTouch() {
+        if (layout == null) {
+            return false;
+        }
+        return (actionBarPopupWindow != null && actionBarPopupWindow.isShowing()) || layout.getParent() != null;
+    }
+
     public void dispatchCapturedTouchEvent(MotionEvent event) {
-        if (layout == null || actionBarPopupWindow == null || !actionBarPopupWindow.isShowing()) {
+        if (!canHandleCapturedTouch()) {
             return;
         }
         MotionEvent copy = MotionEvent.obtain(event);
@@ -1860,45 +1873,129 @@ public class ItemOptions {
         layout.getLocationOnScreen(location);
         copy.offsetLocation(-location[0], -location[1]);
         layout.dispatchTouchEvent(copy);
-        if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
-            updateHover((int) event.getRawX(), (int) event.getRawY());
-        } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
-            releaseHover((int) event.getRawX(), (int) event.getRawY());
-        } else if (event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
-            cancelHover();
-        }
+        handleHoverEvent(event);
         copy.recycle();
     }
 
-    private void installHoverReleaseListener() {
-        if (scrimView == null) return;
-        if (scrimView.getParent() != null) {
-            scrimView.getParent().requestDisallowInterceptTouchEvent(true);
+    /**
+     * Палец после долгого нажатия не отпущен: ведём его по меню и выбираем пункт при отпускании.
+     * Работает и когда источник лежит в списке (RecyclerView перехватил бы жест).
+     */
+    public void installHoverReleaseListener() {
+        if (scrimView == null || !longPressSelectionEnabled) return;
+        resetHoverArming();
+        android.view.ViewParent list = scrimView.getParent();
+        while (list != null && !(list instanceof androidx.recyclerview.widget.RecyclerView)) {
+            list = list.getParent();
+        }
+        final android.view.ViewParent outer = list != null ? list.getParent() : scrimView.getParent();
+        if (list != null) {
+            list.requestDisallowInterceptTouchEvent(false);
+        }
+        if (outer != null) {
+            outer.requestDisallowInterceptTouchEvent(true);
         }
         final WeakReference<ItemOptions> weakSelf = new WeakReference<>(this);
         scrimView.setOnTouchListener(hoverReleaseListener = (v, event) -> {
             final ItemOptions self = weakSelf.get();
-            if (self == null || self.actionBarPopupWindow == null || !self.actionBarPopupWindow.isShowing()) {
+            if (self == null || !self.canHandleCapturedTouch()) {
                 v.setOnTouchListener(null);
                 return false;
             }
-            if (v.getParent() != null) {
-                v.getParent().requestDisallowInterceptTouchEvent(true);
+            if (outer != null) {
+                outer.requestDisallowInterceptTouchEvent(true);
             }
-            final int action = event.getActionMasked();
-            if (action == MotionEvent.ACTION_MOVE) {
-                self.updateHover((int) event.getRawX(), (int) event.getRawY());
-            } else if (action == MotionEvent.ACTION_UP) {
-                self.releaseHover((int) event.getRawX(), (int) event.getRawY());
-                v.setOnTouchListener(null);
-                self.hoverReleaseListener = null;
-            } else if (action == MotionEvent.ACTION_CANCEL) {
-                self.cancelHover();
+            if (self.handleHoverEvent(event)) {
                 v.setOnTouchListener(null);
                 self.hoverReleaseListener = null;
             }
             return true;
         });
+        if (list instanceof androidx.recyclerview.widget.RecyclerView) {
+            androidx.recyclerview.widget.RecyclerView recyclerView = (androidx.recyclerview.widget.RecyclerView) list;
+            hoverListView = recyclerView;
+            hoverItemTouchListener = new androidx.recyclerview.widget.RecyclerView.SimpleOnItemTouchListener() {
+                @Override
+                public boolean onInterceptTouchEvent(@NonNull androidx.recyclerview.widget.RecyclerView rv, @NonNull MotionEvent e) {
+                    ItemOptions self = weakSelf.get();
+                    if (self == null || !self.canHandleCapturedTouch() || e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                        removeLater(rv, this);
+                        return false;
+                    }
+                    if (self.handleHoverEvent(e)) {
+                        self.removeHoverItemTouchListener();
+                    }
+                    return true;
+                }
+
+                @Override
+                public void onTouchEvent(@NonNull androidx.recyclerview.widget.RecyclerView rv, @NonNull MotionEvent e) {
+                    ItemOptions self = weakSelf.get();
+                    if (self == null) {
+                        removeLater(rv, this);
+                    } else if (self.handleHoverEvent(e)) {
+                        self.removeHoverItemTouchListener();
+                    }
+                }
+            };
+            recyclerView.addOnItemTouchListener(hoverItemTouchListener);
+        }
+    }
+
+    /** true — жест закончен (палец отпущен или отменён). */
+    private boolean handleHoverEvent(MotionEvent event) {
+        final int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_MOVE) {
+            if (isHoverArmed(event)) {
+                updateHover((int) event.getRawX(), (int) event.getRawY());
+            }
+            return false;
+        }
+        if (action == MotionEvent.ACTION_UP) {
+            if (isHoverArmed(event)) {
+                releaseHover((int) event.getRawX(), (int) event.getRawY());
+            } else {
+                cancelHover();
+            }
+            resetHoverArming();
+            return true;
+        }
+        if (action == MotionEvent.ACTION_CANCEL) {
+            cancelHover();
+            resetHoverArming();
+            return true;
+        }
+        return false;
+    }
+
+    /** Выбор начинается, только когда палец сдвинулся дальше порога — простое отпускание ничего не нажимает. */
+    private boolean isHoverArmed(MotionEvent event) {
+        if (!hoverArmed) {
+            if (Float.isNaN(hoverStartX)) {
+                hoverStartX = event.getRawX();
+                hoverStartY = event.getRawY();
+            } else {
+                hoverArmed = Math.hypot(event.getRawX() - hoverStartX, event.getRawY() - hoverStartY) > android.view.ViewConfiguration.get(layout.getContext()).getScaledTouchSlop();
+            }
+        }
+        return hoverArmed;
+    }
+
+    private void resetHoverArming() {
+        hoverStartX = hoverStartY = Float.NaN;
+        hoverArmed = false;
+    }
+
+    private static void removeLater(androidx.recyclerview.widget.RecyclerView rv, androidx.recyclerview.widget.RecyclerView.OnItemTouchListener listener) {
+        AndroidUtilities.runOnUIThread(() -> rv.removeOnItemTouchListener(listener));
+    }
+
+    private void removeHoverItemTouchListener() {
+        if (hoverListView != null && hoverItemTouchListener != null) {
+            removeLater(hoverListView, hoverItemTouchListener);
+        }
+        hoverListView = null;
+        hoverItemTouchListener = null;
     }
 
     private void clearHoverListener() {
@@ -1907,6 +2004,7 @@ public class ItemOptions {
             scrimView.setOnTouchListener(null);
         }
         hoverReleaseListener = null;
+        removeHoverItemTouchListener();
     }
 
     private void updateHover(int rawX, int rawY) {

@@ -209,6 +209,9 @@ public class ScrimOptions extends Dialog {
         super.show();
         prepareBlur(null);
         animateOpenTo(true, null);
+        if (options != null) {
+            options.installHoverReleaseListener();
+        }
     }
 
     @Override
