@@ -1,5 +1,6 @@
 package org.telegram.messenger;
 
+import android.os.SystemClock;
 import android.text.TextUtils;
 
 import org.json.JSONArray;
@@ -153,6 +154,34 @@ public final class DevGramTranslator {
 
     private static TLRPC.TL_textWithEntities translateBlocking(TLRPC.TL_textWithEntities input, String source,
                                                                 String target, int provider) throws Exception {
+        if (provider != 3) {
+            return translateWith(input, source, target, provider);
+        }
+        if (SystemClock.elapsedRealtime() < deepLBlockedUntil) {
+            return translateWith(input, source, target, 1);
+        }
+        try {
+            return translateWith(input, source, target, 3);
+        } catch (Exception e) {
+            // у бесплатного входа DeepL жёсткий лимит (HTTP 429) — чтобы перевод не падал, переводим через Google,
+            // а после лимита минуту сразу идём в Google, не дёргая DeepL на каждом сообщении
+            FileLog.e(e);
+            if (isRateLimited(e)) {
+                deepLBlockedUntil = SystemClock.elapsedRealtime() + 60_000;
+            }
+            return translateWith(input, source, target, 1);
+        }
+    }
+
+    private static volatile long deepLBlockedUntil;
+
+    private static boolean isRateLimited(Throwable e) {
+        String message = e.getMessage();
+        return message != null && message.startsWith("HTTP 429");
+    }
+
+    private static TLRPC.TL_textWithEntities translateWith(TLRPC.TL_textWithEntities input, String source,
+                                                           String target, int provider) throws Exception {
         if (DevGramTranslationMarkup.hasFormatting(input)) {
             try {
                 String html = DevGramTranslationMarkup.toHtml(input);
@@ -166,6 +195,9 @@ public final class DevGramTranslator {
                     return formatted;
                 }
             } catch (Exception e) {
+                if (isRateLimited(e)) {
+                    throw e;
+                }
                 FileLog.e(e);
             }
         }
