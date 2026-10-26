@@ -713,7 +713,16 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
                     checkCell.setChecked(item.checked);
                 }
                 checkCell.setEnabled(item.enabled, null);
-                checkCell.setTextAndCheck(item.text, item.checked, divider);
+                if (TextUtils.isEmpty(item.textValue)) {
+                    checkCell.setTextAndCheck(item.text, item.checked, divider);
+                } else {
+                    checkCell.setTextAndValueAndCheck(item.text.toString(), item.textValue.toString(), item.checked, item.multiline, divider);
+                }
+                if (item.iconResId != 0) {
+                    checkCell.setIcon(item.iconResId);
+                } else {
+                    checkCell.clearIcon();
+                }
                 checkCell.itemId = item.id;
                 if (viewType == VIEW_TYPE_CHECKRIPPLE) {
                     holder.itemView.setBackgroundColor(Theme.getColor(item.checked ? Theme.key_windowBackgroundChecked : Theme.key_windowBackgroundUnchecked));

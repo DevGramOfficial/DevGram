@@ -456,4 +456,58 @@ public class TextCheckCell extends FrameLayout {
         imageView.setColorFilter(new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN));
         imageView.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(9), color));
     }
+
+    private int iconlessPadding = -1;
+    private boolean plainIcon;
+
+    /** Убрать иконку, поставленную setIcon (ячейку переиспользовали для пункта без иконки). */
+    public void clearIcon() {
+        if (!plainIcon || imageView == null) {
+            return;
+        }
+        plainIcon = false;
+        imageView.setVisibility(GONE);
+        padding = iconlessPadding;
+        // в конструкторе padding задан в dp
+        int margin = AndroidUtilities.dp(iconlessPadding);
+        MarginLayoutParams textParams = (MarginLayoutParams) textView.getLayoutParams();
+        MarginLayoutParams valueParams = (MarginLayoutParams) valueTextView.getLayoutParams();
+        if (LocaleController.isRTL) {
+            textParams.rightMargin = margin;
+            valueParams.rightMargin = margin;
+        } else {
+            textParams.leftMargin = margin;
+            valueParams.leftMargin = margin;
+        }
+        requestLayout();
+    }
+
+    /** Серая иконка слева, как у обычных пунктов настроек. */
+    public void setIcon(int resId) {
+        if (!plainIcon) {
+            iconlessPadding = padding;
+            plainIcon = true;
+        }
+        if (imageView == null) {
+            imageView = new RLottieImageView(getContext());
+            imageView.setScaleType(ImageView.ScaleType.CENTER);
+            addView(imageView, LayoutHelper.createFrame(24, 24, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, 21, 0, 21, 0));
+        }
+        padding = AndroidUtilities.dp(71);
+        MarginLayoutParams textParams = (MarginLayoutParams) textView.getLayoutParams();
+        MarginLayoutParams valueParams = (MarginLayoutParams) valueTextView.getLayoutParams();
+        if (LocaleController.isRTL) {
+            textParams.rightMargin = padding;
+            valueParams.rightMargin = padding;
+        } else {
+            textParams.leftMargin = padding;
+            valueParams.leftMargin = padding;
+        }
+        imageView.setVisibility(VISIBLE);
+        imageView.setImageResource(resId);
+        imageView.setPadding(0, 0, 0, 0);
+        imageView.setBackground(null);
+        imageView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourcesProvider), PorterDuff.Mode.MULTIPLY));
+        imageView.setAlpha(isEnabled() ? 1f : 0.5f);
+    }
 }
