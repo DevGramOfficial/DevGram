@@ -284,8 +284,11 @@ public class DevGramPluginInstallSheet {
             }
         });
         analysisCard.addView(analysisView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        root.addView(analysisCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
-        final boolean[] analysisRunning = {true};
+        final boolean analysisEnabled = DevGramPlugins.flag("static_analysis", true);
+        if (analysisEnabled) {
+            root.addView(analysisCard, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
+        }
+        final boolean[] analysisRunning = {analysisEnabled};
         final boolean[] riskAcknowledged = {false};
         final org.telegram.messenger.devgram.plugins.PluginAnalysisReport[] analysisReport = {null};
         final java.util.List<org.telegram.messenger.devgram.plugins.PluginAnalysisReport.Statement>[] analysisNew = new java.util.List[]{null};
@@ -761,7 +764,7 @@ public class DevGramPluginInstallSheet {
         sheet.show();
         refreshBlock[0].run();
         java.io.File previous = installed ? DevGramPlugins.pluginInstalledFile(id) : null;
-        org.telegram.messenger.devgram.plugins.PluginAnalyzer.analyze(
+        if (analysisEnabled) org.telegram.messenger.devgram.plugins.PluginAnalyzer.analyze(
                 packagePath == null ? capabilitiesSource : null, packagePath, name + ".plugin",
                 previous != null ? previous.getAbsolutePath() : null, result -> {
                     analysisRunning[0] = false;

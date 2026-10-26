@@ -219,6 +219,7 @@ public final class RoundVideoSession {
         private int videoBitrate;
         private long maximumDurationMs = DEFAULT_MAXIMUM_DURATION_MS;
         private boolean compositionEnabled = true;
+        private boolean cameraXEnabled;
         private Listener listener;
         private OutputListener outputListener;
         private ScreenFlashController screenFlashController;
@@ -266,6 +267,12 @@ public final class RoundVideoSession {
         }
 
         /** Enables the circular blur, dimming and Telegram overlays. */
+        /** Снимать через CameraX вместо Camera2. */
+        public @NonNull Builder setCameraXEnabled(boolean enabled) {
+            cameraXEnabled = enabled;
+            return this;
+        }
+
         public @NonNull Builder setCompositionEnabled(boolean enabled) {
             compositionEnabled = enabled;
             return this;
@@ -606,8 +613,20 @@ public final class RoundVideoSession {
                 + ", fps=" + requestedFrameRate.getValue()
                 + ", composition=" + compositionEnabled
                 + ", facing=" + requestedFacing
-                + ", maxDurationMs=" + maximumDurationMs);
-        cameraController = new RoundVideoCameraController(
+                + ", maxDurationMs=" + maximumDurationMs
+                + ", cameraX=" + builder.cameraXEnabled);
+        cameraController = builder.cameraXEnabled ? new RoundVideoCameraXController(
+                this.context,
+                previewView,
+                outputResolution.getSize(),
+                videoBitrate,
+                true,
+                requestedCameraResolution,
+                requestedFrameRate,
+                compositionEnabled,
+                diagnostics,
+                cameraCallback
+        ) : new RoundVideoCameraController(
                 this.context,
                 previewView,
                 outputResolution,

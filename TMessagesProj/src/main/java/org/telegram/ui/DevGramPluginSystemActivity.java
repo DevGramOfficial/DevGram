@@ -31,6 +31,7 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
     private static final int ID_SAFE_MODE = 1;
     private static final int ID_COMPACT = 2;
     private static final int ID_DEV_MODE = 3;
+    private static final int ID_STATIC_ANALYSIS = 4;
     private static final int ID_RELOAD = 10;
     private static final int ID_CRASH = 11;
     private static final int ID_LOGS = 12;
@@ -69,6 +70,8 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
         items.add(UItem.asShadow("Скрывает описание в карточках — список короче."));
         items.add(UItem.asCheck(ID_DEV_MODE, "Режим разработчика").setChecked(DevGramPlugins.flag("dev_mode", false)));
         items.add(UItem.asShadow("Показывает имя файла плагина в списке."));
+        items.add(UItem.asCheck(ID_STATIC_ANALYSIS, "Статический анализ").setChecked(DevGramPlugins.flag("static_analysis", true)));
+        items.add(UItem.asShadow("Проверять код плагина перед установкой и показывать, что он умеет."));
 
         items.add(UItem.asHeader("Python"));
         items.add(UItem.asShadow("Встроенный Python: v" + DevGramPlugins.pythonVersion() + " (в составе приложения)."));
@@ -106,6 +109,8 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
                         "Безопасный режим выключен. Загружено плагинов: " + n
                 ).show();
             }
+        } else if (item.id == ID_STATIC_ANALYSIS) {
+            DevGramPlugins.setFlag("static_analysis", !DevGramPlugins.flag("static_analysis", true));
         } else if (item.id == ID_COMPACT) {
             DevGramPlugins.setFlag("compact_view", !DevGramPlugins.flag("compact_view", false));
         } else if (item.id == ID_DEV_MODE) {
