@@ -220,7 +220,7 @@ public class BottomSheetTabs extends FrameLayout {
     }
 
     private int backgroundColor;
-    private AnimatedColor backgroundColorAnimated = new AnimatedColor(this, 0, 200, CubicBezierInterpolator.EASE_OUT_QUINT);
+    private android.animation.ValueAnimator backgroundColorAnimator;
     private int tabColor;
     private AnimatedColor tabColorAnimated = new AnimatedColor(this, 0, 200, CubicBezierInterpolator.EASE_OUT_QUINT);
     private boolean tabIsDark;
@@ -232,20 +232,59 @@ public class BottomSheetTabs extends FrameLayout {
 
     public void setNavigationBarColor(int color, boolean animated) {
         if (color != backgroundColor) {
-            if (!actionBarLayout.startedTracking || actionBarLayout.animationInProgress) {
+            // условие на жест было перевёрнуто — цвет почти всегда прыгал без анимации;
+            // невидимые вкладки красим сразу
+            if (!isAttachedToWindow() || getHeight(true) <= 0 || actionBarLayout.startedTracking || actionBarLayout.animationInProgress) {
                 animated = false;
+            }
+            if (backgroundColorAnimator != null) {
+                backgroundColorAnimator.cancel();
+                backgroundColorAnimator = null;
             }
             backgroundColor = color;
             final boolean isDark = AndroidUtilities.computePerceivedBrightness(color) < .721f;
             tabColor = Theme.blendOver(color, Theme.multAlpha(0xFFFFFFFF, isDark ? .08f : .75f));
             tabIsDark = AndroidUtilities.computePerceivedBrightness(tabColor) < .721f;
             if (!animated) {
-                backgroundColorAnimated.set(backgroundColor, true);
+                backgroundPaint.setColor(backgroundColor);
                 tabColorAnimated.set(tabColor, true);
                 tabDarkAnimated.set(tabIsDark, true);
+            } else {
+                backgroundColorAnimator = android.animation.ValueAnimator.ofArgb(backgroundPaint.getColor(), backgroundColor);
+                backgroundColorAnimator.setDuration(200);
+                backgroundColorAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+                backgroundColorAnimator.addUpdateListener(a -> updateNavigationBarColor((int) a.getAnimatedValue()));
+                backgroundColorAnimator.start();
             }
             invalidate();
         }
+        updateNavigationBarColor(backgroundPaint.getColor());
+    }
+
+    // навбар под вкладками красится тем же цветом, что и сами вкладки
+    private void updateNavigationBarColor(int color) {
+        DrawerLayoutContainer drawerLayoutContainer = actionBarLayout.getDrawerLayoutContainer();
+        if (backgroundPaint.getColor() == color && (drawerLayoutContainer == null || drawerLayoutContainer.getInternalNavbarPaint().getColor() == color)) {
+            return;
+        }
+        backgroundPaint.setColor(color);
+        if (drawerLayoutContainer != null) {
+            drawerLayoutContainer.setInternalNavigationBarColor(color);
+        }
+        for (Runnable listener : invalidateListeners) {
+            listener.run();
+        }
+        invalidate();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (backgroundColorAnimator != null) {
+            backgroundColorAnimator.cancel();
+            backgroundColorAnimator = null;
+        }
+        backgroundPaint.setColor(backgroundColor);
+        super.onDetachedFromWindow();
     }
 
     public int currentAccount = UserConfig.selectedAccount;
@@ -579,7 +618,6 @@ public class BottomSheetTabs extends FrameLayout {
             return;
         }
 
-        backgroundPaint.setColor(backgroundColorAnimated.set(backgroundColor));
         // canvas.drawRect(0, 0, getWidth(), getHeight(), backgroundPaint);
         super.dispatchDraw(canvas);
 
