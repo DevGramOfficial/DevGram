@@ -4324,6 +4324,10 @@ public class ChatActivity extends BaseFragment implements
                             ids.add(selectedMessagesIds[a].keyAt(b));
                         }
                     }
+                    if (ids.isEmpty()) {
+                        // выделение успело сброситься до нажатия
+                        return;
+                    }
                     Collections.sort(ids);
                     Integer begin = ids.get(0);
                     Integer end = ids.get(ids.size() - 1);

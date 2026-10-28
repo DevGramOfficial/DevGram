@@ -1331,6 +1331,11 @@ public class PeerColorActivity extends BaseFragment implements NotificationCente
         }
 
         public void update() {
+            if (listView != null && listView.isComputingLayout()) {
+                // уведомление пришло посреди раскладки списка — обновим на следующем кадре
+                AndroidUtilities.runOnUIThread(this::update);
+                return;
+            }
             updateRows();
             listAdapter.notifyDataSetChanged();
         }

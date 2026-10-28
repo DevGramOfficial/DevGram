@@ -817,11 +817,11 @@ public class ContentPreviewViewer {
                             AlertsCreator.createScheduleDatePickerDialog(parentActivity, stickerPreviewViewerDelegate.getDialogId(), (notify, scheduleDate, scheduleRepeatPeriod) -> stickerPreviewViewerDelegate.sendSticker(sticker, query, parent, notify, scheduleDate, scheduleRepeatPeriod));
                         } else if (actions.get(which) == 4) {
                             MediaDataController.getInstance(currentAccount).addRecentSticker(MediaDataController.TYPE_IMAGE, parentObject, currentDocument, (int) (System.currentTimeMillis() / 1000), true);
-                        } else if (actions.get(which) == 5) {
+                        } else if (actions.get(which) == 5 && delegate != null) {
                             delegate.remove(importingSticker);
-                        } else if (actions.get(which) == 7) {
+                        } else if (actions.get(which) == 7 && delegate != null) {
                             delegate.editSticker(currentDocument);
-                        } else if (actions.get(which) == 8) {
+                        } else if (actions.get(which) == 8 && delegate != null) {
                             delegate.deleteSticker(currentDocument);
                         }
                         dismissPopupWindow();

@@ -64,7 +64,8 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
     private void reload() {
         DevGramBadges.fetchOptions(list -> {
             options = list;
-            if (listView != null && listView.adapter != null) listView.adapter.update(true);
+            // ответ может прийти, когда экран уже закрыт (контекста нет)
+            if (getContext() != null && listView != null && listView.adapter != null) listView.adapter.update(true);
         });
     }
 

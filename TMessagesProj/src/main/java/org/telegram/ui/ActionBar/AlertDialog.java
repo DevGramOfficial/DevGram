@@ -325,7 +325,14 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
     public void show() {
         if (!AndroidUtilities.isSafeToShow(getContext())) return;
         dismissed = false;
-        super.show();
+        try {
+            super.show();
+        } catch (WindowManager.BadTokenException e) {
+            // окно активности уже закрыто (ошибка пришла, пока приложение уходило в фон)
+            FileLog.e(e);
+            dismissed = true;
+            return;
+        }
         if (progressViewContainer != null && progressViewStyle == ALERT_TYPE_SPINNER) {
             progressViewContainer.setScaleX(0);
             progressViewContainer.setScaleY(0);

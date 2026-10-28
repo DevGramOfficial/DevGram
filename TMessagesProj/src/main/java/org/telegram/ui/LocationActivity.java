@@ -3147,7 +3147,20 @@ public class LocationActivity extends BaseFragment implements NotificationCenter
             }
 
             mapView.getOverlays().add(myLocationOverlay);
-            myLocationOverlay.enableMyLocation();
+            try {
+                // снятие слоя с карты (onPause) уничтожает его провайдер — при возврате даём новый
+                if (myLocationOverlay.getMyLocationProvider() == null) {
+                    org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider provider = new org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider(getParentActivity());
+                    provider.setLocationUpdateMinDistance(10);
+                    provider.setLocationUpdateMinTime(10000);
+                    provider.addLocationSource(android.location.LocationManager.NETWORK_PROVIDER);
+                    myLocationOverlay.enableMyLocation(provider);
+                } else {
+                    myLocationOverlay.enableMyLocation();
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
         }
         onResumeCalled = true;
         fixLayoutInternal(true);

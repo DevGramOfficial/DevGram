@@ -21,6 +21,12 @@ public class KeepAliveJob extends JobIntentService {
     private static final Object sync = new Object();
 
     public static void startJob() {
+        // DevGram: на Android 14+ система морозит фоновый процесс и снимает задачу, а замороженное
+        // приложение не успевает ответить на onStopJob — это засчитывается как зависание (ANR).
+        // Пуши и так дают процессу время на обработку, поэтому задачу-удержание там не ставим.
+        if (android.os.Build.VERSION.SDK_INT >= 34) {
+            return;
+        }
         Utilities.globalQueue.postRunnable(() -> {
             if (startingJob || countDownLatch != null) {
                 return;

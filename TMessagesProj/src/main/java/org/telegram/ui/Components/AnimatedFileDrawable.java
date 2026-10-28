@@ -239,8 +239,13 @@ public final class AnimatedFileDrawable extends BitmapDrawable implements Animat
 
     @UiThread
     public void invalidateInternal() {
-        for (ImageReceiver imageReceiver : parents) {
-            imageReceiver.invalidate();
+        try {
+            for (ImageReceiver imageReceiver : parents) {
+                imageReceiver.invalidate();
+            }
+        } catch (IllegalStateException e) {
+            // список родителей бросает, если поток прервали посреди ожидания (recycle из фоновой задачи)
+            FileLog.e(e);
         }
     }
 

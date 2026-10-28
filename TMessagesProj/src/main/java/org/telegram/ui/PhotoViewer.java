@@ -24172,7 +24172,12 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         };
 
         WindowManager wm = (WindowManager) parentActivity.getSystemService(Context.WINDOW_SERVICE);
-        wm.removeView(windowView);
+        try {
+            wm.removeView(windowView);
+        } catch (IllegalArgumentException e) {
+            // окно просмотра уже снято с экрана
+            FileLog.e(e);
+        }
         windowViewSkipRender = true;
         windowView.invalidate();
     }

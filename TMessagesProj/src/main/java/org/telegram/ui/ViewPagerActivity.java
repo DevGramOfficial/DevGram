@@ -82,6 +82,11 @@ public abstract class ViewPagerActivity extends BaseFragment {
                     fragment = state.fragment;
                 } else {
                     fragment = createBaseFragmentAt(position);
+                    if (fragment == null) {
+                        // страница для этой позиции не создалась (вкладку как раз убирают) — оставляем пустой
+                        ((FrameLayout) view).removeAllViews();
+                        return;
+                    }
 
                     state = new FragmentState(fragment);
                     fragmentsArr.put(position, state);
@@ -127,6 +132,10 @@ public abstract class ViewPagerActivity extends BaseFragment {
     }
 
     protected void putFragmentAtPosition(int position, BaseFragment fragment) {
+        if (fragment == null) {
+            fragmentsArr.remove(position);
+            return;
+        }
         fragmentsArr.put(position, new FragmentState(fragment));
     }
 
@@ -156,7 +165,7 @@ public abstract class ViewPagerActivity extends BaseFragment {
     protected WindowInsetsCompat onApplyWindowInsets(@NonNull View v, @NonNull WindowInsetsCompat insets) {
         for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
             final FragmentState state = fragmentsArr.valueAt(a);
-            if (state != null) {
+            if (state != null && state.fragment != null) {
                 final View view = state.fragment.getFragmentView();
                 if (view != null) {
                     ViewCompat.dispatchApplyWindowInsets(view, insets);
@@ -352,7 +361,7 @@ public abstract class ViewPagerActivity extends BaseFragment {
         for (int a = 0, N = fragmentsArr.size(); a < N; a++) {
             final FragmentState state = fragmentsArr.valueAt(a);
             final int position = fragmentsArr.keyAt(a);
-            if (state != null && state.fragment.fragmentView != null) {
+            if (state != null && state.fragment != null && state.fragment.fragmentView != null) {
                 state.setVisibility(viewPager.getPositionVisibility(position), isResumed ? visibilityByParent : 0, isFullyVisible, isResumed);
             }
         }

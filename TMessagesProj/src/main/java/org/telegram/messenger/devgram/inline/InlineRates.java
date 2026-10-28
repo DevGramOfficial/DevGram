@@ -118,6 +118,8 @@ ExchangeRates.fetch(obj -> InlineRates.$r8$lambda$dU6anpoGdv6MDeTOASjEEliZ4JE(in
 
     public static void $r8$lambda$dU6anpoGdv6MDeTOASjEEliZ4JE(InlineRates inlineRates, ExchangeRates.State state) {
         inlineRates.requesting = false;
-        inlineRates.onUpdated.run();
+        if (inlineRates.onUpdated != null) {
+            inlineRates.onUpdated.run();
+        }
     }
 }

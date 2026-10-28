@@ -4031,7 +4031,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 			}
 			foregroundStarted = true;
 			if (Build.VERSION.SDK_INT >= 33) {
-				startForeground(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = builder.getNotification(), lastForegroundType = getCurrentForegroundType());
+				startForegroundWithType(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = builder.getNotification());
 			} else {
 				startForeground(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = builder.getNotification());
 			}
@@ -4716,7 +4716,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 				}
 				foregroundStarted = true;
 				if (Build.VERSION.SDK_INT >= 33) {
-					startForeground(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = bldr.build(), lastForegroundType = getCurrentForegroundType());
+					startForegroundWithType(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = bldr.build());
 				} else {
 					startForeground(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = bldr.build());
 				}
@@ -4728,7 +4728,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 				bldr.setSmallIcon(R.drawable.call);
 				foregroundStarted = true;
 				if (Build.VERSION.SDK_INT >= 33) {
-					startForeground(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = bldr.build(), lastForegroundType = getCurrentForegroundType());
+					startForegroundWithType(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = bldr.build());
 				} else {
 					startForeground(foregroundId = ID_ONGOING_CALL_NOTIFICATION, foregroundNotification = bldr.build());
 				}
@@ -5332,7 +5332,7 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 		}
 		foregroundStarted = true;
 		if (Build.VERSION.SDK_INT >= 33) {
-			startForeground(foregroundId = ID_INCOMING_CALL_NOTIFICATION, foregroundNotification = incomingNotification, lastForegroundType = getCurrentForegroundType());
+			startForegroundWithType(foregroundId = ID_INCOMING_CALL_NOTIFICATION, foregroundNotification = incomingNotification);
 		} else {
 			startForeground(foregroundId = ID_INCOMING_CALL_NOTIFICATION, foregroundNotification = incomingNotification);
 		}
@@ -5371,11 +5371,23 @@ public class VoIPService extends Service implements SensorEventListener, AudioMa
 		return type;
 	}
 
+	// DevGram: из фона Android 14+ не даёт стартовать сервис с типом «микрофон/камера»
+	// (SecurityException → краш звонка) — тогда поднимаемся без них, тип обновится, когда приложение откроют
+	@android.annotation.TargetApi(29)
+	private void startForegroundWithType(int id, Notification notification) {
+		try {
+			startForeground(id, notification, lastForegroundType = getCurrentForegroundType());
+		} catch (SecurityException e) {
+			FileLog.e(e);
+			startForeground(id, notification, lastForegroundType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+		}
+	}
+
 	public void updateCurrentForegroundType() {
 		if (lastForegroundType != getCurrentForegroundType() && foregroundStarted) {
 			stopForeground(true);
 			if (Build.VERSION.SDK_INT >= 33) {
-				startForeground(foregroundId, foregroundNotification, lastForegroundType = getCurrentForegroundType());
+				startForegroundWithType(foregroundId, foregroundNotification);
 			} else {
 				startForeground(foregroundId, foregroundNotification);
 			}

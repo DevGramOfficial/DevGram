@@ -6019,11 +6019,18 @@ public class MediaDataController extends BaseController {
                 if (type == SHORTCUT_TYPE_ATTACHED_BOT) {
                     arrayList.add("bdid_" + dialogId);
                 }
-                ShortcutManagerCompat.removeDynamicShortcuts(ApplicationLoader.applicationContext, arrayList);
-                if (Build.VERSION.SDK_INT >= 30) {
-                    ShortcutManager shortcutManager = ApplicationLoader.applicationContext.getSystemService(ShortcutManager.class);
-                    shortcutManager.removeLongLivedShortcuts(arrayList);
-                }
+                // вызов в системный сервис ярлыков бывает медленным — не держим им главный поток
+                Utilities.globalQueue.postRunnable(() -> {
+                    try {
+                        ShortcutManagerCompat.removeDynamicShortcuts(ApplicationLoader.applicationContext, arrayList);
+                        if (Build.VERSION.SDK_INT >= 30) {
+                            ShortcutManager shortcutManager = ApplicationLoader.applicationContext.getSystemService(ShortcutManager.class);
+                            shortcutManager.removeLongLivedShortcuts(arrayList);
+                        }
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    }
+                });
             } else {
                 TLRPC.User user = null;
                 TLRPC.Chat chat = null;

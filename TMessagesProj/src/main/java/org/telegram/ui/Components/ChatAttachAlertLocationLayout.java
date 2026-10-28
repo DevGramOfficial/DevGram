@@ -1280,10 +1280,7 @@ public class ChatAttachAlertLocationLayout extends ChatAttachAlert.AttachAlertLa
         userLocation.setLatitude(48.85825);
         userLocation.setLongitude(2.29448);
 
-        GpsMyLocationProvider imlp = new GpsMyLocationProvider(getParentActivity());
-        imlp.setLocationUpdateMinDistance(10);
-        imlp.setLocationUpdateMinTime(10000);
-        imlp.addLocationSource(LocationManager.NETWORK_PROVIDER);
+        GpsMyLocationProvider imlp = createLocationProvider();
         myLocationOverlay = new MyLocationNewOverlay(imlp, mapView) {
             @Override
             public void onLocationChanged(final Location location, IMyLocationProvider source) {
@@ -1719,7 +1716,7 @@ public class ChatAttachAlertLocationLayout extends ChatAttachAlert.AttachAlertLa
                 searchAdapter.setMyLocationDenied(locationDenied);
             }
             if (mapView != null && mapsInitialized) {
-                myLocationOverlay.enableMyLocation();
+                enableMyLocation();
             }
         } else if (id == NotificationCenter.locationPermissionDenied) {
             locationDenied = true;
@@ -1744,9 +1741,30 @@ public class ChatAttachAlertLocationLayout extends ChatAttachAlert.AttachAlertLa
                 FileLog.e(e);
             }
             mapView.getOverlays().add(myLocationOverlay);
-            myLocationOverlay.enableMyLocation();
+            enableMyLocation();
         }
         onResumeCalled = true;
+    }
+
+    private GpsMyLocationProvider createLocationProvider() {
+        GpsMyLocationProvider provider = new GpsMyLocationProvider(getContext());
+        provider.setLocationUpdateMinDistance(10);
+        provider.setLocationUpdateMinTime(10000);
+        provider.addLocationSource(LocationManager.NETWORK_PROVIDER);
+        return provider;
+    }
+
+    // снятие слоя с карты (onPause) уничтожает его провайдер — при возврате даём новый
+    private void enableMyLocation() {
+        try {
+            if (myLocationOverlay.getMyLocationProvider() == null) {
+                myLocationOverlay.enableMyLocation(createLocationProvider());
+            } else {
+                myLocationOverlay.enableMyLocation();
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
     }
 
     @Override

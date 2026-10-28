@@ -596,7 +596,16 @@ public class ConnectionsManager extends BaseController {
                     final TLRPC.TL_error finalError = error;
                     Utilities.stageQueue.postRunnable(() -> {
                         if (finalOnComplete != null) {
-                            finalOnComplete.run(finalResponse, finalError);
+                            if (isPythonDelegate(finalOnComplete)) {
+                                // делегат, написанный плагином на Python: его ошибка не должна ронять приложение
+                                try {
+                                    finalOnComplete.run(finalResponse, finalError);
+                                } catch (Throwable e) {
+                                    FileLog.e(e);
+                                }
+                            } else {
+                                finalOnComplete.run(finalResponse, finalError);
+                            }
                         } else if (onCompleteTimestamp != null) {
                             onCompleteTimestamp.run(finalResponse, finalError, timestamp);
                         } else if (finalResponse instanceof TLRPC.Updates) {
@@ -958,6 +967,17 @@ public class ConnectionsManager extends BaseController {
     }
 
     @Keep
+    private static boolean isPythonDelegate(Object delegate) {
+        if (!java.lang.reflect.Proxy.isProxyClass(delegate.getClass())) {
+            return false;
+        }
+        try {
+            return java.lang.reflect.Proxy.getInvocationHandler(delegate).getClass().getName().startsWith("com.chaquo.python.");
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
     public static void onUnparsedMessageReceived(long address, final int currentAccount, long messageId) {
         try {
             NativeByteBuffer buff = NativeByteBuffer.wrap(address);
