@@ -2107,6 +2107,7 @@ public class ItemOptions {
     private ScrollView hoverScrollView;
     private int hoverScrollSpeed;
     private int hoverLastX, hoverLastY;
+    private boolean hoverScrollReady;
     private final Runnable hoverScrollRunnable = new Runnable() {
         @Override
         public void run() {
@@ -2134,7 +2135,13 @@ public class ItemOptions {
         final int top = loc[1], bottom = loc[1] + sv.getHeight();
         final int edge = Math.min(dp(56), sv.getHeight() / 4);
         int speed = 0;
-        if (rawX >= loc[0] && rawX <= loc[0] + sv.getWidth() && edge > 0) {
+        final boolean insideX = rawX >= loc[0] && rawX <= loc[0] + sv.getWidth();
+        if (insideX && rawY >= top + edge && rawY <= bottom - edge) {
+            // палец, пришедший от кнопки, сначала пересекает край меню — листать начинаем,
+            // только когда он уже побывал внутри
+            hoverScrollReady = true;
+        }
+        if (hoverScrollReady && insideX && edge > 0) {
             if (rawY < top + edge && sv.canScrollVertically(-1)) {
                 final float depth = Utilities.clamp01((top + edge - rawY) / (float) edge);
                 speed = -dp(3 + 13 * depth);
@@ -2154,6 +2161,7 @@ public class ItemOptions {
 
     private void stopHoverAutoScroll() {
         hoverScrollSpeed = 0;
+        hoverScrollReady = false;
         if (hoverScrollView != null) {
             hoverScrollView.removeCallbacks(hoverScrollRunnable);
         }
@@ -2169,15 +2177,6 @@ public class ItemOptions {
             }
         }
         return null;
-    }
-
-    /** Длинное меню над кнопкой: показать с конца, ближе к пальцу. */
-    public ItemOptions scrollToEndOnShow() {
-        final ScrollView sv = findScrollView(layout);
-        if (sv != null) {
-            sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
-        }
-        return this;
     }
 
     private void updateHoveredItem(int rawX, int rawY) {

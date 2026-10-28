@@ -795,9 +795,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         bg.getPaint().setShadowLayer(dp(6), 0, dp(1), Theme.multAlpha(0xFF000000, 0.15f));
         o.setScrimViewBackground(bg);
         o.show();
-        if (manyAccounts) {
-            o.scrollToEndOnShow();
-        }
 
         HintsController.Hint.AccountSwitchHint.doNotShowAgain();
 
