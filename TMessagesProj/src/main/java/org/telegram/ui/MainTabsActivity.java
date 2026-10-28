@@ -768,7 +768,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             });
         }
 
-        // DevGram: много аккаунтов — строки ниже, меню ограничено по высоте и листается пальцем у края
+        // DevGram: много аккаунтов — меню ограничено по высоте и листается пальцем у края
         final boolean manyAccounts = accountNumbers.size() >= 6;
         if (accountNumbers.size() > 0) {
             if (o.getItemsCount() > 0) o.addGap();
@@ -782,7 +782,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                         LaunchActivity.instance.switchToAccount(account, true);
                     }
                 });
-                o.addView(btn, LayoutHelper.createLinear(230, manyAccounts ? 40 : 48));
+                o.addView(btn, LayoutHelper.createLinear(230, 48));
             }
         }
         if (manyAccounts) {
