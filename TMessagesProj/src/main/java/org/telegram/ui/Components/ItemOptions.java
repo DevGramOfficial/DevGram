@@ -2100,6 +2100,87 @@ public class ItemOptions {
     }
 
     private void updateHover(int rawX, int rawY) {
+        updateHoveredItem(rawX, rawY);
+        updateHoverAutoScroll(rawX, rawY);
+    }
+
+    private ScrollView hoverScrollView;
+    private int hoverScrollSpeed;
+    private int hoverLastX, hoverLastY;
+    private final Runnable hoverScrollRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (hoverScrollView == null || hoverScrollSpeed == 0 || !hoverScrollView.canScrollVertically(hoverScrollSpeed)) {
+                hoverScrollSpeed = 0;
+                return;
+            }
+            hoverScrollView.scrollBy(0, hoverScrollSpeed);
+            updateHoveredItem(hoverLastX, hoverLastY);
+            hoverScrollView.postOnAnimation(this);
+        }
+    };
+
+    /** Палец у верхнего/нижнего края длинного меню — меню само прокручивается. */
+    private void updateHoverAutoScroll(int rawX, int rawY) {
+        hoverLastX = rawX;
+        hoverLastY = rawY;
+        if (hoverScrollView == null) {
+            hoverScrollView = findScrollView(layout);
+            if (hoverScrollView == null) return;
+        }
+        final ScrollView sv = hoverScrollView;
+        final int[] loc = new int[2];
+        sv.getLocationOnScreen(loc);
+        final int top = loc[1], bottom = loc[1] + sv.getHeight();
+        final int edge = Math.min(dp(56), sv.getHeight() / 4);
+        int speed = 0;
+        if (rawX >= loc[0] && rawX <= loc[0] + sv.getWidth() && edge > 0) {
+            if (rawY < top + edge && sv.canScrollVertically(-1)) {
+                final float depth = Utilities.clamp01((top + edge - rawY) / (float) edge);
+                speed = -dp(3 + 13 * depth);
+            } else if (rawY > bottom - edge && rawY <= bottom && sv.canScrollVertically(1)) {
+                final float depth = Utilities.clamp01((rawY - (bottom - edge)) / (float) edge);
+                speed = dp(3 + 13 * depth);
+            }
+        }
+        final boolean wasScrolling = hoverScrollSpeed != 0;
+        hoverScrollSpeed = speed;
+        if (speed != 0 && !wasScrolling) {
+            sv.postOnAnimation(hoverScrollRunnable);
+        } else if (speed == 0) {
+            sv.removeCallbacks(hoverScrollRunnable);
+        }
+    }
+
+    private void stopHoverAutoScroll() {
+        hoverScrollSpeed = 0;
+        if (hoverScrollView != null) {
+            hoverScrollView.removeCallbacks(hoverScrollRunnable);
+        }
+    }
+
+    private static ScrollView findScrollView(View root) {
+        if (root instanceof ScrollView) return (ScrollView) root;
+        if (root instanceof ViewGroup) {
+            final ViewGroup vg = (ViewGroup) root;
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                final ScrollView sv = findScrollView(vg.getChildAt(i));
+                if (sv != null) return sv;
+            }
+        }
+        return null;
+    }
+
+    /** Длинное меню над кнопкой: показать с конца, ближе к пальцу. */
+    public ItemOptions scrollToEndOnShow() {
+        final ScrollView sv = findScrollView(layout);
+        if (sv != null) {
+            sv.post(() -> sv.fullScroll(View.FOCUS_DOWN));
+        }
+        return this;
+    }
+
+    private void updateHoveredItem(int rawX, int rawY) {
         View hit = findItemAt(layout, rawX, rawY);
         if (hit != hoveredItem) {
             if (hoveredItem != null) {
@@ -2117,7 +2198,8 @@ public class ItemOptions {
     }
 
     private void releaseHover(int rawX, int rawY) {
-        updateHover(rawX, rawY);
+        stopHoverAutoScroll();
+        updateHoveredItem(rawX, rawY);
         if (hoveredItem != null) {
             View target = hoveredItem;
             hoveredItem = null;
@@ -2134,6 +2216,7 @@ public class ItemOptions {
     }
 
     private void cancelHover() {
+        stopHoverAutoScroll();
         if (hoveredItem != null) {
             hoveredItem.setPressed(false);
             hoveredItem = null;

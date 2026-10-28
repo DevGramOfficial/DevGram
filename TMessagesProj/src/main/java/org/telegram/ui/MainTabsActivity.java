@@ -768,6 +768,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             });
         }
 
+        // DevGram: много аккаунтов — строки ниже, меню ограничено по высоте и листается пальцем у края
+        final boolean manyAccounts = accountNumbers.size() >= 6;
         if (accountNumbers.size() > 0) {
             if (o.getItemsCount() > 0) o.addGap();
             for (int acc : accountNumbers) {
@@ -780,8 +782,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                         LaunchActivity.instance.switchToAccount(account, true);
                     }
                 });
-                o.addView(btn, LayoutHelper.createLinear(230, 48));
+                o.addView(btn, LayoutHelper.createLinear(230, manyAccounts ? 40 : 48));
             }
+        }
+        if (manyAccounts) {
+            o.setMaxHeight((int) (AndroidUtilities.displaySize.y * 0.55f));
         }
 
         o.setBlur(true);
@@ -790,6 +795,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         bg.getPaint().setShadowLayer(dp(6), 0, dp(1), Theme.multAlpha(0xFF000000, 0.15f));
         o.setScrimViewBackground(bg);
         o.show();
+        if (manyAccounts) {
+            o.scrollToEndOnShow();
+        }
 
         HintsController.Hint.AccountSwitchHint.doNotShowAgain();
 
