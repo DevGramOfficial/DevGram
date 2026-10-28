@@ -728,8 +728,16 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         if (accountNumbers.size() > 0) {
             items.add(UItem.asHeader(getString(R.string.SettingsAccounts)));
-            for (int i = 0; i < accountNumbers.size(); ++i) {
-                items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
+            // DevGram: при двух и более других аккаунтах список сворачивается под одну строку
+            final boolean collapsible = accountNumbers.size() > 1;
+            final boolean expanded = !collapsible || isAccountsExpanded();
+            if (collapsible) {
+                items.add(AccountsToggleCell.Factory.of(260, accountNumbers, expanded));
+            }
+            if (expanded) {
+                for (int i = 0; i < accountNumbers.size(); ++i) {
+                    items.add(AccountCell.Factory.of(i, accountNumbers.get(i)));
+                }
             }
             items.add(UItem.asShadow(null));
         }
@@ -860,6 +868,15 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     private void onClick(UItem item, View view, int position, float x, float y) {
         if (item.id == 250) {
             presentSettingFragment(new DevGramSettingsActivity());
+            return;
+        }
+        if (item.instanceOf(AccountsToggleCell.Factory.class)) {
+            final boolean expanded = !isAccountsExpanded();
+            MessagesController.getGlobalMainSettings().edit().putBoolean("dg_settingsAccountsExpanded", expanded).apply();
+            if (view instanceof AccountsToggleCell) {
+                ((AccountsToggleCell) view).setExpanded(expanded, true);
+            }
+            listView.adapter.update(true);
             return;
         }
         if (item.object instanceof TLRPC.TL_attachMenuBot) {
@@ -1086,6 +1103,181 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         final int statusBarHeight = systemInsets.top;
         listView.setPadding(0, statusBarHeight + dp(12), 0, navigationBarHeight + additionNavigationBarHeight);
         return WindowInsetsCompat.CONSUMED;
+    }
+
+    private static boolean isAccountsExpanded() {
+        return MessagesController.getGlobalMainSettings().getBoolean("dg_settingsAccountsExpanded", false);
+    }
+
+    // DevGram: строка-переключатель свёрнутого списка аккаунтов — аватарки стопкой,
+    // число аккаунтов, общий счётчик непрочитанных и стрелка
+    public static class AccountsToggleCell extends LinearLayout implements Theme.Colorable {
+
+        private static final int MAX_AVATARS = 3;
+
+        private final Theme.ResourcesProvider resourcesProvider;
+        private final FrameLayout avatarsLayout;
+        private final FrameLayout[] avatarFrames = new FrameLayout[MAX_AVATARS];
+        private final BackupImageView[] avatarViews = new BackupImageView[MAX_AVATARS];
+        private final AvatarDrawable[] avatarDrawables = new AvatarDrawable[MAX_AVATARS];
+        private final TextView textView;
+        private final TextView counterView;
+        private final ImageView arrowView;
+        private boolean expanded;
+
+        public AccountsToggleCell(Context context, Theme.ResourcesProvider resourcesProvider) {
+            super(context);
+            this.resourcesProvider = resourcesProvider;
+
+            setOrientation(HORIZONTAL);
+
+            avatarsLayout = new FrameLayout(context);
+            for (int i = MAX_AVATARS - 1; i >= 0; --i) {
+                avatarDrawables[i] = new AvatarDrawable();
+                avatarViews[i] = new BackupImageView(context);
+                avatarViews[i].setRoundRadius(dp(13));
+                avatarFrames[i] = new FrameLayout(context);
+                avatarFrames[i].addView(avatarViews[i], LayoutHelper.createFrame(26, 26, Gravity.CENTER));
+                avatarsLayout.addView(avatarFrames[i], LayoutHelper.createFrame(30, 30, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, LocaleController.isRTL ? 0 : 18 * i, 0, LocaleController.isRTL ? 18 * i : 0, 0));
+            }
+
+            textView = new TextView(context);
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+            textView.setTypeface(AndroidUtilities.bold());
+            textView.setSingleLine();
+            textView.setEllipsize(TextUtils.TruncateAt.END);
+            textView.setGravity(Gravity.CENTER_VERTICAL | (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT));
+
+            counterView = new TextView(context);
+            counterView.setPadding(dp(6.66f), 0, dp(6.66f), 0);
+            counterView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+            counterView.setTypeface(AndroidUtilities.bold());
+            counterView.setGravity(Gravity.CENTER);
+
+            arrowView = new ImageView(context);
+            arrowView.setImageResource(R.drawable.msg_arrowright);
+            arrowView.setScaleType(ImageView.ScaleType.CENTER);
+            arrowView.setRotation(90);
+
+            if (LocaleController.isRTL) {
+                addView(arrowView, LayoutHelper.createLinear(24, 24, 0, Gravity.CENTER_VERTICAL | Gravity.LEFT, 12, 0, 0, 0));
+                addView(counterView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 20, 0, Gravity.CENTER_VERTICAL, 6, 0, 0, 0));
+                addView(textView, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1f, Gravity.FILL, 18, 0, 0, 0));
+                addView(avatarsLayout, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 30, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 16, 0, 16, 0));
+            } else {
+                addView(avatarsLayout, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 30, Gravity.CENTER_VERTICAL | Gravity.LEFT, 16, 0, 16, 0));
+                addView(textView, LayoutHelper.createLinear(0, LayoutHelper.MATCH_PARENT, 1f, Gravity.FILL, 0, 0, 18, 0));
+                addView(counterView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 20, 0, Gravity.CENTER_VERTICAL, 0, 0, 6, 0));
+                addView(arrowView, LayoutHelper.createLinear(24, 24, 0, Gravity.CENTER_VERTICAL | Gravity.RIGHT, 0, 0, 12, 0));
+            }
+            updateColors();
+        }
+
+        public void set(ArrayList<Integer> accounts, boolean expanded) {
+            int unread = 0;
+            for (int i = 0; i < accounts.size(); ++i) {
+                unread += MessagesStorage.getInstance(accounts.get(i)).getMainUnreadCount();
+            }
+            for (int i = 0; i < MAX_AVATARS; ++i) {
+                if (i < accounts.size()) {
+                    final int account = accounts.get(i);
+                    final TLRPC.User user = UserConfig.getInstance(account).getCurrentUser();
+                    avatarDrawables[i].setInfo(account, user);
+                    avatarViews[i].getImageReceiver().setCurrentAccount(account);
+                    avatarViews[i].setForUserOrChat(user, avatarDrawables[i]);
+                    avatarFrames[i].setVisibility(VISIBLE);
+                } else {
+                    avatarFrames[i].setVisibility(GONE);
+                }
+            }
+            textView.setText(accountsCountText(accounts.size()));
+            counterView.setVisibility(unread > 0 ? VISIBLE : GONE);
+            counterView.setText(LocaleController.formatNumber(unread, ','));
+            setExpanded(expanded, false);
+        }
+
+        private static String accountsCountText(int count) {
+            final int mod10 = count % 10, mod100 = count % 100;
+            final String word;
+            if (mod10 == 1 && mod100 != 11) {
+                word = "аккаунт";
+            } else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+                word = "аккаунта";
+            } else {
+                word = "аккаунтов";
+            }
+            return count + " " + word;
+        }
+
+        public void setExpanded(boolean expanded, boolean animated) {
+            this.expanded = expanded;
+            final float rotation = expanded ? -90 : 90;
+            arrowView.animate().cancel();
+            if (animated) {
+                arrowView.animate().rotation(rotation).setDuration(220).setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT).start();
+            } else {
+                arrowView.setRotation(rotation);
+            }
+        }
+
+        @Override
+        public void updateColors() {
+            textView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider));
+            counterView.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourcesProvider));
+            counterView.setBackground(Theme.createRoundRectDrawable(dp(10), Theme.getColor(Theme.key_featuredStickers_addButton, resourcesProvider)));
+            arrowView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourcesProvider), PorterDuff.Mode.SRC_IN));
+            final int ring = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
+            for (int i = 0; i < MAX_AVATARS; ++i) {
+                avatarFrames[i].setBackground(Theme.createCircleDrawable(dp(30), ring));
+            }
+        }
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+            super.onMeasure(
+                MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(dp(48), MeasureSpec.EXACTLY)
+            );
+        }
+
+        public static class Factory extends UItem.UItemFactory<AccountsToggleCell> {
+            static { setup(new Factory()); }
+
+            @Override
+            public AccountsToggleCell createView(Context context, RecyclerListView listView, int currentAccount, int classGuid, Theme.ResourcesProvider resourcesProvider) {
+                return new AccountsToggleCell(context, resourcesProvider);
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public void bindView(View view, UItem item, boolean divider, UniversalAdapter adapter, UniversalRecyclerView listView) {
+                ((AccountsToggleCell) view).set((ArrayList<Integer>) item.object, item.checked);
+            }
+
+            public static UItem of(int id, ArrayList<Integer> accounts, boolean expanded) {
+                final UItem item = UItem.ofFactory(AccountsToggleCell.Factory.class);
+                item.id = id;
+                item.object = new ArrayList<>(accounts);
+                item.checked = expanded;
+                int unread = 0;
+                for (int i = 0; i < accounts.size(); ++i) {
+                    unread += MessagesStorage.getInstance(accounts.get(i)).getMainUnreadCount();
+                }
+                item.intValue = unread;
+                return item;
+            }
+
+            @Override
+            public boolean equals(UItem a, UItem b) {
+                return a.id == b.id;
+            }
+
+            @Override
+            public boolean contentsEquals(UItem a, UItem b) {
+                // стрелку при сворачивании крутит сам клик, без перерисовки ячейки
+                return a.intValue == b.intValue && java.util.Objects.equals(a.object, b.object);
+            }
+        }
     }
 
     public static class AccountCell extends LinearLayout implements Theme.Colorable {
