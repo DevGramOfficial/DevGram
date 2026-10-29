@@ -8,31 +8,40 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.SweepGradient;
+import android.text.InputType;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.FrameLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
+import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
+import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.DevGramColorPickerView;
 import org.telegram.ui.Components.DevGramNickColor;
+import org.telegram.ui.Components.EditTextBoldCursor;
+import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.UItem;
 import org.telegram.ui.Components.UniversalAdapter;
 import org.telegram.ui.Components.UniversalRecyclerView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 // DevGram: цвет или градиент ника поддержавшего. Превью как в Telegram (имя, пузырь с ответом),
 // сетка готовых вариантов и свой цвет: палитра, один цвет или градиент из двух.
@@ -40,6 +49,7 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
 
     private static final int ID_GRADIENT = 1;
     private static final int ID_SAVE = 2;
+    private static final int ID_HEX = 3;
 
     private UniversalRecyclerView listView;
     private PreviewView preview;
@@ -63,7 +73,7 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
-                if (id == -1) finishFragment();
+                if (id == -1 && onBackPressed(true)) finishFragment();
             }
         });
         saved = DevGramBadges.nickColorsOf(getUserConfig().getClientUserId());
@@ -115,6 +125,7 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
             items.add(UItem.asCheck(ID_GRADIENT, "Градиент").setChecked(customGradient));
             if (customGradient) items.add(UItem.asCustom(swatches));
             items.add(UItem.asCustom(picker));
+            items.add(UItem.asButton(ID_HEX, R.drawable.msg_palette, "Ввести HEX-код"));
             items.add(UItem.asButton(ID_SAVE, R.drawable.msg_select, "Сохранить свой цвет").accent());
         }
         items.add(UItem.asShadow(null));
@@ -130,7 +141,98 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
             listView.adapter.update(true);
         } else if (item.id == ID_SAVE) {
             save(customColors());
+        } else if (item.id == ID_HEX) {
+            askHex();
         }
+    }
+
+    private static String hex(int color) {
+        return String.format(Locale.US, "#%06X", color & 0xFFFFFF);
+    }
+
+    private static final Pattern HEX_CODE = Pattern.compile("#?([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-fA-F])");
+
+    // Разобрать коды из строки: #RGB, #RRGGBB или #AARRGGBB (прозрачность игнорируем — ник всегда непрозрачный)
+    private static ArrayList<Integer> parseHex(String text) {
+        ArrayList<Integer> out = new ArrayList<>();
+        Matcher m = HEX_CODE.matcher(text);
+        while (m.find() && out.size() < 2) {
+            String h = m.group(1);
+            if (h.length() == 3) {
+                h = "" + h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+            } else if (h.length() == 8) {
+                h = h.substring(2);
+            }
+            out.add(0xFF000000 | Integer.parseInt(h, 16));
+        }
+        return out;
+    }
+
+    private void askHex() {
+        Context context = getParentActivity();
+        if (context == null) return;
+        EditTextBoldCursor et = DevGramBadgesActivity.makeInput(this, context, customGradient ? "#00B4D8 #B04BF2" : "#00B4D8",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        et.setText(customGradient ? hex(custom[0]) + " " + hex(custom[1]) : hex(custom[0]));
+        et.setSelection(et.length());
+        FrameLayout container = new FrameLayout(context);
+        container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
+        container.addView(et, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        AlertDialog.Builder b = new AlertDialog.Builder(context, resourceProvider);
+        b.setTitle("HEX-код цвета");
+        b.setMessage(customGradient ? "Два кода через пробел — начало и конец градиента. Один код покрасит выбранный кружок." : "Например, #FF5722");
+        b.setView(container);
+        b.setPositiveButton(LocaleController.getString(R.string.Done), (d, w) -> {
+            ArrayList<Integer> colors = parseHex(et.getText().toString());
+            if (colors.isEmpty()) {
+                BulletinFactory.of(this).createErrorBulletin("Не похоже на HEX-код").show();
+                return;
+            }
+            if (customGradient && colors.size() > 1) {
+                custom[0] = colors.get(0);
+                custom[1] = colors.get(1);
+            } else {
+                custom[customGradient ? editing : 0] = colors.get(0);
+            }
+            picker.setColor(custom[editing]);
+            shown = customColors();
+            preview.invalidate();
+            swatches.invalidate();
+            grid.invalidate();
+        });
+        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        showDialog(b.create());
+        et.requestFocus();
+        AndroidUtilities.showKeyboard(et);
+    }
+
+    // Свой цвет подобран, но кнопку «Сохранить» не нажали
+    private boolean hasUnsavedCustom() {
+        return customMode && !saving && shown != null && presetIndex(shown) < 0 && !Arrays.equals(shown, saved);
+    }
+
+    @Override
+    public boolean onBackPressed(boolean invoked) {
+        if (hasUnsavedCustom()) {
+            if (invoked) showUnsavedAlert();
+            return false;
+        }
+        return super.onBackPressed(invoked);
+    }
+
+    @Override
+    public boolean isSwipeBackEnabled(MotionEvent event) {
+        return !hasUnsavedCustom();
+    }
+
+    private void showUnsavedAlert() {
+        if (getParentActivity() == null) return;
+        AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
+        b.setTitle("Сохранить цвет?");
+        b.setMessage("Свой цвет ника подобран, но ещё не сохранён.");
+        b.setPositiveButton("Сохранить", (d, w) -> save(customColors(), true));
+        b.setNegativeButton("Не сохранять", (d, w) -> finishFragment());
+        showDialog(b.create());
     }
 
     private void openCustom() {
@@ -145,6 +247,10 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
     }
 
     private void save(int[] colors) {
+        save(colors, false);
+    }
+
+    private void save(int[] colors, boolean closeAfter) {
         if (saving) return;
         saving = true;
         final int[] previous = saved;
@@ -160,6 +266,10 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
                 saving = false;
                 if (ok) {
                     saved = colors;
+                    if (closeAfter) {
+                        finishFragment();
+                        return;
+                    }
                     BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, colors == null ? "Обычный цвет ника" : "Цвет ника сохранён").show();
                 } else {
                     shown = previous;
