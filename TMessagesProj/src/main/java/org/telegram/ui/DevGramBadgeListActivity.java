@@ -333,7 +333,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
             nameRow.setGravity(Gravity.CENTER_VERTICAL);
             if (badge != null) {
                 BackupImageView emoji = new BackupImageView(context);
-                emoji.setAnimatedEmojiDrawable(AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, badge.emojiId));
+                emoji.setAnimatedEmojiDrawable(DevGramBadges.tinted(AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, badge.emojiId), Theme.getColor(Theme.key_chats_verifiedBackground, resourceProvider)));
                 nameRow.addView(emoji, LayoutHelper.createLinear(20, 20, 0, 0, 6, 0));
             }
             TextView title = new TextView(context);

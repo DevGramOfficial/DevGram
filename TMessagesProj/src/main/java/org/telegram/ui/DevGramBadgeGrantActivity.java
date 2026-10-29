@@ -211,7 +211,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12), AndroidUtilities.dp(14), AndroidUtilities.dp(12));
             BackupImageView emoji = new BackupImageView(context);
-            emoji.setAnimatedEmojiDrawable(AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, p.emojiId));
+            emoji.setAnimatedEmojiDrawable(DevGramBadges.tinted(AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, p.emojiId), Theme.getColor(Theme.key_chats_verifiedBackground, resourceProvider)));
             row.addView(emoji, LayoutHelper.createLinear(30, 30));
             LinearLayout texts = new LinearLayout(context);
             texts.setOrientation(LinearLayout.VERTICAL);
@@ -485,12 +485,12 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         if (selEmojiId != shownEmojiId) {
             shownEmojiId = selEmojiId;
             if (badgePreview != null) {
-                badgePreview.setAnimatedEmojiDrawable(AnimatedEmojiDrawable.make(
-                        currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, selEmojiId));
+                badgePreview.setAnimatedEmojiDrawable(DevGramBadges.tinted(AnimatedEmojiDrawable.make(
+                        currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, selEmojiId), Theme.getColor(Theme.key_chats_verifiedBackground, resourceProvider)));
             }
             if (nameBadge != null) {
-                nameBadge.setAnimatedEmojiDrawable(AnimatedEmojiDrawable.make(
-                        currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, selEmojiId));
+                nameBadge.setAnimatedEmojiDrawable(DevGramBadges.tinted(AnimatedEmojiDrawable.make(
+                        currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, selEmojiId), Theme.getColor(Theme.key_chats_verifiedBackground, resourceProvider)));
             }
         }
         String name = peerDisplayName();

@@ -1030,6 +1030,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     // DevGram: значок бренда для шапки — ставим кастом-эмодзи по роли диалога.
     private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable getDevGramBadgeDrawable(long dialogId) {
         devgramBadgeDrawable.set(DevGramBadges.emojiIdOf(dialogId), false);
+        devgramBadgeDrawable.setColor(getThemedColor(Theme.key_profile_verifiedBackground)); // адаптивные эмодзи — как статус
         titleTextView.setDevGramNickColors(dialogId > 0 && dialogId != org.telegram.messenger.UserConfig.getInstance(org.telegram.messenger.UserConfig.selectedAccount).getClientUserId()
                 ? org.telegram.ui.Components.DevGramNickColor.of(dialogId) : null); // DevGram: цвет ника
         devgramBadgeDrawable.setParticles(true, true); // DevGram: звёздочки вокруг значка
@@ -1829,6 +1830,9 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         }
         if (emojiStatusDrawable != null) {
             emojiStatusDrawable.setColor(getThemedColor(Theme.key_profile_verifiedBackground));
+        }
+        if (devgramBadgeDrawable != null) {
+            devgramBadgeDrawable.setColor(getThemedColor(Theme.key_profile_verifiedBackground));
         }
         if (verifiedBackground != null) {
             verifiedBackground.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_profile_verifiedBackground), PorterDuff.Mode.MULTIPLY));

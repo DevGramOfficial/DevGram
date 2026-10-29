@@ -176,7 +176,7 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
             setGravity(Gravity.CENTER_VERTICAL);
             setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
             setPadding(AndroidUtilities.dp(18), AndroidUtilities.dp(8), AndroidUtilities.dp(18), AndroidUtilities.dp(8));
-            drawable = AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, o.emojiId);
+            drawable = DevGramBadges.tinted(AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, o.emojiId), Theme.getColor(Theme.key_chats_verifiedBackground, resourceProvider));
             icon = new View(context) {
                 @Override
                 protected void onDraw(android.graphics.Canvas canvas) {

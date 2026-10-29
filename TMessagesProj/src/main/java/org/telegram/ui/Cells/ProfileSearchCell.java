@@ -1021,6 +1021,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
                 int size = dp(18);
                 int by = (int) (nameTop + (nameLayout.getHeight() - size) / 2f);
                 devgramBadgeEmoji.setBounds(devgramBadgeLeft, by, devgramBadgeLeft + size, by + size);
+                devgramBadgeEmoji.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider)); // адаптивные эмодзи — как статус
                 devgramBadgeEmoji.draw(canvas);
             }
 

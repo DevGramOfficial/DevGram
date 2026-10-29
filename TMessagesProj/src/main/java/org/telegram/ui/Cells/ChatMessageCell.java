@@ -22683,6 +22683,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 int by = (int) (ny + nameLayout.getHeight() / 2f - dp(9));
                 devgramNameBadge.setBounds(bx, by, bx + dp(18), by + dp(18));
                 devgramNameBadge.setAlpha((int) (0xFF * nameAlpha));
+                devgramNameBadge.setColor(ColorUtils.setAlphaComponent(Theme.chat_namePaint.getColor(), 115)); // адаптивные эмодзи — как статус у имени
                 devgramNameBadge.draw(canvas);
                 devgramNameBadgeCx = bx + dp(9);
                 devgramNameBadgeCy = by + dp(9);

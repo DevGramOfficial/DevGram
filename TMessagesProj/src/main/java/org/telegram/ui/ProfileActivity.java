@@ -11494,6 +11494,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         devgramBadgeDrawable[a].set(DevGramBadges.emojiIdOf(dialogId), false);
         devgramBadgeDrawable[a].setParticles(true, true); // DevGram: анимированные звёздочки-искры вокруг значка
+        updateEmojiStatusDrawableColor();
         return devgramBadgeDrawable[a];
     }
 
@@ -11695,6 +11696,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             final int color = ColorUtils.blendARGB(ColorUtils.blendARGB(fromColor, 0xffffffff, progress), getThemedColor(Theme.key_player_actionBarTitle), mediaHeaderAnimationProgress);
             if (emojiStatusDrawable[a] != null) {
                 emojiStatusDrawable[a].setColor(color);
+            }
+            if (devgramBadgeDrawable[a] != null) {
+                devgramBadgeDrawable[a].setColor(color); // DevGram: адаптивные эмодзи значка — как статус
             }
             if (botVerificationDrawable[a] != null) {
                 botVerificationDrawable[a].setColor(ColorUtils.blendARGB(ColorUtils.blendARGB(fromColor, 0x99ffffff, progress), getThemedColor(Theme.key_player_actionBarTitle), mediaHeaderAnimationProgress));

@@ -4811,6 +4811,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 final int sz = dp(18);
                 final int left = devgramBadgeLeft;
                 devgramBadgeEmoji.setBounds(left, (int) y, left + sz, (int) y + sz);
+                devgramBadgeEmoji.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider)); // адаптивные эмодзи — как статус
                 devgramBadgeEmoji.draw(canvas);
             }
 

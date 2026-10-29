@@ -677,6 +677,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
             // DevGram: значок бренда слева от имени участника (когда левый слот свободен), кликабельный
             if (currentUser != null && DevGramBadges.isBadged(currentUser.id)) {
                 devgramBadge.set(DevGramBadges.emojiIdOf(currentUser.id), false);
+                devgramBadge.setColor(Theme.getColor(Theme.key_chats_verifiedBackground, resourcesProvider)); // адаптивные эмодзи — как статус
                 devgramBadge.setParticles(true, true); // DevGram: звёздочки вокруг значка
                 nameTextView.setLeftDrawable(devgramBadge);
                 final long uid = currentUser.id;

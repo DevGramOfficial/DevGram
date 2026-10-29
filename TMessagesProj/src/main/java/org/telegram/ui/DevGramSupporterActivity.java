@@ -280,7 +280,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         private AnimatedEmojiDrawable makeBadge() {
             long emojiId = DevGramBadges.emojiIdOf(getUserConfig().getClientUserId());
             if (emojiId == 0) emojiId = DevGramBadges.EMOJI_SUPPORTER;
-            return AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE, emojiId);
+            return DevGramBadges.tinted(AnimatedEmojiDrawable.make(currentAccount, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE, emojiId), Theme.getColor(Theme.key_chats_verifiedBackground, resourceProvider));
         }
 
         void updateBadge() {

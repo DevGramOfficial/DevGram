@@ -859,6 +859,15 @@ public class DevGramBadges {
         return b == null ? 0 : b.bgMsg;
     }
 
+    // Адаптивные эмодзи (цвета текста) в значке красим, как Telegram красит статус в этом месте;
+    // обычные цветные эмодзи фильтр не трогает.
+    public static org.telegram.ui.Components.AnimatedEmojiDrawable tinted(org.telegram.ui.Components.AnimatedEmojiDrawable d, int color) {
+        if (d != null) {
+            d.setColorFilter(new android.graphics.PorterDuffColorFilter(color, android.graphics.PorterDuff.Mode.SRC_IN));
+        }
+        return d;
+    }
+
     // Цвет ника: 1 цвет или 2 для градиента; null — обычный
     public static int[] nickColorsOf(long userId) {
         Badge b = supporterBadge(userId);
@@ -1101,8 +1110,9 @@ public class DevGramBadges {
             try {
                 if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.TwoLineLayout) {
                     org.telegram.ui.Components.BackupImageView iv = ((org.telegram.ui.Components.Bulletin.TwoLineLayout) b.getLayout()).imageView;
-                    iv.setAnimatedEmojiDrawable(org.telegram.ui.Components.AnimatedEmojiDrawable.make(
-                            UserConfig.selectedAccount, org.telegram.ui.Components.AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, emojiId));
+                    iv.setAnimatedEmojiDrawable(tinted(org.telegram.ui.Components.AnimatedEmojiDrawable.make(
+                            UserConfig.selectedAccount, org.telegram.ui.Components.AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, emojiId),
+                            org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_undo_infoColor)));
                 }
             } catch (Throwable ignore) {
             }
