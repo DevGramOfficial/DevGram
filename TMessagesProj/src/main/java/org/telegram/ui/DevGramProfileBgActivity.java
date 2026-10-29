@@ -173,7 +173,10 @@ public class DevGramProfileBgActivity extends DevGramSettingsFragment implements
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(previewView));
-        items.add(UItem.asShadow("Фон шапки вашего профиля видят все пользователи DevGram."));
+        items.add(UItem.asShadow("Фон шапки вашего профиля видят все пользователи DevGram.\n\n"
+                + "Лучше всего подходит горизонтальный кадр 4:3: фото 1280×960, видео 960×720. "
+                + "Другие пропорции обрежутся по краям. При прокрутке профиля остаётся видна верхняя часть, "
+                + "поэтому главное держите ближе к верху и центру."));
         items.add(UItem.asButton(ID_PICK, R.drawable.msg_photos, uploading ? "Отправляю…" : "Выбрать фото, видео или GIF"));
         long uid = getUserConfig().getClientUserId();
         if (DevGramBadges.backgroundOf(uid) != 0) {
