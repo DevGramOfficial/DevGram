@@ -3974,6 +3974,27 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         sharedMediaLayout.initBlurCapture((ViewGroup) fragmentView);
 //        sharedMediaLayout.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         if (userId == 0 || imageUpdater == null || myProfile) {
+            musicView = new ProfileMusicView(context, resourcesProvider);
+            balanceView = new ProfileBalanceView(context, resourcesProvider);
+            musicView.setTrailingView(balanceView);
+            balanceView.setOnClickListener(v -> {
+                if (userInfo != null && userInfo.wallet_card != null && getParentActivity() != null) {
+                    showDialog(new ProfileWalletCardDialog(
+                            this,
+                            balanceView,
+                            getMessagesController().getUser(userId),
+                            userInfo.wallet_card));
+                }
+            });
+            if (avatarsBlurView != null) {
+                avatarsBlurView.setMusicView(musicView);
+            }
+            musicView.setColor(peerColor);
+            if (userInfo != null && userInfo.saved_music != null) {
+                musicView.setMusicDocument(userInfo.saved_music);
+            }
+            musicView.setOnClickListener(v -> openProfileMusicPlayer());
+
             actionsView = new ProfileActionsView(context, org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
             setActionsMode();
             updateNotifications(false);
@@ -11454,6 +11475,18 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 musicView.setMusicDocument(userInfo.saved_music);
             }
             musicView.setVisibility(hasMusic ? View.VISIBLE : View.GONE);
+            if (hasBalance) {
+                balanceView.setBalance(userInfo.wallet_card.balance);
+            }
+            balanceView.setVisibility(hasBalance ? View.VISIBLE : View.GONE);
+            musicView.invalidate();
+            balanceView.invalidate();
+            if (avatarsBlurView != null) {
+                avatarsBlurView.setSize(getActionsExtraHeight());
+            }
+            if (avatarImage != null) {
+                avatarImage.createBlurEffect(getActionsExtraHeight());
+            }
             updateProfileMusicPlayback();
         }
         if (listView != null && infoStartRow >= 0 && infoEndRow >= infoStartRow) {
