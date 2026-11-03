@@ -188,6 +188,11 @@ public class DevGramSettingsIO {
                     current.optJSONObject("_globalPreferences"));
             appendSnapshotDiffs(diffs, o.optJSONObject("_accountPreferences"),
                     current.optJSONObject("_accountPreferences"));
+            if (o.has("_launcherIcon")
+                    && !sameValue(current.opt("_launcherIcon"), o.opt("_launcherIcon"))) {
+                diffs.add("• Иконка приложения: " + formatValue(current.opt("_launcherIcon"))
+                        + " → " + formatValue(o.opt("_launcherIcon")));
+            }
         } else {
             java.util.Iterator<String> keys = o.keys();
             while (keys.hasNext()) {

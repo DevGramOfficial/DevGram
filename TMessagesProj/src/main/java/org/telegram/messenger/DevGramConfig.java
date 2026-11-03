@@ -765,6 +765,7 @@ public class DevGramConfig {
             o.put("_globalPreferences", exportPreferences(MessagesController.getGlobalMainSettings(), true));
             o.put("_accountPreferences", exportAccountPreferences(
                     MessagesController.getMainSettings(UserConfig.selectedAccount)));
+            o.put("_launcherIcon", org.telegram.ui.LauncherIconController.current().key);
         } catch (Throwable ignore) {
         }
         return o.toString();
@@ -847,6 +848,16 @@ public class DevGramConfig {
                     "forceDisableTabletMode", SharedConfig.forceDisableTabletMode);
             if (global.contains("lite_mode6")) {
                 LiteMode.setAllFlags(global.getInt("lite_mode6", LiteMode.getValue(true)));
+            }
+            String launcherIcon = o.optString("_launcherIcon", "");
+            if (!launcherIcon.isEmpty()) {
+                for (org.telegram.ui.LauncherIconController.LauncherIcon icon
+                        : org.telegram.ui.LauncherIconController.LauncherIcon.values()) {
+                    if (launcherIcon.equals(icon.key)) {
+                        org.telegram.ui.LauncherIconController.setIcon(icon);
+                        break;
+                    }
+                }
             }
             DevGramGhostSettings.clearCache();
             return true;
