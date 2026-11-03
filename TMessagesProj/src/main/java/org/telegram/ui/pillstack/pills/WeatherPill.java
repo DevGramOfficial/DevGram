@@ -82,6 +82,7 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
                 .add(R.drawable.msg_map, hasCity ? "Город: " + curCity : "Выбрать город", () -> showCitySearch(fragment));
         if (hasCity) {
             options.add(R.drawable.msg_location, "Обратно по геолокации", () -> {
+                PillStackConfig.resetWeatherLocationPromptAttempted();
                 org.telegram.ui.Stories.recorder.Weather.clearManualCity();
                 onUpdateData(true);
             });
@@ -100,6 +101,7 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
     }
 
     private void onUpdateData0() {
+        PillStackConfig.resetWeatherLocationPromptAttempted();
         onUpdateData(true);
     }
 
@@ -118,13 +120,19 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
         // выключается и больше не просит гео, пока её снова не включат в настройках Pill Stack.
         if (!hasLocationSource()) {
             if (askingLocation) return;
+            if (PillStackConfig.wasWeatherLocationPromptAttempted()) {
+                PillStackConfig.deactivate(PillStackConfig.WEATHER);
+                return;
+            }
             askingLocation = true;
+            PillStackConfig.markWeatherLocationPromptAttempted();
             // Системное окно разрешения напрямую: штатный ensureEitherPermission при первом запросе
             // показывает «Откройте настройки» и сразу отвечает отказом — погода выключилась бы зря.
             org.telegram.ui.Components.PermissionRequest.requestPermissions(new String[]{
                     android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION}, results -> {
                 askingLocation = false;
                 if (hasLocationSource()) {
+                    PillStackConfig.resetWeatherLocationPromptAttempted();
                     fetchWeather(forceRefresh);
                 } else {
                     PillStackConfig.deactivate(PillStackConfig.WEATHER);

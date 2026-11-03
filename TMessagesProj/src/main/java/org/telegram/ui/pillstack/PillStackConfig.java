@@ -97,6 +97,22 @@ public final class PillStackConfig {
         return ApplicationLoader.applicationContext.getSharedPreferences("pillstackconfig", Context.MODE_PRIVATE);
     }
 
+    private static final String WEATHER_LOCATION_PROMPT_ATTEMPTED = "weatherLocationPromptAttempted";
+
+    public static boolean wasWeatherLocationPromptAttempted() {
+        return prefs().getBoolean(WEATHER_LOCATION_PROMPT_ATTEMPTED, false);
+    }
+
+    public static void markWeatherLocationPromptAttempted() {
+        // Commit before opening the Android permission dialog: the process may be killed
+        // before its result callback arrives, and startup must not ask again in that case.
+        prefs().edit().putBoolean(WEATHER_LOCATION_PROMPT_ATTEMPTED, true).commit();
+    }
+
+    public static void resetWeatherLocationPromptAttempted() {
+        prefs().edit().remove(WEATHER_LOCATION_PROMPT_ATTEMPTED).apply();
+    }
+
     // ===== реестр =====
 
     public static void beginTransaction() { batchRegistration = true; }

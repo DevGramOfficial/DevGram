@@ -131,6 +131,10 @@ public class PillStackPreferencesActivity extends BaseFragment {
         } else if (PillStackConfig.getHiddenPills().contains(id)) {
             PillStackConfig.getHiddenPills().remove((Integer) id);
             PillStackConfig.getActivePills().add(id);
+            if (id == PillStackConfig.WEATHER) {
+                // Re-enabling the widget is an explicit choice to retry location access.
+                PillStackConfig.resetWeatherLocationPromptAttempted();
+            }
         }
         saveAndNotify();
     }
