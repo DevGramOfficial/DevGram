@@ -10,9 +10,8 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.core.graphics.ColorUtils;
-
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.devgram.plugins.PluginAnalysisReport;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -41,12 +40,15 @@ public class PluginAnalysisReportSheet extends BottomSheet {
         super(fragment.getParentActivity(), false, fragment.getResourceProvider());
         rp = fragment.getResourceProvider();
         Context context = fragment.getParentActivity();
-        fixNavigationBar(Theme.getColor(Theme.key_windowBackgroundWhite, rp));
+        int gray = Theme.getColor(Theme.key_windowBackgroundGray, rp);
+        fixNavigationBar(gray);
 
         root = new FrameLayout(context);
+        root.setBackgroundColor(gray);
         ScrollView scroll = new ScrollView(context);
         LinearLayout list = new LinearLayout(context);
         list.setOrientation(LinearLayout.VERTICAL);
+        list.setBackgroundColor(gray);
         scroll.addView(list);
 
         TextView title = new TextView(context);
@@ -102,9 +104,7 @@ public class PluginAnalysisReportSheet extends BottomSheet {
 
         if (confirmTitle != null && onConfirm != null) {
             ButtonWithCounterView button = new ButtonWithCounterView(context, true, rp);
-            int danger = PluginAnalysisViews.severityColor(PluginAnalysisReport.SEVERITY_CRITICAL, rp);
-            button.setColor(danger);
-            button.setTextColor(AndroidUtilities.computePerceivedBrightness(danger) > .721f ? ColorUtils.blendARGB(danger, 0xFF000000, .8f) : 0xFFFFFFFF);
+            PluginAnalysisViews.setDangerColors(button, rp);
             button.setText(confirmTitle, false);
             button.setOnClickListener(v -> {
                 dismiss();
@@ -122,6 +122,10 @@ public class PluginAnalysisReportSheet extends BottomSheet {
                           List<PluginAnalysisReport.Statement> group) {
         if (group.isEmpty()) return;
         header(context, list, name);
+        LinearLayout section = new LinearLayout(context);
+        section.setOrientation(LinearLayout.VERTICAL);
+        int radius = AndroidUtilities.dp(MessagesController.getGlobalMainSettings().getInt("dg_sectionRadius", 20));
+        section.setBackground(Theme.createRoundRectDrawable(radius, Theme.getColor(Theme.key_windowBackgroundWhite, rp)));
         for (int i = 0; i < group.size(); i++) {
             PluginAnalysisReport.Statement s = group.get(i);
             int[] more = new int[1];
@@ -130,19 +134,24 @@ public class PluginAnalysisReportSheet extends BottomSheet {
                 lines.add(new PluginAnalysisViews.EvidenceLine(report.artifactName(e.artifact), e.line, e.excerpt));
             }
             ArrayList<CharSequence> notes = new ArrayList<>();
-            if (s.rules.contains("hooks.unresolved")) notes.add("Цель части хуков определить не удалось");
-            ArrayList<String> values = new ArrayList<>(s.values.size() > 12 ? s.values.subList(0, 12) : s.values);
-            PluginAnalysisViews.StatementView view = new PluginAnalysisViews.StatementView(context, rp, s.category().iconRes,
+            if (s.rules.contains("tl.unresolved_request")) notes.add("Часть запросов к Telegram определить не удалось");
+            if ("java_hooks".equals(s.id) && (s.rules.contains("hooks.unresolved") || s.rules.contains("hooks.external"))) {
+                notes.add("Цель части хуков определить не удалось");
+            }
+            List<String> displayValues = report.displayValues(s);
+            ArrayList<String> values = new ArrayList<>(displayValues.size() > 12 ? displayValues.subList(0, 12) : displayValues);
+            PluginAnalysisViews.StatementView view = new PluginAnalysisViews.StatementView(context, rp, s.iconRes(),
                     PluginAnalysisViews.severityColor(s.severity, rp), s.name(), s.description(), values, notes, lines, more[0],
                     text -> {
                         AndroidUtilities.addToClipboard(text);
                         BulletinFactory.of(root, rp).createCopyBulletin("Скопировано").show();
                     });
-            list.addView(view, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            section.addView(view, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
             if (i < group.size() - 1) {
-                list.addView(divider(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 64, 0, 0, 0));
+                section.addView(divider(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 1, 64, 0, 0, 0));
             }
         }
+        list.addView(section, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 12, 0, 12, 0));
     }
 
     private void header(Context context, LinearLayout list, String text) {

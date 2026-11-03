@@ -7,6 +7,10 @@ analyze_source(source, name) / analyze_package(path) -> JSON-отчёт:
 """
 
 import ast
+import base64
+import csv
+import hashlib
+import io
 import json
 import re
 import sys
@@ -32,6 +36,7 @@ STATEMENT_SEVERITY = {
     "telegram_leak": "danger",
     "dynamic_code": "danger",
     "embedded_code": "danger",
+    "mvel_code": "danger",
     "hidden_parts": "danger",
     "loads_code": "danger",
     "native_code": "danger",
@@ -50,6 +55,7 @@ STATEMENT_SEVERITY = {
     "system_overlay": "danger",
     "ui_hooks": "danger",
     "intercepts_requests": "danger",
+    "traffic_interception": "danger",
     "reflection_dynamic": "caution",
     "network": "caution",
     "files": "caution",
@@ -66,10 +72,13 @@ STATEMENT_SEVERITY = {
     "telegram_api": "caution",
     "messages_send": "caution",
     "messages_read": "caution",
+    "typed_text": "caution",
     "forward_messages": "caution",
     "contacts": "caution",
     "app_exit": "caution",
     "background": "info",
+    "verified_packages": "info",
+    "unused_files": "info",
 }
 
 NETWORK_MODULES = {"urllib", "urllib2", "urllib3", "requests", "http", "httpx", "aiohttp", "socket", "websocket",
@@ -151,6 +160,7 @@ CALLS = {
 
 # Java-классы (по вхождению в имя) -> правило
 JAVA_CLASSES = [
+    ("okhttp3.Interceptor", "net.interceptor", ["traffic_interception"]),
     ("okhttp3", "net.java", ["network"]),
     ("java.net.URL", "net.java", ["network"]),
     ("java.net.Socket", "net.java", ["network"]),
@@ -163,6 +173,8 @@ JAVA_CLASSES = [
     ("java.lang.Runtime", "proc.runtime", ["processes"]),
     ("java.lang.ProcessBuilder", "proc.runtime", ["processes"]),
     ("java.lang.reflect", "reflect.java", ["reflection_dynamic"]),
+    ("org.mvel", "code.mvel", ["mvel_code"]),
+    ("mvel2", "code.mvel", ["mvel_code"]),
     ("android.telephony.SmsManager", "device.sms", ["sms"]),
     ("android.provider.Telephony", "device.sms", ["sms"]),
     ("android.media.projection", "device.screen", ["screen_capture"]),
@@ -170,6 +182,8 @@ JAVA_CLASSES = [
     ("android.content.pm.PackageInstaller", "device.install", ["installs_apps"]),
     ("android.provider.MediaStore", "device.media", ["media_library"]),
     ("android.webkit.WebView", "web.view", ["webview_bridge"]),
+    ("android.widget.EditText", "ui.typed_text", ["typed_text"]),
+    ("android.text.TextWatcher", "ui.typed_text", ["typed_text"]),
     ("android.location", "device.location", ["privacy"]),
     ("android.media.AudioRecord", "device.mic", ["privacy"]),
     ("android.media.MediaRecorder", "device.mic", ["privacy"]),
@@ -214,6 +228,11 @@ JAVA_METHODS = {
     "setAccessible": ("reflect.java", ["reflection_dynamic"]),
     "addJavascriptInterface": ("web.bridge", ["webview_bridge"]),
     "evaluateJavascript": ("web.bridge", ["webview_bridge"]),
+    "addInterceptor": ("net.interceptor", ["traffic_interception"]),
+    "addNetworkInterceptor": ("net.interceptor", ["traffic_interception"]),
+    "setProxy": ("net.interceptor", ["traffic_interception"]),
+    "onTextChanged": ("ui.typed_text", ["typed_text"]),
+    "afterTextChanged": ("ui.typed_text", ["typed_text"]),
     "startActivity": ("app.intent", ["intents"]),
     "sendBroadcast": ("app.intent", ["intents"]),
     "startService": ("app.intent", ["intents"]),
@@ -685,19 +704,55 @@ def analyze_source(source, name="plugin.py"):
     return _report(a)
 
 
+def _verified_wheel(data):
+    """PyPI wheel считается проверенным, только когда RECORD покрывает файлы и хеши совпадают."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as wheel:
+            records = [n for n in wheel.namelist() if n.endswith(".dist-info/RECORD")]
+            if len(records) != 1:
+                return False
+            rows = csv.reader(io.StringIO(wheel.read(records[0]).decode("utf-8", "replace")))
+            checked = 0
+            for name, digest, size in rows:
+                if not digest:
+                    continue
+                algorithm, encoded = digest.split("=", 1)
+                if algorithm not in hashlib.algorithms_available:
+                    return False
+                payload = wheel.read(name)
+                actual = base64.urlsafe_b64encode(hashlib.new(algorithm, payload).digest()).rstrip(b"=").decode("ascii")
+                if actual != encoded or (size and int(size) != len(payload)):
+                    return False
+                checked += 1
+            return checked > 0
+    except Exception:
+        return False
+
+
 def analyze_package(path):
     a = Analysis()
     try:
         with zipfile.ZipFile(path) as zf:
             index = 0
             wheels = []
+            verified_wheels = []
+            unused = []
             for info in zf.infolist():
                 n = info.filename
                 low = n.lower()
                 if info.is_dir():
                     continue
                 if low.startswith("wheels/") or low.endswith(".whl"):
-                    wheels.append(n.split("/")[-1])
+                    wheel_name = n.split("/")[-1]
+                    if info.file_size <= MAX_FILE * 8 and _verified_wheel(zf.read(info)):
+                        verified_wheels.append(wheel_name)
+                    else:
+                        wheels.append(wheel_name)
+                    continue
+                if low.endswith((".mvel", ".mvel2")):
+                    f = a.finding("code.mvel_file", ["mvel_code"])
+                    f.values.append(n)
+                    f.total += 1
                     continue
                 if low.endswith(".py"):
                     if info.file_size > MAX_FILE:
@@ -716,6 +771,8 @@ def analyze_package(path):
                     a.finding("code.compiled", ["loads_code"]).values.append(n)
                     a.findings["code.compiled"].total += 1
                     index += 1
+                elif low.endswith((".js", ".class", ".bin")):
+                    unused.append(n)
                 if a.timed_out():
                     a.limits.append("timeout")
                     break
@@ -723,6 +780,16 @@ def analyze_package(path):
                 f = a.finding("packages.wheels", ["third_party_code"])
                 for w in wheels:
                     f.values.append(w.split("-")[0])
+                    f.total += 1
+            if verified_wheels:
+                f = a.finding("packages.verified_wheels", ["verified_packages"])
+                for w in verified_wheels:
+                    f.values.append(w.split("-")[0])
+                    f.total += 1
+            if unused:
+                f = a.finding("package.unused_files", ["unused_files"])
+                for n in unused[:40]:
+                    f.values.append(n)
                     f.total += 1
     except Exception as e:
         a.limits.append("unanalyzed:" + str(e)[:80])

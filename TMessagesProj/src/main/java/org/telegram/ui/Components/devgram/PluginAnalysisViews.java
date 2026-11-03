@@ -1,7 +1,9 @@
 package org.telegram.ui.Components.devgram;
 
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
@@ -10,6 +12,7 @@ import android.graphics.drawable.Drawable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.ReplacementSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -24,12 +27,14 @@ import androidx.core.graphics.ColorUtils;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.devgram.plugins.PluginAnalysisReport;
 import org.telegram.messenger.devgram.plugins.PluginAnalyzer;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RadialProgressView;
+import org.telegram.ui.Components.CubicBezierInterpolator;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -59,6 +64,21 @@ public final class PluginAnalysisViews {
         return Theme.getColor(Theme.key_windowBackgroundWhiteGreenText, rp);
     }
 
+    public static void setDangerColors(org.telegram.ui.Stories.recorder.ButtonWithCounterView button,
+                                       Theme.ResourcesProvider rp) {
+        float[] danger = new float[3];
+        float[] source = new float[3];
+        ColorUtils.colorToHSL(severityColor(PluginAnalysisReport.SEVERITY_CRITICAL, rp), danger);
+        int buttonColor = Theme.getColor(Theme.key_featuredStickers_addButton, rp);
+        ColorUtils.colorToHSL(buttonColor, source);
+        button.setColor(ColorUtils.setAlphaComponent(ColorUtils.HSLToColor(new float[]{danger[0], danger[1], source[2]}),
+                android.graphics.Color.alpha(buttonColor)));
+        int textColor = Theme.getColor(Theme.key_featuredStickers_buttonText, rp);
+        ColorUtils.colorToHSL(textColor, source);
+        button.setTextColor(ColorUtils.setAlphaComponent(ColorUtils.HSLToColor(new float[]{danger[0], danger[1], source[2]}),
+                android.graphics.Color.alpha(textColor)));
+    }
+
     private static int readable(int color, Theme.ResourcesProvider rp) {
         int bg = ColorUtils.setAlphaComponent(Theme.getColor(Theme.key_windowBackgroundWhite, rp), 255);
         if (ColorUtils.calculateLuminance(bg) <= .5) {
@@ -82,7 +102,8 @@ public final class PluginAnalysisViews {
     }
 
     static int innerRadius() {
-        return AndroidUtilities.dp(10);
+        int section = MessagesController.getGlobalMainSettings().getInt("dg_sectionRadius", 20);
+        return AndroidUtilities.dp(Math.max(section - 12, 8));
     }
 
     static void textMetrics(TextView view, float size, float line, Typeface typeface) {
@@ -97,6 +118,7 @@ public final class PluginAnalysisViews {
     static final class TintedIcon {
         final FrameLayout container;
         final ImageView icon;
+        private int backgroundColor;
 
         TintedIcon(Context context) {
             container = new FrameLayout(context);
@@ -106,13 +128,22 @@ public final class PluginAnalysisViews {
         }
 
         void bind(int iconRes, int color) {
-            container.setBackground(Theme.createRoundRectDrawable(innerRadius(), Theme.multAlpha(color, .15f)));
+            setBackgroundColor(Theme.multAlpha(color, .15f));
             if (iconRes == 0) {
                 icon.setImageDrawable(null);
             } else {
                 icon.setImageResource(iconRes);
                 icon.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
             }
+        }
+
+        int getBackgroundColor() {
+            return backgroundColor;
+        }
+
+        void setBackgroundColor(int color) {
+            backgroundColor = color;
+            container.setBackground(Theme.createRoundRectDrawable(innerRadius(), color));
         }
     }
 
@@ -174,6 +205,7 @@ public final class PluginAnalysisViews {
         private final ImageView arrow;
         private final View divider;
         private final ChipsLayout chips;
+        private Boolean wasLoading;
 
         public SummaryView(Context context, Theme.ResourcesProvider rp) {
             super(context);
@@ -220,43 +252,57 @@ public final class PluginAnalysisViews {
         }
 
         public void setRunning() {
+            setRunning("Проверяем код…", "Обычно это занимает несколько секунд");
+        }
+
+        public void setRunning(CharSequence runningTitle, CharSequence runningSubtitle) {
+            setVisibility(VISIBLE);
             int accent = Theme.getColor(Theme.key_featuredStickers_addButton, rp);
+            boolean animate = Boolean.FALSE.equals(wasLoading);
+            wasLoading = true;
             icon.bind(0, accent);
             progress.setProgressColor(accent);
-            progress.setVisibility(VISIBLE);
-            title.setText("Проверяем код…");
-            subtitle.setText("Обычно это занимает несколько секунд");
+            setVisibleAnimated(progress, true, animate);
+            setVisibleAnimated(icon.icon, false, animate);
+            title.setText(runningTitle);
+            subtitle.setText(runningSubtitle);
             subtitle.setVisibility(VISIBLE);
             setChips(null);
             setClick(null);
         }
 
         public void setFailed(int status) {
-            progress.setVisibility(GONE);
-            icon.bind(R.drawable.plugin_analysis_warning, severityColor(PluginAnalysisReport.SEVERITY_DANGER, rp));
+            if (status == PluginAnalyzer.STATUS_UNAVAILABLE) {
+                setVisibility(GONE);
+                return;
+            }
+            setVisibility(VISIBLE);
+            finishLoading(R.drawable.plugin_analysis_warning, severityColor(PluginAnalysisReport.SEVERITY_DANGER, rp));
             title.setText("Проверка не завершилась");
             subtitle.setText(status == PluginAnalyzer.STATUS_TIMEOUT ? "Проверка заняла слишком много времени и была остановлена."
                     : status == PluginAnalyzer.STATUS_TOO_LARGE ? "Файл слишком большой для проверки."
+                    : status == PluginAnalyzer.STATUS_MEMORY ? "Для проверки не хватило памяти."
+                    : status == PluginAnalyzer.STATUS_CRASHED ? "Процесс проверки неожиданно завершился."
                     : "Анализатор сообщил об ошибке.");
             setChips(null);
             setClick(null);
         }
 
         public void setReport(PluginAnalysisReport report, int newCount, OnClickListener open) {
-            progress.setVisibility(GONE);
+            setVisibility(VISIBLE);
             int max = report.maxSeverity;
             boolean threats = max >= PluginAnalysisReport.SEVERITY_DANGER;
             boolean caution = max == PluginAnalysisReport.SEVERITY_CAUTION;
             int color = max >= PluginAnalysisReport.SEVERITY_CAUTION
-                    ? severityColor(threats ? PluginAnalysisReport.SEVERITY_CRITICAL : max, rp) : safeColor(rp);
-            icon.bind(max >= PluginAnalysisReport.SEVERITY_CAUTION ? R.drawable.plugin_analysis_warning : R.drawable.plugin_analysis_shield, color);
+                    ? severityColor(max, rp) : safeColor(rp);
+            finishLoading(max >= PluginAnalysisReport.SEVERITY_CAUTION ? R.drawable.plugin_analysis_warning : R.drawable.plugin_analysis_shield, color);
 
             SpannableStringBuilder t = new SpannableStringBuilder(threats ? "Найдены угрозы" : caution ? "Есть предупреждения" : "Угрозы не найдены");
             if (newCount > 0) {
-                t.append("  ");
                 int start = t.length();
-                t.append("новых: ").append(String.valueOf(newCount));
-                t.setSpan(new ForegroundColorSpan(Theme.getColor(Theme.key_featuredStickers_addButton, rp)), start, t.length(), 0);
+                String badge = "  " + newCount + " новых";
+                t.append(badge.replace(' ', '\u00a0'));
+                t.setSpan(new BadgeSpan(badge.trim(), Theme.getColor(Theme.key_featuredStickers_addButton, rp)), start, t.length(), 33);
             }
             title.setText(t);
 
@@ -287,6 +333,36 @@ public final class PluginAnalysisViews {
             setClick(hasReport ? open : null);
         }
 
+        private void finishLoading(int iconRes, int color) {
+            boolean animate = Boolean.TRUE.equals(wasLoading);
+            wasLoading = false;
+            int from = icon.getBackgroundColor();
+            icon.bind(iconRes, color);
+            int to = icon.getBackgroundColor();
+            if (animate && from != 0 && from != to) {
+                icon.setBackgroundColor(from);
+                ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
+                animator.setDuration(200);
+                animator.addUpdateListener(a -> icon.setBackgroundColor(ColorUtils.blendARGB(from, to, (float) a.getAnimatedValue())));
+                animator.start();
+            }
+            setVisibleAnimated(progress, false, animate);
+            setVisibleAnimated(icon.icon, true, animate);
+        }
+
+        private void setVisibleAnimated(View view, boolean visible, boolean animate) {
+            if (!animate) {
+                view.animate().cancel();
+                view.setAlpha(visible ? 1f : 0f);
+                view.setVisibility(visible ? VISIBLE : INVISIBLE);
+                return;
+            }
+            if (visible) view.setVisibility(VISIBLE);
+            view.animate().alpha(visible ? 1f : 0f).setDuration(200).withEndAction(() -> {
+                if (!visible) view.setVisibility(INVISIBLE);
+            }).start();
+        }
+
         private void appendCount(SpannableStringBuilder sb, int count, String word) {
             if (count <= 0) return;
             if (sb.length() > 0) sb.append(" · ");
@@ -313,6 +389,45 @@ public final class PluginAnalysisViews {
             setClickable(l != null);
             setBackground(l != null ? Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector, rp), 2) : null);
             arrow.setVisibility(l != null ? VISIBLE : GONE);
+        }
+    }
+
+    /** Компактный цветной бейдж количества новых пунктов, как в отчёте Extera. */
+    private static final class BadgeSpan extends ReplacementSpan {
+        private final String text;
+        private final int color;
+
+        BadgeSpan(String text, int color) {
+            this.text = text;
+            this.color = color;
+        }
+
+        @Override
+        public int getSize(Paint paint, CharSequence source, int start, int end, Paint.FontMetricsInt fm) {
+            return Math.round(paint.measureText(text) * .75f) + AndroidUtilities.dp(12);
+        }
+
+        @Override
+        public void draw(Canvas canvas, CharSequence source, int start, int end, float x, int top, int y, int bottom, Paint paint) {
+            float oldSize = paint.getTextSize();
+            int oldColor = paint.getColor();
+            Paint.Style oldStyle = paint.getStyle();
+            Typeface oldTypeface = paint.getTypeface();
+            paint.setTextSize(AndroidUtilities.dp(12));
+            float width = paint.measureText(text) + AndroidUtilities.dp(10);
+            float height = AndroidUtilities.dp(18);
+            float badgeTop = y + paint.ascent() + (paint.descent() - paint.ascent() - height) / 2f;
+            paint.setColor(Theme.multAlpha(color, .15f));
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawRoundRect(x + AndroidUtilities.dp(3), badgeTop, x + AndroidUtilities.dp(3) + width, badgeTop + height,
+                    height / 2f, height / 2f, paint);
+            paint.setColor(color);
+            paint.setTypeface(AndroidUtilities.bold());
+            canvas.drawText(text, x + AndroidUtilities.dp(8), badgeTop + height - AndroidUtilities.dp(4), paint);
+            paint.setTypeface(oldTypeface);
+            paint.setTextSize(oldSize);
+            paint.setColor(oldColor);
+            paint.setStyle(oldStyle);
         }
     }
 
@@ -412,9 +527,55 @@ public final class PluginAnalysisViews {
         }
 
         void setExpanded(boolean value) {
+            if (expanded == value) return;
             expanded = value;
-            arrow.animate().rotation(value ? 180 : 0).setDuration(250).start();
-            docs.setVisibility(value ? VISIBLE : GONE);
+            arrow.animate().rotation(value ? 180 : 0).setDuration(350).setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT).start();
+            if (value) {
+                docs.setVisibility(VISIBLE);
+                docs.setAlpha(0f);
+                docs.measure(MeasureSpec.makeMeasureSpec(Math.max(0, getWidth()), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
+                int target = docs.getMeasuredHeight();
+                ViewGroup.LayoutParams lp = docs.getLayoutParams();
+                lp.height = 0;
+                docs.setLayoutParams(lp);
+                ValueAnimator animator = ValueAnimator.ofInt(0, target);
+                animator.setDuration(350);
+                animator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+                animator.addUpdateListener(a -> {
+                    ViewGroup.LayoutParams p = docs.getLayoutParams();
+                    p.height = (int) a.getAnimatedValue();
+                    docs.setLayoutParams(p);
+                    docs.setAlpha(a.getAnimatedFraction());
+                });
+                animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                    @Override public void onAnimationEnd(android.animation.Animator animation) {
+                        ViewGroup.LayoutParams p = docs.getLayoutParams();
+                        p.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                        docs.setLayoutParams(p);
+                    }
+                });
+                animator.start();
+            } else {
+                int start = docs.getHeight();
+                ValueAnimator animator = ValueAnimator.ofInt(start, 0);
+                animator.setDuration(350);
+                animator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+                animator.addUpdateListener(a -> {
+                    ViewGroup.LayoutParams p = docs.getLayoutParams();
+                    p.height = (int) a.getAnimatedValue();
+                    docs.setLayoutParams(p);
+                    docs.setAlpha(1f - a.getAnimatedFraction());
+                });
+                animator.addListener(new android.animation.AnimatorListenerAdapter() {
+                    @Override public void onAnimationEnd(android.animation.Animator animation) {
+                        docs.setVisibility(GONE);
+                        ViewGroup.LayoutParams p = docs.getLayoutParams();
+                        p.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+                        docs.setLayoutParams(p);
+                    }
+                });
+                animator.start();
+            }
         }
 
         private void buildDocs(List<String> values, List<CharSequence> notes, List<EvidenceLine> lines, int more) {

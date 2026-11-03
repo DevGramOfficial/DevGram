@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +23,7 @@ public final class PluginAnalysisReport {
 
     public enum Category {
         CODE(R.drawable.plugin_analysis_code, "Код"),
+        STEALTH(R.drawable.plugin_analysis_stealth, "Скрытность"),
         ACCOUNT(R.drawable.plugin_analysis_account, "Аккаунт"),
         MESSAGES(R.drawable.plugin_analysis_messages, "Сообщения"),
         NETWORK(R.drawable.plugin_analysis_network, "Сеть"),
@@ -44,33 +46,40 @@ public final class PluginAnalysisReport {
         final Category category;
         final String name;
         final String description;
+        final int iconRes;
 
-        Entry(Category category, String name, String description) {
+        Entry(Category category, String name, String description, int iconRes) {
             this.category = category;
             this.name = name;
             this.description = description;
+            this.iconRes = iconRes == 0 ? category.iconRes : iconRes;
         }
     }
 
     private static final HashMap<String, Entry> ENTRIES = new HashMap<>();
 
     private static void entry(String id, Category category, String name, String description) {
-        ENTRIES.put(id, new Entry(category, name, description));
+        entry(id, category, name, description, 0);
+    }
+
+    private static void entry(String id, Category category, String name, String description, int iconRes) {
+        ENTRIES.put(id, new Entry(category, name, description, iconRes));
     }
 
     static {
         entry("dynamic_code", Category.CODE, "Динамический код", "Выполняет код, которого нет в файле плагина");
         entry("embedded_code", Category.CODE, "Упакованный код", "Содержит закодированный код и запускает его");
+        entry("mvel_code", Category.CODE, "Java-выражения", "Запускает Java-выражения, записанные как текст");
         entry("loads_code", Category.CODE, "Скомпилированный код", "Подгружает дополнительный скомпилированный код");
-        entry("reflection_dynamic", Category.CODE, "Динамические вызовы", "Выбирает, что вызвать, уже во время работы");
+        entry("reflection_dynamic", Category.STEALTH, "Динамические вызовы", "Выбирает, что вызвать, уже во время работы");
         entry("native_code", Category.CODE, "Нативный код", "Запускает нативный код, который нельзя проверить");
-        entry("anti_analysis", Category.CODE, "Защита от проверки", "Пытается скрыть, что делает");
-        entry("hidden_parts", Category.CODE, "Нечитаемые части", "Содержит части, которые не удалось прочитать");
-        entry("remote_code", Category.CODE, "Удалённый код", "Может скачать и выполнить код, который вы не видели");
-        entry("remote_control", Category.CODE, "Удалённое управление", "Может управляться удалённо");
-        entry("hides_behavior", Category.CODE, "Скрытое поведение", "Скрывает часть своих действий");
+        entry("anti_analysis", Category.STEALTH, "Защита от проверки", "Пытается скрыть, что делает");
+        entry("hidden_parts", Category.STEALTH, "Нечитаемые части", "Содержит части, которые не удалось прочитать");
+        entry("remote_code", Category.CODE, "Удалённый код", "Может скачать и выполнить код, который вы не видели", R.drawable.plugin_analysis_remote_code);
+        entry("remote_control", Category.CODE, "Удалённое управление", "Может управляться удалённо", R.drawable.plugin_analysis_remote_control);
+        entry("hides_behavior", Category.STEALTH, "Скрытое поведение", "Скрывает часть своих действий");
         entry("network", Category.NETWORK, "Доступ в интернет", "Подключается к интернету");
-        entry("exfiltrate_messages", Category.NETWORK, "Выгрузка данных", "Может отправить ваши сообщения или контакты в интернет");
+        entry("exfiltrate_messages", Category.NETWORK, "Выгрузка данных", "Может отправить ваши сообщения или контакты в интернет", R.drawable.plugin_analysis_exfiltrate_messages);
         entry("exfiltrate_files", Category.NETWORK, "Выгрузка файлов", "Может отправить ваши файлы в интернет");
         entry("device_id_upload", Category.NETWORK, "Отправка ID устройства", "Отправляет идентификаторы устройства в интернет");
         entry("webview_bridge", Category.NETWORK, "Мост для веб-страниц", "Позволяет веб-страницам вызывать код приложения");
@@ -104,9 +113,13 @@ public final class PluginAnalysisReport {
         entry("intercepts_requests", Category.ACCOUNT, "Перехват запросов", "Читает и меняет запросы к Telegram");
         entry("session_data", Category.ACCOUNT, "Данные сессии", "Обращается к данным сессии аккаунта");
         entry("hidden_account_actions", Category.ACCOUNT, "Скрытые действия", "Может действовать от вашего имени незаметно");
-        entry("account_takeover", Category.ACCOUNT, "Захват аккаунта", "Может получить доступ к вашему аккаунту");
-        entry("wallet_access", Category.ACCOUNT, "Криптокошелёк", "Обращается к вашему криптокошельку");
+        entry("account_takeover", Category.ACCOUNT, "Захват аккаунта", "Может получить доступ к вашему аккаунту", R.drawable.plugin_analysis_account_takeover);
+        entry("wallet_access", Category.ACCOUNT, "Криптокошелёк", "Обращается к вашему криптокошельку", R.drawable.plugin_analysis_wallet_access);
         entry("third_party_code", Category.PACKAGES, "Непроверенные пакеты", "Устанавливает сторонние пакеты, которые не проверялись");
+        entry("verified_packages", Category.PACKAGES, "Проверенные пакеты", "Содержит неизменённые пакеты из PyPI");
+        entry("unused_files", Category.PACKAGES, "Неиспользуемые файлы", "Содержит файлы, которые не загружает, они не проверялись");
+        entry("traffic_interception", Category.NETWORK, "Трафик других плагинов", "Может перенаправлять или читать сетевой трафик других плагинов");
+        entry("typed_text", Category.MESSAGES, "Вводимый текст", "Видит текст, который вы вводите в поля");
     }
 
     public static final class Statement {
@@ -135,6 +148,11 @@ public final class PluginAnalysisReport {
         public String description() {
             Entry e = ENTRIES.get(id);
             return e == null ? null : e.description;
+        }
+
+        public int iconRes() {
+            Entry e = ENTRIES.get(id);
+            return e == null ? Category.OTHER.iconRes : e.iconRes;
         }
     }
 
@@ -286,5 +304,69 @@ public final class PluginAnalysisReport {
 
     public boolean incomplete() {
         return !limits.isEmpty();
+    }
+
+    /** Значения, которые Extera показывает пользователю: домены вместо URL и читаемые имена символов. */
+    public List<String> displayValues(Statement statement) {
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        boolean network = "network".equals(statement.id);
+        boolean symbols = "telegram_api".equals(statement.id) || "sensitive_requests".equals(statement.id)
+                || "intercepts_requests".equals(statement.id) || "session_data".equals(statement.id)
+                || "java_hooks".equals(statement.id) || "ui_hooks".equals(statement.id)
+                || "host_tampering".equals(statement.id) || "traffic_interception".equals(statement.id);
+        for (String value : statement.values) {
+            if (value == null || value.trim().isEmpty()) continue;
+            String shown = value.trim();
+            if (network) {
+                if (!(shown.contains("://") || shown.matches("\\d{1,3}(?:\\.\\d{1,3}){3}(?::\\d+)?"))) continue;
+                shown = hostOf(shown);
+            } else if (symbols) {
+                shown = symbolName(shown);
+                if (shown == null) continue;
+            }
+            if (!shown.isEmpty()) out.add(shown);
+        }
+        return new ArrayList<>(out);
+    }
+
+    private static String hostOf(String value) {
+        String host = value;
+        int scheme = host.indexOf("://");
+        if (scheme >= 0) host = host.substring(scheme + 3);
+        int slash = host.indexOf('/');
+        if (slash >= 0) host = host.substring(0, slash);
+        int query = host.indexOf('?');
+        if (query >= 0) host = host.substring(0, query);
+        int colon = host.indexOf(':');
+        if (colon >= 0) host = host.substring(0, colon);
+        return host.trim();
+    }
+
+    private static String symbolName(String value) {
+        String s = value;
+        int paren = s.indexOf(" (");
+        if (paren >= 0) s = s.substring(0, paren);
+        int colon = s.indexOf(':');
+        if (colon >= 0) s = s.substring(colon + 1);
+        s = s.trim();
+        if (s.isEmpty() || s.startsWith("<") || "?".equals(s)) return null;
+        String method = "";
+        int hash = s.indexOf('#');
+        if (hash >= 0) {
+            method = s.substring(hash + 1);
+            s = s.substring(0, hash);
+        }
+        int dot = s.lastIndexOf('.');
+        String simple = dot >= 0 ? s.substring(dot + 1) : s;
+        simple = simple.replace('$', '.');
+        if (simple.startsWith("TL_")) {
+            simple = simple.substring(3);
+            int underscore = simple.indexOf('_');
+            if (underscore > 0 && underscore < simple.length() - 1) {
+                simple = simple.substring(0, underscore) + "." + simple.substring(underscore + 1);
+            }
+        }
+        if (!method.isEmpty() && !"<init>".equals(method)) simple += "." + method;
+        return simple;
     }
 }

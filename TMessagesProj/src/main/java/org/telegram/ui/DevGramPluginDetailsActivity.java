@@ -16,6 +16,8 @@ import org.telegram.messenger.DevGramPluginInfo;
 import org.telegram.messenger.DevGramPluginTranslation;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
+import org.telegram.messenger.devgram.plugins.PluginAnalysisReport;
+import org.telegram.messenger.devgram.plugins.PluginAnalyzer;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -25,6 +27,8 @@ import org.telegram.ui.Components.DevGramPluginInfoViews;
 import org.telegram.ui.Components.DevGramTranslateButton;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.ScaleStateListAnimator;
+import org.telegram.ui.Components.devgram.PluginAnalysisReportSheet;
+import org.telegram.ui.Components.devgram.PluginAnalysisViews;
 
 import java.util.ArrayList;
 
@@ -435,14 +439,14 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         return m.find() ? m.group(1) : null;
     }
 
-    // «Что умеет плагин» и «Сведения» — как в листе установки. У пакета исходника в каталоге нет:
-    // показываем заглушку и качаем .dgplugin из архива, затем читаем из него main.
+    // В каталоге используется тот же отчёт проверки, что и при открытии файла плагина.
+    // Для пакета сначала загружаем весь .dgplugin: анализировать только main.py небезопасно.
     private void addPluginInfo(Context context) {
-        LinearLayout capsBox = section(context, 18);
-        capsBox.addView(text(context, "Что умеет плагин", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)));
-        TextView capsStatus = text(context, "Загружаю плагин…", 14, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
-        capsBox.addView(capsStatus, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
-        content.addView(capsBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
+        LinearLayout analysisBox = section(context, 18);
+        analysisBox.setPadding(0, 0, 0, 0);
+        PluginAnalysisViews.SummaryView summary = new PluginAnalysisViews.SummaryView(context, resourceProvider);
+        analysisBox.addView(summary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        content.addView(analysisBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
 
         LinearLayout infoBox = section(context, 18);
         infoBox.addView(text(context, "Сведения", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)));
@@ -458,39 +462,71 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         if (entry.isPackage) {
             if (entry.packageSize > 0) DevGramPluginInfoViews.addRow(context, codeRows, "Размер", DevGramPluginInfo.formatSize(entry.packageSize), null);
             addHashRow(context, codeRows, entry.packageSha);
-            org.telegram.messenger.DevGramPackages.fetchCatalogPackage(entry, file -> {
-                if (file == null) {
-                    capsStatus.setText("Не удалось загрузить плагин для проверки");
-                    return;
-                }
-                String path = file.getAbsolutePath();
-                org.telegram.messenger.Utilities.globalQueue.postRunnable(() -> {
-                    String src = DevGramPlugins.packageMainSource(path);
-                    AndroidUtilities.runOnUIThread(() -> fillCode(context, capsBox, capsStatus, codeRows, src, false));
-                });
-            });
+            loadPackageCode(context, summary, codeRows, 0);
         } else {
             String src = entry.source == null ? "" : entry.source;
             if (!src.isEmpty()) {
                 DevGramPluginInfoViews.addRow(context, codeRows, "Размер",
                         DevGramPluginInfo.formatSize(src.getBytes(java.nio.charset.StandardCharsets.UTF_8).length), null);
             }
-            fillCode(context, capsBox, capsStatus, codeRows, src, true);
+            fillCodeMetadata(context, codeRows, src, true);
             if (!src.isEmpty()) addHashRow(context, codeRows, DevGramPlugins.sha256(src));
+            analyzePlugin(summary, src, null);
         }
     }
 
-    private void fillCode(Context context, LinearLayout capsBox, TextView capsStatus, LinearLayout codeRows, String src, boolean beforeHash) {
+    /**
+     * После одобрения modbot переносит пакет в архив и дописывает packageMsg не мгновенно.
+     * Карточка могла открыться в это короткое окно и навсегда оставить сообщение об ошибке.
+     * Обновляем запись каталога и мягко повторяем скачивание, пока координаты не появились.
+     */
+    private void loadPackageCode(Context context, PluginAnalysisViews.SummaryView summary,
+                                 LinearLayout codeRows, int attempt) {
         if (getParentActivity() == null) return;
-        ArrayList<DevGramPluginInfo.Capability> caps = DevGramPluginInfo.capabilities(src);
-        if (src == null || src.isEmpty()) {
-            capsStatus.setText("Исходник плагина недоступен");
-        } else if (caps.isEmpty()) {
-            capsStatus.setText("Ничего особенного: плагин не запрашивает заметных возможностей");
-        } else {
-            capsBox.removeView(capsStatus);
-            DevGramPluginInfoViews.addCapabilities(context, capsBox, caps);
+        if (entry.packageMsg == 0) {
+            if (attempt >= 12) {
+                summary.setFailed(PluginAnalyzer.STATUS_UNAVAILABLE);
+                return;
+            }
+            summary.setRunning("Плагин размещается в каталоге…", "Отчёт появится сразу после загрузки файла");
+            DevGramPlugins.fetchCatalogEntry(entry.id, freshEntries -> {
+                if (!freshEntries.isEmpty()) {
+                    DevGramPlugins.CatalogEntry fresh = freshEntries.get(0);
+                    entry.packageChat = fresh.packageChat;
+                    entry.packageMsg = fresh.packageMsg;
+                    if (fresh.packageSize > 0) entry.packageSize = fresh.packageSize;
+                    if (fresh.packageSha != null && !fresh.packageSha.isEmpty()) entry.packageSha = fresh.packageSha;
+                }
+                AndroidUtilities.runOnUIThread(
+                        () -> loadPackageCode(context, summary, codeRows, attempt + 1), 2500);
+            });
+            return;
         }
+        summary.setRunning(attempt == 0 ? "Загружаем плагин…" : "Загружаем плагин, попытка " + (attempt + 1) + "…",
+                "После загрузки проверим весь пакет");
+        org.telegram.messenger.DevGramPackages.fetchCatalogPackage(entry, file -> {
+            if (file == null) {
+                if (attempt < 4) {
+                    AndroidUtilities.runOnUIThread(
+                            () -> loadPackageCode(context, summary, codeRows, attempt + 1), 2000);
+                } else {
+                    summary.setFailed(PluginAnalyzer.STATUS_UNAVAILABLE);
+                }
+                return;
+            }
+            String path = file.getAbsolutePath();
+            org.telegram.messenger.Utilities.globalQueue.postRunnable(() -> {
+                String src = DevGramPlugins.packageMainSource(path);
+                AndroidUtilities.runOnUIThread(() -> {
+                    fillCodeMetadata(context, codeRows, src, false);
+                    analyzePlugin(summary, null, path);
+                });
+            });
+        });
+    }
+
+    private void fillCodeMetadata(Context context, LinearLayout codeRows, String src, boolean beforeHash) {
+        if (getParentActivity() == null) return;
         int at = beforeHash ? codeRows.getChildCount() : 0;
         String minVersion = DevGramPluginInfo.metaValue(src, "__min_version__");
         int lines = DevGramPluginInfo.codeLines(src);
@@ -503,6 +539,23 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             tmp.removeView(row);
             codeRows.addView(row, at++);
         }
+    }
+
+    private void analyzePlugin(PluginAnalysisViews.SummaryView summary, String source, String packagePath) {
+        java.io.File installed = DevGramPlugins.pluginInstalledFile(entry.id);
+        String previous = installed != null && installed.isFile() ? installed.getAbsolutePath() : null;
+        PluginAnalyzer.analyze(source, packagePath, entry.name, previous, result -> {
+            if (getParentActivity() == null) return;
+            if (result.status != PluginAnalyzer.STATUS_OK || result.report == null) {
+                summary.setFailed(result.status);
+                return;
+            }
+            PluginAnalysisReport report = result.report;
+            summary.setReport(report, result.newStatements.size(), v -> {
+                if (getParentActivity() == null) return;
+                new PluginAnalysisReportSheet(this, report, result.newStatements, null, null).show();
+            });
+        });
     }
 
     private void addHashRow(Context context, LinearLayout box, String hash) {
