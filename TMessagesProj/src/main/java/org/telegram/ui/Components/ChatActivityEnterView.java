@@ -8610,7 +8610,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             } else {
                 color = getThemedColor(Theme.key_chat_messagePanelSend);
             }
-            boolean captionNearAttach = messageEditText != null && (!TextUtils.isEmpty(messageEditText.getCaption()) || messageEditText.isNearRightCaption(dp(DEFAULT_HEIGHT))) || LocaleController.isRTL;
+            boolean captionNearAttach = !iOSMessageInputFieldAvailable() && (
+                    messageEditText != null && (!TextUtils.isEmpty(messageEditText.getCaption()) || messageEditText.isNearRightCaption(dp(DEFAULT_HEIGHT))) || LocaleController.isRTL
+            );
 
             if (color != sendButtonBackgroundColor) {
                 sendButtonBackgroundColor = color;
@@ -8647,7 +8649,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                                 animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_X, captionNearAttach ? 0.5f : 1.0f));
                                 animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_Y, captionNearAttach ? 0.5f : 1.0f));
                             }
-                        } else if (attachButton != null) {
+                        } else if (attachButton != null && !iOSMessageInputFieldAvailable()) {
                             animators.add(ObjectAnimator.ofFloat(attachButton, View.ALPHA, attachButtonAlpha = 0.0f));
                             animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_X, 0.5f));
                             animators.add(ObjectAnimator.ofFloat(attachButton, View.SCALE_Y, 0.5f));
@@ -8814,7 +8816,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                                 attachButton.setScaleX(captionNearAttach ? 0.5f : 1.0f);
                                 attachButton.setScaleY(captionNearAttach ? 0.5f : 1.0f);
                             }
-                        } else if (attachButton != null) {
+                        } else if (attachButton != null && !iOSMessageInputFieldAvailable()) {
                             attachButton.setAlpha(attachButtonAlpha = 0.0f);
                             attachButton.setScaleX(0.5f);
                             attachButton.setScaleY(0.5f);
@@ -8833,7 +8835,7 @@ public class ChatActivityEnterView extends FrameLayout implements
                     }
                 }
             } else {
-                if (sideButtons != null) {
+                if (sideButtons != null && !iOSMessageInputFieldAvailable()) {
                     sideButtons.showButton(ChatActivitySideControlsButtonsLayout.BUTTON_ATTACH, captionNearAttach, true);
                     if (attachButton != null) {
                         if (attachButtonAnimator != null) {
