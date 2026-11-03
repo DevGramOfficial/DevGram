@@ -138,6 +138,8 @@ public final class DevGramSupporterBadgeSheet {
                 ButtonWithCounterView transfer = new ButtonWithCounterView(getContext(), true, resourcesProvider).setNeutral();
                 transfer.setRound();
                 transfer.setText("Передать другому аккаунту", false);
+                transfer.setTextColor(Theme.getColor(
+                        Theme.key_featuredStickers_buttonText, resourcesProvider));
                 transfer.setOnClickListener(v -> showTransfer(fragment, this, v));
                 bottomContainer.addView(transfer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48,
                         0, 12, 0, 12, 12));
