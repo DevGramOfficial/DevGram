@@ -701,6 +701,7 @@ public class DevGramConfig {
     public static String exportToJson() {
         org.json.JSONObject o = new org.json.JSONObject();
         try {
+            o.put("_formatVersion", 2);
             DevGramGhostSettings.Settings ghost = DevGramGhostSettings.get(UserConfig.selectedAccount);
             o.put("sendReadPackets", ghost.sendReadMessages);
             o.put("sendReadStoryPackets", ghost.sendReadStories);
@@ -740,6 +741,30 @@ public class DevGramConfig {
             o.put("swipeActions", swipeActions);
             o.put("swipeActionsLoop", swipeActionsLoop);
             o.put("swipeActionsReversed", swipeActionsReversed);
+            o.put("removeMessageTail", removeMessageTail);
+            o.put("replaceEditedWithIcon", replaceEditedWithIcon);
+            o.put("hideShareButton", hideShareButton);
+            o.put("hideStickerTime", hideStickerTime);
+            o.put("inlineCalc", inlineCalc);
+            o.put("inlineMath", inlineMath);
+            o.put("inlineCurrency", inlineCurrency);
+            o.put("inlineUnits", inlineUnits);
+            o.put("inlineTimeZones", inlineTimeZones);
+            o.put("inlineTargetCurrency", inlineTargetCurrency);
+            o.put("inlineAngleUnit", inlineAngleUnit);
+            o.put("inlineMeasureSystem", inlineMeasureSystem);
+            o.put("inlineDigitGrouping", inlineDigitGrouping);
+            o.put("weatherInStories", weatherInStories);
+            o.put("updateChannel", updateChannel);
+
+            // v2: полный типизированный снимок пользовательских настроек DevGram. Старые
+            // плоские поля выше оставлены, чтобы новые файлы можно было открыть в старых
+            // версиях клиента. Токены, API-ключи, история ИИ и содержимое плагинов намеренно
+            // не экспортируются.
+            o.put("_devgramPreferences", exportPreferences(preferences, false));
+            o.put("_globalPreferences", exportPreferences(MessagesController.getGlobalMainSettings(), true));
+            o.put("_accountPreferences", exportAccountPreferences(
+                    MessagesController.getMainSettings(UserConfig.selectedAccount)));
         } catch (Throwable ignore) {
         }
         return o.toString();
@@ -752,6 +777,11 @@ public class DevGramConfig {
         }
         try {
             org.json.JSONObject o = new org.json.JSONObject(json.trim());
+            importPreferences(o.optJSONObject("_devgramPreferences"), preferences, false);
+            importPreferences(o.optJSONObject("_globalPreferences"),
+                    MessagesController.getGlobalMainSettings(), true);
+            importAccountPreferences(o.optJSONObject("_accountPreferences"),
+                    MessagesController.getMainSettings(UserConfig.selectedAccount));
             DevGramGhostSettings.setUseGlobal(o.optBoolean("useGlobalGhostConfig", DevGramGhostSettings.useGlobal()));
             setSendReadPackets(o.optBoolean("sendReadPackets", sendReadPackets));
             setSendOnlinePackets(o.optBoolean("sendOnlinePackets", sendOnlinePackets));
@@ -793,10 +823,158 @@ public class DevGramConfig {
             setSwipeActions(o.optString("swipeActions", swipeActions));
             setSwipeActionsLoop(o.optBoolean("swipeActionsLoop", swipeActionsLoop));
             setSwipeActionsReversed(o.optBoolean("swipeActionsReversed", swipeActionsReversed));
+            setRemoveMessageTail(o.optBoolean("removeMessageTail", removeMessageTail));
+            setReplaceEditedWithIcon(o.optBoolean("replaceEditedWithIcon", replaceEditedWithIcon));
+            setHideShareButton(o.optBoolean("hideShareButton", hideShareButton));
+            setHideStickerTime(o.optBoolean("hideStickerTime", hideStickerTime));
+            setInlineCalc(o.optBoolean("inlineCalc", inlineCalc));
+            setInlineBoolean("inlineMath", o.optBoolean("inlineMath", inlineMath));
+            setInlineBoolean("inlineCurrency", o.optBoolean("inlineCurrency", inlineCurrency));
+            setInlineBoolean("inlineUnits", o.optBoolean("inlineUnits", inlineUnits));
+            setInlineBoolean("inlineTimeZones", o.optBoolean("inlineTimeZones", inlineTimeZones));
+            setInlineBoolean("inlineDigitGrouping", o.optBoolean("inlineDigitGrouping", inlineDigitGrouping));
+            setInlineTargetCurrency(o.optString("inlineTargetCurrency", inlineTargetCurrency));
+            setInlineAngleUnit(o.optInt("inlineAngleUnit", inlineAngleUnit));
+            setInlineMeasureSystem(o.optInt("inlineMeasureSystem", inlineMeasureSystem));
+            setWeatherInStories(o.optBoolean("weatherInStories", weatherInStories));
+            setUpdateChannel(o.optInt("updateChannel", updateChannel));
+
+            // Несколько штатных полей Telegram кэшируются в static-полях. Синхронизируем
+            // их сразу после восстановления, чтобы не требовать перезапуска приложения.
+            SharedPreferences global = MessagesController.getGlobalMainSettings();
+            SharedConfig.useSystemEmoji = global.getBoolean("useSystemEmoji", SharedConfig.useSystemEmoji);
+            SharedConfig.forceDisableTabletMode = global.getBoolean(
+                    "forceDisableTabletMode", SharedConfig.forceDisableTabletMode);
+            if (global.contains("lite_mode6")) {
+                LiteMode.setAllFlags(global.getInt("lite_mode6", LiteMode.getValue(true)));
+            }
+            DevGramGhostSettings.clearCache();
             return true;
         } catch (Throwable e) {
             return false;
         }
+    }
+
+    private static final java.util.HashSet<String> BACKUP_GLOBAL_KEYS = new java.util.HashSet<>(
+            java.util.Arrays.asList(
+                    "avatarCornersF", "folderTabsStyle", "formatWithSeconds", "stickerSize",
+                    "useSystemEmoji", "forceDisableTabletMode", "lite_mode6", "defaultFolderId",
+                    "senderMiniAvatars", "hideAllChatsTab", "fullRecentStickers",
+                    "showArchivedStickers", "disableQuickReaction", "hideSavedMessagesTags",
+                    "disableAutoplayNextVoice", "disableFlipPhotos", "disableLinkPreviewByDefault",
+                    "disableMotionPhoto", "disablePlayVisibleVideoOnVolume",
+                    "disableRecentFilesAttachment", "enableLastSeenDots", "hideAiEditor",
+                    "hideSendAs", "mentionByName", "photoHasSticker", "replaceForward",
+                    "satelliteDataSaving", "translate_to_language"));
+
+    private static final java.util.HashSet<String> BACKUP_ACCOUNT_KEYS = new java.util.HashSet<>(
+            java.util.Arrays.asList("translate_button", "translate_chat_button"));
+
+    private static boolean isSensitiveBackupKey(String key) {
+        if (key == null) return true;
+        String lower = key.toLowerCase(java.util.Locale.US);
+        return lower.contains("token") || lower.contains("password") || lower.contains("secret")
+                || lower.startsWith("auth") || lower.contains("_auth") || "dg_aikey".equals(lower)
+                || "dg_aiservices".equals(lower) || "dg_aihistory".equals(lower)
+                || lower.startsWith("betatoken");
+    }
+
+    private static boolean isBackupGlobalKey(String key) {
+        return key != null && !isSensitiveBackupKey(key)
+                && (key.startsWith("dg_") || BACKUP_GLOBAL_KEYS.contains(key));
+    }
+
+    private static org.json.JSONObject exportAccountPreferences(SharedPreferences source)
+            throws org.json.JSONException {
+        return exportPreferences(source, 2);
+    }
+
+    private static org.json.JSONObject exportPreferences(SharedPreferences source, boolean global)
+            throws org.json.JSONException {
+        return exportPreferences(source, global ? 1 : 0);
+    }
+
+    private static org.json.JSONObject exportPreferences(SharedPreferences source, int scope)
+            throws org.json.JSONException {
+        org.json.JSONObject result = new org.json.JSONObject();
+        if (source == null) return result;
+        for (java.util.Map.Entry<String, ?> entry : source.getAll().entrySet()) {
+            String key = entry.getKey();
+            if (isSensitiveBackupKey(key)) continue;
+            if (scope == 1 && !isBackupGlobalKey(key)) continue;
+            if (scope == 2 && !BACKUP_ACCOUNT_KEYS.contains(key)) continue;
+            org.json.JSONObject encoded = encodePreference(entry.getValue());
+            if (encoded != null) result.put(key, encoded);
+        }
+        return result;
+    }
+
+    private static org.json.JSONObject encodePreference(Object value) throws org.json.JSONException {
+        if (value == null) return null;
+        org.json.JSONObject encoded = new org.json.JSONObject();
+        if (value instanceof Boolean) {
+            encoded.put("type", "boolean").put("value", value);
+        } else if (value instanceof Integer) {
+            encoded.put("type", "int").put("value", value);
+        } else if (value instanceof Long) {
+            encoded.put("type", "long").put("value", String.valueOf(value));
+        } else if (value instanceof Float) {
+            encoded.put("type", "float").put("value", String.valueOf(value));
+        } else if (value instanceof String) {
+            encoded.put("type", "string").put("value", value);
+        } else if (value instanceof java.util.Set) {
+            org.json.JSONArray values = new org.json.JSONArray();
+            java.util.ArrayList<String> sorted = new java.util.ArrayList<>();
+            for (Object item : (java.util.Set<?>) value) sorted.add(String.valueOf(item));
+            java.util.Collections.sort(sorted);
+            for (String item : sorted) values.put(item);
+            encoded.put("type", "strings").put("value", values);
+        } else {
+            return null;
+        }
+        return encoded;
+    }
+
+    private static void importAccountPreferences(org.json.JSONObject data, SharedPreferences target)
+            throws org.json.JSONException {
+        importPreferences(data, target, 2);
+    }
+
+    private static void importPreferences(org.json.JSONObject data, SharedPreferences target,
+                                          boolean global) throws org.json.JSONException {
+        importPreferences(data, target, global ? 1 : 0);
+    }
+
+    private static void importPreferences(org.json.JSONObject data, SharedPreferences target, int scope)
+            throws org.json.JSONException {
+        if (data == null || target == null) return;
+        SharedPreferences.Editor editor = target.edit();
+        java.util.Iterator<String> keys = data.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            if (isSensitiveBackupKey(key)) continue;
+            if (scope == 1 && !isBackupGlobalKey(key)) continue;
+            if (scope == 2 && !BACKUP_ACCOUNT_KEYS.contains(key)) continue;
+            org.json.JSONObject encoded = data.optJSONObject(key);
+            if (encoded == null) continue;
+            String type = encoded.optString("type", "");
+            Object value = encoded.opt("value");
+            switch (type) {
+                case "boolean": editor.putBoolean(key, encoded.optBoolean("value")); break;
+                case "int": editor.putInt(key, encoded.optInt("value")); break;
+                case "long": editor.putLong(key, Long.parseLong(String.valueOf(value))); break;
+                case "float": editor.putFloat(key, Float.parseFloat(String.valueOf(value))); break;
+                case "string": editor.putString(key, encoded.optString("value", "")); break;
+                case "strings":
+                    org.json.JSONArray array = encoded.optJSONArray("value");
+                    if (array == null) break;
+                    java.util.HashSet<String> strings = new java.util.HashSet<>();
+                    for (int i = 0; i < array.length(); i++) strings.add(array.optString(i));
+                    editor.putStringSet(key, strings);
+                    break;
+            }
+        }
+        editor.apply();
     }
 
     // Режим призрака активен, когда скрыты все три индикатора активности.

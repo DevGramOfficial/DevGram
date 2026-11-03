@@ -25,6 +25,7 @@ public class DevGramSettingsIO {
             {"sendOfflineAfterOnline", "Офлайн после активности"},
             {"markReadAfterAction", "Прочитать после действия"},
             {"useScheduledMessages", "Отложенная отправка в режиме призрака"},
+            {"sendWithoutSound", "Отправка без звука в режиме призрака"},
             {"suggestGhostBeforeStory", "Предлагать режим перед историей"},
             {"useGlobalGhostConfig", "Общие настройки режима призрака"},
             {"disableAds", "Скрывать рекламу"},
@@ -52,6 +53,43 @@ public class DevGramSettingsIO {
             {"hideKeyboardOnScroll", "Скрывать клавиатуру при прокрутке"},
             {"disableGreetingSticker", "Скрыть приветственный стикер"},
             {"addCommaAfterMention", "Запятая после упоминания"},
+            {"removeMessageTail", "Убрать хвост сообщения"},
+            {"replaceEditedWithIcon", "Значок изменённого сообщения"},
+            {"hideShareButton", "Скрыть кнопку пересылки"},
+            {"hideStickerTime", "Скрыть время на стикерах"},
+            {"inlineCalc", "Результаты в поле ввода"},
+            {"inlineMath", "Калькулятор"},
+            {"inlineCurrency", "Курсы валют"},
+            {"inlineUnits", "Единицы измерения"},
+            {"inlineTimeZones", "Часовые пояса"},
+            {"inlineTargetCurrency", "Целевая валюта"},
+            {"inlineAngleUnit", "Единицы углов"},
+            {"inlineMeasureSystem", "Система измерения"},
+            {"inlineDigitGrouping", "Разделение разрядов"},
+            {"weatherInStories", "Погода в историях"},
+            {"updateChannel", "Канал обновлений"},
+            {"swipeActions", "Действия свайпом"},
+            {"swipeActionsLoop", "Циклический выбор свайпом"},
+            {"swipeActionsReversed", "Обратное направление свайпа"},
+            {"dg_designMode", "Стиль интерфейса"},
+            {"dg_transitionAnimation", "Анимация переходов"},
+            {"dg_ios_center_chat_title", "Заголовок чата по центру"},
+            {"dg_ios_adaptive_title_width", "Адаптивная ширина заголовка"},
+            {"dg_ios_show_unread_counter", "Счётчик непрочитанных в шапке"},
+            {"dg_ios_unread_counter_style", "Счётчик в стиле iOS"},
+            {"dg_ios_input_panel", "Поле ввода в стиле iOS"},
+            {"dg_ios_notification_sound", "Звук уведомлений"},
+            {"dg_ios_message_menu", "Меню сообщений в стиле iOS"},
+            {"dg_md3", "Material 3"},
+            {"dg_gooey", "Expressive-анимации"},
+            {"avatarCornersF", "Закругление аватарок"},
+            {"folderTabsStyle", "Стиль вкладок папок"},
+            {"stickerSize", "Размер стикеров"},
+            {"formatWithSeconds", "Время с секундами"},
+            {"useSystemEmoji", "Системные эмодзи"},
+            {"forceDisableTabletMode", "Отключить планшетный режим"},
+            {"translate_button", "Кнопка перевода сообщений"},
+            {"translate_chat_button", "Перевод целых чатов"},
     };
 
     // Записать текущие настройки в файл .devgram (в кэше). Возвращает File или null.
@@ -133,16 +171,34 @@ public class DevGramSettingsIO {
             return;
         }
         DevGramConfig.loadConfig();
+        org.json.JSONObject current;
+        try {
+            current = new org.json.JSONObject(DevGramConfig.exportToJson());
+        } catch (Throwable e) {
+            BulletinFactory.of(fragment).createErrorBulletin("Не удалось прочитать текущие настройки").show();
+            return;
+        }
         java.util.ArrayList<String> diffs = new java.util.ArrayList<>();
-        for (String[] kv : LABELS) {
-            String key = kv[0];
-            if (!o.has(key)) {
-                continue;
-            }
-            boolean cur = currentValue(key);
-            boolean neu = o.optBoolean(key, cur);
-            if (cur != neu) {
-                diffs.add("• " + kv[1] + ": " + (cur ? "Вкл" : "Выкл") + " → " + (neu ? "Вкл" : "Выкл"));
+        boolean extended = o.optInt("_formatVersion", 1) >= 2
+                && (o.has("_devgramPreferences") || o.has("_globalPreferences"));
+        if (extended) {
+            appendSnapshotDiffs(diffs, o.optJSONObject("_devgramPreferences"),
+                    current.optJSONObject("_devgramPreferences"));
+            appendSnapshotDiffs(diffs, o.optJSONObject("_globalPreferences"),
+                    current.optJSONObject("_globalPreferences"));
+            appendSnapshotDiffs(diffs, o.optJSONObject("_accountPreferences"),
+                    current.optJSONObject("_accountPreferences"));
+        } else {
+            java.util.Iterator<String> keys = o.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (key.startsWith("_") || !current.has(key)) continue;
+                Object oldValue = current.opt(key);
+                Object newValue = o.opt(key);
+                if (!sameValue(oldValue, newValue)) {
+                    diffs.add("• " + labelFor(key) + ": " + formatValue(oldValue)
+                            + " → " + formatValue(newValue));
+                }
             }
         }
         if (diffs.isEmpty()) {
@@ -152,8 +208,12 @@ public class DevGramSettingsIO {
         final String json = content;
         StringBuilder sb = new StringBuilder();
         sb.append("Отличия (").append(diffs.size()).append("):\n");
-        for (String d : diffs) {
-            sb.append(d).append('\n');
+        int shown = Math.min(diffs.size(), 40);
+        for (int i = 0; i < shown; i++) {
+            sb.append(diffs.get(i)).append('\n');
+        }
+        if (diffs.size() > shown) {
+            sb.append("…и ещё ").append(diffs.size() - shown).append('\n');
         }
         AlertDialog.Builder b = new AlertDialog.Builder(ctx);
         b.setTitle("Импорт настроек DevGram");
@@ -170,43 +230,61 @@ public class DevGramSettingsIO {
         fragment.showDialog(b.create());
     }
 
-    private static boolean currentValue(String key) {
-        switch (key) {
-            case "sendReadPackets": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendReadMessages;
-            case "sendReadStoryPackets": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendReadStories;
-            case "sendOnlinePackets": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendOnline;
-            case "sendUploadTyping": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendTyping;
-            case "sendOfflineAfterOnline": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).sendOfflineAfterOnline;
-            case "markReadAfterAction": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).markReadAfterAction;
-            case "useScheduledMessages": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).useScheduledMessages;
-            case "suggestGhostBeforeStory": return org.telegram.messenger.DevGramGhostSettings.get(org.telegram.messenger.UserConfig.selectedAccount).suggestBeforeStory;
-            case "useGlobalGhostConfig": return org.telegram.messenger.DevGramGhostSettings.useGlobal();
-            case "disableAds": return DevGramConfig.disableAds;
-            case "localPremium": return DevGramConfig.localPremium;
-            case "streaksEnabled": return DevGramConfig.streaksEnabled;
-            case "vpnEnabled": return DevGramConfig.vpnEnabled;
-            case "iosProfile": return DevGramConfig.iosProfile;
-            case "saveDeletedMessages": return DevGramConfig.saveDeletedMessages;
-            case "saveMessagesHistory": return DevGramConfig.saveMessagesHistory;
-            case "saveMedia": return DevGramConfig.saveMedia;
-            case "saveInBotChats": return DevGramConfig.saveInBotChats;
-            case "saveReadDate": return DevGramConfig.saveReadDate;
-            case "saveLocalOnline": return DevGramConfig.saveLocalOnline;
-            case "probeUsingOtherAccounts": return DevGramConfig.probeUsingOtherAccounts;
-            case "analyticsEnabled": return DevGramConfig.analyticsEnabled;
-            case "crashlyticsEnabled": return DevGramConfig.crashlyticsEnabled;
-            case "disableNumberRounding": return DevGramConfig.disableNumberRounding;
-            case "squareFab": return DevGramConfig.squareFab;
-            case "glassMenu": return DevGramConfig.glassMenu;
-            case "hideEmojiCategories": return DevGramConfig.hideEmojiCategories;
-            case "forceSnow": return DevGramConfig.forceSnow;
-            case "centerTitle": return DevGramConfig.centerTitle;
-            case "displayGhostStatus": return DevGramConfig.displayGhostStatus;
-            case "disableMarkdown": return DevGramConfig.disableMarkdown;
-            case "hideKeyboardOnScroll": return DevGramConfig.hideKeyboardOnScroll;
-            case "disableGreetingSticker": return DevGramConfig.disableGreetingSticker;
-            case "addCommaAfterMention": return DevGramConfig.addCommaAfterMention;
-            default: return false;
+    private static void appendSnapshotDiffs(java.util.ArrayList<String> diffs,
+                                            org.json.JSONObject imported,
+                                            org.json.JSONObject current) {
+        if (imported == null) return;
+        java.util.Iterator<String> keys = imported.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            org.json.JSONObject newEntry = imported.optJSONObject(key);
+            org.json.JSONObject oldEntry = current == null ? null : current.optJSONObject(key);
+            if (newEntry == null || sameValue(oldEntry, newEntry)) continue;
+            Object oldValue = oldEntry == null ? null : oldEntry.opt("value");
+            Object newValue = newEntry.opt("value");
+            diffs.add("• " + labelFor(key) + ": " + formatValue(oldValue)
+                    + " → " + formatValue(newValue));
         }
+    }
+
+    private static boolean sameValue(Object a, Object b) {
+        if (a == b) return true;
+        if (a == null || a == org.json.JSONObject.NULL || b == null || b == org.json.JSONObject.NULL) {
+            return false;
+        }
+        if (a instanceof org.json.JSONObject && b instanceof org.json.JSONObject) {
+            org.json.JSONObject ao = (org.json.JSONObject) a;
+            org.json.JSONObject bo = (org.json.JSONObject) b;
+            return ao.optString("type").equals(bo.optString("type"))
+                    && sameValue(ao.opt("value"), bo.opt("value"));
+        }
+        if (a instanceof org.json.JSONArray && b instanceof org.json.JSONArray) {
+            return a.toString().equals(b.toString());
+        }
+        if (a instanceof Number && b instanceof Number) {
+            return Double.compare(((Number) a).doubleValue(), ((Number) b).doubleValue()) == 0;
+        }
+        return String.valueOf(a).equals(String.valueOf(b));
+    }
+
+    private static String formatValue(Object value) {
+        if (value == null || value == org.json.JSONObject.NULL) return "По умолчанию";
+        if (value instanceof Boolean) return (Boolean) value ? "Вкл" : "Выкл";
+        if (value instanceof org.json.JSONArray) {
+            return ((org.json.JSONArray) value).length() + " знач.";
+        }
+        String text = String.valueOf(value);
+        if (text.isEmpty()) return "Пусто";
+        return text.length() > 48 ? text.substring(0, 45) + "…" : text;
+    }
+
+    private static String labelFor(String key) {
+        for (String[] pair : LABELS) {
+            if (pair[0].equals(key)) return pair[1];
+        }
+        String clean = key == null ? "Настройка" : key;
+        if (clean.startsWith("dg_")) clean = clean.substring(3);
+        clean = clean.replace('_', ' ');
+        return clean.isEmpty() ? "Настройка" : Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
     }
 }
