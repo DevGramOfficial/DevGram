@@ -9,6 +9,7 @@ import android.os.Environment
 import android.util.Log
 import android.widget.Toast
 import androidx.core.net.toUri
+import java.io.File
 
 class DownloadManagerUtil(private val mContext: Context) {
 
@@ -41,13 +42,19 @@ class DownloadManagerUtil(private val mContext: Context) {
         return true
     }
 
-    fun download(url: String, title: String, desc: String): Long {
+    fun download(url: String, title: String, desc: String, fileName: String): Long {
         val uri = url.toUri()
         val req = DownloadManager.Request(uri)
         req.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_MOBILE or DownloadManager.Request.NETWORK_WIFI)
         req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 
-        req.setDestinationInExternalFilesDir(mContext, Environment.DIRECTORY_DOWNLOADS, "$title.apk")
+        // Детерминированное имя позволяет повторно найти APK после закрытия уведомления. Старый
+        // битый файл с тем же именем удаляем до enqueue, иначе DownloadManager завершится ошибкой.
+        mContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { dir ->
+            val target = File(dir, fileName)
+            if (target.exists()) target.delete()
+        }
+        req.setDestinationInExternalFilesDir(mContext, Environment.DIRECTORY_DOWNLOADS, fileName)
 
         req.setTitle(title)
         req.setDescription(desc)

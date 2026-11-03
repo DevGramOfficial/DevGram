@@ -3,9 +3,13 @@ package org.telegram.messenger.forkgram
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
+import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import org.json.JSONArray
 import org.json.JSONObject
 import org.telegram.messenger.AndroidUtilities
@@ -28,6 +32,7 @@ object AppUpdater {
     private const val DESC = ""
     private const val PREFS_NAME = "AppUpdaterPrefs"
     private const val KEY_LAST_APK_PATH = "lastApkPath"
+    private const val KEY_DOWNLOAD_ID = "downloadId"
 
     private var downloadBroadcastReceiver: DownloadReceiver? = null
     private var lastTimestampOfCheck = 0L
@@ -35,21 +40,17 @@ object AppUpdater {
 
     @JvmStatic
     fun clearCachedInstallers(context: Context) {
-        try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val lastApkPath = prefs.getString(KEY_LAST_APK_PATH, null)
-
-            if (lastApkPath != null) {
-                val apkFile = File(lastApkPath)
-                if (apkFile.exists()) {
-                    apkFile.delete()
-                    android.util.Log.i("DevGram", "Deleted saved APK: $lastApkPath")
-                }
-                prefs.edit().remove(KEY_LAST_APK_PATH).apply()
+        // PackageManager читает метаданные каждого APK, поэтому не задерживаем запуск UI.
+        // Удаляем только установщики самого DevGram: старые/уже установленные и дубликаты.
+        // Один самый новый APK оставляем, если пользователь ещё не завершил установку.
+        val appContext = context.applicationContext
+        Thread({
+            try {
+                pruneCachedInstallers(appContext, 0L, null)
+            } catch (e: Exception) {
+                android.util.Log.e("DevGram", "Error in clearCachedInstallers", e)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("DevGram", "Error in clearCachedInstallers", e)
-        }
+        }, "DevGramApkCleanup").start()
     }
 
     private fun saveApkPath(context: Context, path: String) {
@@ -63,9 +64,147 @@ object AppUpdater {
         }
     }
 
+    private fun rememberDownloadedApk(context: Context, id: Long): File? {
+        if (id <= 0L) return null
+        return try {
+            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            manager.query(DownloadManager.Query().setFilterById(id)).use { cursor ->
+                if (cursor == null || !cursor.moveToFirst()) return null
+                val index = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                if (index < 0) return null
+                val localUri = cursor.getString(index) ?: return null
+                val uri = Uri.parse(localUri)
+                val path = if (uri.scheme == "file") uri.path else localUri.removePrefix("file://")
+                if (path.isNullOrEmpty()) return null
+                val file = File(path)
+                if (!file.exists()) return null
+                saveApkPath(context, file.absolutePath)
+                file
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DevGram", "Unable to remember downloaded APK", e)
+            null
+        }
+    }
+
     @JvmStatic
-    fun saveApkPathPublic(context: Context, path: String) {
-        saveApkPath(context, path)
+    fun onDownloadFinished(context: Context, id: Long) {
+        rememberDownloadedApk(context, id)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().remove(KEY_DOWNLOAD_ID).apply()
+        if (downloadId == id) downloadId = 0L
+    }
+
+    private data class CachedInstaller(val file: File, val versionCode: Long, val versionName: String)
+
+    private fun installedVersionCode(context: Context): Long = try {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
+    } catch (_: Exception) {
+        0L
+    }
+
+    private fun normalizeVersion(value: String?): String {
+        return (value ?: "").trim().removePrefix("v").removePrefix("V")
+    }
+
+    private fun readInstaller(context: Context, file: File): CachedInstaller? {
+        if (!file.isFile || !file.name.endsWith(".apk", true)) return null
+        return try {
+            val info = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0) ?: return null
+            if (info.packageName != context.packageName) return null
+            val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
+            CachedInstaller(file, code, info.versionName ?: "")
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun installerCandidates(context: Context): List<File> {
+        val result = LinkedHashSet<File>()
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.getString(KEY_LAST_APK_PATH, null)?.let { result.add(File(it)) }
+        context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.listFiles()?.forEach {
+            if (it.isFile && it.name.endsWith(".apk", true)) result.add(it)
+        }
+        return result.toList()
+    }
+
+    private fun matchesExpected(installer: CachedInstaller, expectedCode: Long, expectedName: String?): Boolean {
+        if (expectedCode > 0L) return installer.versionCode == expectedCode
+        val wantedName = normalizeVersion(expectedName)
+        return wantedName.isEmpty() || normalizeVersion(installer.versionName) == wantedName
+    }
+
+    /**
+     * Чистит накопившиеся APK обновлений и возвращает уже скачанный ожидаемый установщик.
+     * expectedCode/expectedName пустые при фоновой уборке после запуска приложения.
+     */
+    @Synchronized
+    private fun pruneCachedInstallers(context: Context, expectedCode: Long, expectedName: String?): File? {
+        val installedCode = installedVersionCode(context)
+        val candidates = installerCandidates(context)
+        val valid = ArrayList<CachedInstaller>()
+
+        for (file in candidates) {
+            val installer = readInstaller(context, file)
+            if (installer == null) {
+                // В собственной папке обновлений битый/чужой файл с нашим служебным именем
+                // больше не нужен. Остальные пользовательские APK не трогаем.
+                if (file.parentFile == context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) &&
+                    file.name.startsWith("DevGram", true)) {
+                    file.delete()
+                }
+                continue
+            }
+            if (installer.versionCode <= installedCode) {
+                if (file.delete()) android.util.Log.i("DevGram", "Deleted installed/old APK: ${file.absolutePath}")
+            } else {
+                valid.add(installer)
+            }
+        }
+
+        val expected = valid
+            .filter { matchesExpected(it, expectedCode, expectedName) }
+            .maxWithOrNull(compareBy<CachedInstaller> { it.versionCode }.thenBy { it.file.lastModified() })
+
+        // При обычной уборке оставляем только самый новый незавершённый установщик. При поиске
+        // конкретного релиза оставляем только его, чтобы беты больше не копились гигабайтами.
+        val keep = expected ?: if (expectedCode <= 0L && normalizeVersion(expectedName).isEmpty()) {
+            valid.maxWithOrNull(compareBy<CachedInstaller> { it.versionCode }.thenBy { it.file.lastModified() })
+        } else null
+        for (installer in valid) {
+            if (installer.file != keep?.file && installer.file.delete()) {
+                android.util.Log.i("DevGram", "Deleted obsolete APK: ${installer.file.absolutePath}")
+            }
+        }
+
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (keep != null && keep.file.exists()) {
+            prefs.edit().putString(KEY_LAST_APK_PATH, keep.file.absolutePath).apply()
+            return keep.file
+        }
+        prefs.edit().remove(KEY_LAST_APK_PATH).apply()
+        return null
+    }
+
+    private fun openInstaller(context: Context, apk: File): Boolean {
+        if (!apk.exists()) return false
+        return try {
+            val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                FileProvider.getUriForFile(context, context.packageName + ".provider", apk)
+            } else {
+                Uri.fromFile(apk)
+            }
+            val intent = Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("DevGram", "Unable to open cached APK", e)
+            false
+        }
     }
 
     /**
@@ -101,6 +240,10 @@ object AppUpdater {
     ) {
 
         try {
+            if (downloadId == 0L) {
+                downloadId = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getLong(KEY_DOWNLOAD_ID, 0L)
+            }
             val updateInterval = MessagesController.getGlobalMainSettings().getLong("updateForkCheckInterval", 30 * 60 * 1000L)
             if (!manual && (updateInterval == 0L || System.currentTimeMillis() - lastTimestampOfCheck < updateInterval)) {
                 return
@@ -120,7 +263,12 @@ object AppUpdater {
                     }
                     return
                 }
+                if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                    rememberDownloadedApk(context, downloadId)
+                }
                 downloadId = 0L
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().remove(KEY_DOWNLOAD_ID).apply()
             }
             lastTimestampOfCheck = System.currentTimeMillis()
             val currentVersion = BuildVars.BUILD_VERSION_STRING
@@ -153,8 +301,25 @@ object AppUpdater {
         }
     }
 
+    // Если этот релиз уже скачан, повторно открываем системную установку. В сеть идём только когда
+    // подходящего APK действительно нет или файл повреждён.
+    private fun installOrDownload(context: Context, url: String, expectedCode: Long, expectedName: String?) {
+        val appContext = context.applicationContext
+        Toast.makeText(context, "Проверяю скачанное обновление…", Toast.LENGTH_SHORT).show()
+        Thread({
+            val cached = pruneCachedInstallers(appContext, expectedCode, expectedName)
+            AndroidUtilities.runOnUIThread {
+                if (cached != null && openInstaller(appContext, cached)) {
+                    Toast.makeText(appContext, "Обновление уже скачано", Toast.LENGTH_SHORT).show()
+                } else {
+                    startApkDownload(appContext, url, expectedCode, expectedName)
+                }
+            }
+        }, "DevGramApkReuse").start()
+    }
+
     // Общий запуск скачивания APK через DownloadManager (переиспользуется main/beta).
-    private fun startApkDownload(context: Context, url: String) {
+    private fun startApkDownload(context: Context, url: String, expectedCode: Long, expectedName: String?) {
         if (downloadBroadcastReceiver == null) {
             downloadBroadcastReceiver = DownloadReceiver()
             val intentFilter = IntentFilter()
@@ -169,8 +334,17 @@ object AppUpdater {
         val dm = DownloadManagerUtil(context)
         if (dm.checkDownloadManagerEnable()) {
             if (downloadId != 0L) dm.clearCurrentTask(downloadId)
-            downloadId = dm.download(url, TITLE, DESC)
-            Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
+            val suffix = if (expectedCode > 0L) expectedCode.toString() else
+                normalizeVersion(expectedName).replace(Regex("[^0-9A-Za-z._-]"), "_").ifEmpty { "latest" }
+            downloadId = dm.download(url, TITLE, DESC, "DevGram-update-$suffix.apk")
+            if (downloadId > 0L) {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putLong(KEY_DOWNLOAD_ID, downloadId).apply()
+                Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
+            } else {
+                downloadId = 0L
+                Toast.makeText(context, "Не удалось начать загрузку", Toast.LENGTH_SHORT).show()
+            }
         } else {
             Toast.makeText(context, "Откройте «Загрузки»", Toast.LENGTH_SHORT).show()
         }
@@ -223,7 +397,7 @@ object AppUpdater {
                 builder.setMessageTextViewClickable(false)
                 builder.setNegativeButton("Позже", null)
                 builder.setPositiveButton("Установить") { _, _ ->
-                    try { startApkDownload(context, url) }
+                    try { installOrDownload(context, url, betaCode, vn) }
                     catch (e: Exception) { Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show() }
                 }
                 callback(builder)
@@ -565,30 +739,7 @@ object AppUpdater {
                     builder.setNegativeButton("Позже", null)
                     builder.setPositiveButton("Установить") { _, _ ->
                         try {
-                            if (downloadBroadcastReceiver == null) {
-                                downloadBroadcastReceiver = DownloadReceiver()
-                                val intentFilter = IntentFilter()
-                                intentFilter.addAction(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-                                intentFilter.addAction(DownloadManager.ACTION_NOTIFICATION_CLICKED)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    context.applicationContext.registerReceiver(downloadBroadcastReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED)
-                                } else {
-                                    context.applicationContext.registerReceiver(downloadBroadcastReceiver, intentFilter)
-                                }
-                                android.util.Log.d("DevGram", "DownloadReceiver registered")
-                            }
-
-                            val dm = DownloadManagerUtil(context)
-                            if (dm.checkDownloadManagerEnable()) {
-                                if (downloadId != 0L) {
-                                    dm.clearCurrentTask(downloadId)
-                                }
-                                downloadId = dm.download(url, TITLE, DESC)
-                                android.util.Log.d("DevGram", "Download started with ID: $downloadId")
-                                Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "Откройте «Загрузки»", Toast.LENGTH_SHORT).show()
-                            }
+                            installOrDownload(context, url, 0L, tag)
                         } catch (e: Exception) {
                             android.util.Log.e("DevGram", "Error starting download", e)
                             Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show()

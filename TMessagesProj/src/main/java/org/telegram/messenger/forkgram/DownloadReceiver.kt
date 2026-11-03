@@ -14,7 +14,7 @@ class DownloadReceiver : BroadcastReceiver() {
             val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
             if (AppUpdater.downloadId == id) {
                 installApk(context, id)
-                AppUpdater.downloadId = 0L
+                AppUpdater.onDownloadFinished(context, id)
             }
         } else if (intent.action == DownloadManager.ACTION_NOTIFICATION_CLICKED) {
             val viewDownloadIntent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)
@@ -29,25 +29,6 @@ class DownloadReceiver : BroadcastReceiver() {
         val downloadFileUri = dManager.getUriForDownloadedFile(downloadApkId)
         if (downloadFileUri != null) {
             Log.d("DownloadManager", downloadFileUri.toString())
-
-            // Save APK path for cleanup on next launch
-            try {
-                val query = DownloadManager.Query().setFilterById(downloadApkId)
-                val cursor = dManager.query(query)
-                if (cursor.moveToFirst()) {
-                    val columnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                    if (columnIndex >= 0) {
-                        val localUri = cursor.getString(columnIndex)
-                        if (localUri != null) {
-                            val filePath = localUri.replace("file://", "")
-                            AppUpdater.saveApkPathPublic(context, filePath)
-                        }
-                    }
-                }
-                cursor.close()
-            } catch (e: Exception) {
-                Log.e("DownloadReceiver", "Error saving APK path", e)
-            }
 
             install.setDataAndType(downloadFileUri, "application/vnd.android.package-archive")
             if ((Build.VERSION.SDK_INT >= 24)) {
