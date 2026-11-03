@@ -65,13 +65,19 @@ public final class DevGramPackages {
             final String sha = sha256File(f);
             AndroidUtilities.runOnUIThread(() -> {
                 e.packageSha = sha;
-                // Файл боту — best-effort (у бота должен оказаться файл к моменту одобрения).
-                resolveUsernameThen(account, CATALOG_BOT_USERNAME, (user, chat) -> {
-                    if (user != null) DevGramPlugins.sendFile(user.id, path, "dgpkg:" + e.id);
+                // Сначала подтверждаем запись заявки в Firebase. Раньше файл уходил боту
+                // до записи pending: при просроченном Firebase-токене получался бесхозный
+                // файл, а пользователь видел, что «ничего не пришло» на модерацию.
+                DevGramPlugins.publishToCatalog(e, result -> {
+                    if (result == 1) {
+                        resolveUsernameThen(account, CATALOG_BOT_USERNAME, (user, chat) -> {
+                            if (user != null) {
+                                DevGramPlugins.sendFile(user.id, path, "dgpkg:" + e.id);
+                            }
+                        });
+                    }
+                    cb.onResult(result);
                 });
-                // Заявку регистрируем ВСЕГДА — статус «⏳ На модерации» появится сразу,
-                // как у .plugin (статусы ключуются по id: pending/catalog/rejected).
-                DevGramPlugins.publishToCatalog(e, cb);
             });
         });
     }

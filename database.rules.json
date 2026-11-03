@@ -44,7 +44,7 @@
       ".read": true,
       "$pluginId": {
         ".write": "auth != null && ((!data.exists() && newData.child('submitterUid').val() === auth.uid) || (data.exists() && data.child('submitterUid').val() === auth.uid) || auth.uid === 'cZUBpCEJWVNAZEuChkG52gdgs0K2' || root.child('moderators').child(auth.uid).exists())",
-        ".validate": "newData.hasChildren(['id','name','version','author','source','submitterId','submitterUid','submittedAt']) && newData.child('id').val() === $pluginId && newData.child('submitterId').isNumber() && newData.child('submitterUid').val() === auth.uid && newData.child('submittedAt').isNumber() && newData.child('source').isString() && newData.child('source').val().length <= 1048576"
+        ".validate": "newData.hasChildren(['id','name','version','author','source','submitterId','submitterUid','submittedAt']) && newData.child('id').isString() && newData.child('id').val().matches(/^[A-Za-z0-9_.-]{2,64}$/) && (newData.child('id').val() === $pluginId || newData.child('storageKey').val() === $pluginId) && newData.child('submitterId').isNumber() && newData.child('submitterUid').val() === auth.uid && newData.child('submittedAt').isNumber() && newData.child('source').isString() && newData.child('source').val().length <= 1048576"
       }
     },
     "plugins_catalog": {

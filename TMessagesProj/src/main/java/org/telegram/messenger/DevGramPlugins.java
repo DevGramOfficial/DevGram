@@ -55,6 +55,7 @@ public class DevGramPlugins {
     });
     private static volatile String firebaseAnonToken;
     private static volatile String firebaseAnonUid;
+    private static volatile long firebaseAnonTokenExpiresAt;
     private static volatile java.util.Set<String> verifiedHashes = new java.util.HashSet<>();
     private static final java.util.Map<String, java.util.Set<PyObject>> pendingPluginCallbacks =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -3680,6 +3681,7 @@ public class DevGramPlugins {
     private static org.json.JSONObject entryJson(CatalogEntry e) throws Exception {
         org.json.JSONObject o = new org.json.JSONObject();
         o.put("id", e.id);
+        o.put("storageKey", safeKey(e.id));
         o.put("name", e.name);
         o.put("author", e.author);
         o.put("version", e.version);
@@ -3785,8 +3787,18 @@ public class DevGramPlugins {
                 if (e.submitterUid != null && !e.submitterUid.isEmpty()) {
                     String key = safeKey(e.id);
                     boolean written = false;
-                    final String anonToken = firebaseAnonToken(); // auth для правила /plugins_pending
+                    String anonToken = firebaseAnonToken(); // auth для правила /plugins_pending
                     for (int attempt = 0; attempt < 3 && !written; attempt++) {
+                        if (attempt > 0) {
+                            // Firebase ID tokens expire after roughly an hour. Retrying with the
+                            // same rejected token can never succeed, so refresh it and keep the
+                            // submitter UID in sync with the token used for this write.
+                            anonToken = firebaseAnonToken(true);
+                            e.submitterUid = firebaseAnonUid == null ? "" : firebaseAnonUid;
+                        }
+                        if (anonToken == null || anonToken.isEmpty() || e.submitterUid.isEmpty()) {
+                            continue;
+                        }
                         written = httpVerified("PUT", RTDB + "/plugins_pending/" + key + ".json?auth=" + anonToken, entryJson(e).toString());
                     }
                     if (written && nodeHasKey("plugins_pending", key)) {
@@ -4338,7 +4350,17 @@ public class DevGramPlugins {
     // Package-private (не private): переиспользуется из DevGramStreaks для авторизации
     // запросов к /streaks (тот же анонимный Firebase-аккаунт на пользователя устройства).
     static synchronized String firebaseAnonToken() {
-        if (firebaseAnonToken != null) return firebaseAnonToken;
+        return firebaseAnonToken(false);
+    }
+
+    private static synchronized String firebaseAnonToken(boolean forceRefresh) {
+        long nowMs = System.currentTimeMillis();
+        if (!forceRefresh && firebaseAnonToken != null
+                && firebaseAnonTokenExpiresAt > nowMs + 60_000L) {
+            return firebaseAnonToken;
+        }
+        firebaseAnonToken = null;
+        firebaseAnonTokenExpiresAt = 0L;
         java.net.HttpURLConnection c = null;
         try {
             String savedRefresh = prefs().getString("firebase_refresh", null);
@@ -4353,6 +4375,8 @@ public class DevGramPlugins {
                     org.json.JSONObject refreshed = new org.json.JSONObject(raw);
                     firebaseAnonToken = refreshed.optString("id_token", null);
                     firebaseAnonUid = refreshed.optString("user_id", null);
+                    long expiresIn = refreshed.optLong("expires_in", 3600L);
+                    firebaseAnonTokenExpiresAt = System.currentTimeMillis() + Math.max(60L, expiresIn) * 1000L;
                     String nextRefresh = refreshed.optString("refresh_token", savedRefresh);
                     prefs().edit().putString("firebase_refresh", nextRefresh).putString("firebase_uid", firebaseAnonUid).apply();
                     return firebaseAnonToken;
@@ -4370,6 +4394,8 @@ public class DevGramPlugins {
                 org.json.JSONObject created = new org.json.JSONObject(raw);
                 firebaseAnonToken = created.optString("idToken", null);
                 firebaseAnonUid = created.optString("localId", null);
+                long expiresIn = created.optLong("expiresIn", 3600L);
+                firebaseAnonTokenExpiresAt = System.currentTimeMillis() + Math.max(60L, expiresIn) * 1000L;
                 prefs().edit().putString("firebase_refresh", created.optString("refreshToken", "")).putString("firebase_uid", firebaseAnonUid).apply();
             }
         } catch (Throwable e) { FileLog.e(e); } finally { if (c != null) c.disconnect(); }
