@@ -40,12 +40,17 @@ public final class DevGramBeta {
      * Идемпотентно: если токен уже есть, сразу ok=true.
      */
     public static void activate(final int account, final Callback callback) {
-        if (hasToken(account)) {
-            AndroidUtilities.runOnUIThread(() -> callback.onResult(true, null));
-            return;
-        }
         if (!hasAccess(account)) {
             AndroidUtilities.runOnUIThread(() -> callback.onResult(false, "Нужен значок поддержавшего"));
+            return;
+        }
+        authenticate(account, callback);
+    }
+
+    /** Подтверждает любой подключённый аккаунт для защищённых действий (например, приём значка). */
+    public static void authenticate(final int account, final Callback callback) {
+        if (hasToken(account)) {
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(true, null));
             return;
         }
         // «Вход через Telegram» (без переписки с ботом) — только с согласия пользователя

@@ -68,6 +68,7 @@ public class DevGramBadges {
         public int bgMsg;          // фон профиля: номер поста в архиве (0 — нет), ставит бот после модерации
         public boolean bgVideo;    // фон — видео/GIF (иначе фото)
         public int[] nick;         // цвет ника: 1 цвет или 2 для градиента (null — обычный)
+        public int number;         // уникальный номер выпуска значка поддержавшего
         public Badge(long emojiId, String text) {
             this(emojiId, text, 0);
         }
@@ -618,6 +619,7 @@ public class DevGramBadges {
                 b.border = o.optInt("b", 0);
                 b.bgMsg = o.optInt("g", 0);
                 b.bgVideo = "video".equals(o.optString("gt", ""));
+                b.number = o.optInt("i", 0);
                 org.json.JSONArray n = o.optJSONArray("n");
                 if (n != null && n.length() > 0) {
                     b.nick = new int[Math.min(2, n.length())];
@@ -807,6 +809,64 @@ public class DevGramBadges {
         if ("bad_nick".equals(code)) return "Неподходящий цвет";
         if ("token".equals(code)) return "Не удалось подтвердить аккаунт";
         return "Не удалось сохранить";
+    }
+
+    /** Передаёт номерной значок между двумя подключёнными в клиенте аккаунтами. */
+    public static void transfer(int sourceAccount, int targetAccount, Callback callback) {
+        DevGramBeta.activate(sourceAccount, (sourceOk, sourceError) -> {
+            if (!sourceOk) {
+                callback.onResult(false, sourceError);
+                return;
+            }
+            DevGramBeta.authenticate(targetAccount, (targetOk, targetError) -> {
+                if (!targetOk) {
+                    callback.onResult(false, targetError);
+                    return;
+                }
+                final long sourceUid = UserConfig.getInstance(sourceAccount).getClientUserId();
+                final long targetUid = UserConfig.getInstance(targetAccount).getClientUserId();
+                Utilities.globalQueue.postRunnable(() -> {
+                    boolean ok = false;
+                    String error = null;
+                    try {
+                        JSONObject req = new JSONObject();
+                        req.put("uid", sourceUid);
+                        req.put("token", DevGramConfig.getBetaToken(sourceUid));
+                        req.put("target_uid", targetUid);
+                        req.put("target_token", DevGramConfig.getBetaToken(targetUid));
+                        String[] errorBody = new String[1];
+                        String response = httpSendWithError("POST", RTDB_BASE + "/badges/transfer", req.toString(), errorBody);
+                        String body = response != null ? response : errorBody[0];
+                        if (body != null && body.trim().startsWith("{")) {
+                            JSONObject result = new JSONObject(body);
+                            ok = result.optBoolean("ok", false);
+                            error = result.optString("error", null);
+                        }
+                    } catch (Throwable e) {
+                        FileLog.e(e);
+                    }
+                    final boolean finalOk = ok;
+                    final String finalError = error;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (finalOk) {
+                            syncFromCloud();
+                            callback.onResult(true, null);
+                        } else {
+                            callback.onResult(false, transferErrorText(finalError));
+                        }
+                    });
+                });
+            });
+        });
+    }
+
+    private static String transferErrorText(String code) {
+        if ("target_has_badge".equals(code)) return "У этого аккаунта уже есть значок";
+        if ("cooldown".equals(code)) return "Значок можно передавать не чаще одного раза в 30 дней";
+        if ("not_supporter".equals(code)) return "Значок поддержавшего не найден";
+        if ("same_account".equals(code)) return "Выберите другой аккаунт";
+        if ("token".equals(code) || "target_token".equals(code)) return "Не удалось подтвердить аккаунт";
+        return "Не удалось передать значок";
     }
 
     // как httpSend, но тело ошибки (не 2xx) отдаётся в errorBody[0]
@@ -1093,6 +1153,12 @@ public class DevGramBadges {
     // Плашка по тапу на значок: иконка = выданный значок (кастом-эмодзи), текст — многострочный (не режется).
     public static void showBadgeBulletin(org.telegram.ui.Components.BulletinFactory bf, long dialogId, CharSequence name) {
         if (bf == null) {
+            return;
+        }
+        org.telegram.ui.ActionBar.BaseFragment baseFragment = org.telegram.ui.LaunchActivity.getSafeLastFragment();
+        Badge badge = badgeOf(dialogId);
+        if (baseFragment != null && badge != null && hasSupporterFeatures(dialogId)) {
+            org.telegram.ui.Components.DevGramSupporterBadgeSheet.show(baseFragment, dialogId, name, badge);
             return;
         }
         CharSequence text = badgeText(dialogId, name);
