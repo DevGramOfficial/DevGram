@@ -122,11 +122,11 @@ public final class DevGramSupporterBadgeSheet {
 
             ButtonWithCounterView primary = new ButtonWithCounterView(getContext(), true, resourcesProvider);
             primary.setRound();
-            primary.setText(own ? "Настроить значок" : "Как получить значок", false);
+            primary.setText(own ? "Настройки для поддержавших" : "Как получить значок", false);
             primary.setOnClickListener(v -> {
                 dismiss();
                 if (own) {
-                    fragment.presentFragment(new DevGramBadgeChoiceActivity());
+                    fragment.presentFragment(new DevGramSupporterActivity());
                 } else {
                     DevGramSupportSheet.show(fragment);
                 }
