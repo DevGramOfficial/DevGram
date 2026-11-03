@@ -6264,7 +6264,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int getActionsExtraHeight(boolean withPills) {
         if (userId != 0 && imageUpdater != null && !myProfile)
             return 0;
-        return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight();
+        return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight()
+                + dp(withPills && (hasMusic || hasBalance) ? 25 : 0);
     }
 
     private int getHeaderExtraHeight() {
@@ -11777,7 +11778,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             actionsView.updatePosition(listView.getMeasuredWidth(), org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         } else {
             actionsView.clipHeight = -1;
-            float bottom = extraHeight + newTop;
+            float bottom = extraHeight + newTop - dp((hasMusic || hasBalance) ? 25 : 0);
             float height = Math.min(org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), bottom - newTop);
             actionsView.updatePosition(bottom - height, height);
         }
