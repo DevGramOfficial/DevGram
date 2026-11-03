@@ -123,6 +123,8 @@ import org.telegram.ui.Components.ScrimOptions;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.utils.Blur3Utils;
+import org.telegram.ui.Wallet.GramWallet;
+import org.telegram.ui.Wallet.WalletActivity;
 import org.telegram.ui.Wallet.WalletSendEnterAmount;
 import org.telegram.ui.recyclerview.LinearSmoothScrollerCustom;
 import androidx.recyclerview.widget.RecyclerView;
@@ -2330,6 +2332,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         getNotificationCenter().addObserver(this, NotificationCenter.userIsPremiumBlockedUpadted);
         getNotificationCenter().addObserver(this, NotificationCenter.currentUserPremiumStatusChanged);
         getNotificationCenter().addObserver(this, NotificationCenter.starBalanceUpdated);
+        getNotificationCenter().addObserver(this, NotificationCenter.walletUpdate);
         getNotificationCenter().addObserver(this, NotificationCenter.botStarsUpdated);
         getNotificationCenter().addObserver(this, NotificationCenter.botStarsTransactionsLoaded);
         getNotificationCenter().addObserver(this, NotificationCenter.dialogDeleted);
@@ -2483,6 +2486,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         getNotificationCenter().removeObserver(this, NotificationCenter.userIsPremiumBlockedUpadted);
         getNotificationCenter().removeObserver(this, NotificationCenter.currentUserPremiumStatusChanged);
         getNotificationCenter().removeObserver(this, NotificationCenter.starBalanceUpdated);
+        getNotificationCenter().removeObserver(this, NotificationCenter.walletUpdate);
         getNotificationCenter().removeObserver(this, NotificationCenter.botStarsUpdated);
         getNotificationCenter().removeObserver(this, NotificationCenter.botStarsTransactionsLoaded);
         getNotificationCenter().removeObserver(this, NotificationCenter.dialogDeleted);
@@ -3984,6 +3988,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                             balanceView,
                             getMessagesController().getUser(userId),
                             userInfo.wallet_card));
+                } else if (getParentActivity() != null) {
+                    presentFragment(new WalletActivity());
                 }
             });
             if (avatarsBlurView != null) {
@@ -9745,6 +9751,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             updateEditColorIcon();
         } else if (id == NotificationCenter.starBalanceUpdated) {
             updateListAnimated(false);
+        } else if (id == NotificationCenter.walletUpdate) {
+            if (balanceView != null && myProfile) {
+                balanceView.setBalance(GramWallet.getInstance(currentAccount).getBalance());
+            }
         } else if (id == NotificationCenter.botStarsUpdated) {
             updateListAnimated(false);
         } else if (id == NotificationCenter.botStarsTransactionsLoaded) {
@@ -10949,8 +10959,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         channelBalanceRow = -1;
         balanceDividerRow = -1;
         hasMusic = false;
-        hasBalance = balanceView != null && userId != 0 && userInfo != null && userInfo.wallet_card != null
-                && (imageUpdater == null || myProfile);
+        // Показываем собственный баланс сразу: wallet_card относится к публичной карточке и
+        // может ещё отсутствовать, хотя локальный Gram-кошелёк уже доступен.
+        hasBalance = balanceView != null && userId != 0 && myProfile;
 
         forkHeaderRow = forkRow = forkCheckUpdateRow = forkSectionCell = -1;
 
@@ -11476,7 +11487,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             musicView.setVisibility(hasMusic ? View.VISIBLE : View.GONE);
             if (hasBalance) {
-                balanceView.setBalance(userInfo.wallet_card.balance);
+                balanceView.setBalance(GramWallet.getInstance(currentAccount).getBalance());
             }
             balanceView.setVisibility(hasBalance ? View.VISIBLE : View.GONE);
             musicView.invalidate();
