@@ -118,6 +118,14 @@ public class UItem extends AdapterWithDiffUtils.Item {
         i.intValue = heightDp;
         return i;
     }
+
+    /** A Cherrygram-style preview row which keeps the settings section background. */
+    public static UItem asCustomWithBackground(View view, int heightDp) {
+        UItem i = new UItem(UniversalAdapter.VIEW_TYPE_CUSTOM_WITH_BACKGROUND, false);
+        i.view = view;
+        i.intValue = heightDp;
+        return i;
+    }
     public static UItem asCustomShadow(View view, int heightDp) {
         UItem i = new UItem(UniversalAdapter.VIEW_TYPE_CUSTOM_SHADOW, false);
         i.view = view;
@@ -947,6 +955,15 @@ public class UItem extends AdapterWithDiffUtils.Item {
 
     private static LongSparseArray<UItemFactory<?>> factories;
     private static HashMap<Class<? extends UItemFactory<?>>, UItemFactory<?>> factoryInstances;
+
+    /** Hides the switch while keeping the expandable row and its disclosure arrow. */
+    public boolean checkboxHidden;
+
+    public UItem hideCheckbox(boolean hidden) {
+        checkboxHidden = hidden;
+        return this;
+    }
+
     public static UItemFactory<?> findFactory(int viewType) {
         if (factories == null) return null;
         return factories.get(viewType);

@@ -118,6 +118,8 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
     public static final int VIEW_TYPE_ANIMATED_HEADER = 42;
     public static final int VIEW_TYPE_TEXT_SETTINGS = 43;
     public static final int VIEW_TYPE_RADIO_2 = 44;
+    /** Cherrygram preview row: identical to a custom row, but participates in the white settings surface. */
+    public static final int VIEW_TYPE_CUSTOM_WITH_BACKGROUND = 102;
 
     protected final RecyclerListView listView;
     private final Context context;
@@ -377,6 +379,7 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             case VIEW_TYPE_SWITCH:
             case VIEW_TYPE_EXPANDABLE_SWITCH:
             case VIEW_TYPE_TEXT_SETTINGS:
+            case VIEW_TYPE_CUSTOM_WITH_BACKGROUND:
                 return true;
         }
         return false;
@@ -445,6 +448,7 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
                 break;
             case VIEW_TYPE_CUSTOM:
             case VIEW_TYPE_CUSTOM_SHADOW:
+            case VIEW_TYPE_CUSTOM_WITH_BACKGROUND:
                 view = new FrameLayout(context) {
                     @Override
                     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -826,6 +830,7 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             case VIEW_TYPE_CUSTOM:
             case VIEW_TYPE_CUSTOM_SHADOW:
             case VIEW_TYPE_FULLY_CUSTOM:
+            case VIEW_TYPE_CUSTOM_WITH_BACKGROUND:
                 FrameLayout frameLayout = (FrameLayout) holder.itemView;
                 frameLayout.setClipChildren(!item.checked);
                 frameLayout.setClipToPadding(!item.checked);
@@ -834,7 +839,8 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
                     if (item.view != null) {
                         AndroidUtilities.removeFromParent(item.view);
                         FrameLayout.LayoutParams lp;
-                        if (viewType == VIEW_TYPE_CUSTOM || viewType == VIEW_TYPE_CUSTOM_SHADOW) {
+                        if (viewType == VIEW_TYPE_CUSTOM || viewType == VIEW_TYPE_CUSTOM_SHADOW
+                                || viewType == VIEW_TYPE_CUSTOM_WITH_BACKGROUND) {
                             lp = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, item.intValue);
                         } else {
                             lp = LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT);
@@ -1054,6 +1060,7 @@ public class UniversalAdapter extends AdapterWithDiffUtils {
             case VIEW_TYPE_EXPANDABLE_SWITCH:
                 TextCheckCell2 switchCell = (TextCheckCell2) holder.itemView;
                 switchCell.setTextAndCheck(item.text.toString(), item.checked, divider, switchCell.id == item.id);
+                switchCell.setCheckBoxHidden(item.checkboxHidden);
                 switchCell.getCheckBox().setDrawIconType(item.intValue);
                 switchCell.getCheckBox().setColors(item.intValue == 0 ? Theme.key_switchTrack : Theme.key_fill_RedNormal,
                     Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);

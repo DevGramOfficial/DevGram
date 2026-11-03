@@ -153,6 +153,7 @@ public class NotificationsController extends BaseController implements Notificat
     private long lastSoundOutPlay;
     private SoundPool soundPool;
     private int soundIn;
+    private int soundInResource;
     private int soundOut;
     private int soundRecord;
     private boolean soundInLoaded;
@@ -1261,7 +1262,9 @@ public class NotificationsController extends BaseController implements Notificat
                 long topicId = MessageObject.getTopicId(currentAccount, messageObject.messageOwner, getMessagesController().isForum(messageObject));
                 if (dialogId == openedDialogId && ApplicationLoader.isScreenOn && !messageObject.isStoryReactionPush && !messageObject.isOauthPush) {
                     if (!isFcm) {
-                        playInChatSound();
+                        if (DevGramIOSConfig.notificationSound() != DevGramIOSConfig.NOTIFICATION_SOUND_DISABLED) {
+                            playInChatSound();
+                        }
                     }
                     if (BuildVars.LOGS_ENABLED) {
                         FileLog.d("skipped message because chat is already opened (openedDialogId = " + openedDialogId + ")");
@@ -3434,9 +3437,17 @@ public class NotificationsController extends BaseController implements Notificat
                             }
                         });
                     }
+                    int desiredSound = DevGramIOSConfig.notificationSound() == DevGramIOSConfig.NOTIFICATION_SOUND_IOS
+                            ? R.raw.sound_in_ios : R.raw.sound_in;
+                    if (soundIn != 0 && soundInResource != desiredSound) {
+                        soundPool.unload(soundIn);
+                        soundIn = 0;
+                        soundInLoaded = false;
+                    }
                     if (soundIn == 0 && !soundInLoaded) {
                         soundInLoaded = true;
-                        soundIn = soundPool.load(ApplicationLoader.applicationContext, R.raw.sound_in, 1);
+                        soundInResource = desiredSound;
+                        soundIn = soundPool.load(ApplicationLoader.applicationContext, desiredSound, 1);
                     }
                     if (soundIn != 0) {
                         try {

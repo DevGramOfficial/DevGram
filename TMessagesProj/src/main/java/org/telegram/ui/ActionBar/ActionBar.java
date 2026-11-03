@@ -21,6 +21,7 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -30,6 +31,8 @@ import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.VectorDrawable;
 import android.text.SpannableString;
 import android.text.TextPaint;
@@ -62,6 +65,7 @@ import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.ChatAvatarContainer;
 import org.telegram.ui.Components.CubicBezierInterpolator;
+import org.telegram.ui.Components.CounterView;
 import org.telegram.ui.Components.EllipsizeSpanAnimator;
 import org.telegram.ui.Components.FireworksEffect;
 import org.telegram.ui.Components.LayoutHelper;
@@ -96,7 +100,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     private BlurredBackgroundDrawable glassDrawableMenu;
     private int glassAvatarCorners = AndroidUtilities.AVATAR_CORNERS_ROUND;
     private INavigationLayout.BackButtonState backButtonState = INavigationLayout.BackButtonState.BACK;
-    public ImageView backButtonImageView;
+    public UnreadImageView backButtonImageView;
     private BackupImageView avatarSearchImageView;
     private Drawable backButtonDrawable;
     private final SimpleTextView[] titleTextView = new SimpleTextView[2];
@@ -297,12 +301,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         setBackground(null);
         setClipChildren(false);
         glassMode = true;
-        glassModeIsForum = isForum;
+        glassModeIsForum = isForum && !isTitleCentered();
 
         glassDrawable = factory.create(this)
             .setColorProvider(colorProvider)
             .setPadding(glassPadding);
-        if (isForum) {
+        if (glassModeIsForum) {
             glassDrawable.setRadius(dp(18.33f), dp(23), dp(23), dp(18.33f));
         } else {
             glassDrawable.setRadius(dp(23));
@@ -371,7 +375,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         if (backButtonImageView != null) {
             return;
         }
-        backButtonImageView = new ImageView(getContext());
+        backButtonImageView = new UnreadImageView(getContext());
         backButtonImageView.setScaleType(ImageView.ScaleType.CENTER);
         backButtonImageView.setBackgroundDrawable(Theme.createSelectorDrawable(itemsBackgroundColor));
         backButtonImageView.setPadding(dp(1), 0, 0, 0);
@@ -636,9 +640,6 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
         titleTextView[i] = new SimpleTextView(getContext());
         titleTextView[i].devgramHideStatusGate = true; // DevGram: «Скрыть статус» прячет эмодзи-статус в шапке
-        if (org.telegram.messenger.DevGramConfig.centerTitle) { // DevGram (как exteraGram): заголовок по центру
-            isCenterTitle = true;
-        }
         titleTextView[i].setGravity(isCenterTitle ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
         if (titleColorToSet != 0) {
             titleTextView[i].setTextColor(titleColorToSet);
@@ -1532,8 +1533,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         int textLeft;
         if (backButtonImageView != null && backButtonImageView.getVisibility() != GONE) {
-            backButtonImageView.measure(MeasureSpec.makeMeasureSpec(dp(54), MeasureSpec.EXACTLY), actionBarHeightSpec);
+            measureBackButton(actionBarHeightSpec);
             textLeft = dp(AndroidUtilities.isTablet() ? 80 : 72);
+            if (countLayout != null) {
+                countLayout.measure(MeasureSpec.makeMeasureSpec(dp(100), MeasureSpec.EXACTLY), actionBarHeightSpec);
+                updateBackPillWidth(true);
+            }
         } else {
             textLeft = dp(AndroidUtilities.isTablet() ? 26 : 18);
         }
@@ -1569,7 +1574,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             if (titleTextView[0] != null && titleTextView[0].getVisibility() != GONE || subtitleTextView != null && subtitleTextView.getVisibility() != GONE) {
                 // A closing search field keeps filling the menu during its fade-out; don't squeeze the title for it.
                 int titleMenuWidth = menu != null ? menu.getMeasuredWidth() - (isSearchFieldVisible ? 0 : menu.getClosingSearchFieldWidth()) : 0;
-                int availableWidth = width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
+                int availableWidth = isTitleCentered() ? width - dp(120) : width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
                 availableWidth = Math.max(availableWidth, 0);
 
                 if (((fromBottom && i == 0) || (!fromBottom && i == 1)) && overlayTitleAnimation && titleAnimationRunning) {
@@ -1629,7 +1634,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {
             View child = getChildAt(i);
-            if (child.getVisibility() == GONE || child == titleTextView[0] || child == titleTextView[1] || child == additionalSubTitleOverlayContainer || child == subtitleTextView || child == menu || child == backButtonImageView || child == additionalSubtitleTextView || child == avatarSearchImageView) {
+            if (child.getVisibility() == GONE || child == titleTextView[0] || child == titleTextView[1] || child == additionalSubTitleOverlayContainer || child == subtitleTextView || child == menu || child == backButtonImageView || child == countLayout || child == additionalSubtitleTextView || child == avatarSearchImageView) {
                 continue;
             }
             measureChildWithMargins(child, widthMeasureSpec, 0, MeasureSpec.makeMeasureSpec(getMeasuredHeight(), MeasureSpec.EXACTLY), 0);
@@ -1654,6 +1659,17 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         if (backButtonImageView != null && backButtonImageView.getVisibility() != GONE) {
             backButtonImageView.layout(0, additionalTop, backButtonImageView.getMeasuredWidth(), additionalTop + backButtonImageView.getMeasuredHeight());
             textLeft = glassMode ? dp(76) : dp(AndroidUtilities.isTablet() ? 80 : 72);
+            if (countLayout != null) {
+                if (iOSUnreadBadgeAvailable()) {
+                    int cw = countLayout.getMeasuredWidth();
+                    int ch = countLayout.getMeasuredHeight();
+                    int cl = dp(BACK_COUNTER_LEFT_OFFSET_DP);
+                    int ct = additionalTop + (backButtonImageView.getMeasuredHeight() - ch) / 2;
+                    countLayout.layout(cl, ct, cl + cw, ct + ch);
+                } else {
+                    countLayout.layout(dp(30), additionalTop - dp(15), countLayout.getMeasuredWidth(), additionalTop + countLayout.getMeasuredHeight());
+                }
+            }
         } else {
             textLeft = glassMode ? dp(24) : dp(AndroidUtilities.isTablet() ? 26 : 18);
         }
@@ -1705,7 +1721,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {
             View child = getChildAt(i);
-            if (child.getVisibility() == GONE || child == titleTextView[0] || child == titleTextView[1] || child == additionalSubTitleOverlayContainer || child == subtitleTextView || child == menu || child == backButtonImageView || child == additionalSubtitleTextView || child == avatarSearchImageView) {
+            if (child.getVisibility() == GONE || child == titleTextView[0] || child == titleTextView[1] || child == additionalSubTitleOverlayContainer || child == subtitleTextView || child == menu || child == backButtonImageView || child == countLayout || child == additionalSubtitleTextView || child == avatarSearchImageView) {
                 continue;
             }
 
@@ -2301,28 +2317,42 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     public void checkAvatarContainerWidth(boolean animated) {
-        if (chatAvatarContainer == null) {
+        if (getWidth() == 0) {
             return;
         }
 
-        final boolean hasAvatar = chatAvatarContainer.hasVisibleAvatar();
-        int visualWidth = chatAvatarContainer.getVisualWidth();
-        if (hasAvatar) {
-            //visualWidth = Math.max(visualWidth, dp(168));
+        if (chatAvatarContainer != null) {
+            final boolean hasAvatar = chatAvatarContainer.hasVisibleAvatar();
+            int visualWidth = chatAvatarContainer.getVisualWidth();
+            if (hasAvatar) {
+                //visualWidth = Math.max(visualWidth, dp(168));
+            }
+
+            final int width = Math.min(getMeasuredWidth() - dp(6 + 46 + 6 + 6 + 46 + 6), visualWidth);
+            if (animated) {
+                if (animatorAvatarContainerWidth.getToFactor() != width) {
+                    animatorAvatarContainerWidth.animateTo(width);
+                }
+            } else {
+                animatorAvatarContainerWidth.forceFactor(width);
+            }
+            animatorAvatarContainerHasAvatar.setValue(hasAvatar, animated);
         }
 
-        final int width = Math.min(getMeasuredWidth() - dp(6 + 46 + 6 + 6 + 46 + 6), visualWidth);
-        if (animated) {
-            if (animatorAvatarContainerWidth.getToFactor() != width) {
-                animatorAvatarContainerWidth.animateTo(width);
+        if (isAdaptiveWidthSupported()) {
+            final int targetWidth = getAdaptiveTitleTargetWidth();
+            if (animated) {
+                if (animatorAdaptiveWidth.getToFactor() != targetWidth) {
+                    animatorAdaptiveWidth.animateTo(targetWidth);
+                }
+            } else {
+                animatorAdaptiveWidth.forceFactor(targetWidth);
             }
-        } else {
-            animatorAvatarContainerWidth.forceFactor(width);
         }
-        animatorAvatarContainerHasAvatar.setValue(hasAvatar, animated);
     }
 
     private final FactorAnimator animatorAvatarContainerWidth = new FactorAnimator(0, this, CubicBezierInterpolator.EASE_OUT_QUINT, 380);
+    private final FactorAnimator animatorAdaptiveWidth = new FactorAnimator(0, this, CubicBezierInterpolator.EASE_OUT_QUINT, 380);
     private final BoolAnimator animatorAvatarContainerHasAvatar = new BoolAnimator(0, this, CubicBezierInterpolator.EASE_OUT_QUINT, 380);
 
     private final FactorAnimator animatorMenuItemsWidth = new FactorAnimator(0, this, CubicBezierInterpolator.EASE_OUT_QUINT, 320);
@@ -2330,6 +2360,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     @Override
     public void onFactorChanged(int id, float factor, float fraction, FactorAnimator callee) {
+        if (callee == animatorBackPillWidth) {
+            relayoutBackButtonForPill();
+        }
         invalidate();
     }
 
@@ -2388,7 +2421,11 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         final int s = dp(46);
 
         final float actionModeFactor = getActionModeFactor();
-        final int menuWidthA = hasForcedMenuWidth ? forcedMenuWidth : (int) animatorMenuItemsWidth.getFactor();
+        int defaultMenuWidth = (int) animatorMenuItemsWidth.getFactor();
+        if (chatAvatarContainer == null && menu != null && menu.isCenteredTitle()) {
+            defaultMenuWidth = lerp(Math.max(defaultMenuWidth, s), defaultMenuWidth, searchFactor);
+        }
+        final int menuWidthA = hasForcedMenuWidth ? forcedMenuWidth : defaultMenuWidth;
         final int menuWidth = hasForcedMenuMinWidth ? Math.max((int) (forcedMenuMinWidth * (1f - searchFactor)), menuWidthA) : menuWidthA;
 
         final boolean hasBackButton = backButtonImageView != null && backButtonImageView.getVisibility() == View.VISIBLE;
@@ -2412,30 +2449,84 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         } else {
             final float middlePillFactor = glassOnlyBack ? 0f : (drawGlassMiddlePill ? 1f : searchFactor);
             if (glassDrawable != null && middlePillFactor > 0f) {
-                final int menuWidthWithPadding = menuWidth + (hasForcedMenuWidth ? (menuWidth > 0 ? p : 0) : (int) (p * animatorHasMenuItems.getFloatValue()));
-                // DevGram: в iOS-режиме (hideGlassMenuPill) «⋮» скрыт, а вместо него у
-                // истинного правого края висит отдельная аватарка (16dp отступ + 42dp сама
-                // аватарка = 58dp), не связанная с шириной меню — обычная формула считает
-                // отступ по ширине меню и подгоняет капсулу с названием почти вплотную к
-                // аватарке (были видны «слипшиеся» друг с другом). Резервируем фиксированное
-                // место под аватарку + такой же зазор p, что и у кнопки назад слева.
-                final int rightOffset = hideGlassMenuPill ? dp(58) + p : lerp(menuWidthWithPadding, Math.max(menuWidthWithPadding, p + s), chatAvatarContainer == null ? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
+                int menuWidthWithPadding = menuWidth + ((hasForcedMenuWidth || hasForcedMenuMinWidth)
+                        ? (menuWidth > 0 ? p : 0)
+                        : (int) (p * animatorHasMenuItems.getFloatValue()));
+                // Cherrygram: a centered header uses the actual menu island width,
+                // not an interpolated placeholder. The avatar is subsequently
+                // aligned to that island by ChatAvatarContainer.
+                if (isTitleCentered()) {
+                    menuWidthWithPadding = menuWidth > 0 ? menuWidth + p : 0;
+                }
+                final int rightOffset = lerp(menuWidthWithPadding,
+                        Math.max(menuWidthWithPadding, p + s),
+                        chatAvatarContainer == null ? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
 
-                final int leftDefault = lerp(hasBackButton ? s + p : 0, s + p, chatAvatarContainer == null? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
+                final int leftDefault = lerp(hasBackButton ? getBackPillWidth() - p : 0,
+                        s + p,
+                        chatAvatarContainer == null ? 0f : 1f - animatorAvatarContainerHasAvatar.getFloatValue());
                 final int rightDefault = getWidth() - rightOffset;
                 final int widthDefault = rightDefault - leftDefault;
                 final int left, right;
                 if (chatAvatarContainer != null) {
-                    final int width = lerp(Math.min(widthDefault, (int) animatorAvatarContainerWidth.getFactor() + p * 2), widthDefault, Math.max(searchFactor, actionModeFactor));
+                    final int width = lerp(Math.min(widthDefault,
+                                    (int) animatorAvatarContainerWidth.getFactor() + p * 2),
+                            widthDefault, Math.max(searchFactor, actionModeFactor));
                     left = (rightDefault + leftDefault - width) / 2;
                     right = left + width;
-                    chatAvatarContainer.setTranslationX(left
-                        - ((MarginLayoutParams)(chatAvatarContainer.getLayoutParams())).leftMargin
-                        - chatAvatarContainer.getLeftPadding()
-                        + p + dp(3));
+
+                    final float translationX = left
+                            - ((MarginLayoutParams) chatAvatarContainer.getLayoutParams()).leftMargin
+                            - chatAvatarContainer.getLeftPadding()
+                            + p + dp(3);
+                    chatAvatarContainer.setTranslationX(translationX);
+                    chatAvatarContainer.setPivotX(chatAvatarContainer.getMeasuredWidth() / 2f - translationX);
                 } else {
-                    left = leftDefault;
-                    right = rightDefault;
+                    final int baseLeftDefault = hasBackButton ? s + p : 0;
+                    int textShift = 0;
+
+                    if (isAdaptiveWidthSupported()) {
+                        int width = (int) animatorAdaptiveWidth.getFactor();
+                        if (width <= 0) {
+                            checkAvatarContainerWidth(false);
+                            width = (int) animatorAdaptiveWidth.getFactor();
+                        }
+                        width = Math.min(widthDefault, width);
+
+                        final SimpleTextView title = chatAvatarContainer2.getTitleTextView();
+                        final float contentCenter = chatAvatarContainer2.getWidth() > 0 && title.getWidth() > 0
+                                ? chatAvatarContainer2.getX() + title.getLeft() + title.getWidth() / 2f
+                                : (baseLeftDefault + rightDefault) / 2f;
+                        // The avatar container starts after the back-button slot, so its own
+                        // center is shifted to the right. Using that coordinate for the pill
+                        // made both the real header and the preview visibly off-center. Keep
+                        // the island centered on the ActionBar, then clamp it between the
+                        // dynamically-sized back and menu/avatar islands. The text follows
+                        // the same delta, preserving Cherrygram's adaptive-width animation.
+                        final int contentNaturalLeft = Math.round(contentCenter - width / 2f);
+                        final int centeredLeft = Math.round(getWidth() / 2f - width / 2f);
+
+                        left = Math.max(leftDefault, Math.min(centeredLeft, rightDefault - width));
+                        right = left + width;
+                        textShift = left - contentNaturalLeft;
+                    } else {
+                        left = leftDefault;
+                        right = rightDefault;
+
+                        if (iOSUnreadBadgeAvailable() && !isActionModeShowed()
+                                && hasBackButton && backButtonImageView.getUnreadCount() > 0) {
+                            textShift = Math.max(0, (leftDefault - baseLeftDefault) / 2);
+                        }
+                    }
+
+                    if (chatAvatarContainer2 != null) {
+                        chatAvatarContainer2.setMoveText(iOSUnreadBadgeAvailable() && !isActionModeShowed());
+                        chatAvatarContainer2.getTitleTextView().setTranslationX(textShift);
+                        final View subtitle = chatAvatarContainer2.getSubtitleTextView();
+                        if (subtitle != null) {
+                            subtitle.setTranslationX(textShift);
+                        }
+                    }
                 }
 
                 glassDrawable.setBounds(left, t, right, b);
@@ -2445,7 +2536,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 chatAvatarContainer.setTranslationX(0);
             }
             if (glassDrawableBack != null && hasBackButton) {
-                glassDrawableBack.setBounds(0, t, s + p * 2, b);
+                if (iOSUnreadBadgeAvailable() && countLayout != null) {
+                    int extra = getBackPillCounterExtraWidth();
+                    int fullWidth = Math.max(1, getBackPillCounterTargetWidth());
+                    countLayout.setAlpha(Math.min(1f, extra / (float) fullWidth));
+                }
+                glassDrawableBack.setBounds(0, t, getBackPillWidth(), b);
                 glassDrawableBack.draw(canvas);
             }
             // DevGram: hideGlassMenuPill гасит фон только под «⋮», которую в iOS-режиме
@@ -2456,8 +2552,17 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             // остался бы без подложки. + 12.9.7: учитываем штатный doNotDrawGlassMenu.
             if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu && !(hideGlassMenuPill && !actionModeVisible)) {
                 glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2, t, getWidth(), b);
-                glassDrawableMenu.setAlpha(hasForcedMenuWidth ? 255 : (int) (255 * animatorHasMenuItems.getFloatValue()));
+                glassDrawableMenu.setAlpha(hasForcedMenuWidth || isTitleCentered() ? 255 : (int) (255 * animatorHasMenuItems.getFloatValue()));
                 glassDrawableMenu.draw(canvas);
+            }
+            if (chatAvatarContainer2 != null && chatAvatarContainer2.isCentered() && isAvatarAlignAllowed()) {
+                if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu) {
+                    chatAvatarContainer2.alignAvatarCenter(this,
+                            glassDrawableMenu.getBounds().exactCenterX(),
+                            glassDrawableMenu.getBounds().exactCenterY());
+                } else {
+                    chatAvatarContainer2.resetAvatarAlignment();
+                }
             }
         }
 
@@ -2672,6 +2777,270 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         setShadowAlpha((int) ((1.0f - onTopAnimated) * 0xFF));
         if (blurredBackground) {
             invalidate();
+        }
+    }
+
+    private boolean countLayoutIsVisible;
+    private boolean iosUnreadBadgeAvailable;
+    private boolean forceAdaptiveWidth;
+    public CounterView countLayout;
+    private ChatAvatarContainer chatAvatarContainer2;
+    private AnimatorSet countLayoutAnimator;
+    private final FactorAnimator animatorBackPillWidth = new FactorAnimator(0, this,
+            CubicBezierInterpolator.EASE_OUT_QUINT, 380);
+    private static final int BACK_COUNTER_LEFT_OFFSET_DP = 30;
+    private static final int BACK_COUNTER_MAX_EXTRA_DP = 35;
+
+    public void setChatAvatarContainer2(ChatAvatarContainer container) {
+        chatAvatarContainer2 = container;
+        checkAvatarContainerWidth(false);
+    }
+
+    public void setForceAdaptiveWidth(boolean force) {
+        forceAdaptiveWidth = force;
+        checkAvatarContainerWidth(false);
+    }
+
+    private boolean isAdaptiveWidthSupported() {
+        return forceAdaptiveWidth || (org.telegram.messenger.DevGramIOSConfig.adaptiveTitleWidth()
+                && chatAvatarContainer2 != null && chatAvatarContainer2.isCentered()
+                && chatAvatarContainer2.getChatActivity() != null
+                && !chatAvatarContainer2.getChatActivity().hasSelectedMessages()
+                && !chatAvatarContainer2.getChatActivity().isInSearchMode()
+                && !chatAvatarContainer2.getChatActivity().isInBubbleMode());
+    }
+
+    private int getAdaptiveTitleTargetWidth() {
+        if (chatAvatarContainer2 == null) return dp(100);
+        int title = (int) chatAvatarContainer2.getTitleTextView().getExactWidthIncludeDrawables();
+        int subtitle = 0;
+        View subtitleView = chatAvatarContainer2.getSubtitleTextView();
+        if (subtitleView instanceof SimpleTextView) {
+            subtitle = (int) ((SimpleTextView) subtitleView).getExactWidthIncludeDrawables();
+        }
+        return Math.max(dp(100), Math.max(title, subtitle) + dp(40)) + dp(15);
+    }
+
+    private boolean isTitleCentered() {
+        // The iOS option belongs to an opened chat. Reading the global preference
+        // here also centered ordinary ActionBars (for example the account name on
+        // the dialogs screen). ChatActivity supplies its centered avatar container;
+        // other screens may still opt in explicitly through centerTitle().
+        return isCenterTitle
+                || chatAvatarContainer2 != null && chatAvatarContainer2.isCentered();
+    }
+
+    private boolean isAvatarAlignAllowed() {
+        return !isActionModeShowed() && getActionModeFactor() == 0f
+                && !isSearchFieldVisible && searchFactor == 0f;
+    }
+
+    private int getBackPillCounterTargetWidth() {
+        return countLayout == null ? 0 : Math.min(dp(BACK_COUNTER_MAX_EXTRA_DP),
+                Math.max(0, countLayout.getMeasuredWidth()));
+    }
+
+    public void updateBackPillWidth(boolean animated) {
+        boolean show = iOSUnreadBadgeAvailable() && countLayout != null && backButtonImageView != null
+                && backButtonImageView.getUnreadCount() > 0 && !isActionModeShowed() && !isSearchFieldVisible;
+        int target = show ? getBackPillCounterTargetWidth() : 0;
+        if (countLayout != null && countLayoutIsVisible != show) {
+            countLayoutIsVisible = show;
+            if (countLayoutAnimator != null) countLayoutAnimator.cancel();
+            if (animated) {
+                countLayoutAnimator = new AnimatorSet();
+                ValueAnimator progress = ValueAnimator.ofFloat(show ? 0f : 1f, show ? 1f : 0f);
+                final boolean[] iconTriggered = {false};
+                progress.addUpdateListener(animation -> {
+                    float value = (float) animation.getAnimatedValue();
+                    countLayout.setScaleX(value);
+                    countLayout.setScaleY(value);
+                    countLayout.setAlpha(value);
+                    if (show && animation.getAnimatedFraction() >= .5f && !iconTriggered[0]) {
+                        iconTriggered[0] = true;
+                        updateMoveBackIconState(true);
+                    }
+                });
+                countLayoutAnimator.playTogether(progress);
+                countLayoutAnimator.setInterpolator(CubicBezierInterpolator.DEFAULT);
+                countLayoutAnimator.setDuration(380);
+                countLayoutAnimator.addListener(new AnimatorListenerAdapter() {
+                    @Override public void onAnimationStart(Animator animation) {
+                        if (!show) updateMoveBackIconState(false);
+                    }
+                });
+                countLayoutAnimator.start();
+            } else {
+                countLayout.setScaleX(show ? 1f : 0f);
+                countLayout.setScaleY(show ? 1f : 0f);
+                countLayout.setAlpha(show ? 1f : 0f);
+                updateMoveBackIconState(show);
+            }
+        }
+        if (animated) {
+            if (animatorBackPillWidth.getToFactor() != target) animatorBackPillWidth.animateTo(target);
+        } else {
+            animatorBackPillWidth.forceFactor(target);
+        }
+    }
+
+    private void updateMoveBackIconState(boolean show) {
+        if (backButtonImageView != null && backButtonImageView.getDrawable() instanceof BackDrawable) {
+            ((BackDrawable) backButtonImageView.getDrawable()).setMoveBackIcon(show && !isSearchFieldVisible);
+        }
+    }
+
+    private int getBackPillCounterExtraWidth() {
+        return !iOSUnreadBadgeAvailable() || countLayout == null ? 0
+                : Math.max(0, (int) animatorBackPillWidth.getFactor());
+    }
+
+    private int getBackPillWidth() {
+        int padding = dp(6);
+        int width = dp(46) + padding * 2;
+        int extra = getBackPillCounterExtraWidth();
+        if (extra > 0) {
+            width = Math.max(width, dp(BACK_COUNTER_LEFT_OFFSET_DP) + extra + getBackPillCounterRightPadding());
+        }
+        return width;
+    }
+
+    public int getBackPillCounterRightPadding() {
+        int count = countLayout != null && backButtonImageView != null ? backButtonImageView.getUnreadCount() : 0;
+        int length = String.valueOf(Math.min(999, Math.max(0, count))).length();
+        return count <= 0 ? 0 : dp(length == 1 ? 3.5f : length == 2 ? 7.5f : 13.5f);
+    }
+
+    public int getBackPillGrowth() {
+        return Math.max(0, getBackPillWidth() - dp(58));
+    }
+
+    private boolean isBackPillMode() {
+        return glassDrawableBack != null && iOSUnreadBadgeAvailable();
+    }
+
+    private int getBackButtonWidth() {
+        if (!isBackPillMode()) return dp(54);
+        return Math.max(dp(54), (int) (getBackPillWidth() - dp(6) - backButtonImageView.getTranslationX()));
+    }
+
+    private void measureBackButton(int heightSpec) {
+        int width = getBackButtonWidth();
+        int paddingRight = width - dp(54);
+        if (backButtonImageView.getPaddingRight() != paddingRight) {
+            boolean old = ignoreLayoutRequest;
+            ignoreLayoutRequest = true;
+            backButtonImageView.setPadding(backButtonImageView.getPaddingLeft(), 0, paddingRight, 0);
+            ignoreLayoutRequest = old;
+        }
+        backButtonImageView.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), heightSpec);
+    }
+
+    private void relayoutBackButtonForPill() {
+        if (backButtonImageView == null || backButtonImageView.getVisibility() == GONE
+                || backButtonImageView.getMeasuredHeight() == 0 || backButtonImageView.getMeasuredWidth() == getBackButtonWidth()) return;
+        measureBackButton(MeasureSpec.makeMeasureSpec(backButtonImageView.getMeasuredHeight(), MeasureSpec.EXACTLY));
+        int left = backButtonImageView.getLeft();
+        int top = backButtonImageView.getTop();
+        backButtonImageView.layout(left, top, left + backButtonImageView.getMeasuredWidth(), top + backButtonImageView.getMeasuredHeight());
+    }
+
+    public void setIOSUnreadBadgeAvailable(boolean available) {
+        iosUnreadBadgeAvailable = available;
+        if (countLayout != null) countLayout.setIOSUnreadBadgeAvailable(available);
+        updateBackPillWidth(false);
+        invalidate();
+    }
+
+    public boolean iOSUnreadBadgeAvailable() {
+        return org.telegram.messenger.DevGramIOSConfig.centerChatTitle()
+                && org.telegram.messenger.DevGramIOSConfig.iosUnreadCounter()
+                && iosUnreadBadgeAvailable;
+    }
+
+    public class UnreadImageView extends ImageView {
+        private int unreadCount = -1;
+        private RippleDrawable pillRipple;
+
+        public UnreadImageView(Context context) { super(context); }
+
+        @Override public void setBackgroundDrawable(Drawable background) {
+            if (isBackPillMode()) {
+                int color = actionModeVisible ? itemsActionModeBackgroundColor : itemsBackgroundColor;
+                if (pillRipple == null) {
+                    GradientDrawable mask = new GradientDrawable();
+                    mask.setColor(Color.WHITE);
+                    mask.setCornerRadius(dp(23));
+                    pillRipple = new RippleDrawable(ColorStateList.valueOf(color), null, mask);
+                    pillRipple.setCallback(this);
+                    pillRipple.setState(getDrawableState());
+                } else pillRipple.setColor(ColorStateList.valueOf(color));
+                super.setBackgroundDrawable(null);
+            } else {
+                if (pillRipple != null) pillRipple.setCallback(null);
+                pillRipple = null;
+                super.setBackgroundDrawable(background);
+            }
+        }
+
+        @Override protected boolean verifyDrawable(@NonNull Drawable who) { return who == pillRipple || super.verifyDrawable(who); }
+        @Override protected void drawableStateChanged() { super.drawableStateChanged(); if (pillRipple != null) pillRipple.setState(getDrawableState()); }
+        @Override public void drawableHotspotChanged(float x, float y) { super.drawableHotspotChanged(x, y); if (pillRipple != null) pillRipple.setHotspot(x, y); }
+        @Override public void jumpDrawablesToCurrentState() { super.jumpDrawablesToCurrentState(); if (pillRipple != null) pillRipple.jumpToCurrentState(); }
+
+        @Override protected void onDraw(Canvas canvas) {
+            if (pillRipple != null) {
+                int padding = dp(6);
+                int offsetX = getLeft() + (int) getTranslationX();
+                int top = ActionBar.this.getHeight() - (getCurrentActionBarHeight() + dp(46)) / 2 - getTop();
+                pillRipple.setBounds(padding - offsetX, top, getBackPillWidth() - padding - offsetX, top + dp(46));
+                pillRipple.draw(canvas);
+            }
+            super.onDraw(canvas);
+        }
+
+        private void createUnreadView(int count) {
+            if (countLayout != null) return;
+            countLayout = new CounterView(getContext(), resourcesProvider) {
+                @Override public void invalidate() {
+                    super.invalidate();
+                    if (iOSUnreadBadgeAvailable()) updateBackPillWidth(true);
+                }
+            };
+            countLayout.setReverse(!iOSUnreadBadgeAvailable());
+            countLayout.setGravity(Gravity.LEFT);
+            countLayout.setIOSUnreadBadgeAvailable(iOSUnreadBadgeAvailable());
+            if (iOSUnreadBadgeAvailable()) {
+                countLayout.setColors(Theme.key_actionBarActionModeDefault, Theme.key_actionBarActionModeDefaultIcon);
+                countLayout.setTextSize(12f);
+            }
+            addView(countLayout, LayoutHelper.createFrame(iOSUnreadBadgeAvailable() ? LayoutHelper.WRAP_CONTENT : 54,
+                    iOSUnreadBadgeAvailable() ? 24 : 54, Gravity.LEFT | Gravity.TOP));
+            setUnread(count);
+        }
+
+        public void checkUnreadView(int count) {
+            if (!org.telegram.messenger.DevGramIOSConfig.showUnreadCounter()) count = 0;
+            if (countLayout == null) createUnreadView(count); else setUnread(count);
+        }
+
+        public int getUnreadCount() { return unreadCount; }
+        public boolean hasIOSCounter() { return iOSUnreadBadgeAvailable() && unreadCount > 0; }
+
+        public void setUnread(int count) {
+            count = Math.min(999, Math.max(0, count));
+            if (countLayout == null) return;
+            if (count != unreadCount) {
+                unreadCount = count;
+                if (iOSUnreadBadgeAvailable()) {
+                    countLayout.setColors(Theme.key_actionBarActionModeDefault, Theme.key_actionBarActionModeDefaultIcon);
+                    countLayout.setTextSize(12f);
+                    int length = String.valueOf(count).length();
+                    countLayout.setBackgroundSize(length == 1 ? 18f : length == 2 ? 24f : 30f, 16f);
+                }
+                countLayout.setCount(count, true);
+            }
+            updateBackPillWidth(true);
         }
     }
 }

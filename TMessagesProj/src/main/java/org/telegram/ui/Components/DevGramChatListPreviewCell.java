@@ -115,7 +115,7 @@ public class DevGramChatListPreviewCell extends View {
         float statusGap = drawStatus ? AndroidUtilities.dp(6) : 0;
         float blockW = tw + statusGap + statusSize;
 
-        float bx = DevGramConfig.centerTitle ? (w - blockW) / 2f
+        float bx = org.telegram.messenger.DevGramIOSConfig.centerChatTitle() ? (w - blockW) / 2f
                 : (rtl ? w - sidePad - blockW : sidePad);
         canvas.drawText(title, bx, cy + AndroidUtilities.dp(6), titlePaint);
         if (drawStatus) {

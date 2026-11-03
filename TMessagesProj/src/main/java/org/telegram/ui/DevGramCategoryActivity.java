@@ -43,6 +43,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_OPEN_NAVIGATION = 7706;
     private static final int ID_OPEN_APP_ICON = 7707;
     private static final int ID_OPEN_SWIPE_ACTIONS = 149;
+    private static final int ID_OPEN_IOS_CHAT_STYLE = 148;
     // DevGram: экран AI Chat (повтор AiPreferencesActivity exteraGram)
     static final int ID_AI_SERVICES = 152;
     private static final int ID_AI_ROLES = 153;
@@ -784,7 +785,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                         .setChecked(gPref("dg_hideStatus", false)));
             }
             items.add(UItem.asCheck(ID_CENTER_TITLE, "Заголовок по центру")
-                    .setChecked(DevGramConfig.centerTitle));
+                    .setChecked(org.telegram.messenger.DevGramIOSConfig.centerChatTitle()));
             items.add(UItem.asCheck(ID_HIDE_STORIES, "Скрыть истории")
                     .setChecked(gPref("dg_hideStories", false)));
             items.add(UItem.asCheck(ID_HIDE_FAB, "Скрыть плавающую кнопку")
@@ -820,6 +821,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asButton(ID_OPEN_APP_ICON, R.drawable.menu_edit_appearance, "Иконка приложения"));
             items.add(UItem.asButtonWithSubtext(ID_PILL_STACK, R.drawable.outline_header_search, "Pill Stack",
                     "Интерактивные виджеты в поле поиска"));
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_IOS_CHAT_STYLE, R.drawable.msg_theme,
+                    "Стиль iOS", "Шапка, счётчик, нижняя панель, звук и меню сообщения"));
             items.add(UItem.asShadow(null));
 
             // — Внешний вид —
@@ -1640,7 +1643,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     org.telegram.ui.Components.DevGramMaterial3.TRANSITION_SPRING);
             return;
         } else if (item.id == ID_CENTER_TITLE) {
-            DevGramConfig.setCenterTitle(!DevGramConfig.centerTitle);
+            org.telegram.messenger.DevGramIOSConfig.setCenterChatTitle(
+                    !org.telegram.messenger.DevGramIOSConfig.centerChatTitle());
             if (chatListPreview != null) chatListPreview.invalidate();
             refreshThenRebuildAppearanceScreens();
             return;
@@ -1814,6 +1818,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             gToggle("dg_hideAiSummaries", false);
         } else if (item.id == ID_OPEN_NAVIGATION) {
             presentFragment(new DevGramCategoryActivity(CATEGORY_NAVIGATION));
+            return;
+        } else if (item.id == ID_OPEN_IOS_CHAT_STYLE) {
+            presentFragment(new DevGramIOSChatSettingsActivity());
             return;
         } else if (item.id == ID_OPEN_APP_ICON) {
             presentFragment(new DevGramAppIconsActivity());

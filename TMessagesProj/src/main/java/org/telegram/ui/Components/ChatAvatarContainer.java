@@ -21,6 +21,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -56,6 +57,7 @@ import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
+import org.telegram.ui.ActionBar.ActionBarMenuItem;
 import org.telegram.ui.ActionBar.ActionBarPopupWindow;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.SimpleTextView;
@@ -189,6 +191,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
 
         final boolean avatarClickable = parentFragment != null && (parentFragment.getChatMode() == 0 || parentFragment.getChatMode() == ChatActivity.MODE_SUGGESTIONS) && !UserObject.isReplyUser(parentFragment.getCurrentUser()) && (parentFragment.getCurrentUser() == null || parentFragment.getCurrentUser().id != UserObject.VERIFY);
         avatarImageView = new BackupImageView(context) {
+            private final ButtonBounce avatarBounce = new ButtonBounce(this);
 
             StoriesUtilities.AvatarStoryParams params = new StoriesUtilities.AvatarStoryParams(true) {
                 @Override
@@ -220,7 +223,13 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
 
             @Override
             protected void onDraw(Canvas canvas) {
-                if (allowDrawStories && animatedEmojiDrawable == null) {
+                final boolean scaleOnPress = isCentered();
+                if (scaleOnPress) {
+                    canvas.save();
+                    final float scale = avatarBounce.getScale(.05f);
+                    canvas.scale(scale, scale, getWidth() / 2f, getHeight() / 2f);
+                }
+                if (allowDrawStories && animatedEmojiDrawable == null && !isCentered()) {
                     params.originalAvatarRect.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
                     params.drawSegments = true;
                     params.drawInside = true;
@@ -240,11 +249,83 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                 } else {
                     super.onDraw(canvas);
                 }
+                if (scaleOnPress) {
+                    canvas.restore();
+                }
             }
 
             @Override
             public boolean onTouchEvent(MotionEvent event) {
-                if (allowDrawStories) {
+                if (isCentered() && isClickable()) {
+                    final int action = event.getAction();
+                    if (action == MotionEvent.ACTION_DOWN) {
+                        avatarBounce.setPressed(true);
+                    } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                        avatarBounce.setPressed(false);
+                    }
+                }
+                if (isCentered() && avatarOptionsMenuItem != null && avatarOptionsMenuItem.hasSubMenu()) {
+                    final int action = event.getActionMasked();
+                    if (action == MotionEvent.ACTION_MOVE) {
+                        if (!avatarOptionsMenuItem.isSubMenuShowing()) {
+                            if (event.getY() > getHeight()) {
+                                final ActionBar actionBar = parentFragment != null ? parentFragment.getActionBar() : null;
+                                if (actionBar != null && actionBar.actionBarMenuOnItemClick != null
+                                        && !actionBar.actionBarMenuOnItemClick.canOpenMenu()) {
+                                    return false;
+                                }
+                                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+                                avatarOptionsMenuItem.toggleSubMenu();
+                                setPressed(false);
+                                cancelLongPress();
+                                return true;
+                            }
+                        } else {
+                            ActionBarPopupWindow.ActionBarPopupWindowLayout popupLayout = avatarOptionsMenuItem.getPopupLayout();
+                            float rawX = event.getRawX();
+                            float rawY = event.getRawY();
+                            popupLayout.getLocationOnScreen(avatarOptionsMenuLocation);
+                            float localX = rawX - avatarOptionsMenuLocation[0];
+                            float localY = rawY - avatarOptionsMenuLocation[1];
+                            avatarOptionsSelectedView = null;
+                            for (int i = 0; i < popupLayout.getItemsCount(); i++) {
+                                View child = popupLayout.getItemAt(i);
+                                child.getHitRect(avatarOptionsMenuRect);
+                                Object tag = child.getTag();
+                                if (tag instanceof Integer && (Integer) tag < 3000) {
+                                    boolean selected = avatarOptionsMenuRect.contains((int) localX, (int) localY);
+                                    child.setPressed(selected);
+                                    child.setSelected(selected);
+                                    if (selected) {
+                                        child.drawableHotspotChanged(localX, localY - child.getTop());
+                                        avatarOptionsSelectedView = child;
+                                    }
+                                }
+                            }
+                            setPressed(false);
+                            return true;
+                        }
+                    } else if (action == MotionEvent.ACTION_UP && avatarOptionsMenuItem.isSubMenuShowing()) {
+                        if (avatarOptionsSelectedView != null) {
+                            avatarOptionsSelectedView.setSelected(false);
+                            avatarOptionsSelectedView.performClick();
+                        }
+                        if (avatarOptionsSelectedView == null || avatarOptionsMenuItem.isSubMenuShowing()) {
+                            avatarOptionsMenuItem.closeSubMenu();
+                        }
+                        avatarOptionsSelectedView = null;
+                        setPressed(false);
+                        return true;
+                    } else if (action == MotionEvent.ACTION_CANCEL) {
+                        if (avatarOptionsMenuItem.isSubMenuShowing()) avatarOptionsMenuItem.closeSubMenu();
+                        if (avatarOptionsSelectedView != null) {
+                            avatarOptionsSelectedView.setSelected(false);
+                            avatarOptionsSelectedView = null;
+                        }
+                        setPressed(false);
+                    }
+                }
+                if (allowDrawStories && !isCentered()) {
                     if (params.checkOnTouchEvent(event, this)) {
                         return true;
                     }
@@ -286,12 +367,13 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         titleTextView.setEllipsizeByGradient(true);
         titleTextView.setTextColor(getThemedColor(Theme.key_actionBarDefaultTitle));
         titleTextView.setTextSize(18);
-        titleTextView.setGravity(Gravity.LEFT);
+        titleTextView.setGravity(isCentered() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
         titleTextView.setTypeface(AndroidUtilities.bold());
         titleTextView.setLeftDrawableTopPadding(-dp(1.3f));
         titleTextView.setCanHideRightDrawable(false);
-        titleTextView.setRightDrawableOutside(true);
+        titleTextView.setRightDrawableOutside(!isCentered());
         titleTextView.setPadding(0, dp(6), 0, dp(12));
+        titleTextView.setScrollNonFitText(isCentered());
         addView(titleTextView);
 
         if (useAnimatedSubtitle()) {
@@ -301,8 +383,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             animatedSubtitleTextView.setTextColor(getThemedColor(Theme.key_actionBarDefaultSubtitle));
             animatedSubtitleTextView.setTag(Theme.key_actionBarDefaultSubtitle);
             animatedSubtitleTextView.setTextSize(dp(14));
-            animatedSubtitleTextView.setGravity(Gravity.LEFT);
-            animatedSubtitleTextView.setPadding(0, 0, dp(10), 0);
+            animatedSubtitleTextView.setGravity(isCentered() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
+            animatedSubtitleTextView.setPadding(0, 0, isCentered() ? 0 : dp(10), 0);
             animatedSubtitleTextView.setTranslationY(-dp(1));
             addView(animatedSubtitleTextView);
         } else {
@@ -311,8 +393,8 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             subtitleTextView.setTextColor(getThemedColor(Theme.key_actionBarDefaultSubtitle));
             subtitleTextView.setTag(Theme.key_actionBarDefaultSubtitle);
             subtitleTextView.setTextSize(14);
-            subtitleTextView.setGravity(Gravity.LEFT);
-            subtitleTextView.setPadding(0, 0, dp(10), 0);
+            subtitleTextView.setGravity(isCentered() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
+            subtitleTextView.setPadding(0, 0, isCentered() ? 0 : dp(10), 0);
             addView(subtitleTextView);
         }
 
@@ -670,30 +752,32 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        final int width = MeasureSpec.getSize(widthMeasureSpec);
+        final boolean centered = isCentered();
+        final int width = MeasureSpec.getSize(widthMeasureSpec)
+                + (centered ? 0 : titleTextView.getPaddingRight());
         boolean md3Header = DevGramMaterial3.enabled()
                 && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_title", false);
-        avatarSizeInDp = md3Header ? 46 : 42;
-        final int availableWidth = width - dp((avatarImageView.getVisibility() == VISIBLE ? (md3Header ? 59 : 54) : 0) + 16);
-        int avatarInset = md3Header ? 0 : 2;
+        avatarSizeInDp = centered ? 42 : (md3Header ? 46 : 42);
+        int unreadCounterExtraPadding = actionBar != null && moveText
+                ? actionBar.getBackPillGrowth() : 0;
+        final int availableWidth = width - dp(((avatarImageView.getVisibility() == VISIBLE || centered)
+                ? (centered || !md3Header ? 54 : 59) : 0) + 16) - unreadCounterExtraPadding;
+        int padding = centered ? dp(isPreviewMode() ? 35 : 10) : 0;
+        int textMaxWidth = availableWidth - padding;
+        if (centered && !isPreviewMode()) {
+            int avatarLeft = width - leftPadding - (dp(avatarSizeInDp) - 2) - 1;
+            textMaxWidth = Math.min(textMaxWidth, avatarLeft - 2 * getCenteredTextGap());
+        }
+        int avatarInset = centered || !md3Header ? 2 : 0;
         avatarImageView.measure(MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - avatarInset, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - avatarInset, MeasureSpec.EXACTLY));
-        // DevGram: в iOS-режиме заголовок/статус центрируются — но не через ручной пересчёт
-        // ширины бокса (пробовал: widthWrapContent + своя центрирующая математика в onLayout —
-        // сломало рендер текста из-за titleTextView.setEllipsizeByGradient(true) +
-        // setRightDrawableOutside(true): при точной подгонке ширины бокса под контент
-        // внутренний градиентный fade-клип (getMaxTextWidth()/clipRect в SimpleTextView) начинал
-        // резать текст раньше времени). Вместо этого переиспользуем уже готовый и проверенный
-        // Gravity.CENTER_HORIZONTAL — сам SimpleTextView.calcOffset() центрирует текст внутри
-        // бокса штатной, давно работающей веткой; ширина бокса остаётся как раньше (вся
-        // доступная область), меняется только выравнивание текста внутри неё.
-        final boolean dgAvatarRight = MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false);
-        titleTextView.setGravity(dgAvatarRight ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
-        titleTextView.measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24 + 8), MeasureSpec.AT_MOST));
+        titleTextView.setGravity(centered ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
+        titleTextView.measure(MeasureSpec.makeMeasureSpec(textMaxWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24 + 8), MeasureSpec.AT_MOST));
         if (subtitleTextView != null) {
-            subtitleTextView.setGravity(dgAvatarRight ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
-            subtitleTextView.measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.AT_MOST));
+            subtitleTextView.setGravity(centered ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
+            subtitleTextView.measure(MeasureSpec.makeMeasureSpec(textMaxWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.AT_MOST));
         } else if (animatedSubtitleTextView != null) {
-            animatedSubtitleTextView.measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.AT_MOST));
+            animatedSubtitleTextView.setGravity(centered ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
+            animatedSubtitleTextView.measure(MeasureSpec.makeMeasureSpec(textMaxWidth, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(20), MeasureSpec.AT_MOST));
         }
         if (communityItem != null) {
             communityItem.measure(MeasureSpec.makeMeasureSpec(dp(14), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(14), MeasureSpec.EXACTLY));
@@ -729,7 +813,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         this.titleTextLargerCopyView.set(titleTextLargerCopyView);
         titleTextLargerCopyView.setTextColor(getThemedColor(Theme.key_actionBarDefaultTitle));
         titleTextLargerCopyView.setTextSizePx(dp(glassMode ? 17.5f : 18));
-        titleTextLargerCopyView.setGravity(Gravity.LEFT);
+        titleTextLargerCopyView.setGravity(isCentered() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
         titleTextLargerCopyView.setTypeface(AndroidUtilities.bold());
         titleTextLargerCopyView.setLeftDrawableTopPadding(-dp(1.3f));
         titleTextLargerCopyView.setRightDrawable(titleTextView.getRightDrawable());
@@ -755,7 +839,7 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         subtitleTextLargerCopyView.setTextColor(getThemedColor(Theme.key_actionBarDefaultSubtitle));
         subtitleTextLargerCopyView.setTag(Theme.key_actionBarDefaultSubtitle);
         subtitleTextLargerCopyView.setTextSizePx(dp(glassMode ? 13.5f : 14));
-        subtitleTextLargerCopyView.setGravity(Gravity.LEFT);
+        subtitleTextLargerCopyView.setGravity(isCentered() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
         if (subtitleTextView != null) {
             subtitleTextLargerCopyView.setText(subtitleTextView.getText());
         } else if (animatedSubtitleTextView != null) {
@@ -790,26 +874,26 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         final int actionBarHeight = ActionBar.getCurrentActionBarHeight();
+        final boolean centered = isCentered();
         boolean md3Header = DevGramMaterial3.enabled()
                 && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_title", false);
-        // DevGram: в iOS-режиме аватарка — отдельным кружком справа (как в реальном
-        // Telegram-iOS/Swiftgram), а не слева впритык к заголовку; заголовок и статус
-        // центрируются в оставшемся пространстве между кнопкой назад и аватаркой.
-        final boolean dgAvatarRight = MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false);
-        final int avatarInset = md3Header ? 0 : 1;
+        final int avatarInset = centered || !md3Header ? 1 : 0;
         final int viewTop = (actionBarHeight - avatarImageView.getMeasuredHeight() - avatarInset * 2) / 2
                 + (occupyStatusBar ? AndroidUtilities.statusBarHeight : 0);
-        final int subtitleTop = viewTop + dp(md3Header ? (glassMode ? 26.66f : 27f) : (glassMode ? 23.66f : 24f));
+        final int subtitleTop = viewTop + dp(centered || !md3Header
+                ? (glassMode ? 23.66f : 24f) : (glassMode ? 26.66f : 27f));
 
-        final int avatarLeftEdge;
-        if (dgAvatarRight && avatarImageView.getVisibility() == VISIBLE) {
-            avatarLeftEdge = getMeasuredWidth() - dp(16) - avatarImageView.getMeasuredWidth();
-        } else {
-            avatarLeftEdge = leftPadding;
-        }
-        avatarImageView.layout(avatarInset + avatarLeftEdge, avatarInset + viewTop,
-                avatarInset + avatarLeftEdge + avatarImageView.getMeasuredWidth(),
-                avatarInset + viewTop + avatarImageView.getMeasuredHeight());
+        final int avatarLeftEdge = centered
+                ? getWidth() - leftPadding - avatarImageView.getMeasuredWidth() - 1
+                : leftPadding;
+        final int avatarShiftX = centered ? avatarOffsetX : 0;
+        final int avatarShiftY = centered ? avatarOffsetY : 0;
+        avatarNaturalCx = avatarLeftEdge + avatarImageView.getMeasuredWidth() / 2f;
+        avatarNaturalCy = avatarInset + viewTop + avatarImageView.getMeasuredHeight() / 2f;
+        avatarImageView.layout(avatarInset + avatarLeftEdge + avatarShiftX,
+                avatarInset + viewTop + avatarShiftY,
+                avatarInset + avatarLeftEdge + avatarShiftX + avatarImageView.getMeasuredWidth(),
+                avatarInset + viewTop + avatarShiftY + avatarImageView.getMeasuredHeight());
 
         // DevGram: в iOS-режиме бокс заголовка/статуса начинается прямо от leftPadding (как
         // если бы аватарки в этой строке не было вовсе) — фактическое центрирование текста
@@ -817,16 +901,22 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         // Ширина бокса (availableWidth в onMeasure) уже учитывает место под аватарку, так что
         // правый край бокса естественно не заходит на неё, независимо от того, с какой стороны
         // аватарка физически нарисована.
-        final int l;
-        final int lSub;
-        if (dgAvatarRight) {
-            l = leftPadding;
-            lSub = leftPadding;
+        int l;
+        if (centered) {
+            int centerX = getWidth() / 2;
+            l = centerX - titleTextView.getMeasuredWidth() / 2;
+            int rightGap = isPreviewMode() ? dp(16) : getCenteredTextGap();
+            int leftGap = isPreviewMode() ? leftPadding : getCenteredTextGap();
+            int maxRight = avatarLeftEdge - rightGap;
+            if (l + titleTextView.getMeasuredWidth() > maxRight) {
+                l = maxRight - titleTextView.getMeasuredWidth();
+            }
+            l = Math.max(leftGap, l);
+            if (isPreviewMode()) l += dp(15);
         } else {
             l = leftPadding + (avatarImageView.getVisibility() == VISIBLE
                     ? dp(md3Header ? avatarSizeInDp + (glassMode ? 10.66f : 12f) : (glassMode ? 49.66f : 55f))
                     : dp((glassMode ? 12 : 0) + avatarInset)) + rightAvatarPadding;
-            lSub = l;
         }
         SimpleTextView titleTextLargerCopyView = this.titleTextLargerCopyView.get();
         if (getSubtitleTextView().getVisibility() != GONE) {
@@ -843,18 +933,18 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         if (communityItem != null) {
             float sizeOffset = avatarSizeInDp - 42f;
             communityItem.layout(
-                avatarLeftEdge + dp(29f + sizeOffset),
-                viewTop + dp(27.33f + sizeOffset),
-                avatarLeftEdge + dp(29f + sizeOffset) + communityItem.getMeasuredWidth(),
-                viewTop + dp(27.33f + sizeOffset) + communityItem.getMeasuredHeight());
+                avatarLeftEdge + dp(29f + sizeOffset) + avatarShiftX,
+                viewTop + dp(27.33f + sizeOffset) + avatarShiftY,
+                avatarLeftEdge + dp(29f + sizeOffset) + avatarShiftX + communityItem.getMeasuredWidth(),
+                viewTop + dp(27.33f + sizeOffset) + avatarShiftY + communityItem.getMeasuredHeight());
         }
         if (timeItem != null) {
             float sizeOffset = avatarSizeInDp - 42f;
             timeItem.layout(
-                avatarLeftEdge + dp(19.333f + sizeOffset),
-                viewTop - dp(8),
-                avatarLeftEdge + dp(19.333f + sizeOffset) + timeItem.getMeasuredWidth(),
-                viewTop - dp(8) + timeItem.getMeasuredHeight()
+                avatarLeftEdge + dp(19.333f + sizeOffset) + avatarShiftX,
+                viewTop - dp(8) + avatarShiftY,
+                avatarLeftEdge + dp(19.333f + sizeOffset) + avatarShiftX + timeItem.getMeasuredWidth(),
+                viewTop - dp(8) + avatarShiftY + timeItem.getMeasuredHeight()
             );
         }
         if (starBgItem != null) {
@@ -864,13 +954,13 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             starFgItem.layout(avatarLeftEdge + dp(avatarSizeInDp - 14), viewTop + dp(avatarSizeInDp - 18), avatarLeftEdge + dp(avatarSizeInDp - 14) + starFgItem.getMeasuredWidth(), viewTop + dp(avatarSizeInDp - 18) + starFgItem.getMeasuredHeight());
         }
         if (subtitleTextView != null) {
-            subtitleTextView.layout(lSub, subtitleTop, lSub + subtitleTextView.getMeasuredWidth(), subtitleTop + subtitleTextView.getTextHeight());
+            subtitleTextView.layout(l, subtitleTop, l + subtitleTextView.getMeasuredWidth(), subtitleTop + subtitleTextView.getTextHeight());
         } else if (animatedSubtitleTextView != null) {
-            animatedSubtitleTextView.layout(lSub, subtitleTop, lSub + animatedSubtitleTextView.getMeasuredWidth(), subtitleTop + animatedSubtitleTextView.getTextHeight());
+            animatedSubtitleTextView.layout(l, subtitleTop, l + animatedSubtitleTextView.getMeasuredWidth(), subtitleTop + animatedSubtitleTextView.getTextHeight());
         }
         SimpleTextView subtitleTextLargerCopyView = this.subtitleTextLargerCopyView.get();
         if (subtitleTextLargerCopyView != null) {
-            subtitleTextLargerCopyView.layout(lSub, subtitleTop, lSub + subtitleTextLargerCopyView.getMeasuredWidth(), subtitleTop + subtitleTextLargerCopyView.getTextHeight());
+            subtitleTextLargerCopyView.layout(l, subtitleTop, l + subtitleTextLargerCopyView.getMeasuredWidth(), subtitleTop + subtitleTextLargerCopyView.getTextHeight());
         }
     }
 
@@ -1874,5 +1964,78 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
             width += dp(34);
         }
         return (int) width;
+    }
+
+    private ActionBarMenuItem avatarOptionsMenuItem;
+    private final Rect avatarOptionsMenuRect = new Rect();
+    private final int[] avatarOptionsMenuLocation = new int[2];
+    private View avatarOptionsSelectedView;
+
+    private boolean moveText;
+
+    public void setMoveText(boolean moveText) {
+        if (this.moveText != moveText) {
+            this.moveText = moveText;
+            requestLayout();
+        }
+    }
+
+    public void setAvatarOptionsMenuItem(ActionBarMenuItem menuItem) {
+        avatarOptionsMenuItem = menuItem;
+    }
+
+    /** Overridden by the real chat and the settings preview. */
+    public boolean isCentered() {
+        return false;
+    }
+
+    public ChatActivity getChatActivity() {
+        return parentFragment;
+    }
+
+    protected boolean isPreviewMode() {
+        return false;
+    }
+
+    private int getCenteredTextGap() {
+        return dp(26);
+    }
+
+    private int avatarOffsetX, avatarOffsetY;
+    private float avatarNaturalCx, avatarNaturalCy;
+
+    public void alignAvatarCenter(View actionBarView, float targetCx, float targetCy) {
+        if (!isCentered() || avatarImageView == null || getParent() != actionBarView
+                || avatarImageView.getVisibility() != VISIBLE || avatarImageView.getWidth() == 0) {
+            return;
+        }
+        int x = Math.round(targetCx - (getX() + avatarNaturalCx));
+        int y = Math.round(targetCy - (getY() + avatarNaturalCy));
+        applyAvatarOffset(x, y);
+    }
+
+    public int getAvatarOffsetY() {
+        return isCentered() ? avatarOffsetY : 0;
+    }
+
+    public void resetAvatarAlignment() {
+        applyAvatarOffset(0, 0);
+    }
+
+    private void applyAvatarOffset(int x, int y) {
+        int dx = x - avatarOffsetX;
+        int dy = y - avatarOffsetY;
+        if (dx == 0 && dy == 0) return;
+        avatarOffsetX = x;
+        avatarOffsetY = y;
+        shiftView(avatarImageView, dx, dy);
+        shiftView(communityItem, dx, dy);
+        shiftView(timeItem, dx, dy);
+    }
+
+    private static void shiftView(View view, int dx, int dy) {
+        if (view == null) return;
+        view.offsetLeftAndRight(dx);
+        view.offsetTopAndBottom(dy);
     }
 }

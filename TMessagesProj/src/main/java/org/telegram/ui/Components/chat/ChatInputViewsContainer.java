@@ -272,6 +272,21 @@ public class ChatInputViewsContainer extends FrameLayout {
         if (drawInputBackground)
             blurredBackgroundDrawable.draw(canvas);
 
+        if (leftBubbleDrawable != null && leftBubbleSet) {
+            int bubbleTop = blurTop + (int) bubbleInputTranlationY + inputBubbleHeightRound - sideBubbleSize;
+            tmpSideRect.set(leftBubbleLeft, bubbleTop, leftBubbleRight, bubbleTop + sideBubbleSize);
+            leftBubbleDrawable.setBounds(tmpSideRect);
+            leftBubbleDrawable.setAlpha(sideBubblesAlpha);
+            leftBubbleDrawable.draw(canvas);
+        }
+        if (rightBubbleDrawable != null && rightBubbleSet) {
+            int bubbleTop = blurTop + (int) bubbleInputTranlationY + inputBubbleHeightRound - sideBubbleSize;
+            tmpSideRect.set(rightBubbleLeft, bubbleTop, rightBubbleRight, bubbleTop + sideBubbleSize);
+            rightBubbleDrawable.setBounds(tmpSideRect);
+            rightBubbleDrawable.setAlpha(sideBubblesAlpha);
+            rightBubbleDrawable.draw(canvas);
+        }
+
         if (needDrawInAppKeyboard) {
             underKeyboardBackgroundDrawable.draw(canvas);
         }
@@ -361,5 +376,49 @@ public class ChatInputViewsContainer extends FrameLayout {
         }
 
         return captured;
+    }
+
+    private final Rect tmpSideRect = new Rect();
+    private final int sideBubbleSize = dp(44);
+    private BlurredBackgroundDrawable leftBubbleDrawable;
+    private BlurredBackgroundDrawable rightBubbleDrawable;
+    private int leftBubbleLeft, leftBubbleRight;
+    private int rightBubbleLeft, rightBubbleRight;
+    private int sideBubblesAlpha = 255;
+    private boolean leftBubbleSet, rightBubbleSet;
+
+    public void setLeftBubbleDrawable(BlurredBackgroundDrawable drawable) {
+        leftBubbleDrawable = drawable;
+        if (drawable != null) {
+            drawable.setRadius(dp(22));
+        }
+    }
+
+    public void setRightBubbleDrawable(BlurredBackgroundDrawable drawable) {
+        rightBubbleDrawable = drawable;
+        if (drawable != null) {
+            drawable.setRadius(dp(22));
+        }
+    }
+
+    public void setLeftBubbleBounds(int left, int right) {
+        leftBubbleLeft = left;
+        leftBubbleRight = right;
+        leftBubbleSet = true;
+        invalidate();
+    }
+
+    public void setRightBubbleBounds(int left, int right) {
+        rightBubbleLeft = left;
+        rightBubbleRight = right;
+        rightBubbleSet = true;
+        invalidate();
+    }
+
+    public void setSideBubblesAlpha(int alpha) {
+        if (sideBubblesAlpha != alpha) {
+            sideBubblesAlpha = alpha;
+            invalidate();
+        }
     }
 }

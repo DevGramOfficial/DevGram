@@ -8,6 +8,7 @@ package org.telegram.messenger;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.os.Build;
 
 public class DevGramConfig {
     private static final Object sync = new Object();
@@ -321,6 +322,17 @@ public class DevGramConfig {
                 editor.putBoolean("dg_gooey", false);
                 editor.putBoolean("dg_centerTitle", true);
                 editor.apply();
+                DevGramIOSConfig.setCenterChatTitle(true);
+                DevGramIOSConfig.setAdaptiveTitleWidth(true);
+                DevGramIOSConfig.setShowUnreadCounter(true);
+                DevGramIOSConfig.setIosUnreadCounter(true);
+                DevGramIOSConfig.setIosInputPanel(true);
+                DevGramIOSConfig.setNotificationSound(DevGramIOSConfig.NOTIFICATION_SOUND_IOS);
+                DevGramIOSConfig.setIosMessageMenu(true);
+                DevGramIOSConfig.setNativeMenuBlur(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S);
+                DevGramIOSConfig.setShowWholeAlbumInMenu(true);
+                DevGramIOSConfig.setRememberKeyboardForMenu(true);
+                DevGramIOSConfig.setCompactMenuActions(true);
                 setIosProfile(true);
                 LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, true);
                 LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, true);
@@ -360,6 +372,9 @@ public class DevGramConfig {
                 editor.putBoolean("dg_gooey", false);
                 editor.putBoolean("dg_centerTitle", false);
                 editor.apply();
+                DevGramIOSConfig.setCenterChatTitle(false);
+                DevGramIOSConfig.setIosInputPanel(false);
+                DevGramIOSConfig.setIosMessageMenu(false);
                 setIosProfile(false);
                 LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, false);
                 LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, false);
@@ -375,6 +390,10 @@ public class DevGramConfig {
                 editor.putBoolean("dg_gooey", false);
                 editor.putBoolean("dg_centerTitle", false);
                 editor.apply();
+                DevGramIOSConfig.setCenterChatTitle(false);
+                DevGramIOSConfig.setIosInputPanel(false);
+                DevGramIOSConfig.setIosMessageMenu(false);
+                DevGramIOSConfig.setNotificationSound(DevGramIOSConfig.NOTIFICATION_SOUND_TELEGRAM);
                 setIosProfile(true);
                 LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, true);
                 LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, true);

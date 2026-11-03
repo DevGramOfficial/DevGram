@@ -46,6 +46,7 @@ public class TextCheckCell2 extends FrameLayout {
     private AnimatedTextView animatedTextView;
     private View collapsedArrow;
     private View checkBoxClickArea;
+    private boolean checkBoxHidden;
 
     public void setCollapseArrow(String text, boolean collapsed, Runnable onCheckClick) {
         if (collapseViewContainer == null) {
@@ -88,6 +89,26 @@ public class TextCheckCell2 extends FrameLayout {
         if (collapseViewContainer != null) {
             collapseViewContainer.setVisibility(View.GONE);
         }
+    }
+
+    public void setCheckBoxHidden(boolean hidden) {
+        checkBoxHidden = hidden;
+        checkBox.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        if (checkBoxClickArea != null) {
+            checkBoxClickArea.setVisibility(hidden ? View.GONE : View.VISIBLE);
+        }
+        updateTextEndMargin();
+    }
+
+    private void updateTextEndMargin() {
+        LayoutParams layoutParams = (LayoutParams) textView.getLayoutParams();
+        int end = dp(checkBoxHidden ? 21 : 64);
+        if (LocaleController.isRTL) {
+            layoutParams.leftMargin = end;
+        } else {
+            layoutParams.rightMargin = end;
+        }
+        textView.setLayoutParams(layoutParams);
     }
 
     public TextCheckCell2(Context context) {

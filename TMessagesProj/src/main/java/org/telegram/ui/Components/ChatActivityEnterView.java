@@ -127,6 +127,7 @@ import org.telegram.messenger.BuildVars;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
+import org.telegram.messenger.DevGramIOSConfig;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.FileLog;
@@ -186,6 +187,7 @@ import org.telegram.ui.Components.blur3.BlurredBackgroundDrawableViewFactory;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProviderThemed;
 import org.telegram.ui.Components.chat.SendButtonBlockedByTypingView;
+import org.telegram.ui.Components.chat.ChatInputViewsContainer;
 import org.telegram.ui.Components.chat.layouts.ChatActivitySideControlsButtonsLayout;
 import org.telegram.ui.Components.inset.WindowInsetsInAppController;
 import org.telegram.ui.ContentPreviewViewer;
@@ -644,6 +646,9 @@ public class ChatActivityEnterView extends FrameLayout implements
     private LinearLayout attachLayout;
     private ViewPropertyAnimator attachButtonAnimator;
     private ImageView attachButton;
+    private FrameLayout iosAttachBubble;
+    private ChatInputViewsContainer chatInputViewsContainer;
+    private final boolean forcePreview;
     private AiButtonDrawable aiButtonIcon;
     private ImageView aiButton;
     private ImageView richButton;
@@ -2700,9 +2705,15 @@ public class ChatActivityEnterView extends FrameLayout implements
 
     @SuppressLint("ClickableViewAccessibility")
     public ChatActivityEnterView(Activity context, SizeNotifierFrameLayout parent, ChatActivity fragment, final boolean isChat, Theme.ResourcesProvider resourcesProvider) {
+        this(context, parent, fragment, isChat, resourcesProvider, false);
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    public ChatActivityEnterView(Activity context, SizeNotifierFrameLayout parent, ChatActivity fragment, final boolean isChat, Theme.ResourcesProvider resourcesProvider, boolean forcePreview) {
         super(context);
         this.resourcesProvider = resourcesProvider;
         this.isChat = isChat;
+        this.forcePreview = forcePreview;
 
         smoothKeyboard = isChat && !AndroidUtilities.isInMultiwindow && (fragment == null || !fragment.isInBubbleMode());
         dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2797,7 +2808,25 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         };
         frameLayout.setClipChildren(false);
-        textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, DEFAULT_HEIGHT, 0));
+        if (iOSMessageInputFieldAvailable()) {
+            int leftPadding = 0;
+            if (parentFragment != null) {
+                TLRPC.User currentUser = parentFragment.getCurrentUser();
+                if (currentUser != null && !currentUser.bot || parentFragment.getChatMode() == ChatActivity.MODE_WELCOME_MESSAGES) {
+                    leftPadding = 15;
+                } else if (currentUser != null) {
+                    leftPadding = 8;
+                } else if (parentFragment.getCurrentChat() != null) {
+                    leftPadding = ChatObject.canSendAsPeers(parentFragment.getCurrentChat()) ? 10 : 15;
+                }
+            } else if (isStories) {
+                leftPadding = 15;
+            }
+            textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                    Gravity.BOTTOM, leftPadding, 0, DEFAULT_HEIGHT + 4, 0));
+        } else {
+            textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, DEFAULT_HEIGHT, 0));
+        }
 
         emojiButton = new ChatActivityEnterViewAnimatedIconView(context) {
             @Override
@@ -2856,7 +2885,9 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
             }
         });
-        messageEditTextContainer.addView(emojiButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT, 2, 0, 0, 0));
+        messageEditTextContainer.addView(emojiButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT,
+            Gravity.BOTTOM | (iOSMessageInputFieldAvailable() ? Gravity.RIGHT : Gravity.LEFT),
+            iOSMessageInputFieldAvailable() ? 0 : 2, 0, iOSMessageInputFieldAvailable() ? 3 : 0, 0));
         setEmojiButtonImage(false, false);
 
         deleteRichDraftButton = new ImageView(context);
@@ -2895,7 +2926,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             attachLayout.setOrientation(LinearLayout.HORIZONTAL);
             attachLayout.setEnabled(false);
             attachLayout.setClipChildren(false);
-            messageEditTextContainer.addView(attachLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, DEFAULT_HEIGHT, 0));
+            messageEditTextContainer.addView(attachLayout, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT, 0, 0, iOSMessageInputFieldAvailable() ? 2 : DEFAULT_HEIGHT, 0));
 
             if (chatMode != ChatActivity.MODE_WELCOME_MESSAGES) {
                 notifyButton = new ImageView(context);
@@ -2907,7 +2938,15 @@ public class ChatActivityEnterView extends FrameLayout implements
                 notifyButton.setScaleType(ImageView.ScaleType.CENTER);
                 notifyButton.setBackgroundDrawable(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
                 notifyButton.setVisibility(canWriteToChannel && (delegate == null || !delegate.hasScheduledMessages()) ? VISIBLE : GONE);
-                attachLayout.addView(notifyButton, LayoutHelper.createLinear(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
+                if (iOSMessageInputFieldAvailable()) {
+                    // Keep the channel notification toggle to the left of the right-aligned
+                    // emoji button. Without Cherrygram's 30dp trailing gap both controls
+                    // occupy the same slot and the bell visually replaces the emoji icon.
+                    attachLayout.addView(notifyButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT,
+                            Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 30, 0));
+                } else {
+                    attachLayout.addView(notifyButton, LayoutHelper.createLinear(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
+                }
                 notifyButton.setOnClickListener(new OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -2936,12 +2975,38 @@ public class ChatActivityEnterView extends FrameLayout implements
                     if (getAlpha() < 0.5f) return false;
                     return super.dispatchTouchEvent(event);
                 }
+
+                @Override
+                public void setVisibility(int visibility) {
+                    super.setVisibility(visibility);
+                    if (iosAttachBubble != null) {
+                        iosAttachBubble.setVisibility(visibility);
+                        updateIOSInputBubbleBounds();
+                    }
+                }
+
+                @Override
+                public void setAlpha(float alpha) {
+                    super.setAlpha(alpha);
+                    if (iosAttachBubble != null) {
+                        iosAttachBubble.setAlpha(alpha);
+                        updateIOSInputBubbleBounds();
+                    }
+                }
             };
             attachButton.setScaleType(ImageView.ScaleType.CENTER);
-            attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
             attachButton.setImageResource(R.drawable.msg_input_attach2);
-            attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
-            messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
+            if (iOSMessageInputFieldAvailable()) {
+                attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_actionBarActionModeDefaultIcon), PorterDuff.Mode.MULTIPLY));
+                attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP, dp(19)));
+                iosAttachBubble = new FrameLayout(context);
+                iosAttachBubble.addView(attachButton, LayoutHelper.createFrame(38, 38, Gravity.CENTER));
+                textFieldContainer.addView(iosAttachBubble, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.LEFT));
+            } else {
+                attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
+                attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
+                messageEditTextContainer.addView(attachButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT, Gravity.BOTTOM | Gravity.RIGHT));
+            }
             attachButton.setOnClickListener(v -> {
                 if (adjustPanLayoutHelper != null && adjustPanLayoutHelper.animationInProgress() || attachLayoutPaddingAlpha == 0f) {
                     return;
@@ -4006,7 +4071,15 @@ public class ChatActivityEnterView extends FrameLayout implements
         botButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
         botButton.setVisibility(GONE);
         AndroidUtilities.updateViewVisibilityAnimated(botButton, false, 0.1f, false);
-        attachLayout.addView(botButton, 0, LayoutHelper.createLinear(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
+        if (iOSMessageInputFieldAvailable()) {
+            // Cherrygram keeps the persistent bot-keyboard toggle in its own slot to
+            // the left of the right-aligned emoji button. The regular linear layout
+            // puts both controls into the same trailing 46dp area.
+            attachLayout.addView(botButton, LayoutHelper.createFrame(DEFAULT_HEIGHT, DEFAULT_HEIGHT,
+                    Gravity.BOTTOM | Gravity.RIGHT, 0, 0, 30, 0));
+        } else {
+            attachLayout.addView(botButton, 0, LayoutHelper.createLinear(DEFAULT_HEIGHT, DEFAULT_HEIGHT));
+        }
         botButton.setOnClickListener(v -> {
 //            if (hasBotWebView() && botCommandsMenuIsShowing()) {
 //                botWebViewMenuContainer.dismiss(v::callOnClick);
@@ -4562,7 +4635,10 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         });
         senderSelectView.setVisibility(GONE);
-        messageEditTextContainer.addView(senderSelectView, LayoutHelper.createFrame(36, 36, Gravity.BOTTOM | Gravity.LEFT, 4.66f, 4, 4.66f, 4));
+        // In the iOS layout the first 44dp belong to the separate attachment island.
+        // The stock 4.66dp inset puts the send-as avatar underneath that island.
+        messageEditTextContainer.addView(senderSelectView, LayoutHelper.createFrame(36, 36,
+                Gravity.BOTTOM | Gravity.LEFT, iOSMessageInputFieldAvailable() ? 44.66f : 4.66f, 4, 4.66f, 4));
     }
 
     private void createBotCommandsMenuButton() {
@@ -4599,7 +4675,12 @@ public class ChatActivityEnterView extends FrameLayout implements
                 botCommandsMenuContainer.dismiss();
             }
         });
-        messageEditTextContainer.addView(botCommandsMenuButton, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 32, Gravity.BOTTOM | Gravity.LEFT, 8, 6, 8, 6));
+        // Cherrygram keeps the bot menu inside the main iOS input capsule. The
+        // first 44dp are occupied by the separate attachment island, so the
+        // regular 8dp inset makes the menu overlap the paperclip.
+        messageEditTextContainer.addView(botCommandsMenuButton, LayoutHelper.createFrame(
+                LayoutHelper.WRAP_CONTENT, 32, Gravity.BOTTOM | Gravity.LEFT,
+                iOSMessageInputFieldAvailable() ? 48.66f : 8, 6, 8, 6));
         AndroidUtilities.updateViewVisibilityAnimated(botCommandsMenuButton, false, 1f, false);
         botCommandsMenuButton.setExpanded(true, false);
     }
@@ -4824,6 +4905,113 @@ public class ChatActivityEnterView extends FrameLayout implements
     public boolean shouldDrawBackground = true;
     public boolean shouldDrawRecordedAudioPanelInParent;
     public boolean isStories;
+
+    public boolean iOSMessageInputFieldAvailable() {
+        if (forcePreview) {
+            return true;
+        }
+        if (!DevGramIOSConfig.iosInputPanel()) {
+            return false;
+        }
+        if (isStories) {
+            return true;
+        }
+        if (parentFragment == null || parentFragment.isInPreviewMode()) {
+            return false;
+        }
+        TLRPC.Chat chat = parentFragment.getCurrentChat();
+        if (chat != null) {
+            return !ChatObject.isChannel(chat) || ChatObject.hasAdminRights(chat);
+        }
+        return parentFragment.getCurrentUser() != null;
+    }
+
+    public void setChatInputViewsContainer(ChatInputViewsContainer container) {
+        chatInputViewsContainer = container;
+        if (!iOSMessageInputFieldAvailable()) {
+            if (container != null) {
+                container.setInputBubbleOffsets(0, 0);
+            }
+            return;
+        }
+        textFieldContainer.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> updateIOSInputBubbleBounds());
+        post(this::updateIOSInputBubbleBounds);
+    }
+
+    /** Initializes the sender avatar used by the real compose view in settings previews. */
+    public void updateSendAsButtonPreview() {
+        createMessageEditText();
+        createSenderSelectView();
+        TLRPC.User user = UserConfig.getInstance(currentAccount).getCurrentUser();
+        if (user == null || senderSelectView == null) {
+            return;
+        }
+        senderSelectView.setAvatar(user);
+        senderSelectView.setVisibility(VISIBLE);
+        senderSelectView.setAlpha(1f);
+        senderSelectView.setTranslationX(iOSMessageInputFieldAvailable() ? 32.66f : 0f);
+        messageTextTranslationX = 0;
+        updateMessageTextParams();
+        senderSelectView.setClickable(false);
+        senderSelectView.setFocusable(false);
+        senderSelectView.setEnabled(false);
+        if (senderSelectView.getTag() instanceof ValueAnimator) {
+            ((ValueAnimator) senderSelectView.getTag()).cancel();
+            senderSelectView.setTag(null);
+        }
+        requestLayout();
+        invalidate();
+    }
+
+    public void updateAudioVideoButton() {
+        if (audioVideoSendButton != null) {
+            audioVideoSendButton.setColorFilter(new PorterDuffColorFilter(
+                    audioVideoButtonContainerForbidden
+                            ? getThemedColor(Theme.key_glass_defaultIcon)
+                            : iOSMessageInputFieldAvailable()
+                                    ? getThemedColor(Theme.key_actionBarActionModeDefaultIcon)
+                                    : Color.WHITE,
+                    PorterDuff.Mode.SRC_IN));
+            audioVideoSendButton.invalidate();
+        }
+    }
+
+    private void updateIOSInputBubbleBounds() {
+        if (chatInputViewsContainer == null || iosAttachBubble == null || sendButtonContainer == null || getWidth() <= 0) {
+            return;
+        }
+        final int side = dp(DEFAULT_HEIGHT);
+        int effectiveSendWidth = side;
+        if (sendButton != null && sendButton.getVisibility() == View.VISIBLE) {
+            effectiveSendWidth = Math.max(side, sendButton.width() - dp(12));
+        }
+        int extraSendWidth = Math.max(0, effectiveSendWidth - side);
+        chatInputViewsContainer.setInputBubbleOffsets(dp(50), dp(50) + extraSendWidth);
+
+        int baseX = Math.round(getX() + textFieldContainer.getX());
+        int left = baseX + Math.round(iosAttachBubble.getX());
+        chatInputViewsContainer.setLeftBubbleBounds(left, left + side);
+
+        int right = baseX + textFieldContainer.getWidth();
+        chatInputViewsContainer.setRightBubbleBounds(right - effectiveSendWidth, right);
+        chatInputViewsContainer.setSideBubblesAlpha(Math.round(255f * Math.min(iosAttachBubble.getAlpha(), sendButtonContainer.getAlpha())));
+
+        if (emojiButton != null) {
+            emojiButton.setTranslationX(-extraSendWidth);
+        }
+        if (messageEditText != null && messageEditText.getLayoutParams() instanceof MarginLayoutParams) {
+            MarginLayoutParams params = (MarginLayoutParams) messageEditText.getLayoutParams();
+            int rightMargin = dp(50) + extraSendWidth;
+            if (params.rightMargin != rightMargin) {
+                params.rightMargin = rightMargin;
+                messageEditText.setLayoutParams(params);
+            }
+        }
+    }
+
+    public void updateIOSInputBubbleBoundsForPreview() {
+        post(this::updateIOSInputBubbleBounds);
+    }
 
     Paint backgroundPaint = new Paint();
     private float composeShadowAlpha = 1f;
@@ -14914,8 +15102,8 @@ public class ChatActivityEnterView extends FrameLayout implements
         } else if (senderSelectView != null && senderSelectView.getVisibility() == View.VISIBLE) {
             int width = senderSelectView.getLayoutParams().width, height = senderSelectView.getLayoutParams().height;
             senderSelectView.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
-            ((MarginLayoutParams) emojiButton.getLayoutParams()).leftMargin = dp(7) + width;
-            if (deleteRichDraftButton != null) {
+            ((MarginLayoutParams) emojiButton.getLayoutParams()).leftMargin = dp(iOSMessageInputFieldAvailable() ? 5 : 7) + width;
+            if (deleteRichDraftButton != null && deleteRichDraftButton.getParent() == messageEditTextContainer) {
                 ((MarginLayoutParams) deleteRichDraftButton.getLayoutParams()).leftMargin = dp(7) + width;
             }
             if (messageEditText != null) {
@@ -14977,6 +15165,9 @@ public class ChatActivityEnterView extends FrameLayout implements
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         super.onLayout(changed, left, top, right, bottom);
+        if (iOSMessageInputFieldAvailable()) {
+            updateIOSInputBubbleBounds();
+        }
         if (botCommandLastPosition != -1 && botCommandsMenuContainer != null) {
             LinearLayoutManager layoutManager = (LinearLayoutManager) botCommandsMenuContainer.listView.getLayoutManager();
             if (layoutManager != null) {

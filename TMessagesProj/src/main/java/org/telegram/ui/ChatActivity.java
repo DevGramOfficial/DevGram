@@ -156,6 +156,7 @@ import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DocumentObject;
 import org.telegram.messenger.DevGramConfig;
+import org.telegram.messenger.DevGramIOSConfig;
 import org.telegram.messenger.DevGramTranslator;
 import org.telegram.messenger.DevGramSwipeAction;
 import org.telegram.messenger.DevGramMessagesController;
@@ -1075,6 +1076,7 @@ public class ChatActivity extends BaseFragment implements
     private int popupAnimationIndex = -1;
     private AnimatorSet scrimAnimatorSet;
     public ActionBarPopupWindow scrimPopupWindow;
+    private DevGramIOSMessageMenuOverlay devGramIOSMessageMenuOverlay;
     private boolean scrimPopupWindowHideDimOnDismiss = true;
     private int scrimPopupX, scrimPopupY;
     private ActionBarMenuSubItem[] scrimPopupWindowItems;
@@ -4246,9 +4248,15 @@ public class ChatActivity extends BaseFragment implements
         actionBar.setBackground(null);
         // actionBar.setOccupyStatusBar(false);
         if (inPreviewMode) {
-            actionBar.setBackButtonDrawable(null);
+            if (isTitleCentered()) {
+                actionBar.setBackButtonImage(R.drawable.ic_ab_close);
+            } else {
+                actionBar.setBackButtonDrawable(null);
+            }
         } else {
-            actionBar.setBackButtonDrawable(new BackDrawable(isReport()));
+            BackDrawable backDrawable = new BackDrawable(isReport());
+            backDrawable.setShowStick(!isTitleCentered());
+            actionBar.setBackButtonDrawable(backDrawable);
         }
 
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
@@ -4776,6 +4784,20 @@ public class ChatActivity extends BaseFragment implements
         avatarContainer = new ChatAvatarContainer(context, this, currentEncryptedChat != null, themeDelegate) {
             @Override
             protected boolean onAvatarClick() {
+                if (isTitleCentered()) {
+                    if (editTextItem != null && editTextItem.getView() != null && editTextItem.getView().getVisibility() == View.VISIBLE) {
+                        editTextItem.getView().performClick();
+                        return true;
+                    }
+                    if (attachItem != null && attachItem.getView() != null && attachItem.getView().getVisibility() == View.VISIBLE) {
+                        attachItem.getView().performClick();
+                        return true;
+                    }
+                    if (headerItem != null) {
+                        headerItem.performClick();
+                        return true;
+                    }
+                }
                 if (currentUser != null && currentUser.linked_community_id != 0) {
                     showDialog(new CommunitySheet(ChatActivity.this, currentUser.linked_community_id));
                     return true;
@@ -4799,6 +4821,11 @@ public class ChatActivity extends BaseFragment implements
             @Override
             protected void openSearch() {
                 openSearchWithText(isSupportedTags() ? "" : null);
+            }
+
+            @Override
+            public boolean isCentered() {
+                return isTitleCentered();
             }
         };
         avatarContainer.setGlassMode();
@@ -4863,13 +4890,9 @@ public class ChatActivity extends BaseFragment implements
             });
             getConnectionsManager().bindRequestToGuid(req, classGuid);
         } else {
-            // DevGram: в iOS-режиме аватарка должна физически попадать в ту же область
-            // экрана, где рисуется кнопка «⋮» (menu добавлен с Gravity.RIGHT и нулевым
-            // отступом от края ActionBar — см. ActionBar.createMenu()), иначе перекрытие
-            // через bringToFront() ниже перекрывает пустоту: обычный правый отступ 52dp
-            // держит avatarContainer далеко от правого края, они с меню даже не пересекаются.
-            final int dgAvatarRightMargin = MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false) ? 0 : 52;
-            actionBar.addView(avatarContainer, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, !inPreviewMode ? 52 : 0, 0, dgAvatarRightMargin, 0));
+            actionBar.addView(avatarContainer, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT,
+                    LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT,
+                    !inPreviewMode ? 52 : 0, 0, 52, 0));
             actionBar.createMenu().bringToFront();
         }
         actionBar.setOnActionModeFactorChangeListener(() -> {
@@ -4877,6 +4900,8 @@ public class ChatActivity extends BaseFragment implements
         });
 
         ActionBarMenu menu = actionBar.createMenu();
+        final boolean dgIosHeader = isTitleCentered();
+        menu.setCenteredTitle(dgIosHeader);
 
         if (chatMode == MODE_QUICK_REPLIES && !QuickRepliesController.isSpecial(quickReplyShortcut)) {
             menu.addItem(edit_quick_reply, R.drawable.group_edit).setContentDescription(LocaleController.getString(R.string.Edit));
@@ -4888,17 +4913,15 @@ public class ChatActivity extends BaseFragment implements
         // звонком). Обе есть чем заменить: topicCreateItem не найден в референсе Swiftgram
         // вообще, а searchIconItem — просто ярлык к тому же поиску, что уже открывается
         // тапом/свайпом по заголовку (canSearch()/openSearch() в ChatAvatarContainer ниже).
-        final boolean dgIosHeader = MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false);
-        if (UserObject.isBotForumWithEditableTopics(currentUser) && chatMode == 0 && !dgIosHeader) {
+        if (UserObject.isBotForumWithEditableTopics(currentUser) && chatMode == 0) {
             topicCreateItem = menu.addItem(chat_menu_topic_create, R.drawable.menu_topic_add_30);
         }
 
         if (currentEncryptedChat == null && (chatMode == 0 || chatMode == MODE_SAVED || chatMode == MODE_SUGGESTIONS) && !isReport()) {
-            if (!dgIosHeader) {
-                searchIconItem = menu.addItem(search, isSupportedTags() ? R.drawable.navbar_search_tag : R.drawable.outline_header_search);
-                searchIconItem.setContentDescription(LocaleController.getString(R.string.Search));
-            }
-            searchItem = menu.addItem(chat_menu_search, R.drawable.outline_header_search, themeDelegate);
+            int searchDrawable = dgIosHeader ? android.R.color.transparent : R.drawable.outline_header_search;
+            searchIconItem = menu.addItem(search, isSupportedTags() ? R.drawable.navbar_search_tag : searchDrawable);
+            searchIconItem.setContentDescription(LocaleController.getString(R.string.Search));
+            searchItem = menu.addItem(chat_menu_search, searchDrawable, themeDelegate);
             searchItem.setSearchPaddingStart(7);
             searchItem.setIsSearchField(true);
             searchItem.setActionBarMenuItemSearchListener(getSearchItemListener());
@@ -4919,7 +4942,7 @@ public class ChatActivity extends BaseFragment implements
         // через меню действий (доступно по долгому тапу на аватарке — headerItem уже
         // содержит те же call/video_call подпункты, см. ниже).
         if (chatMode == 0 && (threadMessageId == 0 || isTopic) && !UserObject.isReplyUser(currentUser) && !isReport()
-                && !MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false)) {
+                && !isTitleCentered()) {
             TLRPC.UserFull userFull = null;
             if (currentUser != null) {
                 audioCallIconItem = menu.lazilyAddItem(call, R.drawable.call, themeDelegate);
@@ -4943,14 +4966,17 @@ public class ChatActivity extends BaseFragment implements
         }, 1);
         */
 
-        editTextItem = menu.lazilyAddItem(chat_menu_edit_text_options, R.drawable.ic_ab_other, themeDelegate);
+        int dotsDrawable = dgIosHeader ? android.R.color.transparent : R.drawable.ic_ab_other;
+        int attachDrawable = dgIosHeader ? android.R.color.transparent : R.drawable.mini_attach;
+
+        editTextItem = menu.lazilyAddItem(chat_menu_edit_text_options, dotsDrawable, themeDelegate);
         editTextItem.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
         editTextItem.setTag(null);
         editTextItem.setVisibility(View.GONE);
 
         otherIcon = new ComposeDrawable(
-            context.getResources().getDrawable(R.drawable.ic_ab_other).mutate(),
-            context.getResources().getDrawable(R.drawable.mini_attach).mutate()
+            context.getResources().getDrawable(dotsDrawable).mutate(),
+            context.getResources().getDrawable(attachDrawable).mutate()
         );
         otherIcon.setIconTranslate(-dp(6), dp(6.66f));
 
@@ -4973,6 +4999,8 @@ public class ChatActivity extends BaseFragment implements
             });
             otherIcon.addView(headerItem.getIconView());
             headerItem.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
+            avatarContainer.setAvatarOptionsMenuItem(headerItem);
+            headerItem.setForceHidden(dgIosHeader);
 
             if (currentUser != null && currentUser.self && chatMode != MODE_SAVED) {
                 savedChatsItem = headerItem.lazilyAddSubItem(view_as_topics, R.drawable.msg_topics, LocaleController.getString(R.string.SavedViewAsChats));
@@ -5249,36 +5277,6 @@ public class ChatActivity extends BaseFragment implements
         avatarContainer.updateSubtitle();
         updateTitleIcons();
 
-        // DevGram: в iOS-режиме на месте кнопки «⋮» — аватарка (как в реальном
-        // Telegram-iOS/Swiftgram). Саму кнопку меню (headerItem) и её ~18 мест
-        // переключения видимости/альфы по всему файлу (текстовый ввод, поиск, режим
-        // выделения и т.д.) НЕ трогаем — слишком много завязанных состояний, риск что-то
-        // сломать. Вместо этого аватарка просто визуально перекрывает её через
-        // bringToFront() (что автоматически даёт аватарке приоритет и в перехвате тапов),
-        // а доступ к тому же меню действий — по долгому тапу на аватарку.
-        if (MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false)) {
-            avatarContainer.bringToFront();
-            // DevGram: стеклянная «пилюля»-фон под «⋮» (~58dp) шире аватарки (42dp) — без
-            // этого из-под аватарки торчал несимметричный ободок чужого фона.
-            actionBar.setHideGlassMenuPill(true);
-            if (headerItem != null) {
-                avatarContainer.avatarImageView.setOnLongClickListener(v -> {
-                    headerItem.toggleSubMenu();
-                    return true;
-                });
-                if (isTopic) {
-                    // DevGram: в темах форума «⋮» физически стоит правее иконки темы и не
-                    // перекрывается ею (замерено диагностикой: иконка x≈772-889, «⋮» x≈960-1095,
-                    // зазор ~70px из-за доп. скрытого пункта «закрыть тему» в меню) — bringToFront()
-                    // тут не помогает, перекрытия по координатам просто нет, «⋮» остаётся видна.
-                    // Прячем саму кнопку через alpha (не visibility — ту трогают ~18 других мест
-                    // по файлу для режимов поиска/выделения, трогать их рискованно). Доступ к
-                    // меню остаётся через долгий тап на иконке темы (см. выше).
-                    headerItem.setAlpha(0f);
-                }
-            }
-        }
-
         if (chatMode == 0 && (!isThreadChat() || isTopic) && !isReport()) {
             attachItem = menu.lazilyAddItem(chat_menu_attach, otherIcon, themeDelegate);
             attachItem.onView(cell -> otherIcon.addView(cell.getIconView()));
@@ -5330,30 +5328,44 @@ public class ChatActivity extends BaseFragment implements
             glassBackgroundDrawableFactory,
             BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate),
             ChatObject.isForum(currentChat));
+        final boolean devGramCenteredHeader = isTitleCentered();
+        actionBar.setForceAdaptiveWidth(devGramCenteredHeader
+                && DevGramIOSConfig.adaptiveTitleWidth());
+        updateDevGramIOSUnreadBadge();
         boolean md3ChatHeader = org.telegram.ui.Components.DevGramMaterial3.enabled()
                 && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_title", false);
-        actionBar.setDrawGlassMiddlePill(!md3ChatHeader);
-        actionBar.setGlassShadowAlpha(md3ChatHeader ? 0f : 1f);
+        actionBar.setDrawGlassMiddlePill(!md3ChatHeader || devGramCenteredHeader);
+        actionBar.setGlassShadowAlpha(md3ChatHeader && !devGramCenteredHeader ? 0f : 1f);
         // 12.10.3: апстрим заменил setGlassAvatarSquare(boolean) на setGlassAvatarCorners(int)
         actionBar.setGlassAvatarCorners(AndroidUtilities.avatarCornersType());
         // DevGram: без блюра (режим «Старый») три стеклянные «пилюли» шапки сливаем
         // в одну сплошную линию на всю ширину — как в AyuGram, вместо 3 секций с зазорами.
-        actionBar.setGlassFlatDivider(!SharedConfig.chatBlurEnabled());
-        //actionBar.setChatAvatarContainer(avatarContainer);
-        //avatarContainer.setActionBar(actionBar);
-
-        if (chatMode == MODE_PINNED) {
-            actionBar.setChatAvatarContainer(avatarContainer);
+        // The centered Cherrygram header is always the three-island layout.  A device
+        // may disable chat blur for performance, but that must only replace the glass
+        // material with its fallback color, not collapse the title/avatar/back islands
+        // into one flat strip (which made the name bubble appear to be missing).
+        actionBar.setGlassFlatDivider(!SharedConfig.chatBlurEnabled() && !devGramCenteredHeader);
+        // Keep the same ownership split as Cherrygram: in the centered mode the
+        // container is the three-pill header and must know its ActionBar (unread-pill
+        // growth and right-avatar alignment depend on it). Outside that mode Telegram's
+        // original special-chat branches keep using the legacy container.
+        if (devGramCenteredHeader) {
             avatarContainer.setActionBar(actionBar);
-        } else if (chatMode == MODE_WELCOME_MESSAGES) {
-            actionBar.setChatAvatarContainer(avatarContainer);
-            actionBar.setForcedMenuWidth(dp(46));
-            actionBar.doNotDrawGlassMenu = true;
-            avatarContainer.setActionBar(actionBar);
-        } else if (isComments) {
-            actionBar.setChatAvatarContainer(avatarContainer);
-            actionBar.setForcedMenuMinWidth(dp(46));
-            avatarContainer.setActionBar(actionBar);
+            actionBar.setChatAvatarContainer2(avatarContainer);
+        } else {
+            if (chatMode == MODE_PINNED) {
+                actionBar.setChatAvatarContainer(avatarContainer);
+                avatarContainer.setActionBar(actionBar);
+            } else if (chatMode == MODE_WELCOME_MESSAGES) {
+                actionBar.setChatAvatarContainer(avatarContainer);
+                actionBar.setForcedMenuWidth(dp(46));
+                actionBar.doNotDrawGlassMenu = true;
+                avatarContainer.setActionBar(actionBar);
+            } else if (isComments) {
+                actionBar.setChatAvatarContainer(avatarContainer);
+                actionBar.setForcedMenuMinWidth(dp(46));
+                avatarContainer.setActionBar(actionBar);
+            }
         }
 
         chatInputViewsContainer = new ChatInputViewsContainer(context);
@@ -5363,6 +5375,13 @@ public class ChatActivity extends BaseFragment implements
             glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
         chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
             glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+
+        if (DevGramIOSConfig.iosInputPanel()) {
+            chatInputViewsContainer.setLeftBubbleDrawable(
+                glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+            chatInputViewsContainer.setRightBubbleDrawable(
+                glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+        }
 
 
         chatInputBubbleContainer = chatInputViewsContainer.getInputIslandBubbleContainer();
@@ -8838,6 +8857,7 @@ public class ChatActivity extends BaseFragment implements
                 }
             }
         };
+        chatActivityEnterView.setChatInputViewsContainer(chatInputViewsContainer);
         chatActivityEnterView.setVisibility(View.VISIBLE);
         chatActivityEnterView.getEditField().adaptiveCreateLinkDialog = true;
         if (chatMode == MODE_EDIT_BUSINESS_LINK) {
@@ -19796,7 +19816,7 @@ public class ChatActivity extends BaseFragment implements
                 // затирал правый отступ avatarContainer обратно на 52/92dp — сводя на нет
                 // фикс из createView(), где отступ обнулён специально, чтобы аватарка
                 // физически попадала в область, где рисуется «⋮». Держим 0dp и здесь.
-                final boolean dgAvatarRight = MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false);
+                final boolean dgAvatarRight = isTitleCentered();
                 if (dgAvatarRight) {
                     if (avatarContainer != null && avatarContainer.getLayoutParams() != null) {
                         ((ViewGroup.MarginLayoutParams) avatarContainer.getLayoutParams()).rightMargin = 0;
@@ -21181,7 +21201,7 @@ public class ChatActivity extends BaseFragment implements
             // обычный размер аватарки (см. bringToFront/setHideGlassMenuPill ниже в createView) —
             // "крупная" иконка темы (largeIcon=true, сток) в эти границы не помещается, рисуется
             // без обрезки по кругу и вылезает поверх/за пределы капсулы.
-            boolean largeIcon = !MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false);
+            boolean largeIcon = !isTitleCentered();
             ForumUtilities.setTopicIcon(avatarContainer.getAvatarImageView(), forumTopic, true, largeIcon, themeDelegate);
         }
     }
@@ -22157,8 +22177,35 @@ public class ChatActivity extends BaseFragment implements
         }
     }
 
+    /** Cherrygram's iOS header is intentionally unavailable on service/search screens. */
+    private boolean isTitleCentered() {
+        return DevGramIOSConfig.centerChatTitle()
+                && !isReport()
+                && getChatMode() != MODE_SEARCH
+                && getChatMode() != MODE_SAVED
+                && getChatMode() != MODE_WELCOME_MESSAGES
+                && getDialogId() != 0
+                && getDialogId() != getUserConfig().getClientUserId();
+    }
+
+    public boolean isInSearchMode() {
+        return searching;
+    }
+
+    private void updateDevGramIOSUnreadBadge() {
+        if (actionBar == null || actionBar.backButtonImageView == null) return;
+        boolean available = org.telegram.messenger.DevGramIOSConfig.showUnreadCounter()
+                && isTitleCentered()
+                && !isInPreviewMode() && getDialogId() != 0
+                && getDialogId() != getUserConfig().getClientUserId();
+        actionBar.setIOSUnreadBadgeAvailable(available);
+        actionBar.backButtonImageView.checkUnreadView(getMessagesStorage().getMainUnreadCount());
+        actionBar.updateBackPillWidth(true);
+    }
+
     @Override
     public void didReceivedNotification(int id, int account, final Object... args) {
+        updateDevGramIOSUnreadBadge();
         if (id == NotificationCenter.messagesDidLoad) {
             didReceivedNotification_messagesDidLoad(id, account, args);
         } else {
@@ -28075,7 +28122,9 @@ public class ChatActivity extends BaseFragment implements
             }
             DevGramMessagesController.getInstance().consumeDeletePermit(getDialogId(), mid);
             // --- DevGram end ---
-            if (selectedObject != null && obj == selectedObject || obj != null && selectedObjectGroup != null && selectedObjectGroup == groupedMessagesMap.get(obj.getGroupId())) {
+            if (selectedObject != null && obj == selectedObject || obj != null && selectedObjectGroup != null
+                    && (!DevGramIOSConfig.iosMessageMenu() || DevGramIOSConfig.showWholeAlbumInMenu())
+                    && selectedObjectGroup == groupedMessagesMap.get(obj.getGroupId())) {
                 closeMenu();
             }
             if (PhotoViewer.isPlayingMessage(obj)) {
@@ -31465,7 +31514,7 @@ public class ChatActivity extends BaseFragment implements
         }
         if (avatarContainer != null) {
             avatarContainer.setOccupyStatusBar(!value);
-            final int dgAvatarRightMargin = MessagesController.getGlobalMainSettings().getBoolean("dg_centerTitle", false) ? 0 : 52;
+            final int dgAvatarRightMargin = isTitleCentered() ? 0 : 52;
             avatarContainer.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT, !inPreviewMode ? 52 : 0, 0, dgAvatarRightMargin, 0));
         }
         if (chatActivityEnterView != null) {
@@ -31478,7 +31527,13 @@ public class ChatActivity extends BaseFragment implements
             mentionContainer.animate().alpha(chatActivityEnterView.isStickersExpanded() || isInPreviewMode() ? 0 : 1f).setInterpolator(CubicBezierInterpolator.DEFAULT).start();
         }
         if (actionBar != null) {
-            actionBar.setBackButtonDrawable(!value ? new BackDrawable(false) : null);
+            if (!value) {
+                BackDrawable backDrawable = new BackDrawable(false);
+                backDrawable.setShowStick(!isTitleCentered());
+                actionBar.setBackButtonDrawable(backDrawable);
+            } else {
+                actionBar.setBackButtonDrawable(null);
+            }
             if (headerItem != null) {
                 headerItem.setAlpha(!value ? 1.0f : 0.0f);
             }
@@ -31574,6 +31629,7 @@ public class ChatActivity extends BaseFragment implements
     @Override
     public void onResume() {
         super.onResume();
+        updateDevGramIOSUnreadBadge();
         checkShowBlur(false);
         // DevGram: значок в шапке мог измениться в облаке, пока чат был на паузе — обновим
         if (avatarContainer != null) {
@@ -32267,7 +32323,9 @@ public class ChatActivity extends BaseFragment implements
 
         if (AndroidUtilities.isTablet()) {
             if (AndroidUtilities.isSmallTablet() && ApplicationLoader.applicationContext.getResources().getConfiguration().orientation == Configuration.ORIENTATION_PORTRAIT) {
-                actionBar.setBackButtonDrawable(new BackDrawable(false));
+                BackDrawable backDrawable = new BackDrawable(false);
+                backDrawable.setShowStick(!isTitleCentered());
+                actionBar.setBackButtonDrawable(backDrawable);
             } else {
                 actionBar.setBackButtonDrawable(new BackDrawable(parentLayout == null || parentLayout.getFragmentStack().isEmpty() || parentLayout.getFragmentStack().get(0) == ChatActivity.this || parentLayout.getFragmentStack().size() == 1));
             }
@@ -32910,10 +32968,19 @@ public class ChatActivity extends BaseFragment implements
 
             updateScrimSourceBitmap();
 
-            popupLayout.setBackground(scrimBlur3Factory.create(popupLayout, true)
-                .setColorProvider(BlurredBackgroundProviderImpl.messageMenuBackground(resourceProvider))
-                .setRadius(dp(12))
-                .setPadding(dp(8)));
+            final boolean iosMessageMenu = DevGramIOSConfig.iosMessageMenu();
+            if (!iosMessageMenu || DevGramIOSConfig.nativeMenuBlur()) {
+                popupLayout.setBackground(scrimBlur3Factory.create(popupLayout, true)
+                    .setColorProvider(BlurredBackgroundProviderImpl.messageMenuBackground(resourceProvider))
+                    .setRadius(dp(iosMessageMenu ? 16 : 12))
+                    .setPadding(dp(8)));
+            } else {
+                android.graphics.drawable.GradientDrawable menuBackground = new android.graphics.drawable.GradientDrawable();
+                menuBackground.setColor(getThemedColor(Theme.key_actionBarDefaultSubmenuBackground));
+                menuBackground.setCornerRadius(dp(16));
+                popupLayout.setBackground(menuBackground);
+                popupLayout.setPadding(dp(8), dp(8), dp(8), dp(8));
+            }
 
             boolean addGap = false;
 
@@ -33667,6 +33734,9 @@ public class ChatActivity extends BaseFragment implements
                     ActionBarMenuSubItem cell = new ActionBarMenuSubItem(getParentActivity(), a == 0, a == N - 1, themeDelegate);
                     cell.setMinimumWidth(AndroidUtilities.dp(200));
                     cell.setTextAndIcon(items.get(a), icons.get(a));
+                    if (iosMessageMenu && DevGramIOSConfig.compactMenuActions()) {
+                        cell.setItemHeight(40);
+                    }
 
 
                     if (option == OPTION_WELCOME_REVERT) {
@@ -34195,6 +34265,7 @@ public class ChatActivity extends BaseFragment implements
                         messageSeenPrivacyBulletin = null;
                     }
                     scrimPopupWindow = null;
+                    devGramIOSMessageMenuOverlay = null;
                     menuDeleteItem = null;
                     scrimPopupWindowItems = null;
                     chatLayoutManager.setCanScrollVertically(true);
@@ -34219,7 +34290,7 @@ public class ChatActivity extends BaseFragment implements
             scrimPopupWindow.setPauseNotifications(true);
             scrimPopupWindow.setDismissAnimationDuration(220);
             scrimPopupWindow.setOutsideTouchable(true);
-            scrimPopupWindow.setClippingEnabled(true);
+            scrimPopupWindow.setClippingEnabled(!iosMessageMenu);
             if (!isReactionsAvailable || reactionsLayout == null || !ReactionsContainerLayout.allowSmoothEnterTransition()) {
                 scrimPopupWindow.setAnimationStyle(R.style.PopupContextAnimation);
             } else {
@@ -34228,7 +34299,9 @@ public class ChatActivity extends BaseFragment implements
             scrimPopupWindow.setFocusable(true);
             scrimPopupContainerLayout.measure(View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST));
             scrimPopupWindow.setInputMethodMode(ActionBarPopupWindow.INPUT_METHOD_NOT_NEEDED);
-            scrimPopupWindow.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+            scrimPopupWindow.setSoftInputMode(iosMessageMenu && DevGramIOSConfig.rememberKeyboardForMenu()
+                    ? WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+                    : WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
             scrimPopupWindow.getContentView().setFocusableInTouchMode(true);
             popupLayout.setFitItems(true);
 
@@ -34248,6 +34321,9 @@ public class ChatActivity extends BaseFragment implements
             int totalHeight = contentView.getHeight();
             int height = scrimPopupContainerLayout.getMeasuredHeight() + AndroidUtilities.dp(48);
             int keyboardHeight = contentView.measureKeyboardHeight();
+            if (iosMessageMenu && !DevGramIOSConfig.rememberKeyboardForMenu()) {
+                keyboardHeight = 0;
+            }
             if (keyboardHeight > AndroidUtilities.dp(20)) {
                 totalHeight += keyboardHeight;
             }
@@ -34281,12 +34357,45 @@ public class ChatActivity extends BaseFragment implements
                 scrimMaxHeight -= AndroidUtilities.navigationBarHeight + AndroidUtilities.dp(8);
             }
             scrimPopupContainerLayout.setMaxHeight(scrimMaxHeight);
+            if (iosMessageMenu) {
+                ArrayList<View> selectedMessageViews = new ArrayList<>();
+                selectedMessageViews.add(v);
+                if (DevGramIOSConfig.showWholeAlbumInMenu() && v instanceof ChatMessageCell) {
+                    MessageObject.GroupedMessages selectedGroup = ((ChatMessageCell) v).getCurrentMessagesGroup();
+                    if (selectedGroup != null) {
+                        for (int i = 0; i < chatListView.getChildCount(); i++) {
+                            View child = chatListView.getChildAt(i);
+                            if (child instanceof ChatMessageCell
+                                    && child != v
+                                    && ((ChatMessageCell) child).getCurrentMessagesGroup() == selectedGroup) {
+                                selectedMessageViews.add(child);
+                            }
+                        }
+                    }
+                }
+                devGramIOSMessageMenuOverlay = new DevGramIOSMessageMenuOverlay(
+                        getContext(), contentView, selectedMessageViews, scrimPopupContainerLayout,
+                        finalPopupX, finalPopupY, DevGramIOSConfig.nativeMenuBlur(), () -> {
+                    DevGramIOSMessageMenuOverlay overlay = devGramIOSMessageMenuOverlay;
+                    devGramIOSMessageMenuOverlay = null;
+                    if (scrimPopupWindow != null) {
+                        scrimPopupWindow.dismiss(false);
+                    }
+                    if (overlay != null) {
+                        overlay.release();
+                    }
+                });
+                scrimPopupWindow.setContentView(devGramIOSMessageMenuOverlay);
+                scrimPopupWindow.setWidth(LayoutHelper.MATCH_PARENT);
+                scrimPopupWindow.setHeight(LayoutHelper.MATCH_PARENT);
+            }
             ReactionsContainerLayout finalReactionsLayout = reactionsLayout;
             Runnable showMenu = () -> {
                 if (scrimPopupWindow == null || fragmentView == null || scrimPopupWindow.isShowing() || !AndroidUtilities.isActivityRunning(getParentActivity())) {
                     return;
                 }
-                scrimPopupWindow.showAtLocation(chatListView, Gravity.LEFT | Gravity.TOP, finalPopupX, finalPopupY);
+                scrimPopupWindow.showAtLocation(chatListView, Gravity.LEFT | Gravity.TOP,
+                        iosMessageMenu ? 0 : finalPopupX, iosMessageMenu ? 0 : finalPopupY);
                 if (isReactionsAvailableFinal && finalReactionsLayout != null) {
                     finalReactionsLayout.startEnterAnimation(true);
                 }
@@ -34578,6 +34687,10 @@ public class ChatActivity extends BaseFragment implements
 
     private void closeMenu(boolean hideDim) {
         scrimPopupWindowHideDimOnDismiss = hideDim;
+        if (devGramIOSMessageMenuOverlay != null && !devGramIOSMessageMenuOverlay.isClosing()) {
+            devGramIOSMessageMenuOverlay.closeAnimated();
+            return;
+        }
         if (scrimPopupWindow != null) {
             scrimPopupWindow.dismiss();
         }
