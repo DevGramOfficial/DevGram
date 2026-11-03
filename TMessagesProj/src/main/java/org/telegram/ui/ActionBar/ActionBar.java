@@ -261,19 +261,15 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         invalidate();
     }
 
-    // Padding меняет только внутреннюю область размытия, но не центр bounds кружка:
-    // getBackPillWidth() всегда оставляет его на 29dp. Поэтому стрелке нужна постоянная
-    // компенсация 2dp относительно центра штатной 54dp-кнопки. Добавление разницы padding
-    // сдвигало стрелку вправо, из-за чего сам пузырь визуально казался уехавшим влево.
+    // Центр круглого фона находится в glassPadding + 23dp. Центр штатной 54dp-кнопки —
+    // 27dp, поэтому двигаем стрелку на базовые 2dp и на разницу увеличенного padding.
     private int glassBackTranslationX() {
-        return dp(2);
+        return dp(2) + glassPadding - dp(6);
     }
 
-    // Справа фон расширяется за границу ActionBar на разницу между увеличенным отступом
-    // и штатными 6dp (см. отрисовку ниже). Поэтому самой кнопке достаточно базового
-    // сдвига на 10dp: дополнительная компенсация здесь сдвигала иконку и пузырь влево.
+    // Зеркальная компенсация справа удерживает меню в центре круглого фона при любом padding.
     private int glassMenuTranslationX() {
-        return -dp(10);
+        return -dp(10) - (glassPadding - dp(6));
     }
 
     public void setGlassPadding(int padding) {
@@ -2554,12 +2550,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             // в ChatActivity) — прикрывать там нечего, и без этой проверки весь ряд иконок
             // остался бы без подложки. + 12.9.7: учитываем штатный doNotDrawGlassMenu.
             if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu && !(hideGlassMenuPill && !actionModeVisible)) {
-                // При увеличенном glassPadding внутренняя видимая часть drawable уходила
-                // влево относительно зеркального кружка «Назад». Выносим правую границу
-                // на ту же разницу, сохраняя размер и идеально совмещая фон с menu view.
-                int menuOffset = Math.max(0, glassPadding - dp(6));
-                glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2 + menuOffset,
-                        t, getWidth() + menuOffset, b);
+                glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2, t, getWidth(), b);
                 glassDrawableMenu.setAlpha(hasForcedMenuWidth || isTitleCentered() ? 255 : (int) (255 * animatorHasMenuItems.getFloatValue()));
                 glassDrawableMenu.draw(canvas);
             }
@@ -2904,7 +2895,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private int getBackPillWidth() {
-        int padding = dp(6);
+        int padding = glassPadding;
         int width = dp(46) + padding * 2;
         int extra = getBackPillCounterExtraWidth();
         if (extra > 0) {
@@ -2920,7 +2911,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     public int getBackPillGrowth() {
-        return Math.max(0, getBackPillWidth() - dp(58));
+        return Math.max(0, getBackPillWidth() - (dp(46) + glassPadding * 2));
     }
 
     private boolean isBackPillMode() {
@@ -2929,7 +2920,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     private int getBackButtonWidth() {
         if (!isBackPillMode()) return dp(54);
-        return Math.max(dp(54), (int) (getBackPillWidth() - dp(6) - backButtonImageView.getTranslationX()));
+        return Math.max(dp(54), (int) (getBackPillWidth() - glassPadding - backButtonImageView.getTranslationX()));
     }
 
     private void measureBackButton(int heightSpec) {
@@ -2998,7 +2989,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         @Override protected void onDraw(Canvas canvas) {
             if (pillRipple != null) {
-                int padding = dp(6);
+                int padding = glassPadding;
                 int offsetX = getLeft() + (int) getTranslationX();
                 int top = ActionBar.this.getHeight() - (getCurrentActionBarHeight() + dp(46)) / 2 - getTop();
                 pillRipple.setBounds(padding - offsetX, top, getBackPillWidth() - padding - offsetX, top + dp(46));
