@@ -6265,7 +6265,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (userId != 0 && imageUpdater != null && !myProfile)
             return 0;
         return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight()
-                + dp(withPills && (hasMusic || hasBalance) ? 25 : 0);
+                + dp(withPills && hasBalance ? 25 : 0);
     }
 
     private int getHeaderExtraHeight() {
@@ -11486,7 +11486,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (userInfo != null) {
                 musicView.setMusicDocument(userInfo.saved_music);
             }
-            musicView.setVisibility(hasMusic ? View.VISIBLE : View.GONE);
+            // The saved track is represented by the full profile card below. Keep the
+            // compact header row for the wallet balance only, matching Extera's normal
+            // profile layout.
+            musicView.setVisibility(View.GONE);
             if (hasBalance) {
                 balanceView.setBalance(GramWallet.getInstance(currentAccount).getBalance());
             }
@@ -11778,7 +11781,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             actionsView.updatePosition(listView.getMeasuredWidth(), org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         } else {
             actionsView.clipHeight = -1;
-            float bottom = extraHeight + newTop - dp((hasMusic || hasBalance) ? 25 : 0);
+            float bottom = extraHeight + newTop - dp(hasBalance ? 25 : 0);
             float height = Math.min(org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), bottom - newTop);
             actionsView.updatePosition(bottom - height, height);
         }
