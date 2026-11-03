@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DevGramBadges {
 
@@ -165,11 +166,15 @@ public class DevGramBadges {
         styleVersion++;
     }
 
-    // Перерисовать то, что показывает значки/обводку/цвет ника/фон профиля. Без reloadInterface:
-    // тот пересобирает все экраны, а события теперь приходят живым потоком.
+    // Перерисовать всё, что показывает значки/обводку/цвет ника/фон профиля. Обычные ячейки
+    // слушают updateInterfaces, а открытый ProfileActivity — глобальный reloadInterface.
     private static void notifyBadgesChanged() {
         invalidateStyles();
         AndroidUtilities.runOnUIThread(() -> {
+            // ProfileActivity слушает глобальный reloadInterface, а не только account-scoped
+            // updateInterfaces. Без него новый значок уже лежал в кэше, но открытый профиль мог
+            // продолжать показывать старую шапку до полного перезапуска приложения.
+            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                 if (UserConfig.getInstance(a).isClientActivated()) {
                     NotificationCenter.getInstance(a).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_ALL);
@@ -180,13 +185,18 @@ public class DevGramBadges {
 
     // Забрать значки из облака в локальный кэш (в фоне). Вызываем на старте и при открытии
     // экрана значков / после выдачи.
+    private static final AtomicBoolean cloudSyncInFlight = new AtomicBoolean();
+
     public static void syncFromCloud() {
+        if (!cloudSyncInFlight.compareAndSet(false, true)) {
+            return;
+        }
         Utilities.globalQueue.postRunnable(() -> {
-            String json = httpSend("GET", RTDB_BASE + "/badges.json", null);
-            if (json == null) {
-                return;
-            }
             try {
+                String json = httpSend("GET", RTDB_BASE + "/badges.json", null);
+                if (json == null) {
+                    return;
+                }
                 SharedPreferences p = prefs();
                 if (p == null) {
                     return;
@@ -208,12 +218,16 @@ public class DevGramBadges {
                 notifyBadgesChanged();
             } catch (Throwable e) {
                 FileLog.e(e);
+            } finally {
+                cloudSyncInFlight.set(false);
             }
         });
     }
 
     private static Thread streamThread;
-    private static final long POLL_INTERVAL_MS = 150000; // ~2.5 мин — периодический опрос
+    // Некоторые операторы/VPN обрывают долгий SSE. Пока приложение открыто, короткий опрос
+    // страхует push: даже в такой сети выданный значок появится без перезапуска максимум за 10 с.
+    private static final long POLL_INTERVAL_MS = 10000;
     private static boolean pollScheduled;
 
     public static void startSync() {
@@ -258,6 +272,9 @@ public class DevGramBadges {
     private static void setStreamWanted(boolean wanted) {
         streamWanted = wanted;
         if (wanted) {
+            // За время в фоне события могли быть пропущены, поэтому при каждом возвращении сразу
+            // берём актуальный снимок, не ожидая ни следующего SSE-события, ни таймера.
+            syncFromCloud();
             startStream();
             synchronized (streamLock) {
                 streamLock.notifyAll();
@@ -277,7 +294,9 @@ public class DevGramBadges {
         pollScheduled = true;
         final Runnable[] r = new Runnable[1];
         r[0] = () -> {
-            syncFromCloud();
+            if (streamWanted) {
+                syncFromCloud();
+            }
             AndroidUtilities.runOnUIThread(r[0], POLL_INTERVAL_MS);
         };
         AndroidUtilities.runOnUIThread(r[0], POLL_INTERVAL_MS);
@@ -311,8 +330,11 @@ public class DevGramBadges {
             HttpURLConnection conn = null;
             boolean gotData = false;
             try {
-                conn = (HttpURLConnection) new URL(RTDB_BASE + "/badges.json").openConnection();
+                conn = (HttpURLConnection) new URL(RTDB_BASE + "/badges.json?stream=" + System.currentTimeMillis()).openConnection();
                 conn.setRequestProperty("Accept", "text/event-stream");
+                conn.setRequestProperty("Cache-Control", "no-cache");
+                conn.setRequestProperty("Accept-Encoding", "identity");
+                conn.setUseCaches(false);
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(60000); // сервер шлёт keep-alive каждые 25 с: тишина 60 с → реконнект
                 streamConn = conn;
