@@ -30,6 +30,7 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.DevGramBadgeChoiceActivity;
 import org.telegram.ui.DevGramSupportSheet;
 import org.telegram.ui.DevGramSupporterActivity;
+import org.telegram.ui.Stories.recorder.ButtonWithCounterView;
 
 import java.util.ArrayList;
 
@@ -89,9 +90,13 @@ public final class DevGramSupporterBadgeSheet {
         content.addView(primary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 12, 16, 12, 0));
 
         if (own) {
-            TextView transfer = button(context, "Передать другому аккаунту", false);
-            transfer.setCompoundDrawablesWithIntrinsicBounds(R.drawable.msg_forward, 0, 0, 0);
-            transfer.setCompoundDrawablePadding(AndroidUtilities.dp(8));
+            // Как в exteraGram: нейтральная круглая системная кнопка без отдельной иконки.
+            // ButtonWithCounterView сам выдерживает правильные цвета, нажатие и вертикальное
+            // центрирование во всех темах — прежняя TextView-кнопка визуально выбивалась.
+            ButtonWithCounterView transfer = new ButtonWithCounterView(context, true, fragment.getResourceProvider())
+                    .setNeutral()
+                    .setRound();
+            transfer.setText("Передать другому аккаунту", false);
             transfer.setOnClickListener(v -> showTransfer(fragment, account, sheetRef[0]));
             content.addView(transfer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 12, 6, 12, 0));
         }
