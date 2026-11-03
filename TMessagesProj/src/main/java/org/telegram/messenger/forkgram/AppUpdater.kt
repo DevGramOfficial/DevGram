@@ -362,7 +362,7 @@ object AppUpdater {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) pi.longVersionCode else pi.versionCode.toLong()
         } catch (e: Exception) { 0L }
 
-        httpRequest("GET", "https://api.devgram.space/api/beta/latest") { response ->
+        httpRequest("GET", "https://api.devgram.space/api/beta/latest?versionCode=$curCode") { response ->
             try {
                 if (response == null) {
                     if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Ошибка сети", Toast.LENGTH_SHORT).show() }

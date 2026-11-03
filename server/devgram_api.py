@@ -37,6 +37,7 @@ SA_PATH = os.environ.get("BETA_SA", "/home/devgram-d03e4-firebase-adminsdk-fbsvc
 BETA_DIR = os.environ.get("BETA_DIR", "/home/beta")
 APK_PATH = os.path.join(BETA_DIR, "DevGram-beta.apk")
 MANIFEST_PATH = os.path.join(BETA_DIR, "manifest.json")
+HISTORY_PATH = os.path.join(BETA_DIR, "history.json")
 PLUGIN_BLOCKS_DB = os.environ.get("PLUGIN_BLOCKS_DB", "/home/devgram/api/plugin_blocks.db")
 BADGES_PATH = os.environ.get("BADGES_PATH", "/home/devgram/badges/badges.json")
 
@@ -141,6 +142,61 @@ def _manifest():
             return json.load(f)
     except Exception:
         return None
+
+
+def _history(manifest):
+    try:
+        with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+            history = json.load(f)
+        if not isinstance(history, list):
+            history = []
+    except Exception:
+        history = []
+    by_version = {}
+    for item in history + ([manifest] if isinstance(manifest, dict) else []):
+        if not isinstance(item, dict):
+            continue
+        try:
+            version_code = int(item.get("versionCode", 0))
+        except Exception:
+            continue
+        if version_code > 0:
+            by_version[version_code] = item
+    return [by_version[key] for key in sorted(by_version)]
+
+
+def _merged_changelog(items):
+    groups = {"new": [], "fixed": [], "other": []}
+    seen = set()
+    for item in items:
+        current = "other"
+        for raw_line in str(item.get("changelog", "") or "").splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            lower = line.lower().rstrip(":")
+            if lower in ("что нового", "новое", "добавлено"):
+                current = "new"
+                continue
+            if lower in ("исправлено", "исправления"):
+                current = "fixed"
+                continue
+            text = line.lstrip("–—-• ").strip()
+            if not text:
+                continue
+            key = text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            groups[current].append("– " + text)
+    parts = []
+    if groups["new"]:
+        parts.append("Что нового:\n" + "\n".join(groups["new"]))
+    if groups["fixed"]:
+        parts.append("Исправлено:\n" + "\n".join(groups["fixed"]))
+    if groups["other"]:
+        parts.append("\n".join(groups["other"]))
+    return "\n\n".join(parts)
 
 
 def _has_supporter(uid):
@@ -275,11 +331,21 @@ def latest():
     m = _manifest()
     if not m:
         return jsonify({"available": False}), 200
+    try:
+        current_version = max(0, int(request.args.get("versionCode", "0")))
+    except Exception:
+        current_version = 0
+    changelog = m.get("changelog", "")
+    if current_version > 0:
+        missed = [item for item in _history(m)
+                  if current_version < int(item.get("versionCode", 0)) <= int(m.get("versionCode", 0))]
+        if missed:
+            changelog = _merged_changelog(missed)
     return jsonify({
         "available": True,
         "versionCode": m.get("versionCode", 0),
         "versionName": m.get("versionName", ""),
-        "changelog": m.get("changelog", ""),
+        "changelog": changelog,
         "size": m.get("size", 0),
         "sha256": m.get("sha256", ""),
         "publishedAt": m.get("publishedAt", 0),
