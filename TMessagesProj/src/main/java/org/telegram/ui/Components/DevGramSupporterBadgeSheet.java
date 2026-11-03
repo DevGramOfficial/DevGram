@@ -202,10 +202,9 @@ public final class DevGramSupporterBadgeSheet {
             if (DevGramBadges.hasSupporterFeatures(uid)) {
                 continue;
             }
-            final int target = account;
             options.addAccount(account, false, () -> {
                 sheet.dismiss();
-                confirmTransfer(fragment, source, target);
+                openTransferBot(fragment);
             });
             count++;
         }
@@ -214,10 +213,16 @@ public final class DevGramSupporterBadgeSheet {
         }
         options.add(R.drawable.msg_link2, "Другой аккаунт", "Перенести по одноразовой ссылке", () -> {
             sheet.dismiss();
-            Browser.openUrl(fragment.getParentActivity(),
-                    "https://t.me/officialdevgram_bot?start=transfer");
+            openTransferBot(fragment);
         });
         options.show();
+    }
+
+    private static void openTransferBot(BaseFragment fragment) {
+        if (fragment.getParentActivity() != null) {
+            Browser.openUrl(fragment.getParentActivity(),
+                    "https://t.me/officialdevgram_bot?start=transfer");
+        }
     }
 
     private static void confirmTransfer(BaseFragment fragment, int source, int target) {
