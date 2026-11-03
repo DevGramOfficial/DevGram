@@ -153,6 +153,7 @@ public final class DevGramSupporterBadgeSheet {
             });
             containerView.addView(bottomContainer, LayoutHelper.createFrame(
                     LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
+            adapter.update(false);
         }
 
         private View feature(int icon, CharSequence title, CharSequence subtitle, Runnable action) {
@@ -174,6 +175,9 @@ public final class DevGramSupporterBadgeSheet {
         public RecyclerListView.SelectionAdapter createAdapter(RecyclerListView listView) {
             adapter = new UniversalAdapter(listView, getContext(), currentAccount, 0, true,
                     (items, universalAdapter) -> {
+                        if (views == null) {
+                            return;
+                        }
                         for (View view : views) {
                             UItem item = UItem.asCustom(view);
                             item.transparent = true;
