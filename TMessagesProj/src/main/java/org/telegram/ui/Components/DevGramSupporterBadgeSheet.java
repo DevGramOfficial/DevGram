@@ -111,7 +111,7 @@ public final class DevGramSupporterBadgeSheet {
             views.add(feature(R.drawable.msg_settings, "Ранние сборки",
                     "Новые возможности раньше остальных пользователей.", own ? () -> {
                         dismiss();
-                        fragment.presentFragment(new DevGramSupporterActivity());
+                        DevGramSupporterActivity.openBetaChannel(fragment);
                     } : null));
 
             bottomContainer = new LinearLayout(getContext());

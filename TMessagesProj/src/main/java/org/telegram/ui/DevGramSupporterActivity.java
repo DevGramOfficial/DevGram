@@ -128,7 +128,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_PROFILE_BG) {
             presentFragment(new DevGramProfileBgActivity());
         } else if (item.id == ID_BETA_CHANNEL) {
-            openBetaChannel();
+            openBetaChannel(this);
         }
     }
 
@@ -155,7 +155,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
                 + "Ссылка персональная и сработает один раз — только для вас. Вступить можно и позже, кнопкой в этом разделе.");
         b.setPositiveButton("Присоединиться", (d, w) -> {
             prefs.edit().putBoolean(key, true).apply();
-            openBetaChannel();
+            openBetaChannel(this);
         });
         b.setNegativeButton("Отказаться", (d, w) -> prefs.edit().putBoolean(key, true).apply());
         // пока идёт анимация открытия экрана, showDialog отказывает — тогда покажем в следующий раз
@@ -163,26 +163,30 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     }
 
     // Участник — открываем канал, иначе запрашиваем персональную ссылку-заявку (бот одобрит её сразу)
-    private void openBetaChannel() {
-        if (DevGramBeta.isBetaChannelMember(currentAccount)) {
-            android.os.Bundle args = new android.os.Bundle();
-            args.putLong("chat_id", DevGramBeta.getBetaChannel());
-            presentFragment(new ChatActivity(args));
+    public static void openBetaChannel(org.telegram.ui.ActionBar.BaseFragment fragment) {
+        if (fragment == null) {
             return;
         }
-        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Получаю персональную ссылку…").show();
-        DevGramBeta.requestInvite(currentAccount, (link, error) -> {
+        int account = fragment.getCurrentAccount();
+        if (DevGramBeta.isBetaChannelMember(account)) {
+            android.os.Bundle args = new android.os.Bundle();
+            args.putLong("chat_id", DevGramBeta.getBetaChannel());
+            fragment.presentFragment(new ChatActivity(args));
+            return;
+        }
+        BulletinFactory.of(fragment).createSimpleBulletin(R.raw.contact_check, "Получаю персональную ссылку…").show();
+        DevGramBeta.requestInvite(account, (link, error) -> {
             if (link == null) {
                 if ("Канал беты ещё не готов".equals(error)) {
                     // канал ещё не подключён — приглашение покажем снова, когда появится
-                    getMessagesController().getGlobalMainSettings().edit()
-                            .remove("devgramBetaInvite_" + getUserConfig().getClientUserId()).apply();
+                    fragment.getMessagesController().getGlobalMainSettings().edit()
+                            .remove("devgramBetaInvite_" + fragment.getUserConfig().getClientUserId()).apply();
                 }
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось получить ссылку").show();
+                BulletinFactory.of(fragment).createErrorBulletin(error != null ? error : "Не удалось получить ссылку").show();
                 return;
             }
-            if (getParentActivity() != null) {
-                org.telegram.messenger.browser.Browser.openUrl(getParentActivity(), link);
+            if (fragment.getParentActivity() != null) {
+                org.telegram.messenger.browser.Browser.openUrl(fragment.getParentActivity(), link);
             }
         });
     }
