@@ -106,7 +106,7 @@ public final class DevGramSupporterBadgeSheet {
             views.add(feature(R.drawable.msg_customize, "Оформление профиля",
                     "Свой значок, цвет имени, фон и обводка сообщений.", own ? () -> {
                         dismiss();
-                        fragment.presentFragment(new DevGramBadgeChoiceActivity());
+                        fragment.presentFragment(new DevGramSupporterActivity());
                     } : null));
             views.add(feature(R.drawable.msg_calendar2, "Даты регистрации",
                     "Примерная дата создания аккаунтов прямо в профиле.", null));
