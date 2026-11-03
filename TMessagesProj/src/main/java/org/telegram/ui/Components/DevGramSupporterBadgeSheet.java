@@ -241,12 +241,9 @@ public final class DevGramSupporterBadgeSheet {
     }
 
     private static void transfer(BaseFragment fragment, int source, int target, String targetName) {
-        AlertDialog progress = new AlertDialog(fragment.getParentActivity(),
-                AlertDialog.ALERT_TYPE_SPINNER, fragment.getResourceProvider());
-        progress.setCanCancel(false);
-        progress.showDelayed(300);
+        BulletinFactory.of(fragment).createSimpleBulletin(R.raw.contact_check,
+                "Подтверждаю аккаунты…").show();
         DevGramBadges.transfer(source, target, (ok, error) -> {
-            progress.dismiss();
             if (fragment.isFinished) {
                 return;
             }
