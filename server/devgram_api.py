@@ -335,12 +335,17 @@ def latest():
         current_version = max(0, int(request.args.get("versionCode", "0")))
     except Exception:
         current_version = 0
+    history = _history(m)
     changelog = m.get("changelog", "")
     if current_version > 0:
-        missed = [item for item in _history(m)
+        missed = [item for item in history
                   if current_version < int(item.get("versionCode", 0)) <= int(m.get("versionCode", 0))]
         if missed:
             changelog = _merged_changelog(missed)
+    elif history:
+        # Старые клиенты ещё не отправляют versionCode. Для них безопаснее показать
+        # всю сохранённую историю, чем потерять изменения между пропущенными релизами.
+        changelog = _merged_changelog(history)
     return jsonify({
         "available": True,
         "versionCode": m.get("versionCode", 0),
