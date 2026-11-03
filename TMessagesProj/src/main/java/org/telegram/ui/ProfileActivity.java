@@ -16773,7 +16773,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         lastOnlineTextRatingPadding = ratingPadding;
         final float expanded = Utilities.clamp01(playProfileAnimation == 2 ? 1 : avatarAnimationProgress >= 1 || playProfileAnimation == 0 ? currentExpandAnimatorValue : 0);
         final float ratingVisibility = ratingView != null ? ratingView.getVisibilityFactor() : 0;
-        return onlineX + ratingPadding * ratingVisibility * (1f - expanded) + Math.max(0, (customPhotoOffset + getRatingViewTranslationXOffset()) * expanded);
+        return onlineX
+                + ratingPadding * ratingVisibility * (1f - expanded)
+                + getRatingViewTranslationXOffset()
+                + Math.max(0, customPhotoOffset * expanded);
     }
 
     // centered subtitle with star rating keeps its position as it was before accounting for padding

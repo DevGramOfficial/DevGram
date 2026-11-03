@@ -331,6 +331,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
             int dw = (int) (rightDrawable2.getIntrinsicWidth() * rightDrawableScale);
             size += dw + drawablePadding;
         }
+        if (rightDrawable3 != null) {
+            int dw = (int) (rightDrawable3.getIntrinsicWidth() * rightDrawableScale);
+            size += dw + drawablePadding;
+        }
         return size;
     }
 
@@ -1284,14 +1288,15 @@ public class SimpleTextView extends View implements Drawable.Callback {
     public float getExactWidth() {
         return getPaint().measureText(getText().toString())
                 + getSideDrawablesSize()
-                - (leftDrawable != null || rightDrawable != null || rightDrawable2 != null ? drawablePadding : 0);
+                - (leftDrawable != null || rightDrawable != null || rightDrawable2 != null || rightDrawable3 != null ? drawablePadding : 0);
     }
 
     public float getExactWidthIncludeDrawables() {
         return getExactWidth()
             + (leftDrawable != null ? leftDrawable.getIntrinsicWidth() : 0)
             + (rightDrawable != null ? rightDrawable.getIntrinsicWidth() : 0)
-            + (rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() : 0);
+            + (rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() : 0)
+            + (rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() : 0);
     }
 
     // DevGram: цвет/градиент ника поддержавшего. Кладётся прямо при отрисовке — так его не перебивают
