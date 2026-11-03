@@ -268,9 +268,11 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         return dp(2) + glassPadding - dp(6);
     }
 
-    // То же справа: кружок под кнопками меню при большем отступе съезжает влево — двигаем меню за ним.
+    // Справа фон расширяется за границу ActionBar на разницу между увеличенным отступом
+    // и штатными 6dp (см. отрисовку ниже). Поэтому самой кнопке достаточно базового
+    // сдвига на 10dp: дополнительная компенсация здесь сдвигала иконку и пузырь влево.
     private int glassMenuTranslationX() {
-        return -dp(10) - (glassPadding - dp(6));
+        return -dp(10);
     }
 
     public void setGlassPadding(int padding) {
@@ -2551,7 +2553,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             // в ChatActivity) — прикрывать там нечего, и без этой проверки весь ряд иконок
             // остался бы без подложки. + 12.9.7: учитываем штатный doNotDrawGlassMenu.
             if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu && !(hideGlassMenuPill && !actionModeVisible)) {
-                glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2, t, getWidth(), b);
+                // При увеличенном glassPadding внутренняя видимая часть drawable уходила
+                // влево относительно зеркального кружка «Назад». Выносим правую границу
+                // на ту же разницу, сохраняя размер и идеально совмещая фон с menu view.
+                int menuOffset = Math.max(0, glassPadding - dp(6));
+                glassDrawableMenu.setBounds(getWidth() - Math.max(s, menuWidth) - p * 2 + menuOffset,
+                        t, getWidth() + menuOffset, b);
                 glassDrawableMenu.setAlpha(hasForcedMenuWidth || isTitleCentered() ? 255 : (int) (255 * animatorHasMenuItems.getFloatValue()));
                 glassDrawableMenu.draw(canvas);
             }
