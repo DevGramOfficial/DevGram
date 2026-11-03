@@ -108,8 +108,6 @@ public final class DevGramSupporterBadgeSheet {
                         dismiss();
                         fragment.presentFragment(new DevGramSupporterActivity());
                     } : null));
-            views.add(feature(R.drawable.msg_calendar2, "Даты регистрации",
-                    "Примерная дата создания аккаунтов прямо в профиле.", null));
             views.add(feature(R.drawable.msg_settings, "Ранние сборки",
                     "Новые возможности раньше остальных пользователей.", own ? () -> {
                         dismiss();
