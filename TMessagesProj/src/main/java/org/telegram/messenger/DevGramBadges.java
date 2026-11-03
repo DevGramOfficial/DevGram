@@ -835,6 +835,11 @@ public class DevGramBadges {
 
     /** Передаёт номерной значок между двумя подключёнными в клиенте аккаунтами. */
     public static void transfer(int sourceAccount, int targetAccount, Callback callback) {
+        transfer(sourceAccount, targetAccount, callback, true, true);
+    }
+
+    private static void transfer(int sourceAccount, int targetAccount, Callback callback,
+                                 boolean retrySourceToken, boolean retryTargetToken) {
         DevGramBeta.activate(sourceAccount, (sourceOk, sourceError) -> {
             if (!sourceOk) {
                 callback.onResult(false, sourceError);
@@ -873,6 +878,12 @@ public class DevGramBadges {
                         if (finalOk) {
                             syncFromCloud();
                             callback.onResult(true, null);
+                        } else if ("token".equals(finalError) && retrySourceToken) {
+                            DevGramConfig.clearBetaToken(sourceUid);
+                            transfer(sourceAccount, targetAccount, callback, false, retryTargetToken);
+                        } else if ("target_token".equals(finalError) && retryTargetToken) {
+                            DevGramConfig.clearBetaToken(targetUid);
+                            transfer(sourceAccount, targetAccount, callback, retrySourceToken, false);
                         } else {
                             callback.onResult(false, transferErrorText(finalError));
                         }
