@@ -17,6 +17,8 @@ package org.telegram.messenger;
 import android.content.SharedPreferences;
 
 import org.json.JSONObject;
+import org.telegram.tgnet.ConnectionsManager;
+import org.telegram.tgnet.TLRPC;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -835,7 +837,123 @@ public class DevGramBadges {
 
     /** Передаёт номерной значок между двумя подключёнными в клиенте аккаунтами. */
     public static void transfer(int sourceAccount, int targetAccount, Callback callback) {
-        transfer(sourceAccount, targetAccount, callback, true, true);
+        // Передача через два url_auth-токена была ненадёжной: Telegram мог вернуть
+        // «не удалось подтвердить аккаунт» для второго подключённого аккаунта.
+        // Используем тот же одноразовый claim-механизм, что и ручная передача через
+        // бота, но обе команды отправляем автоматически от выбранных аккаунтов.
+        transferViaBot(sourceAccount, targetAccount, callback);
+    }
+
+    private static void transferViaBot(final int sourceAccount, final int targetAccount, final Callback callback) {
+        if (sourceAccount == targetAccount) {
+            callback.onResult(false, "Выберите другой аккаунт");
+            return;
+        }
+        DevGramPackages.resolveUsernameThen(sourceAccount, DevGramPackages.CATALOG_BOT_USERNAME, (sourceBot, sourceChat) -> {
+            if (sourceBot == null) {
+                callback.onResult(false, "Не удалось открыть бота передачи");
+                return;
+            }
+            sendTransferBotCommand(sourceAccount, sourceBot.id, "/start transfer");
+            pollTransferClaim(sourceAccount, sourceBot.id, targetAccount, callback, 0);
+        });
+    }
+
+    private static void sendTransferBotCommand(int account, long botId, String command) {
+        AndroidUtilities.runOnUIThread(() -> {
+            try {
+                SendMessagesHelper.SendMessageParams params = SendMessagesHelper.SendMessageParams.of(
+                        command, botId, null, null, null, true, null, null, null, true, 0, 0, null, false);
+                SendMessagesHelper.getInstance(account).sendMessage(params);
+            } catch (Throwable e) {
+                FileLog.e("DevGramBadges: bot transfer command", e);
+            }
+        });
+    }
+
+    private static void pollTransferClaim(final int sourceAccount, final long sourceBotId,
+                                          final int targetAccount, final Callback callback, final int attempt) {
+        fetchBotHistory(sourceAccount, sourceBotId, (messages, error) -> {
+            String token = null;
+            if (messages != null) {
+                for (TLRPC.Message message : messages) {
+                    if (message == null || message.message == null) continue;
+                    token = extractTransferToken(message.message);
+                    if (token != null) break;
+                }
+            }
+            if (token == null) {
+                if (attempt < 14) {
+                    AndroidUtilities.runOnUIThread(() -> pollTransferClaim(sourceAccount, sourceBotId,
+                            targetAccount, callback, attempt + 1), 700);
+                } else {
+                    callback.onResult(false, "Бот не создал ссылку передачи");
+                }
+                return;
+            }
+            final String transferToken = token;
+            DevGramPackages.resolveUsernameThen(targetAccount, DevGramPackages.CATALOG_BOT_USERNAME, (targetBot, targetChat) -> {
+                if (targetBot == null) {
+                    callback.onResult(false, "Не удалось открыть бота на аккаунте-получателе");
+                    return;
+                }
+                sendTransferBotCommand(targetAccount, targetBot.id, "/start claim_" + transferToken);
+                pollTransferResult(targetAccount, targetBot.id, callback, 0);
+            });
+        });
+    }
+
+    private static void pollTransferResult(final int targetAccount, final long targetBotId,
+                                           final Callback callback, final int attempt) {
+        fetchBotHistory(targetAccount, targetBotId, (messages, error) -> {
+            boolean success = false;
+            if (messages != null) {
+                for (TLRPC.Message message : messages) {
+                    if (message != null && message.message != null && message.message.contains("перенесён")) {
+                        success = true;
+                        break;
+                    }
+                }
+            }
+            if (success) {
+                syncFromCloud();
+                callback.onResult(true, null);
+            } else if (attempt < 14) {
+                AndroidUtilities.runOnUIThread(() -> pollTransferResult(targetAccount, targetBotId, callback, attempt + 1), 700);
+            } else {
+                callback.onResult(false, "Бот не подтвердил передачу");
+            }
+        });
+    }
+
+    private interface BotHistoryCallback {
+        void onResult(ArrayList<TLRPC.Message> messages, TLRPC.TL_error error);
+    }
+
+    private static void fetchBotHistory(final int account, final long botId, final BotHistoryCallback callback) {
+        TLRPC.TL_messages_getHistory request = new TLRPC.TL_messages_getHistory();
+        request.peer = MessagesController.getInstance(account).getInputPeer(botId);
+        request.limit = 20;
+        ConnectionsManager.getInstance(account).sendRequest(request, (response, error) -> {
+            ArrayList<TLRPC.Message> messages = response instanceof TLRPC.messages_Messages
+                    ? ((TLRPC.messages_Messages) response).messages : null;
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(messages, error));
+        });
+    }
+
+    private static String extractTransferToken(String text) {
+        int start = text.indexOf("claim_");
+        if (start < 0) return null;
+        start += 6;
+        if (start + 32 > text.length()) return null;
+        String token = text.substring(start, start + 32);
+        for (int i = 0; i < token.length(); i++) {
+            char c = token.charAt(i);
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+                return null;
+            }
+        }
+        return token;
     }
 
     private static void transfer(int sourceAccount, int targetAccount, Callback callback,
