@@ -9239,6 +9239,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
+        // The rating/status views may finish measuring after the initial
+        // positions are calculated. Apply one final pass immediately so the
+        // profile is centered on first open instead of only after a scroll.
+        refreshNameAndOnlineY();
+        needLayoutText(1f, 0, false);
+
         if (playProfileAnimation != 2)
             storyView.setAlpha(1f);
         avatarContainer.setAlpha(1f);
