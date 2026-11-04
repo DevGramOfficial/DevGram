@@ -854,8 +854,11 @@ public class DevGramBadges {
                 callback.onResult(false, "Не удалось открыть бота передачи");
                 return;
             }
-            sendTransferBotCommand(sourceAccount, sourceBot.id, "/start transfer");
-            pollTransferClaim(sourceAccount, sourceBot.id, targetAccount, callback, 0);
+            fetchBotHistory(sourceAccount, sourceBot.id, (messages, error) -> {
+                int baselineMessageId = latestMessageId(messages);
+                sendTransferBotCommand(sourceAccount, sourceBot.id, "/start transfer");
+                pollTransferClaim(sourceAccount, sourceBot.id, targetAccount, callback, baselineMessageId, 0);
+            });
         });
     }
 
@@ -872,12 +875,13 @@ public class DevGramBadges {
     }
 
     private static void pollTransferClaim(final int sourceAccount, final long sourceBotId,
-                                          final int targetAccount, final Callback callback, final int attempt) {
+                                          final int targetAccount, final Callback callback,
+                                          final int baselineMessageId, final int attempt) {
         fetchBotHistory(sourceAccount, sourceBotId, (messages, error) -> {
             String token = null;
             if (messages != null) {
                 for (TLRPC.Message message : messages) {
-                    if (message == null || message.message == null) continue;
+                    if (message == null || message.id <= baselineMessageId || message.message == null) continue;
                     token = extractTransferToken(message.message);
                     if (token != null) break;
                 }
@@ -885,7 +889,7 @@ public class DevGramBadges {
             if (token == null) {
                 if (attempt < 14) {
                     AndroidUtilities.runOnUIThread(() -> pollTransferClaim(sourceAccount, sourceBotId,
-                            targetAccount, callback, attempt + 1), 700);
+                            targetAccount, callback, baselineMessageId, attempt + 1), 700);
                 } else {
                     callback.onResult(false, "Бот не создал ссылку передачи");
                 }
@@ -897,19 +901,22 @@ public class DevGramBadges {
                     callback.onResult(false, "Не удалось открыть бота на аккаунте-получателе");
                     return;
                 }
-                sendTransferBotCommand(targetAccount, targetBot.id, "/start claim_" + transferToken);
-                pollTransferResult(targetAccount, targetBot.id, callback, 0);
+                fetchBotHistory(targetAccount, targetBot.id, (targetMessages, targetError) -> {
+                    int targetBaselineMessageId = latestMessageId(targetMessages);
+                    sendTransferBotCommand(targetAccount, targetBot.id, "/start claim_" + transferToken);
+                    pollTransferResult(targetAccount, targetBot.id, callback, targetBaselineMessageId, 0);
+                });
             });
         });
     }
 
     private static void pollTransferResult(final int targetAccount, final long targetBotId,
-                                           final Callback callback, final int attempt) {
+                                           final Callback callback, final int baselineMessageId, final int attempt) {
         fetchBotHistory(targetAccount, targetBotId, (messages, error) -> {
             boolean success = false;
             if (messages != null) {
                 for (TLRPC.Message message : messages) {
-                    if (message != null && message.message != null && message.message.contains("перенесён")) {
+                    if (message != null && message.id > baselineMessageId && message.message != null && message.message.contains("перенесён")) {
                         success = true;
                         break;
                     }
@@ -919,7 +926,7 @@ public class DevGramBadges {
                 syncFromCloud();
                 callback.onResult(true, null);
             } else if (attempt < 14) {
-                AndroidUtilities.runOnUIThread(() -> pollTransferResult(targetAccount, targetBotId, callback, attempt + 1), 700);
+                AndroidUtilities.runOnUIThread(() -> pollTransferResult(targetAccount, targetBotId, callback, baselineMessageId, attempt + 1), 700);
             } else {
                 callback.onResult(false, "Бот не подтвердил передачу");
             }
@@ -939,6 +946,16 @@ public class DevGramBadges {
                     ? ((TLRPC.messages_Messages) response).messages : null;
             AndroidUtilities.runOnUIThread(() -> callback.onResult(messages, error));
         });
+    }
+
+    private static int latestMessageId(ArrayList<TLRPC.Message> messages) {
+        int latest = 0;
+        if (messages != null) {
+            for (TLRPC.Message message : messages) {
+                if (message != null && message.id > latest) latest = message.id;
+            }
+        }
+        return latest;
     }
 
     private static String extractTransferToken(String text) {
