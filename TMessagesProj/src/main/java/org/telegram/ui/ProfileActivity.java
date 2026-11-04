@@ -6265,7 +6265,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if (userId != 0 && imageUpdater != null && !myProfile)
             return 0;
         return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight()
-                + dp(withPills && hasBalance ? 25 : 0);
+                + dp(withPills && (hasMusic || hasBalance) ? 25 : 0);
     }
 
     private int getHeaderExtraHeight() {
@@ -9229,13 +9229,17 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) nameTextView[a].getLayoutParams();
             float nameX = listView.getMeasuredWidth() / 2f - (params.leftMargin + nameTextView[a].getExactWidth() * nameScale * 0.5f);
-            params = (FrameLayout.LayoutParams) onlineTextView[a].getLayoutParams();
-            float onlineX = listView.getMeasuredWidth() / 2f - (params.leftMargin + (hasFallbackPhoto ? 0 : onlineTextView[a].getPaddingLeft()) + onlineTextView[a].getExactWidth() * 0.5f);
+            final SimpleTextView onlineView = onlineTextView[hasFallbackPhoto ? 3 : a];
+            params = (FrameLayout.LayoutParams) onlineView.getLayoutParams();
+            final float onlineMaxWidth = a == 1 ? params.width : listView.getMeasuredWidth();
+            final float onlinePadding = !hasFallbackPhoto && onlineView.getExactWidth() <= onlineMaxWidth - onlineView.getPaddingLeft() - onlineView.getPaddingRight()
+                    ? onlineView.getPaddingLeft() : 0;
+            float onlineX = listView.getMeasuredWidth() / 2f - (params.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
 
             if (a == 1) {
                 this.nameX = nameX;
                 this.onlineX = onlineX;
-                onlineTextRatingPadding = hasFallbackPhoto ? 0 : onlineTextView[a].getPaddingLeft();
+                onlineTextRatingPadding = onlinePadding;
             }
         }
 
@@ -9322,13 +9326,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void needLayoutText(float diff, int startWidth, boolean invalidate) {
-        // A profile opened in the pulled-down state is already fully expanded.
-        // Do not interpolate its first layout from the collapsed header: the
-        // next scroll event would otherwise be the first thing that centers
-        // the name and status row.
-        if (isPulledDown && currentExpandAnimatorValue <= 0.001f && playProfileAnimation == 0) {
-            diff = 1f;
-        }
         FrameLayout.LayoutParams layoutParams;
         float minScale, maxScale;
         if (extraHeight > getHeaderExtraHeight() || expandAnimator != null && expandAnimator.isRunning()) {
@@ -11788,7 +11785,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             actionsView.updatePosition(listView.getMeasuredWidth(), org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         } else {
             actionsView.clipHeight = -1;
-            float bottom = extraHeight + newTop - dp(hasBalance ? 25 : 0);
+            float bottom = extraHeight + newTop - dp((hasMusic || hasBalance) ? 25 : 0);
             float height = Math.min(org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), bottom - newTop);
             actionsView.updatePosition(bottom - height, height);
         }
