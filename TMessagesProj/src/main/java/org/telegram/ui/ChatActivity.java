@@ -9051,6 +9051,9 @@ public class ChatActivity extends BaseFragment implements
         }
 
         replyLayout = new ChatReplyContainer(context, themeDelegate);
+        // В iOS-плашке ответ начинается чуть правее скруглённого края, как в Cherrygram;
+        // аватар и кнопка закрытия при этом остаются на прежних координатах.
+        replyLayout.setTextInset(DevGramIOSConfig.iosInputPanel() ? AndroidUtilities.dp(4) : 0);
         chatActivityEnterTopView.addReplyView(replyLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.NO_GRAVITY, 0, 0, 52, 0));
 
         boolean[] byButtonPress = new boolean[1];
@@ -16687,7 +16690,7 @@ public class ChatActivity extends BaseFragment implements
                 replyImageLocation = null;
                 replyImageLocationObject = null;
                 replyImageView.setVisibility(View.INVISIBLE);
-                layoutParams1.leftMargin = layoutParams2.leftMargin = layoutParams3.leftMargin = AndroidUtilities.dp(52);
+                layoutParams1.leftMargin = layoutParams2.leftMargin = layoutParams3.leftMargin = AndroidUtilities.dp(52) + replyLayout.getTextInset();
             } else {
                 if (thumbMediaMessageObject.isRoundVideo()) {
                     replyImageView.setRoundRadius(AndroidUtilities.dp(17));
@@ -16703,7 +16706,7 @@ public class ChatActivity extends BaseFragment implements
                 replyLayout.current().hasSpoiler = hasSpoiler;
                 replyImageView.setImage(ImageLocation.getForObject(replyImageLocation, photoSizeObject), hasSpoiler ? "5_5_b" : "50_50", ImageLocation.getForObject(thumbPhotoSize, photoSizeObject), hasSpoiler ? "5_5_b" : "50_50_b", null, size, cacheType, thumbMediaMessageObject);
                 replyImageView.setVisibility(View.VISIBLE);
-                layoutParams1.leftMargin = layoutParams2.leftMargin = layoutParams3.leftMargin = AndroidUtilities.dp(96);
+                layoutParams1.leftMargin = layoutParams2.leftMargin = layoutParams3.leftMargin = AndroidUtilities.dp(96) + replyLayout.getTextInset();
             }
             replyNameTextView.setLayoutParams(layoutParams1);
             replyObjectTextView.setLayoutParams(layoutParams2);

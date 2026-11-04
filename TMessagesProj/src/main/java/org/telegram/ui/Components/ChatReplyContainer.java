@@ -29,6 +29,7 @@ import org.telegram.ui.Components.spoilers.SpoilerEffect;
 public class ChatReplyContainer extends FrameLayout {
 
     private final Theme.ResourcesProvider resourcesProvider;
+    private int textInset;
 
     public Layout[] layouts = new Layout[2];
 
@@ -46,6 +47,18 @@ public class ChatReplyContainer extends FrameLayout {
 
     public Layout current() {
         return layouts[0];
+    }
+
+    /** Дополнительный внутренний отступ текста для стеклянной iOS-плашки ответа. */
+    public void setTextInset(int inset) {
+        textInset = Math.max(0, inset);
+        for (Layout layout : layouts) {
+            layout.updateTextInset(textInset);
+        }
+    }
+
+    public int getTextInset() {
+        return textInset;
     }
 
     public void switchLayouts() {
@@ -166,6 +179,19 @@ public class ChatReplyContainer extends FrameLayout {
             addView(image, LayoutHelper.createFrame(34, 34, Gravity.TOP | Gravity.LEFT, 52, 6, 0, 0));
 
             updateColors();
+        }
+
+        private void updateTextInset(int inset) {
+            int nameLeft = dp(52) + inset;
+            FrameLayout.LayoutParams nameParams = (FrameLayout.LayoutParams) name.getLayoutParams();
+            FrameLayout.LayoutParams objParams = (FrameLayout.LayoutParams) obj.getLayoutParams();
+            FrameLayout.LayoutParams hintParams = (FrameLayout.LayoutParams) objHint.getLayoutParams();
+            nameParams.leftMargin = nameLeft;
+            objParams.leftMargin = nameLeft;
+            hintParams.leftMargin = nameLeft;
+            name.setLayoutParams(nameParams);
+            obj.setLayoutParams(objParams);
+            objHint.setLayoutParams(hintParams);
         }
 
         @Override
