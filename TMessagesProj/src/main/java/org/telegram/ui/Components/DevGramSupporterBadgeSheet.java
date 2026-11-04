@@ -204,9 +204,10 @@ public final class DevGramSupporterBadgeSheet {
             if (DevGramBadges.hasSupporterFeatures(uid)) {
                 continue;
             }
+            final int targetAccount = account;
             options.addAccount(account, false, () -> {
                 sheet.dismiss();
-                openTransferBot(fragment);
+                confirmTransfer(fragment, source, targetAccount);
             });
             count++;
         }
