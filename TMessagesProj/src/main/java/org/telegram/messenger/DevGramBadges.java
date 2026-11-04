@@ -885,8 +885,11 @@ public class DevGramBadges {
                     if (message == null || message.id <= baselineMessageId || message.message == null) continue;
                     token = extractTransferToken(message.message);
                     if (token != null) break;
-                    if (message.message.contains("30 дней") || message.message.contains("не чаще")) {
-                        transferError = "Значок можно передать снова через 30 дней";
+                    if (isTransferCooldownMessage(message.message)) {
+                        // Бот возвращает точный срок окончания cooldown. Не
+                        // заменяем его общим текстом, иначе пользователь не
+                        // увидит дату и время и приложение будет ждать таймаут.
+                        transferError = message.message.trim();
                     }
                 }
             }
@@ -916,6 +919,18 @@ public class DevGramBadges {
                 });
             });
         });
+    }
+
+    private static boolean isTransferCooldownMessage(String text) {
+        if (text == null) return false;
+        String normalized = text.toLowerCase(java.util.Locale.ROOT);
+        return normalized.contains("cooldown")
+                || normalized.contains("кд")
+                || (normalized.contains("передач")
+                && (normalized.contains("снова")
+                || normalized.contains("недоступ")
+                || normalized.contains("не чаще")
+                || normalized.contains("30 дней")));
     }
 
     private static void pollTransferResult(final int targetAccount, final long targetBotId,
