@@ -879,14 +879,22 @@ public class DevGramBadges {
                                           final int baselineMessageId, final int attempt) {
         fetchBotHistory(sourceAccount, sourceBotId, (messages, error) -> {
             String token = null;
+            String transferError = null;
             if (messages != null) {
                 for (TLRPC.Message message : messages) {
                     if (message == null || message.id <= baselineMessageId || message.message == null) continue;
                     token = extractTransferToken(message.message);
                     if (token != null) break;
+                    if (message.message.contains("30 дней") || message.message.contains("не чаще")) {
+                        transferError = "Значок можно передать снова через 30 дней";
+                    }
                 }
             }
             if (token == null) {
+                if (transferError != null) {
+                    callback.onResult(false, transferError);
+                    return;
+                }
                 if (attempt < 14) {
                     AndroidUtilities.runOnUIThread(() -> pollTransferClaim(sourceAccount, sourceBotId,
                             targetAccount, callback, baselineMessageId, attempt + 1), 700);
