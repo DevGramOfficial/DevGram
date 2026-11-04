@@ -9133,6 +9133,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
 
                 int viewportWidth = listView.getMeasuredWidth();
+                // The profile text views live in avatarContainer2, while listView may be
+                // inset horizontally (notably in landscape). Keep both in the same
+                // coordinate space so the title/status stay aligned with the avatar.
+                final float profileCenterX = listView.getLeft() + viewportWidth / 2f;
                 for (int a = 0; a < nameTextView.length; a++) {
                     if (nameTextView[a] == null) {
                         continue;
@@ -9146,12 +9150,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     }
 
                     FrameLayout.LayoutParams params1 = (FrameLayout.LayoutParams) nameTextView[a].getLayoutParams();
-                    float nameX = viewportWidth / 2f - (params1.leftMargin + Math.min(nameTextView[a].getExactWidth(), a == 1 ? params1.width : viewportWidth) * nameScale * 0.5f);
+                    float nameX = profileCenterX - (params1.leftMargin + Math.min(nameTextView[a].getExactWidth(), a == 1 ? params1.width : viewportWidth) * nameScale * 0.5f);
                     FrameLayout.LayoutParams params2 = (FrameLayout.LayoutParams) onlineTextView[a].getLayoutParams();
                     final SimpleTextView onlineView = onlineTextView[hasFallbackPhoto ? 3 : a];
                     final float onlineMaxWidth = a == 1 ? params2.width : viewportWidth;
                     final float onlinePadding = !hasFallbackPhoto && onlineView.getExactWidth() <= onlineMaxWidth - onlineView.getPaddingLeft() - onlineView.getPaddingRight() ? onlineView.getPaddingLeft() : 0;
-                    float onlineX = viewportWidth / 2f - (params2.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
+                    float onlineX = profileCenterX - (params2.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
 
                     if (a == 1) {
                         this.nameX = nameX;
@@ -9223,18 +9227,19 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         needLayoutText(1f);
 
         float nameScale = 1.0f + 0.12f;
+        final float profileCenterX = listView.getLeft() + listView.getMeasuredWidth() / 2f;
         for (int a = 0; a < nameTextView.length; a++) {
             if (nameTextView[a] == null) {
                 continue;
             }
             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) nameTextView[a].getLayoutParams();
-            float nameX = listView.getMeasuredWidth() / 2f - (params.leftMargin + nameTextView[a].getExactWidth() * nameScale * 0.5f);
+            float nameX = profileCenterX - (params.leftMargin + nameTextView[a].getExactWidth() * nameScale * 0.5f);
             final SimpleTextView onlineView = onlineTextView[hasFallbackPhoto ? 3 : a];
             params = (FrameLayout.LayoutParams) onlineView.getLayoutParams();
             final float onlineMaxWidth = a == 1 ? params.width : listView.getMeasuredWidth();
             final float onlinePadding = !hasFallbackPhoto && onlineView.getExactWidth() <= onlineMaxWidth - onlineView.getPaddingLeft() - onlineView.getPaddingRight()
                     ? onlineView.getPaddingLeft() : 0;
-            float onlineX = listView.getMeasuredWidth() / 2f - (params.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
+            float onlineX = profileCenterX - (params.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
 
             if (a == 1) {
                 this.nameX = nameX;
