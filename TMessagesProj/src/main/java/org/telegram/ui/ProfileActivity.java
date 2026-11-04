@@ -9239,12 +9239,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
-        // The rating/status views may finish measuring after the initial
-        // positions are calculated. Apply one final pass immediately so the
-        // profile is centered on first open instead of only after a scroll.
-        refreshNameAndOnlineY();
-        needLayoutText(1f, 0, false);
-
         if (playProfileAnimation != 2)
             storyView.setAlpha(1f);
         avatarContainer.setAlpha(1f);
@@ -9328,6 +9322,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void needLayoutText(float diff, int startWidth, boolean invalidate) {
+        // A profile opened in the pulled-down state is already fully expanded.
+        // Do not interpolate its first layout from the collapsed header: the
+        // next scroll event would otherwise be the first thing that centers
+        // the name and status row.
+        if (isPulledDown && currentExpandAnimatorValue <= 0.001f && playProfileAnimation == 0) {
+            diff = 1f;
+        }
         FrameLayout.LayoutParams layoutParams;
         float minScale, maxScale;
         if (extraHeight > getHeaderExtraHeight() || expandAnimator != null && expandAnimator.isRunning()) {
@@ -16781,7 +16782,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         final float ratingVisibility = ratingView != null ? ratingView.getVisibilityFactor() : 0;
         return onlineX
                 + ratingPadding * ratingVisibility * (1f - expanded)
-                + Math.max(0, getRatingViewTranslationXOffset() * (1f - expanded) + customPhotoOffset * expanded);
+                + Math.max(0, (customPhotoOffset + getRatingViewTranslationXOffset()) * expanded);
     }
 
     // centered subtitle with star rating keeps its position as it was before accounting for padding
