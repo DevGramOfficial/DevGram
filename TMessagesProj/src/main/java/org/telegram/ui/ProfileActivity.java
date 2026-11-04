@@ -16775,7 +16775,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         final float ratingVisibility = ratingView != null ? ratingView.getVisibilityFactor() : 0;
         return onlineX
                 + ratingPadding * ratingVisibility * (1f - expanded)
-                + Math.max(0, (customPhotoOffset + getRatingViewTranslationXOffset()) * expanded);
+                + Math.max(0, getRatingViewTranslationXOffset() * (1f - expanded) + customPhotoOffset * expanded);
     }
 
     // centered subtitle with star rating keeps its position as it was before accounting for padding
