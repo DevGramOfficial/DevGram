@@ -123,8 +123,6 @@ import org.telegram.ui.Components.ScrimOptions;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.utils.Blur3Utils;
-import org.telegram.ui.Wallet.GramWallet;
-import org.telegram.ui.Wallet.WalletActivity;
 import org.telegram.ui.Wallet.WalletSendEnterAmount;
 import org.telegram.ui.recyclerview.LinearSmoothScrollerCustom;
 import androidx.recyclerview.widget.RecyclerView;
@@ -2332,7 +2330,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         getNotificationCenter().addObserver(this, NotificationCenter.userIsPremiumBlockedUpadted);
         getNotificationCenter().addObserver(this, NotificationCenter.currentUserPremiumStatusChanged);
         getNotificationCenter().addObserver(this, NotificationCenter.starBalanceUpdated);
-        getNotificationCenter().addObserver(this, NotificationCenter.walletUpdate);
         getNotificationCenter().addObserver(this, NotificationCenter.botStarsUpdated);
         getNotificationCenter().addObserver(this, NotificationCenter.botStarsTransactionsLoaded);
         getNotificationCenter().addObserver(this, NotificationCenter.dialogDeleted);
@@ -2486,7 +2483,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         getNotificationCenter().removeObserver(this, NotificationCenter.userIsPremiumBlockedUpadted);
         getNotificationCenter().removeObserver(this, NotificationCenter.currentUserPremiumStatusChanged);
         getNotificationCenter().removeObserver(this, NotificationCenter.starBalanceUpdated);
-        getNotificationCenter().removeObserver(this, NotificationCenter.walletUpdate);
         getNotificationCenter().removeObserver(this, NotificationCenter.botStarsUpdated);
         getNotificationCenter().removeObserver(this, NotificationCenter.botStarsTransactionsLoaded);
         getNotificationCenter().removeObserver(this, NotificationCenter.dialogDeleted);
@@ -3978,29 +3974,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         sharedMediaLayout.initBlurCapture((ViewGroup) fragmentView);
 //        sharedMediaLayout.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         if (userId == 0 || imageUpdater == null || myProfile) {
-            musicView = new ProfileMusicView(context, resourcesProvider);
-            balanceView = new ProfileBalanceView(context, resourcesProvider);
-            musicView.setTrailingView(balanceView);
-            balanceView.setOnClickListener(v -> {
-                if (userInfo != null && userInfo.wallet_card != null && getParentActivity() != null) {
-                    showDialog(new ProfileWalletCardDialog(
-                            this,
-                            balanceView,
-                            getMessagesController().getUser(userId),
-                            userInfo.wallet_card));
-                } else if (getParentActivity() != null) {
-                    presentFragment(new WalletActivity());
-                }
-            });
-            if (avatarsBlurView != null) {
-                avatarsBlurView.setMusicView(musicView);
-            }
-            musicView.setColor(peerColor);
-            if (userInfo != null && userInfo.saved_music != null) {
-                musicView.setMusicDocument(userInfo.saved_music);
-            }
-            musicView.setOnClickListener(v -> openProfileMusicPlayer());
-
             actionsView = new ProfileActionsView(context, org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
             setActionsMode();
             updateNotifications(false);
@@ -6264,8 +6237,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int getActionsExtraHeight(boolean withPills) {
         if (userId != 0 && imageUpdater != null && !myProfile)
             return 0;
-        return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight()
-                + dp(withPills && (hasMusic || hasBalance) ? 25 : 0);
+        return org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight();
     }
 
     private int getHeaderExtraHeight() {
@@ -9133,10 +9105,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
 
                 int viewportWidth = listView.getMeasuredWidth();
-                // The profile text views live in avatarContainer2, while listView may be
-                // inset horizontally (notably in landscape). Keep both in the same
-                // coordinate space so the title/status stay aligned with the avatar.
-                final float profileCenterX = listView.getLeft() + viewportWidth / 2f;
                 for (int a = 0; a < nameTextView.length; a++) {
                     if (nameTextView[a] == null) {
                         continue;
@@ -9150,12 +9118,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     }
 
                     FrameLayout.LayoutParams params1 = (FrameLayout.LayoutParams) nameTextView[a].getLayoutParams();
-                    float nameX = profileCenterX - (params1.leftMargin + Math.min(nameTextView[a].getExactWidth(), a == 1 ? params1.width : viewportWidth) * nameScale * 0.5f);
+                    float nameX = viewportWidth / 2f - (params1.leftMargin + Math.min(nameTextView[a].getExactWidth(), a == 1 ? params1.width : viewportWidth) * nameScale * 0.5f);
                     FrameLayout.LayoutParams params2 = (FrameLayout.LayoutParams) onlineTextView[a].getLayoutParams();
                     final SimpleTextView onlineView = onlineTextView[hasFallbackPhoto ? 3 : a];
                     final float onlineMaxWidth = a == 1 ? params2.width : viewportWidth;
                     final float onlinePadding = !hasFallbackPhoto && onlineView.getExactWidth() <= onlineMaxWidth - onlineView.getPaddingLeft() - onlineView.getPaddingRight() ? onlineView.getPaddingLeft() : 0;
-                    float onlineX = profileCenterX - (params2.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
+                    float onlineX = viewportWidth / 2f - (params2.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
 
                     if (a == 1) {
                         this.nameX = nameX;
@@ -9227,24 +9195,19 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         needLayoutText(1f);
 
         float nameScale = 1.0f + 0.12f;
-        final float profileCenterX = listView.getLeft() + listView.getMeasuredWidth() / 2f;
         for (int a = 0; a < nameTextView.length; a++) {
             if (nameTextView[a] == null) {
                 continue;
             }
             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) nameTextView[a].getLayoutParams();
-            float nameX = profileCenterX - (params.leftMargin + nameTextView[a].getExactWidth() * nameScale * 0.5f);
-            final SimpleTextView onlineView = onlineTextView[hasFallbackPhoto ? 3 : a];
-            params = (FrameLayout.LayoutParams) onlineView.getLayoutParams();
-            final float onlineMaxWidth = a == 1 ? params.width : listView.getMeasuredWidth();
-            final float onlinePadding = !hasFallbackPhoto && onlineView.getExactWidth() <= onlineMaxWidth - onlineView.getPaddingLeft() - onlineView.getPaddingRight()
-                    ? onlineView.getPaddingLeft() : 0;
-            float onlineX = profileCenterX - (params.leftMargin + onlinePadding + Math.min(onlineView.getExactWidth(), onlineMaxWidth) * 0.5f);
+            float nameX = listView.getMeasuredWidth() / 2f - (params.leftMargin + nameTextView[a].getExactWidth() * nameScale * 0.5f);
+            params = (FrameLayout.LayoutParams) onlineTextView[a].getLayoutParams();
+            float onlineX = listView.getMeasuredWidth() / 2f - (params.leftMargin + (hasFallbackPhoto ? 0 : onlineTextView[a].getPaddingLeft()) + onlineTextView[a].getExactWidth() * 0.5f);
 
             if (a == 1) {
                 this.nameX = nameX;
                 this.onlineX = onlineX;
-                onlineTextRatingPadding = onlinePadding;
+                onlineTextRatingPadding = hasFallbackPhoto ? 0 : onlineTextView[a].getPaddingLeft();
             }
         }
 
@@ -9761,10 +9724,6 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             updateEditColorIcon();
         } else if (id == NotificationCenter.starBalanceUpdated) {
             updateListAnimated(false);
-        } else if (id == NotificationCenter.walletUpdate) {
-            if (balanceView != null && myProfile) {
-                balanceView.setBalance(GramWallet.getInstance(currentAccount).getBalance());
-            }
         } else if (id == NotificationCenter.botStarsUpdated) {
             updateListAnimated(false);
         } else if (id == NotificationCenter.botStarsTransactionsLoaded) {
@@ -10969,9 +10928,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         channelBalanceRow = -1;
         balanceDividerRow = -1;
         hasMusic = false;
-        // Показываем собственный баланс сразу: wallet_card относится к публичной карточке и
-        // может ещё отсутствовать, хотя локальный Gram-кошелёк уже доступен.
-        hasBalance = balanceView != null && userId != 0 && myProfile;
+        hasBalance = balanceView != null && userId != 0 && userInfo != null && userInfo.wallet_card != null
+                && (imageUpdater == null || myProfile);
 
         forkHeaderRow = forkRow = forkCheckUpdateRow = forkSectionCell = -1;
 
@@ -11495,22 +11453,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (userInfo != null) {
                 musicView.setMusicDocument(userInfo.saved_music);
             }
-            // The saved track is represented by the full profile card below. Keep the
-            // compact header row for the wallet balance only, matching Extera's normal
-            // profile layout.
-            musicView.setVisibility(View.GONE);
-            if (hasBalance) {
-                balanceView.setBalance(GramWallet.getInstance(currentAccount).getBalance());
-            }
-            balanceView.setVisibility(hasBalance ? View.VISIBLE : View.GONE);
-            musicView.invalidate();
-            balanceView.invalidate();
-            if (avatarsBlurView != null) {
-                avatarsBlurView.setSize(getActionsExtraHeight());
-            }
-            if (avatarImage != null) {
-                avatarImage.createBlurEffect(getActionsExtraHeight());
-            }
+            musicView.setVisibility(hasMusic ? View.VISIBLE : View.GONE);
             updateProfileMusicPlayback();
         }
         if (listView != null && infoStartRow >= 0 && infoEndRow >= infoStartRow) {
@@ -11790,7 +11733,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             actionsView.updatePosition(listView.getMeasuredWidth(), org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
         } else {
             actionsView.clipHeight = -1;
-            float bottom = extraHeight + newTop - dp((hasMusic || hasBalance) ? 25 : 0);
+            float bottom = extraHeight + newTop;
             float height = Math.min(org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), bottom - newTop);
             actionsView.updatePosition(bottom - height, height);
         }
@@ -16784,7 +16727,8 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         final float ratingVisibility = ratingView != null ? ratingView.getVisibilityFactor() : 0;
         return onlineX
                 + ratingPadding * ratingVisibility * (1f - expanded)
-                + Math.max(0, (customPhotoOffset + getRatingViewTranslationXOffset()) * expanded);
+                + getRatingViewTranslationXOffset()
+                + Math.max(0, customPhotoOffset * expanded);
     }
 
     // centered subtitle with star rating keeps its position as it was before accounting for padding

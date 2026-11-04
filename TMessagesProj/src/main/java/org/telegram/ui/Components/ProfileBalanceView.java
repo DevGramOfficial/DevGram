@@ -35,7 +35,7 @@ public class ProfileBalanceView extends ProfileMusicView {
         super(context, resourcesProvider);
         gramIcon = context.getResources().getDrawable(R.drawable.profile_balance_gram).mutate();
         gramColorIcon = context.getResources().getDrawable(R.drawable.profile_balance_gram_color).mutate();
-        label = new Text(getString(R.string.DevGramGramsBalance) + ":", 11);
+        label = new Text(getString(R.string.StarsBalance) + ":", 11);
         chevronPaint.setStyle(Paint.Style.STROKE);
         chevronPaint.setStrokeCap(Paint.Cap.ROUND);
         chevronPaint.setStrokeJoin(Paint.Join.ROUND);
@@ -49,7 +49,7 @@ public class ProfileBalanceView extends ProfileMusicView {
     public void setBalance(long nanograms) {
         final String formatted = balanceFormat.format(new BigDecimal(GramWallet.formatGramsBalance(nanograms, false)));
         amount = new Text(formatted, 11, AndroidUtilities.bold());
-        setContentDescription(getString(R.string.DevGramGramsBalance) + ": " + formatted);
+        setContentDescription(getString(R.string.StarsBalance) + ": " + formatted);
         invalidate();
     }
 
