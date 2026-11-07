@@ -98,9 +98,12 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 }
             }
         });
-        // вход в панель модерации — скрыт по умолчанию, показываем только модераторам (по tg-id)
+        // Вход в панель доступен как точка авторизации: новый модератор ещё не имеет
+        // Firebase-сессии, поэтому список /moderators нельзя прочитать до первого входа.
+        // Реальная проверка роли выполняется после входа в openModeration() и на правилах RTDB.
         moderationItem = actionBar.createMenu().addItem(1, R.drawable.msg_shareout);
-        moderationItem.setVisibility(View.GONE);
+        moderationItem.setContentDescription("Модерация плагинов");
+        moderationItem.setVisibility(View.VISIBLE);
         org.telegram.ui.ActionBar.ActionBarMenuItem more = actionBar.createMenu().addItem(3, R.drawable.ic_ab_other);
         more.addSubItem(2, R.drawable.msg_info, "Мои заявки");
 
@@ -343,11 +346,15 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             applyFilter();
             rebuildChips();
         });
-        // показать вход в модерацию только модераторам (по их Telegram-ID)
+        // Если Firebase-сессия уже есть и аккаунт точно не является модератором,
+        // скрываем кнопку. Без сессии оставляем её видимой, чтобы новый модератор
+        // мог открыть диалог входа и пройти проверку роли.
         DevGramPlugins.fetchModerators(m -> {
             if (isLoadActive(generation) && moderationItem != null) {
                 long myTg = getUserConfig().getClientUserId();
-                moderationItem.setVisibility(DevGramPlugins.canSeeModeration(myTg) ? View.VISIBLE : View.GONE);
+                boolean hasSession = DevGramBadges.isSignedIn();
+                moderationItem.setVisibility(!hasSession || DevGramPlugins.canSeeModeration(myTg)
+                        ? View.VISIBLE : View.GONE);
             }
         });
     }
