@@ -112,7 +112,6 @@ public class NotificationsService extends Service {
             notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setShowWhen(false)
                     .setOngoing(true)
-                    .setPriority(NotificationCompat.PRIORITY_MIN)
                     .setCategory(NotificationCompat.CATEGORY_SERVICE)
                     .setSmallIcon(R.drawable.notification)
                     .setContentTitle("DevGram").build();
