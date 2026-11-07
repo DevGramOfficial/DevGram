@@ -112,7 +112,10 @@ public class NotificationsService extends Service {
             notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setShowWhen(false)
                     .setOngoing(true)
-                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                    // AyuGram uses a regular status notification here. Some watch
+                    // bridges hide foreground-service notifications from the app
+                    // picker even when the channel itself is visible.
+                    .setCategory("status")
                     .setSmallIcon(R.drawable.notification)
                     .setContentTitle("DevGram").build();
         }
