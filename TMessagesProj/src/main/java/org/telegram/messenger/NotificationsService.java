@@ -25,13 +25,7 @@ import android.util.Log;
 public class NotificationsService extends Service {
 
     private static final int NOTIFICATION_ID = 9999;
-    /**
-     * Keep-alive notifications must remain bridgeable to companion/watch apps.
-     * IMPORTANCE_MIN channels are hidden from some notification bridges (AyuGram
-     * uses a DEFAULT channel for the same service), so use a new channel id rather
-     * than trying to raise the importance of an already-created user channel.
-     */
-    private static final String CHANNEL_ID = "devgram_push";
+    private static final String CHANNEL_ID = "push_service_channel";
 
     private static volatile boolean foregroundStartPending;
     private static volatile boolean stopWhenForeground;
@@ -101,21 +95,21 @@ public class NotificationsService extends Service {
 
     private Notification getNotification() {
         if (notification == null) {
-            // Keep the notification silent and private while leaving it visible to
-            // notification bridges used by watches and companion apps.
+            // DevGram: канал минимальной важности -> уведомление скрыто из статус-бара,
+            // свёрнуто внизу шторки (как у ExteraGram). Сервис держит фон, не мозолит глаза.
             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "DevGram", NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "DevGram", NotificationManager.IMPORTANCE_MIN);
             channel.setShowBadge(false);
             channel.setSound(null, null);
             channel.enableVibration(false);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
             notificationManager.createNotificationChannel(channel);
             notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setShowWhen(false)
                     .setOngoing(true)
-                    // AyuGram uses a regular status notification here. Some watch
-                    // bridges hide foreground-service notifications from the app
-                    // picker even when the channel itself is visible.
-                    .setCategory("status")
+                    .setPriority(NotificationCompat.PRIORITY_MIN)
+                    .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                    .setVisibility(NotificationCompat.VISIBILITY_SECRET)
                     .setSmallIcon(R.drawable.notification)
                     .setContentTitle("DevGram").build();
         }
