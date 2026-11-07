@@ -25,7 +25,13 @@ import android.util.Log;
 public class NotificationsService extends Service {
 
     private static final int NOTIFICATION_ID = 9999;
-    private static final String CHANNEL_ID = "push_service_channel";
+    /**
+     * Keep-alive notifications must remain bridgeable to companion/watch apps.
+     * IMPORTANCE_MIN channels are hidden from some notification bridges (AyuGram
+     * uses a DEFAULT channel for the same service), so use a new channel id rather
+     * than trying to raise the importance of an already-created user channel.
+     */
+    private static final String CHANNEL_ID = "devgram_push";
 
     private static volatile boolean foregroundStartPending;
     private static volatile boolean stopWhenForeground;
@@ -95,10 +101,10 @@ public class NotificationsService extends Service {
 
     private Notification getNotification() {
         if (notification == null) {
-            // DevGram: канал минимальной важности -> уведомление скрыто из статус-бара,
-            // свёрнуто внизу шторки (как у ExteraGram). Сервис держит фон, не мозолит глаза.
+            // Keep the notification silent and private while leaving it visible to
+            // notification bridges used by watches and companion apps.
             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "DevGram", NotificationManager.IMPORTANCE_MIN);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "DevGram", NotificationManager.IMPORTANCE_DEFAULT);
             channel.setShowBadge(false);
             channel.setSound(null, null);
             channel.enableVibration(false);
