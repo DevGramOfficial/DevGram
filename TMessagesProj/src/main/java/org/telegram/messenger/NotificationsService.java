@@ -108,14 +108,12 @@ public class NotificationsService extends Service {
             channel.setShowBadge(false);
             channel.setSound(null, null);
             channel.enableVibration(false);
-            channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
             notificationManager.createNotificationChannel(channel);
             notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                     .setShowWhen(false)
                     .setOngoing(true)
                     .setPriority(NotificationCompat.PRIORITY_MIN)
                     .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                    .setVisibility(NotificationCompat.VISIBILITY_SECRET)
                     .setSmallIcon(R.drawable.notification)
                     .setContentTitle("DevGram").build();
         }
