@@ -893,8 +893,9 @@ public class DevGramBadges {
                 });
             });
         };
-        if (emojiId != null && DevGramProfilePolicy.allowed(UserConfig.getInstance(account).getClientUserId(), "badge.choice")) DevGramBeta.authenticate(account, authCallback);
-        else DevGramBeta.activate(account, authCallback);
+        if (!(emojiId != null && DevGramProfilePolicy.allowed(UserConfig.getInstance(account).getClientUserId(), "badge.choice")) && !DevGramBeta.hasAccess(account)) {
+            authCallback.onResult(false, DevGramLocale.text("Нужен значок поддержавшего"));
+        } else DevGramBeta.authenticate(account, authCallback);
     }
 
     private static String selfErrorText(String code) {
@@ -1068,7 +1069,11 @@ public class DevGramBadges {
 
     private static void transfer(int sourceAccount, int targetAccount, Callback callback,
                                  boolean retrySourceToken, boolean retryTargetToken) {
-        DevGramBeta.activate(sourceAccount, (sourceOk, sourceError) -> {
+        if (!DevGramBeta.hasAccess(sourceAccount)) {
+            callback.onResult(false, DevGramLocale.text("Нужен значок поддержавшего"));
+            return;
+        }
+        DevGramBeta.authenticate(sourceAccount, (sourceOk, sourceError) -> {
             if (!sourceOk) {
                 callback.onResult(false, sourceError);
                 return;

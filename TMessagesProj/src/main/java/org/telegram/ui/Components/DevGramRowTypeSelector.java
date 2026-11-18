@@ -174,7 +174,7 @@ public final class DevGramRowTypeSelector extends LinearLayout {
                         @Override // android.view.View.OnClickListener
                         public void onClick(View view) {
                             haptic(view);
-                            if(!DevGramAppearanceAccess.check(profile,DevGramProfileRowSpec.feature(i3)))return;
+                            if(!DevGramAppearanceAccess.check(profile,DevGramProfileRowSpec.feature(i3),view))return;
                             int i4 = DevGramRowTypeSelector.this.selected;
                             int i5 = i3;
                             boolean z3 = i4 != i5;

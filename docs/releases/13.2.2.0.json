@@ -1,9 +1,9 @@
 {
   "version": "13.2.2.0",
-  "versionCode": 743009,
+  "versionCode": 743409,
   "telegramVersion": "13.2.2",
   "variant": "afatRelease",
-  "apkSha256": "b45d392210a2658b1167ead4a57b72f802fcf43ce0d945eaeaa639665c908441",
+  "apkSha256": "2e277ff620e67eba45e2f78c45eb3a6fa3f58a2f9bc53bd36914225d26bc762c",
   "certificateSha256": "156ebcff11041c72ff91239139b52cc3eaabcdf1b441bad81f6a29c098902bba",
   "sourceScope": "Android client and build files; release snapshot based on the existing public release history"
 }

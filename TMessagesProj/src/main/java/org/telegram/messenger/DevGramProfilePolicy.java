@@ -163,10 +163,63 @@ public final class DevGramProfilePolicy {
 
     public static void requestDirect(int account, String route, JSONObject fields, Callback callback) {
         final long uid = UserConfig.getInstance(account).getClientUserId();
+        if (passiveRead(route, fields)) { readWithoutLogin(account, uid, route, fields, callback); return; }
         DevGramBeta.authenticate(account, (ok, error) -> {
             if (!ok) { callback.run(null, error); return; }
             send(account, uid, route, fields, callback, true);
         });
+    }
+
+    /** Polling and opening public profiles must never create a Telegram website session. */
+    private static boolean passiveRead(String route, JSONObject fields) {
+        String action = fields.optString("action", "get");
+        return (route.equals("studio/likes") || route.equals("studio/comments")) && action.equals("get")
+                || route.equals("studio/workshop") && action.equals("state")
+                || route.equals("studio/notices") && (action.equals("get") || action.equals("read"))
+                || route.equals("studio/clans") && action.equals("membership")
+                || route.equals("studio/connect/status")
+                || route.equals("studio/rows/state") && (action.equals("read") || action.equals("get"));
+    }
+
+    private static String publicReadRoute(String route, JSONObject fields, long uid) {
+        if (route.equals("studio/likes")) return "studio/likes/" + fields.optLong("profile") + ".json";
+        if (route.equals("studio/comments")) return "studio/comments/" + fields.optLong("profile") + ".json?limit="
+                + fields.optInt("limit", 10) + "&root=" + fields.optLong("root") + "&cursor=" + fields.optLong("cursor");
+        if (route.equals("studio/workshop")) return "studio/works/" + fields.optLong("id") + ".json";
+        if (route.equals("studio/rows/state")) return "studio/rows/" + fields.optLong("profile") + "/"
+                + android.net.Uri.encode(fields.optString("block")) + ".json";
+        if (route.equals("studio/notices")) {
+            String key = "devgramPublicNewsRead_" + uid;
+            android.content.SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+            long read = preferences.getLong(key, 0);
+            if (fields.optString("action").equals("read") && fields.optString("section").equals("news")) {
+                read = Math.max(read, fields.optLong("cursor")); preferences.edit().putLong(key, read).apply();
+            }
+            return "studio/notices/news.json?limit=" + fields.optInt("limit", 50) + "&before=" + fields.optLong("before")
+                    + "&read=" + read + "&section=" + android.net.Uri.encode(fields.optString("section"));
+        }
+        return null;
+    }
+
+    private static void readWithoutLogin(int account, long uid, String route, JSONObject fields, Callback callback) {
+        Callback fallback = (result, error) -> {
+            if (result != null) { callback.run(result, null); return; }
+            if (UserConfig.getInstance(account).getClientUserId() != uid) { callback.run(null, "account_changed"); return; }
+            String publicRoute = publicReadRoute(route, fields, uid);
+            if (publicRoute == null) { callback.run(null, error); return; }
+            executeWorkshop(() -> {
+                JSONObject value = null;
+                try { value = http("GET", publicRoute, null); if (!value.optBoolean("ok")) value = null; else value.put("_publicRead", true); }
+                catch (Exception ignored) { value = null; }
+                JSONObject response = value;
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (UserConfig.getInstance(account).getClientUserId() != uid) callback.run(null, "account_changed");
+                    else callback.run(response, response == null ? "network" : null);
+                });
+            });
+        };
+        if (DevGramBeta.hasToken(account)) send(account, uid, route, fields, fallback, false);
+        else fallback.run(null, "auth_required");
     }
 
     private static void send(int account, long uid, String route, JSONObject fields, Callback callback, boolean retry) {

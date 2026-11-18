@@ -7,11 +7,9 @@ import org.telegram.tgnet.TLRPC;
 /**
  * Бета-канал DevGram. Доступ только поддержавшим (значок ACCESS_SUPPORTER).
  *
- * Активация происходит В ФОНЕ, человек ничего не пишет боту: клиент сам отправляет
- * @officialdevgram_bot команду «/beta_token», бот видит реальный telegram-id, проверяет значок,
- * кладёт hash(token) в Firebase /beta_tokens/{uid} и отвечает сообщением «DEVGRAM_BETA_TOKEN:...».
- * Мы ловим ответ, сохраняем токен и подчищаем служебную переписку. Дальше AppUpdater качает
- * бету с api.devgram.space, предъявляя uid+token (проверка значка — на сервере, обойти нельзя).
+ * Telegram signs account identity for the DevGram API; no bot conversation is started.
+ * Account linking is explained before the first explicit action. Passive profile reads
+ * never start a login; the server independently checks permissions for every operation.
  */
 public final class DevGramBeta {
 
@@ -40,26 +38,83 @@ public final class DevGramBeta {
      * Идемпотентно: если токен уже есть, сразу ok=true.
      */
     public static void activate(final int account, final Callback callback) {
+        final long uid = UserConfig.getInstance(account).getClientUserId();
         if (!hasAccess(account)) {
             AndroidUtilities.runOnUIThread(() -> callback.onResult(false, DevGramLocale.text("Нужен значок поддержавшего")));
             return;
         }
-        authenticate(account, callback);
+        askConsent(account, agreed -> {
+            if (UserConfig.getInstance(account).getClientUserId() != uid) {
+                callback.onResult(false, "account_changed");
+            } else if (!agreed) {
+                callback.onResult(false, DevGramLocale.text("Подтверждение отменено"));
+            } else {
+                authenticateSilently(account, callback);
+            }
+        });
     }
 
-    /** Подтверждает любой подключённый аккаунт для защищённых действий (например, приём значка). */
+    private static final java.util.HashMap<Long, java.util.ArrayList<Callback>> pendingAuthentication = new java.util.HashMap<>();
+    private static final java.util.HashMap<Long, java.util.ArrayList<Callback>> pendingConsent = new java.util.HashMap<>();
+
+    public static boolean hasCustomizationConsent(int account) {
+        return MessagesController.getGlobalMainSettings().getBoolean(
+                "devgramCustomizationAuthConsent_" + UserConfig.getInstance(account).getClientUserId(), false);
+    }
+
+    /** Explain Telegram's website-login notification once, before an explicit action. */
     public static void authenticate(final int account, final Callback callback) {
-        if (hasToken(account)) {
-            AndroidUtilities.runOnUIThread(() -> callback.onResult(true, null));
-            return;
-        }
-        // «Вход через Telegram» (без переписки с ботом) — только с согласия пользователя
-        askConsent(account, agreed -> {
-            if (!agreed) {
-                callback.onResult(false, DevGramLocale.text("Подтверждение отменено"));
+        final long uid = UserConfig.getInstance(account).getClientUserId();
+        AndroidUtilities.runOnUIThread(() -> {
+            if (uid <= 0 || UserConfig.getInstance(account).getClientUserId() != uid) { callback.onResult(false, "account_changed"); return; }
+            if (hasCustomizationConsent(account)) { authenticateSilently(account, callback); return; }
+            Callback scoped = (ok, error) -> {
+                if (UserConfig.getInstance(account).getClientUserId() != uid) callback.onResult(false, "account_changed");
+                else if (ok) authenticateSilently(account, callback);
+                else callback.onResult(false, error);
+            };
+            java.util.ArrayList<Callback> waiting = pendingConsent.get(uid);
+            if (waiting != null) { waiting.add(scoped); return; }
+            org.telegram.ui.ActionBar.BaseFragment fragment = org.telegram.ui.LaunchActivity.getSafeLastFragment();
+            if (fragment == null || fragment.getParentActivity() == null) { callback.onResult(false, "auth_cancelled"); return; }
+            waiting = new java.util.ArrayList<>(); waiting.add(scoped); pendingConsent.put(uid, waiting);
+            org.telegram.ui.DevGramAccountConfirmationSheet.show(fragment, false, agreed -> {
+                boolean accepted = agreed && UserConfig.getInstance(account).getClientUserId() == uid;
+                if (accepted) MessagesController.getGlobalMainSettings().edit().putBoolean("devgramCustomizationAuthConsent_" + uid, true).apply();
+                java.util.ArrayList<Callback> callbacks = pendingConsent.remove(uid);
+                if (callbacks != null) for (Callback next : callbacks) {
+                    try { next.onResult(accepted, accepted ? null : "auth_cancelled"); } catch (Exception e) { FileLog.e(e); }
+                }
+            });
+        });
+    }
+
+    /** Called only after consent; concurrent requests share one signed login. */
+    private static void authenticateSilently(final int account, final Callback callback) {
+        final long uid = UserConfig.getInstance(account).getClientUserId();
+        AndroidUtilities.runOnUIThread(() -> {
+            if (uid <= 0 || UserConfig.getInstance(account).getClientUserId() != uid) {
+                callback.onResult(false, "account_changed");
                 return;
             }
-            loginViaTelegram(account, ok -> callback.onResult(ok, ok ? null : DevGramLocale.text("Не удалось подтвердить аккаунт")));
+            if (hasToken(account)) { callback.onResult(true, null); return; }
+            Callback scoped = (ok, error) -> {
+                if (UserConfig.getInstance(account).getClientUserId() != uid) callback.onResult(false, "account_changed");
+                else callback.onResult(ok, error);
+            };
+            java.util.ArrayList<Callback> waiting = pendingAuthentication.get(uid);
+            if (waiting != null) { waiting.add(scoped); return; }
+            waiting = new java.util.ArrayList<>();
+            waiting.add(scoped);
+            pendingAuthentication.put(uid, waiting);
+            loginViaTelegram(account, ok -> AndroidUtilities.runOnUIThread(() -> {
+                java.util.ArrayList<Callback> callbacks = pendingAuthentication.remove(uid);
+                if (callbacks == null) return;
+                for (Callback next : callbacks) {
+                    try { next.onResult(ok, ok ? null : DevGramLocale.text("Не удалось подтвердить аккаунт")); }
+                    catch (Exception e) { FileLog.e(e); }
+                }
+            }));
         });
     }
 
@@ -78,31 +133,12 @@ public final class DevGramBeta {
                 done.run(false);
                 return;
             }
-            final boolean[] answered = {false};
-            org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(fragment.getParentActivity(), fragment.getResourceProvider());
-            b.setTitle(DevGramLocale.text("Подтверждение аккаунта"));
-            b.setMessage(AndroidUtilities.replaceTags(
-                    DevGramLocale.text("Чтобы сохранить ваш значок, обводку сообщений и доступ к бете на сервере DevGram, нужно подтвердить, что это именно ваш аккаунт.\n\n")
-                    + DevGramLocale.text("**Как это работает:** так же, как «Войти через Telegram» на сайтах. Telegram сам передаст серверу DevGram ваш ID, имя, юзернейм и фото профиля, подписанные Telegram, — подделать их нельзя.\n\n")
-                    + DevGramLocale.text("**Что получаем мы:** только эти данные, чтобы выдать вам личный ключ доступа. Номер телефона, переписки и контакты не передаются.\n\n")
-                    + DevGramLocale.text("**Что получаете вы:** выбор значка и обводки сообщений, которые увидят все пользователи DevGram, и бета-версии — без переписки с ботом.")));
-            b.setPositiveButton(DevGramLocale.text("Согласиться"), (d, w) -> {
-                answered[0] = true;
-                prefs.edit().putBoolean(key, true).apply();
-                done.run(true);
+            org.telegram.ui.DevGramAccountConfirmationSheet.show(fragment, agreed -> {
+                if (agreed && UserConfig.getInstance(account).getClientUserId() == uid) {
+                    prefs.edit().putBoolean(key, true).putBoolean("devgramCustomizationAuthConsent_" + uid, true).apply();
+                    done.run(true);
+                } else done.run(false);
             });
-            b.setNegativeButton(DevGramLocale.text("Отказаться"), (d, w) -> {
-                answered[0] = true;
-                done.run(false);
-            });
-            org.telegram.ui.ActionBar.AlertDialog dialog = b.create();
-            dialog.setOnDismissListener(d -> {
-                if (!answered[0]) {
-                    answered[0] = true;
-                    done.run(false);
-                }
-            });
-            fragment.showDialog(dialog);
         });
     }
 

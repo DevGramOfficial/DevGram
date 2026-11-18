@@ -118,7 +118,7 @@ public final class DevGramPluginBlocks {
         }
         Runnable send = () -> sendChange(account, uid, pluginId, sha256, name, fingerprint, blocked, callback);
         if (DevGramConfig.getBetaToken(uid).isEmpty()) {
-            DevGramBeta.activate(account, (ok, error) -> {
+            DevGramBeta.authenticate(account, (ok, error) -> {
                 if (ok) send.run();
                 else callback.onResult(new Status(false, false,
                         error == null ? DevGramLocale.text("Не удалось получить токен разработчика") : error));

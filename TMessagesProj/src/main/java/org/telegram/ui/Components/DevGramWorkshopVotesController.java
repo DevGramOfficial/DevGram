@@ -29,7 +29,7 @@ public final class DevGramWorkshopVotesController {
     public boolean favorite(){return favorite;}
     public int likes(){return likes;}
     public void release(){active=false;generation++;DevGramProfilePolicy.unlisten(policy);}
-    private void accept(JSONObject result){JSONObject work=result.optJSONObject("work");if(work!=null){likes=Math.max(0,work.optInt("likes"));liked=work.optBoolean("liked");favorite=work.optBoolean("favorite");known=true;}changed.run();}
+    private void accept(JSONObject result){JSONObject work=result.optJSONObject("work");if(work!=null){likes=Math.max(0,work.optInt("likes"));known=!result.optBoolean("_publicRead");liked=known&&work.optBoolean("liked");favorite=known&&work.optBoolean("favorite");}changed.run();}
     public void refresh(){
         if(!current()||busy||loading||System.currentTimeMillis()-refreshed<15000)return;
         refreshed=System.currentTimeMillis();loading=true;int request=++generation;changed.run();
@@ -38,12 +38,19 @@ public final class DevGramWorkshopVotesController {
     public void toggle(boolean save){
         String feature=save?"workshop.install":"workshop.social";
         if(!current()||busy||loading||!DevGramAppearanceAccess.check(host,feature))return;
-        if(!known){refresh();return;}
+        if(!known){busy=true;int request=++generation;changed.run();org.telegram.messenger.DevGramBeta.authenticate(account,(ok,error)->{
+            if(!current()||request!=generation)return;
+            if(!ok){busy=false;changed.run();return;}
+            DevGramProfilePolicy.request(account,"studio/workshop",DevGramStudioActivity.json("action","state","id",id),(result,failure)->{
+                if(!current()||request!=generation)return;busy=false;
+                if(result!=null&&!result.optBoolean("_publicRead")){accept(result);toggle(save);}else{changed.run();if(host.getParentActivity()!=null)BulletinFactory.of(host).createErrorBulletin(DevGramLocale.text("Не удалось выполнить действие. Проверьте доступ и соединение.")).show();}
+            });
+        });return;}
         boolean oldLiked=liked,oldFavorite=favorite;int oldLikes=likes,request=++generation;
         if(save)favorite=!favorite;else{liked=!liked;likes=Math.max(0,likes+(liked?1:-1));}busy=true;changed.run();
         DevGramProfilePolicy.request(account,"studio/workshop",DevGramStudioActivity.json("action",save?"favorite":"like","id",id,save?"favorite":"liked",save?favorite:liked),(result,error)->{
             if(!current()||request!=generation)return;busy=false;
-            if(result!=null)accept(result);else{liked=oldLiked;favorite=oldFavorite;likes=oldLikes;changed.run();if(host.getParentActivity()!=null)BulletinFactory.of(host).createErrorBulletin(DevGramLocale.text("Не удалось выполнить действие. Проверьте доступ и соединение.")).show();}
+            if(result!=null)accept(result);else{liked=oldLiked;favorite=oldFavorite;likes=oldLikes;changed.run();if(!"auth_cancelled".equals(error)&&host.getParentActivity()!=null)BulletinFactory.of(host).createErrorBulletin(DevGramLocale.text("Не удалось выполнить действие. Проверьте доступ и соединение.")).show();}
         });
     }
 }

@@ -382,7 +382,7 @@ final class DevGramProfileEditor {
             saving = false;
             if (closed || host.getUserConfig().getClientUserId() != uid) return;
             capsule.setBusy(false);
-            if (result == null) { BulletinFactory.of(host).createErrorBulletin(t("Не удалось сохранить оформление")).show(); return; }
+            if (result == null) { if (!"auth_cancelled".equals(error)) BulletinFactory.of(host).createErrorBulletin(t("Не удалось сохранить оформление")).show(); return; }
             draft.document = DevGramProfileDocument.editable(result.optJSONObject("document")); draft.dirty = false;
             DevGramProfileSlots.saveIfInitialized(this);
             DevGramMusicPresence.configure(host.getCurrentAccount(), draft.document.optInt("activity") == 1);
@@ -393,7 +393,7 @@ final class DevGramProfileEditor {
         });
         if (draft.subject < 0 || draft.theme == null) saveDocument.run(); else DevGramProfileStyle.save(host.getCurrentAccount(), draft.theme.effective(uid), (style, error) -> {
             if (closed || host.getUserConfig().getClientUserId() != uid) return;
-            if (error != null) { saving = false; capsule.setBusy(false); BulletinFactory.of(host).createErrorBulletin(t("Не удалось сохранить оформление")).show(); }
+            if (error != null) { saving = false; capsule.setBusy(false); if (!"auth_cancelled".equals(error)) BulletinFactory.of(host).createErrorBulletin(t("Не удалось сохранить оформление")).show(); }
             else { draft.theme = style; saveDocument.run(); }
         });
     }

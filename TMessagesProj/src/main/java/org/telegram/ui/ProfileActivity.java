@@ -10598,7 +10598,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         if(topView!=null&&topView.devgramHeaderRenderer!=null)topView.devgramHeaderRenderer.setActive(true);
         org.telegram.messenger.DevGramProfilePolicy.listen(devgramStyleChanged);
         org.telegram.messenger.DevGramProfileDocument.refresh(devgramSubject());
-        if(devgramCanEdit())org.telegram.messenger.DevGramProfileDocument.load(currentAccount,devgramSubject(),(result,error)->devgramRefreshAfterLoad(devgramEpoch));
+        if(devgramCanEdit()&&org.telegram.messenger.DevGramBeta.hasToken(currentAccount)&&org.telegram.messenger.DevGramBeta.hasCustomizationConsent(currentAccount))org.telegram.messenger.DevGramProfileDocument.load(currentAccount,devgramSubject(),(result,error)->devgramRefreshAfterLoad(devgramEpoch));
         org.telegram.messenger.DevGramProfileStyle.load(devgramSubject(), (style, error) -> devgramRefreshAfterLoad(devgramEpoch));
         refreshDevgramProfileActions();
         if (devgramProfileLike != null) devgramProfileLike.refresh();
