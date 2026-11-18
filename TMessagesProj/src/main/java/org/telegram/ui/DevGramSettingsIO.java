@@ -1,5 +1,6 @@
 package org.telegram.ui;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.FileLog;
@@ -17,80 +18,73 @@ public class DevGramSettingsIO {
     public static final String EXPORT_NAME = "DevGram_settings" + EXT;
 
     // ключ настройки -> человекочитаемое название (для показа отличий)
-    private static final String[][] LABELS = {
-            {"sendReadPackets", "Статусы прочтения"},
-            {"sendReadStoryPackets", "Просмотры историй"},
-            {"sendOnlinePackets", "Статус «в сети»"},
-            {"sendUploadTyping", "«Печатает…»"},
-            {"sendOfflineAfterOnline", "Офлайн после активности"},
-            {"markReadAfterAction", "Прочитать после действия"},
-            {"useScheduledMessages", "Отложенная отправка в режиме призрака"},
-            {"sendWithoutSound", "Отправка без звука в режиме призрака"},
-            {"suggestGhostBeforeStory", "Предлагать режим перед историей"},
-            {"useGlobalGhostConfig", "Общие настройки режима призрака"},
-            {"disableAds", "Скрывать рекламу"},
-            {"localPremium", "Локальный премиум"},
-            {"streaksEnabled", "Огоньки (серии)"},
-            {"vpnEnabled", "Прокси"},
-            {"iosProfile", "Профиль в стиле iOS"},
-            {"saveDeletedMessages", "Сохранять удалённые"},
-            {"saveMessagesHistory", "Сохранять историю изменений"},
-            {"saveMedia", "Сохранять вложения"},
-            {"saveInBotChats", "Сохранять в чатах с ботами"},
-            {"saveReadDate", "Сохранять время прочтения"},
-            {"saveLocalOnline", "Запоминать замеченный онлайн"},
-            {"probeUsingOtherAccounts", "Проверять онлайн через другие аккаунты"},
+    private static String[][] getLabels() {
+        return new String[][]{
+            {"sendReadPackets", DevGramLocale.text("Статусы прочтения")},
+            {"sendReadStoryPackets", DevGramLocale.text("Просмотры историй")},
+            {"sendOnlinePackets", DevGramLocale.text("Статус «в сети»")},
+            {"sendUploadTyping", DevGramLocale.text("«Печатает…»")},
+            {"sendOfflineAfterOnline", DevGramLocale.text("Офлайн после активности")},
+            {"markReadAfterAction", DevGramLocale.text("Прочитать после действия")},
+            {"useScheduledMessages", DevGramLocale.text("Отложенная отправка в режиме призрака")},
+            {"sendWithoutSound", DevGramLocale.text("Отправка без звука в режиме призрака")},
+            {"suggestGhostBeforeStory", DevGramLocale.text("Предлагать режим перед историей")},
+            {"useGlobalGhostConfig", DevGramLocale.text("Общие настройки режима призрака")},
+            {"disableAds", DevGramLocale.text("Скрывать рекламу")},
+            {"localPremium", DevGramLocale.text("Локальный премиум")},
+            {"streaksEnabled", DevGramLocale.text("Огоньки (серии)")},
+            {"vpnEnabled", DevGramLocale.text("Прокси")},
+            {"saveDeletedMessages", DevGramLocale.text("Сохранять удалённые")},
+            {"saveMessagesHistory", DevGramLocale.text("Сохранять историю изменений")},
+            {"saveMedia", DevGramLocale.text("Сохранять вложения")},
+            {"saveInBotChats", DevGramLocale.text("Сохранять в чатах с ботами")},
+            {"saveReadDate", DevGramLocale.text("Сохранять время прочтения")},
+            {"saveLocalOnline", DevGramLocale.text("Запоминать замеченный онлайн")},
+            {"probeUsingOtherAccounts", DevGramLocale.text("Проверять онлайн через другие аккаунты")},
             {"analyticsEnabled", "Google Analytics"},
             {"crashlyticsEnabled", "Google Crashlytics"},
-            {"disableNumberRounding", "Отключить округление чисел"},
-            {"squareFab", "Квадратная кнопка (FAB)"},
-            {"glassMenu", "Стеклянные меню"},
-            {"hideEmojiCategories", "Скрыть категории в поиске эмодзи"},
-            {"forceSnow", "Снег в шапке"},
-            {"centerTitle", "Заголовок по центру"},
-            {"displayGhostStatus", "Значок режима призрака"},
-            {"disableMarkdown", "Отключить Markdown"},
-            {"hideKeyboardOnScroll", "Скрывать клавиатуру при прокрутке"},
-            {"disableGreetingSticker", "Скрыть приветственный стикер"},
-            {"addCommaAfterMention", "Запятая после упоминания"},
-            {"removeMessageTail", "Убрать хвост сообщения"},
-            {"replaceEditedWithIcon", "Значок изменённого сообщения"},
-            {"hideShareButton", "Скрыть кнопку пересылки"},
-            {"hideStickerTime", "Скрыть время на стикерах"},
-            {"inlineCalc", "Результаты в поле ввода"},
-            {"inlineMath", "Калькулятор"},
-            {"inlineCurrency", "Курсы валют"},
-            {"inlineUnits", "Единицы измерения"},
-            {"inlineTimeZones", "Часовые пояса"},
-            {"inlineTargetCurrency", "Целевая валюта"},
-            {"inlineAngleUnit", "Единицы углов"},
-            {"inlineMeasureSystem", "Система измерения"},
-            {"inlineDigitGrouping", "Разделение разрядов"},
-            {"weatherInStories", "Погода в историях"},
-            {"updateChannel", "Канал обновлений"},
-            {"swipeActions", "Действия свайпом"},
-            {"swipeActionsLoop", "Циклический выбор свайпом"},
-            {"swipeActionsReversed", "Обратное направление свайпа"},
-            {"dg_designMode", "Стиль интерфейса"},
-            {"dg_transitionAnimation", "Анимация переходов"},
-            {"dg_ios_center_chat_title", "Заголовок чата по центру"},
-            {"dg_ios_adaptive_title_width", "Адаптивная ширина заголовка"},
-            {"dg_ios_show_unread_counter", "Счётчик непрочитанных в шапке"},
-            {"dg_ios_unread_counter_style", "Счётчик в стиле iOS"},
-            {"dg_ios_input_panel", "Поле ввода в стиле iOS"},
-            {"dg_ios_notification_sound", "Звук уведомлений"},
-            {"dg_ios_message_menu", "Меню сообщений в стиле iOS"},
+            {"disableNumberRounding", DevGramLocale.text("Отключить округление чисел")},
+            {"squareFab", DevGramLocale.text("Квадратная кнопка (FAB)")},
+            {"glassMenu", DevGramLocale.text("Стеклянные меню")},
+            {"hideEmojiCategories", DevGramLocale.text("Скрыть категории в поиске эмодзи")},
+            {"forceSnow", DevGramLocale.text("Снег в шапке")},
+            {"centerTitle", DevGramLocale.text("Заголовок по центру")},
+            {"displayGhostStatus", DevGramLocale.text("Значок режима призрака")},
+            {"disableMarkdown", DevGramLocale.text("Отключить Markdown")},
+            {"hideKeyboardOnScroll", DevGramLocale.text("Скрывать клавиатуру при прокрутке")},
+            {"disableGreetingSticker", DevGramLocale.text("Скрыть приветственный стикер")},
+            {"addCommaAfterMention", DevGramLocale.text("Запятая после упоминания")},
+            {"removeMessageTail", DevGramLocale.text("Убрать хвост сообщения")},
+            {"replaceEditedWithIcon", DevGramLocale.text("Значок изменённого сообщения")},
+            {"hideShareButton", DevGramLocale.text("Скрыть кнопку пересылки")},
+            {"hideStickerTime", DevGramLocale.text("Скрыть время на стикерах")},
+            {"inlineCalc", DevGramLocale.text("Результаты в поле ввода")},
+            {"inlineMath", DevGramLocale.text("Калькулятор")},
+            {"inlineCurrency", DevGramLocale.text("Курсы валют")},
+            {"inlineUnits", DevGramLocale.text("Единицы измерения")},
+            {"inlineTimeZones", DevGramLocale.text("Часовые пояса")},
+            {"inlineTargetCurrency", DevGramLocale.text("Целевая валюта")},
+            {"inlineAngleUnit", DevGramLocale.text("Единицы углов")},
+            {"inlineMeasureSystem", DevGramLocale.text("Система измерения")},
+            {"inlineDigitGrouping", DevGramLocale.text("Разделение разрядов")},
+            {"weatherInStories", DevGramLocale.text("Погода в историях")},
+            {"updateChannel", DevGramLocale.text("Канал обновлений")},
+            {"swipeActions", DevGramLocale.text("Действия свайпом")},
+            {"swipeActionsLoop", DevGramLocale.text("Циклический выбор свайпом")},
+            {"swipeActionsReversed", DevGramLocale.text("Обратное направление свайпа")},
+            {"dg_transitionAnimation", DevGramLocale.text("Анимация переходов")},
             {"dg_md3", "Material 3"},
-            {"dg_gooey", "Expressive-анимации"},
-            {"avatarCornersF", "Закругление аватарок"},
-            {"folderTabsStyle", "Стиль вкладок папок"},
-            {"stickerSize", "Размер стикеров"},
-            {"formatWithSeconds", "Время с секундами"},
-            {"useSystemEmoji", "Системные эмодзи"},
-            {"forceDisableTabletMode", "Отключить планшетный режим"},
-            {"translate_button", "Кнопка перевода сообщений"},
-            {"translate_chat_button", "Перевод целых чатов"},
+            {"dg_gooey", DevGramLocale.text("Expressive-анимации")},
+            {"avatarCornersF", DevGramLocale.text("Закругление аватарок")},
+            {"folderTabsStyle", DevGramLocale.text("Стиль вкладок папок")},
+            {"stickerSize", DevGramLocale.text("Размер стикеров")},
+            {"formatWithSeconds", DevGramLocale.text("Время с секундами")},
+            {"useSystemEmoji", DevGramLocale.text("Системные эмодзи")},
+            {"forceDisableTabletMode", DevGramLocale.text("Отключить планшетный режим")},
+            {"translate_button", DevGramLocale.text("Кнопка перевода сообщений")},
+            {"translate_chat_button", DevGramLocale.text("Перевод целых чатов")},
     };
+    }
 
     // Записать текущие настройки в файл .devgram (в кэше). Возвращает File или null.
     public static java.io.File writeExportFile() {
@@ -167,7 +161,7 @@ public class DevGramSettingsIO {
         try {
             o = new org.json.JSONObject(content == null ? "" : content.trim());
         } catch (Throwable e) {
-            BulletinFactory.of(fragment).createErrorBulletin("Файл не похож на настройки DevGram").show();
+            BulletinFactory.of(fragment).createErrorBulletin(DevGramLocale.text("Файл не похож на настройки DevGram")).show();
             return;
         }
         DevGramConfig.loadConfig();
@@ -175,7 +169,7 @@ public class DevGramSettingsIO {
         try {
             current = new org.json.JSONObject(DevGramConfig.exportToJson());
         } catch (Throwable e) {
-            BulletinFactory.of(fragment).createErrorBulletin("Не удалось прочитать текущие настройки").show();
+            BulletinFactory.of(fragment).createErrorBulletin(DevGramLocale.text("Не удалось прочитать текущие настройки")).show();
             return;
         }
         java.util.ArrayList<String> diffs = new java.util.ArrayList<>();
@@ -190,7 +184,7 @@ public class DevGramSettingsIO {
                     current.optJSONObject("_accountPreferences"));
             if (o.has("_launcherIcon")
                     && !sameValue(current.opt("_launcherIcon"), o.opt("_launcherIcon"))) {
-                diffs.add("• Иконка приложения: " + formatValue(current.opt("_launcherIcon"))
+                diffs.add(DevGramLocale.text("• Иконка приложения: ") + formatValue(current.opt("_launcherIcon"))
                         + " → " + formatValue(o.opt("_launcherIcon")));
             }
         } else {
@@ -207,31 +201,31 @@ public class DevGramSettingsIO {
             }
         }
         if (diffs.isEmpty()) {
-            BulletinFactory.of(fragment).createErrorBulletin("Похоже, эти настройки не отличаются от текущих.").show();
+            BulletinFactory.of(fragment).createErrorBulletin(DevGramLocale.text("Похоже, эти настройки не отличаются от текущих.")).show();
             return;
         }
         final String json = content;
         StringBuilder sb = new StringBuilder();
-        sb.append("Отличия (").append(diffs.size()).append("):\n");
+        sb.append(DevGramLocale.text("Отличия (")).append(diffs.size()).append("):\n");
         int shown = Math.min(diffs.size(), 40);
         for (int i = 0; i < shown; i++) {
             sb.append(diffs.get(i)).append('\n');
         }
         if (diffs.size() > shown) {
-            sb.append("…и ещё ").append(diffs.size() - shown).append('\n');
+            sb.append(DevGramLocale.text("…и ещё ")).append(diffs.size() - shown).append('\n');
         }
         AlertDialog.Builder b = new AlertDialog.Builder(ctx);
-        b.setTitle("Импорт настроек DevGram");
+        b.setTitle(DevGramLocale.text("Импорт настроек DevGram"));
         b.setMessage(sb.toString().trim());
-        b.setPositiveButton("Применить", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Применить"), (d, w) -> {
             boolean ok = DevGramConfig.importFromJson(json);
             if (ok && onApplied != null) {
                 onApplied.run();
             }
             BulletinFactory.of(fragment)
-                    .createSimpleBulletin(R.raw.contact_check, ok ? "Настройки применены" : "Не удалось применить").show();
+                    .createSimpleBulletin(R.raw.contact_check, ok ? DevGramLocale.text("Настройки применены") : DevGramLocale.text("Не удалось применить")).show();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         fragment.showDialog(b.create());
     }
 
@@ -273,23 +267,23 @@ public class DevGramSettingsIO {
     }
 
     private static String formatValue(Object value) {
-        if (value == null || value == org.json.JSONObject.NULL) return "По умолчанию";
-        if (value instanceof Boolean) return (Boolean) value ? "Вкл" : "Выкл";
+        if (value == null || value == org.json.JSONObject.NULL) return DevGramLocale.text("По умолчанию");
+        if (value instanceof Boolean) return (Boolean) value ? DevGramLocale.text("Вкл") : DevGramLocale.text("Выкл");
         if (value instanceof org.json.JSONArray) {
-            return ((org.json.JSONArray) value).length() + " знач.";
+            return ((org.json.JSONArray) value).length() + DevGramLocale.text(" знач.");
         }
         String text = String.valueOf(value);
-        if (text.isEmpty()) return "Пусто";
+        if (text.isEmpty()) return DevGramLocale.text("Пусто");
         return text.length() > 48 ? text.substring(0, 45) + "…" : text;
     }
 
     private static String labelFor(String key) {
-        for (String[] pair : LABELS) {
+        for (String[] pair : getLabels()) {
             if (pair[0].equals(key)) return pair[1];
         }
-        String clean = key == null ? "Настройка" : key;
+        String clean = key == null ? DevGramLocale.text("Настройка") : key;
         if (clean.startsWith("dg_")) clean = clean.substring(3);
         clean = clean.replace('_', ' ');
-        return clean.isEmpty() ? "Настройка" : Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
+        return clean.isEmpty() ? DevGramLocale.text("Настройка") : Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
     }
 }

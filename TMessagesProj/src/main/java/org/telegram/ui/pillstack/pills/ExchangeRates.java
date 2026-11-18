@@ -109,7 +109,7 @@ public final class ExchangeRates {
             if (startRequest) requestInFlight = true;
         }
         if (!startRequest) return;
-        Utilities.globalQueue.postRunnable(ExchangeRates::doFetch);
+        org.telegram.messenger.DevGramNetworkQueue.postRunnable(ExchangeRates::doFetch);
     }
 
     private static void doFetch() {

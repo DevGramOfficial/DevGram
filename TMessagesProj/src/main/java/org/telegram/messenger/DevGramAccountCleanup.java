@@ -116,9 +116,9 @@ public class DevGramAccountCleanup {
         steps[0] = () -> {
             if (o.contacts && !ContactsController.getInstance(account).contacts.isEmpty()) {
                 int n = ContactsController.getInstance(account).contacts.size();
-                cb.onStage("Удаляем контакты…", 0, n);
+                cb.onStage(DevGramLocale.text("Удаляем контакты…"), 0, n);
                 ContactsController.getInstance(account).deleteAllContacts(() -> {
-                    cb.onStage("Контакты удалены", n, n);
+                    cb.onStage(DevGramLocale.text("Контакты удалены"), n, n);
                     AndroidUtilities.runOnUIThread(() -> next(steps, idx));
                 });
             } else {
@@ -126,16 +126,16 @@ public class DevGramAccountCleanup {
             }
         };
 
-        steps[1] = () -> processDialogs(account, chatTargets, "Очищаем личные чаты…", steps, idx, cb);
-        steps[2] = () -> processDialogs(account, groupTargets, "Выходим из групп и каналов…", steps, idx, cb);
+        steps[1] = () -> processDialogs(account, chatTargets, DevGramLocale.text("Очищаем личные чаты…"), steps, idx, cb);
+        steps[2] = () -> processDialogs(account, groupTargets, DevGramLocale.text("Выходим из групп и каналов…"), steps, idx, cb);
 
         steps[3] = () -> {
             if (wipeSavedF) {
-                cb.onStage("Очищаем «Сохранённое»…", 0, 1);
+                cb.onStage(DevGramLocale.text("Очищаем «Сохранённое»…"), 0, 1);
                 mc.deleteDialog(selfId, 0, false);
             }
             if (o.drafts) {
-                cb.onStage("Чистим черновики…", 0, 1);
+                cb.onStage(DevGramLocale.text("Чистим черновики…"), 0, 1);
                 mc.getMediaDataController().clearAllDrafts(true);
             }
             next(steps, idx);

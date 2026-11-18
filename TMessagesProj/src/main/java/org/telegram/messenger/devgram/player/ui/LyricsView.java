@@ -70,6 +70,8 @@ public class LyricsView extends FrameLayout {
     private final ArrayList<View> lineViews;
     private final LinesLayout linesLayout;
     private Lyrics lyrics;
+    private boolean referenceTypography;
+    public void setReferenceTypography(boolean value){referenceTypography=value;}
     private boolean pendingSnap;
     private int progressMode;
     private final RadialProgressView progressView;
@@ -397,13 +399,13 @@ public class LyricsView extends FrameLayout {
     private void styleLine(TextView textView, boolean z) {
         textView.setTextColor(this.textColor);
         if (z) {
-            textView.setTextSize(1, 22.0f);
+            textView.setTextSize(1, referenceTypography?28.0f:22.0f);
             textView.setTypeface(AndroidUtilities.bold());
-            setLineHeight(textView, 29.0f);
+            setLineHeight(textView, referenceTypography?38.0f:29.0f);
             textView.setPadding(0, AndroidUtilities.dp(7.0f), 0, AndroidUtilities.dp(7.0f));
             return;
         }
-        textView.setTextSize(1, 18.0f);
+        textView.setTextSize(1, referenceTypography?16.0f:18.0f);
         textView.setTypeface(AndroidUtilities.regular());
         setLineHeight(textView, 26.0f);
         textView.setPadding(0, AndroidUtilities.dp(2.0f), 0, AndroidUtilities.dp(2.0f));

@@ -645,7 +645,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.fileUploaded);
+        NotificationCenter.getInstance(currentAccount).addWeakObserver(this, NotificationCenter.fileUploaded);
     }
 
     @Override
@@ -798,6 +798,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         return !recording;
     }
 
+    @Override
     public void setFrontface(boolean frontface) {
         isFrontface = frontface;
     }
@@ -1127,7 +1128,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
         long startMs = edited != null && edited.startTime > 0 ? edited.startTime : 0;
         long endMs = edited != null && edited.endTime > 0 ? edited.endTime : recordedTime;
         if (!DevGramLongRound.needsSplit(endMs - startMs)) return false;
-        FileLoader.getInstance(currentAccount).cancelFileUpload(source.getAbsolutePath(), false);
+        FileLoader.getInstance(currentAccount).cancelFileUpload(source.getAbsolutePath(), isSecretChat);
         final Delegate d = delegate;
         final boolean[] first = {true};
         DevGramLongRound.splitAndSend(currentAccount, d.getDialogId(), source, startMs, edited != null && edited.endTime > 0 ? endMs : 0, (part, info) -> {
@@ -1184,7 +1185,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                 if (videoEditedInfo.endTime > 0) {
                     videoEditedInfo.endTime *= 1000;
                 }
-                FileLoader.getInstance(currentAccount).cancelFileUpload(cameraFile.getAbsolutePath(), false);
+                FileLoader.getInstance(currentAccount).cancelFileUpload(cameraFile.getAbsolutePath(), isSecretChat);
             } else {
                 videoEditedInfo.estimatedSize = Math.max(1, size);
             }
@@ -2224,7 +2225,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                         if (currentSession instanceof CameraSession) {
                             rotationAngle = ((CameraSession) currentSession).getWorldAngle();
                         } else if (currentSession instanceof Camera2Session) {
-                            rotationAngle = ((Camera2Session) currentSession).getWorldAngle();
+                            rotationAngle = ((Camera2Session) currentSession).getRoundVideoRotationAngle();
                         } else {
                             rotationAngle = 0;
                         }
@@ -3290,7 +3291,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             }
             FileLog.d("InstantCamera handleStopRecording send " + send);
             if (send == ENCODER_SEND_CANCEL) {
-                FileLoader.getInstance(currentAccount).cancelFileUpload(videoFile.getAbsolutePath(), false);
+                FileLoader.getInstance(currentAccount).cancelFileUpload(videoFile.getAbsolutePath(), isSecretChat);
                 try {
                     fileToWrite.delete();
                 } catch (Throwable ignore) {}
@@ -3323,7 +3324,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                             if (videoEditedInfo.endTime > 0) {
                                 videoEditedInfo.endTime *= 1000;
                             }
-                            FileLoader.getInstance(currentAccount).cancelFileUpload(cameraFile.getAbsolutePath(), false);
+                            FileLoader.getInstance(currentAccount).cancelFileUpload(cameraFile.getAbsolutePath(), isSecretChat);
                         } else {
                             videoEditedInfo.estimatedSize = Math.max(1, size);
                         }
@@ -3671,7 +3672,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             }
             if (DevGramLongRound.needsSplit(recordedTime)) {
                 longUploadCancelled = true;
-                FileLoader.getInstance(currentAccount).cancelFileUpload(file.toString(), false);
+                FileLoader.getInstance(currentAccount).cancelFileUpload(file.toString(), isSecretChat);
                 return;
             }
             if (videoConvertFirstWrite) {

@@ -10,6 +10,7 @@ import android.widget.FrameLayout;
 
 import androidx.core.content.ContextCompat;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -31,7 +32,9 @@ import java.util.List;
 /** DevGram: порт PillStackPreferencesActivity из exteraGram — настройки виджетов строки поиска (цветные иконки + перетаскивание + сброс). */
 public class PillStackPreferencesActivity extends BaseFragment {
     private static final int INFINITE = 1000;
-    private static final String INFO = "Настройте видимые виджеты. Нажмите, чтобы показать или скрыть, удерживайте и перетаскивайте для изменения порядка.";
+    private static String getInfo() {
+        return DevGramLocale.text("Настройте видимые виджеты. Нажмите, чтобы показать или скрыть, удерживайте и перетаскивайте для изменения порядка.");
+    }
 
     private UniversalRecyclerView listView;
     private ActionBarMenuItem resetItem;
@@ -52,7 +55,7 @@ public class PillStackPreferencesActivity extends BaseFragment {
             }
         });
         resetItem = actionBar.createMenu().addItem(0, R.drawable.msg_reset);
-        resetItem.setContentDescription("Сбросить");
+        resetItem.setContentDescription(DevGramLocale.text("Сбросить"));
 
         FrameLayout root = new FrameLayout(context);
         root.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
@@ -69,20 +72,20 @@ public class PillStackPreferencesActivity extends BaseFragment {
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (reorderIcon == null) reorderIcon = ContextCompat.getDrawable(getContext(), R.drawable.list_reorder);
 
-        items.add(UItem.asHeader("Настройки"));
-        items.add(UItem.asCheck(INFINITE, "Бесконечная прокрутка").setChecked(PillStackConfig.getInfiniteScrolling()));
+        items.add(UItem.asHeader(DevGramLocale.text("Настройки")));
+        items.add(UItem.asCheck(INFINITE, DevGramLocale.text("Бесконечная прокрутка")).setChecked(PillStackConfig.getInfiniteScrolling()));
         items.add(UItem.asShadow(null));
 
         activeSectionId = -1;
         hiddenSectionId = -1;
 
         if (!PillStackConfig.getActivePills().isEmpty()) {
-            activeSectionId = addSection(items, adapter, "Активные виджеты", PillStackConfig.getActivePills());
-            items.add(UItem.asShadow(INFO));
+            activeSectionId = addSection(items, adapter, DevGramLocale.text("Активные виджеты"), PillStackConfig.getActivePills());
+            items.add(UItem.asShadow(getInfo()));
         }
         if (!PillStackConfig.getHiddenPills().isEmpty()) {
-            hiddenSectionId = addSection(items, adapter, "Скрытые виджеты", PillStackConfig.getHiddenPills());
-            if (PillStackConfig.getActivePills().isEmpty()) items.add(UItem.asShadow(INFO));
+            hiddenSectionId = addSection(items, adapter, DevGramLocale.text("Скрытые виджеты"), PillStackConfig.getHiddenPills());
+            if (PillStackConfig.getActivePills().isEmpty()) items.add(UItem.asShadow(getInfo()));
         }
     }
 
@@ -100,7 +103,7 @@ public class PillStackPreferencesActivity extends BaseFragment {
     }
 
     private UItem createMenuItem(int id, PillStackConfig.PillInfo info) {
-        UItem item = UItem.asButton(id, info.iconRes, info.name);
+        UItem item = UItem.asButton(id, info.iconRes, info.id < 1000000 ? DevGramLocale.text(info.name.toString()) : info.name);
         item.bind = view -> {
             if (view instanceof TextCell) {
                 TextCell cell = (TextCell) view;

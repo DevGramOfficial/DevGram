@@ -629,4 +629,8 @@
     <string name="MimeType">MIME-тип</string>
     <string name="Platform">Платформа</string>
     <string name="Resolution">Разрешение</string>
+    <string name="CreateGroupWith">Создать группу с %1$s</string>
+    <string name="ReplyDialogChannelDirect">Написать каналу</string>
+    <string name="ReplyDialogChannelDirectHint">Отправить личное сообщение каналу</string>
+    <string name="DevGramMusicActivityService">Музыкальная активность DevGram</string>
 </resources>

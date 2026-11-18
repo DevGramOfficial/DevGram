@@ -23,6 +23,10 @@ public final class DevGramLongRound {
     private static final long SEGMENT_US = SEGMENT_MS * 1000 - 100_000; // с запасом, чтобы кусок был < 60 с
     private static final long WAIT_SENT_MS = 5 * 60_000; // если сервер молчит — шлём следующий всё равно
 
+    private static final class SplitWorker {
+        private static final DispatchQueue queue = new DispatchQueue("DevGramRoundSplit");
+    }
+
     public interface Sender {
         // отправить один готовый кружок (вызывается на UI-потоке)
         void send(File part, VideoEditedInfo info);
@@ -32,13 +36,13 @@ public final class DevGramLongRound {
     }
 
     public static boolean needsSplit(long durationMs) {
-        return durationMs > SEGMENT_MS + 500;
+        return durationMs > SEGMENT_MS;
     }
 
     // Нарезать [startMs, endMs) исходника (endMs <= 0 — до конца) на минутные куски и отправить
     // по очереди. Нарезка — в фоне, отправка — на UI-потоке.
     public static void splitAndSend(int account, long dialogId, File source, long startMs, long endMs, Sender sender) {
-        Utilities.globalQueue.postRunnable(() -> {
+        SplitWorker.queue.postRunnable(() -> {
             ArrayList<File> parts = split(source, startMs * 1000, endMs > 0 ? endMs * 1000 : Long.MAX_VALUE);
             AndroidUtilities.runOnUIThread(() -> {
                 if (parts.isEmpty()) {

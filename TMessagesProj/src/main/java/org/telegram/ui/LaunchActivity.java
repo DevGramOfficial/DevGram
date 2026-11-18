@@ -263,6 +263,8 @@ import java.util.zip.ZipInputStream;
 import tw.nekomimi.nekogram.helpers.MonetHelper;
 
 public class LaunchActivity extends BasePermissionsActivity implements INavigationLayout.INavigationLayoutDelegate, NotificationCenter.NotificationCenterDelegate, DialogsActivity.DialogsActivityDelegate, IPipActivity {
+    public static final String EXTRA_VOIP_ANSWER_TOKEN = "voip_answer_token";
+    public static final int VOIP_ANSWER_TOKEN = 1;
     public final static String EXTRA_FORCE_NOT_INTERNAL_APPS = "force_not_internal_apps";
     public final static String EXTRA_FORCE_REQUEST = "force_request";
     public final static Pattern PREFIX_T_ME_PATTERN = Pattern.compile("^(?:http(?:s|)://|)([A-z0-9-]+?)\\.t\\.me");
@@ -390,6 +392,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     public static LaunchActivity instance;
 
+    public void notifyThemeColorsChanged() {
+        invalidateOptionsMenu();
+    }
+
     public boolean voipLaunchedInBackground;
 
     public WindowAnimatedInsetsProvider getRootAnimatedInsetsListener() {
@@ -398,6 +404,11 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     private FrameMetricsOverlayView frameMetricsOverlayView;
     // private RefreshRateController refreshRateController;
+
+    @Override
+    public android.content.res.Resources getResources() {
+        return org.telegram.messenger.devgram.icons.IconManager.resources(super.getResources());
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -607,6 +618,20 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                             case "chat":
                                 if (args != null) {
                                     ChatActivity chat = new ChatActivity(args);
+                                    long topicId = savedInstanceState.getLong("topic_id");
+                                    long chatId = args.getLong("chat_id");
+                                    if (topicId != 0 && chatId != 0) {
+                                        TLRPC.Chat currentChat = MessagesController.getInstance(currentAccount).getChat(chatId);
+                                        if (ChatObject.isForum(currentChat) && !ChatObject.areTabsEnabled(currentChat) && !ChatObject.isSidebarEnabled(currentChat)) {
+                                            Bundle topicsArgs = new Bundle();
+                                            topicsArgs.putLong("chat_id", chatId);
+                                            BaseFragment topicsOrChat = TopicsFragment.getTopicsOrChat(this, topicsArgs);
+                                            if (topicsOrChat instanceof TopicsFragment) {
+                                                actionBarLayout.addFragmentToStack(topicsOrChat);
+                                            }
+                                        }
+                                        ForumUtilities.applyTopic(chat, MessagesStorage.TopicKey.of(-chatId, topicId));
+                                    }
                                     if (actionBarLayout.addFragmentToStack(chat)) {
                                         chat.restoreSelfArgs(savedInstanceState);
                                     }
@@ -620,7 +645,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                                 break;
                             }
                             case "settings2": {
-                                actionBarLayout.addFragmentToStack(new SettingsActivity());
+                                actionBarLayout.addFragmentToStack(org.telegram.ui.Components.DevGramClassicDesign.settings(org.telegram.messenger.UserConfig.selectedAccount));
                                 break;
                             }
                             case "group":
@@ -1588,6 +1613,12 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     @SuppressLint("Range")
     private boolean handleIntent(Intent intent, boolean isNew, boolean restore, boolean fromPassword, Browser.Progress progress, boolean rebuildFragments, boolean openedTelegram) {
+        if (org.telegram.messenger.DevGramNativeNews.handleIntent(intent)) {
+            intent = new Intent(intent).setAction(Intent.ACTION_MAIN).setData(null);
+        }
+        if (org.telegram.messenger.devgram.icons.IconPackIntents.handleIntent(intent)) {
+            intent = new Intent(intent).setAction(Intent.ACTION_MAIN).setData(null);
+        }
         if (DevGramPlugins.onIntent(intent)) {
             return true;
         }
@@ -1843,7 +1874,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                         }
                     }
                     if (error) {
-                        Toast.makeText(this, "Unsupported content", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, LocaleController.getString(R.string.UnsupportedContent), Toast.LENGTH_SHORT).show();
                     }
                 } else if ("org.telegram.messenger.CREATE_STICKER_PACK".equals(intent.getAction())) {
                     try {
@@ -1976,7 +2007,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                         error = true;
                     }
                     if (error) {
-                        Toast.makeText(this, "Unsupported content", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, LocaleController.getString(R.string.UnsupportedContent), Toast.LENGTH_SHORT).show();
                     }
                 } else if (Intent.ACTION_VIEW.equals(intent.getAction())) {
                     Uri data = intent.getData();
@@ -3278,7 +3309,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 BaseFragment fragment;
                 boolean closePrevious = false;
                 if (open_settings == 1) {
-                    fragment = new SettingsActivity();
+                    fragment = org.telegram.ui.Components.DevGramClassicDesign.settings(org.telegram.messenger.UserConfig.selectedAccount);
                 } else if (open_settings == 2) {
                     fragment = new ThemeActivity(ThemeActivity.THEME_TYPE_BASIC);
                 } else if (open_settings == 3) {
@@ -3505,7 +3536,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 && "DevGramSettings".equalsIgnoreCase(uri.getQueryParameter("domain"));
         if (!web && !tg) return null;
         String section = uri.getQueryParameter("s");
-        return TextUtils.isEmpty(section) ? "main" : section.trim().toLowerCase(java.util.Locale.US);
+        return TextUtils.isEmpty(section) ? "main" : section.trim().regionMatches(true,0,"canvas__",0,8)?section.trim():section.trim().toLowerCase(java.util.Locale.US);
     }
 
     private void openDevGramSettingsSection(String section) {
@@ -6923,6 +6954,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         }
         super.onActivityResult(requestCode, resultCode, data);
         if (GramWalletStorageAuth.onActivityResult(this, requestCode, resultCode)) return;
+        if (org.telegram.messenger.devgram.icons.IconPackIntents.onActivityResult(requestCode, resultCode, data)) return;
         if (requestCode == SCREEN_CAPTURE_REQUEST_CODE) {
             if (resultCode == Activity.RESULT_OK) {
                 VoIPService service = VoIPService.getSharedInstance();
@@ -7247,6 +7279,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             editorView.destroy();
         }
         FloatingDebugController.onDestroy();
+        org.telegram.ui.devgram.icons.IconPickerController.destroy();
         AnimatedEmojiDrawable.dropGlobalEmojiCache();
         if (BuildConfig.DEBUG_PRIVATE_VERSION) {
             LeakDetector.getInstance().stop();
@@ -7271,6 +7304,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         super.onResume();
         isResumed = true;
         org.telegram.messenger.DevGramPlugins.onMainResume(); // защита от «кирпича»: снять boot-флаг / показать уведомление о крэше
+        org.telegram.ui.devgram.icons.IconPickerController.sync(this);
+        org.telegram.messenger.devgram.icons.IconPackIntents.flushPending();
+        org.telegram.messenger.DevGramNativeNews.flushPending();
         pipActivityHandler.onResume();
         if (onResumeStaticCallback != null) {
             onResumeStaticCallback.run();
@@ -8582,6 +8618,10 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 if (lastFragment instanceof ChatActivity && args != null) {
                     outState.putBundle("args", args);
                     outState.putString("fragment", "chat");
+                    ChatActivity chatActivity = (ChatActivity) lastFragment;
+                    if (chatActivity.isTopic && chatActivity.getChatMode() == 0) {
+                        outState.putLong("topic_id", chatActivity.getTopicId());
+                    }
                 } else if (lastFragment instanceof GroupCreateFinalActivity && args != null) {
                     outState.putBundle("args", args);
                     outState.putString("fragment", "group");
@@ -8632,6 +8672,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
     }
 
     public boolean onBackPressed(boolean invoked) {
+        if (org.telegram.ui.devgram.icons.IconPickerController.onBackPressed(invoked)) return false;
         if (FloatingDebugController.onBackPressed(invoked)) {
             return false;
         }

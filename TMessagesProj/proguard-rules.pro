@@ -6,7 +6,27 @@
 -keep class org.webrtc.* { *; }
 -keep class org.webrtc.audio.* { *; }
 -keep class org.webrtc.voiceengine.* { *; }
--keep class org.telegram.messenger.* { *; }
+# Python plugins call this bridge through reflection, outside R8's Java call graph.
+-keep class org.telegram.messenger.DevGramPlugins { *; }
+-keep class org.telegram.messenger.DevGramPlugins$* { *; }
+# org.telegram.messenger: only the names that native code and reflection resolve at runtime.
+# Before changing these rules see TMessagesProj/proguard-checklist.md and run Tools/r8_keep_check.py.
+# Static JNI exports Java_org_telegram_messenger_<Class>_<method> (Utilities, Intro, MediaController, MrzRecognizer).
+-keepclasseswithmembers,includedescriptorclasses class org.telegram.messenger.* {
+    native <methods>;
+}
+# gifvideo.cpp: FindClass + GetMethodID, called from the native reader.
+-keep class org.telegram.messenger.AnimatedFileDrawableStream {
+    int read(int, int);
+    void cancel();
+    boolean isFinishedLoadingFile();
+    boolean isCanceled();
+    java.lang.String getFinishedFilePath();
+}
+# NotificationBadge.BADGERS holds class literals, instances are made with Class.newInstance().
+-keep class org.telegram.messenger.NotificationBadge$* implements org.telegram.messenger.NotificationBadge$Badger {
+    <init>();
+}
 -keep class org.telegram.messenger.camera.* { *; }
 -keep class org.telegram.messenger.secretmedia.* { *; }
 -keep class org.telegram.messenger.support.* { *; }
@@ -99,6 +119,16 @@
   <init>(com.google.android.exoplayer2.upstream.DataSource$Factory);
 }
 
+# WidgetSandbox: JNI_OnLoad uses RegisterNatives; backend methods are called by native workers.
+-keep class org.telegram.utils.twidget.WidgetSandboxNative { *; }
+# The client's share (filters, gesture arbiter) in the client library: static Java_* exports, resolved by name.
+-keepclasseswithmembers,includedescriptorclasses class org.telegram.utils.twidget.WidgetClientNative {
+    native <methods>;
+}
+-keep class org.telegram.utils.twidget.WidgetSandboxBackend { *; }
+# The isolated engine process's backend (WidgetEngineService): the same JNI callbacks.
+-keep class org.telegram.utils.twidget.WidgetEngineBackend { *; }
+
 # Huawei Services
 -keep class com.huawei.hianalytics.**{ *; }
 -keep class com.huawei.updatesdk.**{ *; }
@@ -143,3 +173,19 @@
 # DevGram: DexMaker (Class Proxy плагинов) — рантайм-генерация подклассов, не обфусцировать/не удалять
 -keep class com.android.dx.** { *; }
 -dontwarn com.android.dx.**
+
+# The full icon editor discovers the resource names through these fields.
+-keep class org.telegram.messenger.R$drawable { public static <fields>; }
+
+# Independently downloaded node packages link to this stable native SDK.
+-keep public interface org.telegram.messenger.devgram.nodes.NodePackage { *; }
+-keep public interface org.telegram.messenger.devgram.nodes.Node { *; }
+-keep public interface org.telegram.messenger.devgram.nodes.RenderContext { *; }
+-keep public class org.telegram.messenger.devgram.nodes.Knob { *; }
+
+# Native DevGram news traverses the complete Telegram article tree when refreshing
+# public-archive media references. Keep native schema field/type names for that walk.
+-keepnames class org.telegram.tgnet.tl.TL_iv$*
+-keepnames class org.telegram.tgnet.tl.TL_keyboard$*
+-keepclassmembers class org.telegram.tgnet.tl.TL_iv$* { public <fields>; }
+-keepclassmembers class org.telegram.tgnet.tl.TL_keyboard$* { public <fields>; }

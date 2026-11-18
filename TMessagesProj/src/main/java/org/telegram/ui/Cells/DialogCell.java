@@ -96,6 +96,7 @@ import org.telegram.tgnet.tl.TL_account;
 import org.telegram.tgnet.tl.TL_iv;
 import org.telegram.tgnet.tl.TL_stories;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ActionBar.ThemeBind;
 import org.telegram.ui.Adapters.DialogsAdapter;
 import org.telegram.ui.AvatarSpan;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
@@ -151,8 +152,10 @@ import java.util.Objects;
 import java.util.Stack;
 
 import me.vkryl.android.animator.BoolAnimator;
+import java.util.HashSet;
 
 public class DialogCell extends BaseCell implements StoriesListPlaceProvider.AvatarOverlaysView, Theme.Colorable {
+    private org.telegram.ui.Components.DevGramChatBadgeRenderer devgramImageBadge;
 
     public boolean collapsed;
     public boolean drawArchive = true;
@@ -353,6 +356,50 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     public void updateColors() {
+        try {
+            // only bound cells on screen (as the former DialogsActivity delegate did): pooled / unbound cells are rebuilt on bind
+            if (!isAttachedToWindow() || currentDialogId == 0 && customDialog == null) {
+                return;
+            }
+            update(0);
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    @Override
+    public void addColorKeys(HashSet<Integer> colors) {
+        colors.add(Theme.key_chats_nameArchived);
+        colors.add(Theme.key_chats_message_threeLines);
+        colors.add(Theme.key_chats_message);
+        colors.add(Theme.key_chats_attachMessage);
+        colors.add(Theme.key_chats_name);
+        colors.add(Theme.key_chats_draft);
+        colors.add(Theme.key_chats_actionMessage);
+        colors.add(Theme.key_chats_nameMessage);
+        colors.add(Theme.key_windowBackgroundWhiteGrayText);
+        colors.add(Theme.key_windowBackgroundWhite);
+        colors.add(Theme.key_checkboxCheck);
+        colors.add(Theme.key_chats_archivePinBackground);
+        colors.add(Theme.key_chats_archiveBackground);
+        colors.add(Theme.key_dialogSwipeRemove);
+        colors.add(Theme.key_chats_pinnedOverlay);
+        colors.add(Theme.key_chats_secretName);
+        colors.add(Theme.key_chats_nameMessageArchived_threeLines);
+        colors.add(Theme.key_chats_nameMessage_threeLines);
+        colors.add(Theme.key_chats_nameMessageArchived);
+        colors.add(Theme.key_chats_messageArchived);
+        colors.add(Theme.key_chats_verifiedBackground);
+        colors.add(Theme.key_featuredStickers_addButton);
+        colors.add(Theme.key_featuredStickers_buttonText);
+        colors.add(Theme.key_chats_unreadCounterMuted);
+        colors.add(Theme.key_chats_unreadCounter);
+        colors.add(Theme.key_premiumGradient1);
+        colors.add(Theme.key_premiumGradient2);
+        colors.add(Theme.key_chats_onlineCircle);
+        colors.add(Theme.key_topics_unreadCounterMuted);
+        colors.add(Theme.key_topics_unreadCounter);
+        colors.add(Theme.key_chats_unreadCounterText);
     }
 
     private CommunityArrowDrawable communityArrowDrawable;
@@ -636,6 +683,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private int errorLeft;
 
     private boolean attachedToWindow;
+    private boolean devgramClanLayoutChanged;
+    private final org.telegram.ui.Components.DevGramClanTagDecoration devgramClan=new org.telegram.ui.Components.DevGramClanTagDecoration(this,()->{if(getMeasuredWidth()>0){this.devgramClanLayoutChanged=true;buildLayout();invalidate();}});
 
     private float reorderIconProgress;
     private boolean drawReorder;
@@ -772,7 +821,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         addView(emojiStatusView);
         emojiStatus = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(emojiStatusView, dp(22));
         botVerification = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(17));
-        devgramBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно
+        devgramBadgeEmoji = new org.telegram.ui.Components.DevGramBadgeEmojiDrawable(this, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, () -> Theme.dialogs_namePaint[paintIndex].getColor()); // DevGram: значок крутится постоянно
         avatarImage.setAllowLoadingOnAttachedOnly(true);
     }
 
@@ -1002,6 +1051,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     protected void onDetachedFromWindow() {
+        devgramClan.detach();
+        if(devgramImageBadge!=null)devgramImageBadge.release();
         super.onDetachedFromWindow();
         isSliding = false;
         drawRevealBackground = false;
@@ -1044,6 +1095,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     protected void onAttachedToWindow() {
+        devgramClan.attach();
         super.onAttachedToWindow();
         avatarImage.onAttachedToWindow();
         for (int i = 0; i < thumbImage.length; ++i) {
@@ -1343,17 +1395,39 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private static final float BADGE_DRAWABLE_SIZE = 16;
     private static final float BADGE_DRAWABLE_OFFSET = (BADGE_SIZE - BADGE_DRAWABLE_SIZE) / 2f;
 
+    private float devgramClanTagLeft(boolean muteVisible){
+        boolean rtl=LocaleController.isRTL;
+        float edge=nameLeft+nameLayoutTranslateX+(rtl?nameLayout.getLineLeft(0):nameLayout.getLineRight(0));
+        if(drawVerified)edge=rtl?Math.min(edge,Theme.dialogs_verifiedDrawable.getBounds().left):Math.max(edge,Theme.dialogs_verifiedDrawable.getBounds().right);
+        else if(drawPremium){
+            float left=nameMuteLeft-dp(emojiStatus!=null?2:1);
+            float right=emojiStatus!=null?nameMuteLeft+dp(20):left+PremiumGradient.getInstance().premiumStarDrawableMini.getIntrinsicWidth();
+            edge=rtl?Math.min(edge,left):Math.max(edge,right);
+        }else if(drawScam!=0){
+            Drawable icon=drawScam==1?Theme.dialogs_scamDrawable:Theme.dialogs_fakeDrawable;
+            edge=rtl?Math.min(edge,icon.getBounds().left):Math.max(edge,icon.getBounds().right);
+        }
+        if(muteVisible){
+            Drawable icon=isHiddenInCommunity?Theme.dialogs_hiddenDrawable:Theme.dialogs_muteDrawable;
+            edge=rtl?Math.min(edge,icon.getBounds().left):Math.max(edge,icon.getBounds().right);
+        }
+        if(drawDevgramStreak&&devgramStreakDrawable!=null)edge=rtl?Math.min(edge,devgramStreakDrawable.getBounds().left):Math.max(edge,devgramStreakDrawable.getBounds().right);
+        return rtl?edge-devgramClan.width():edge+dp(3);
+    }
+
     public void buildLayout() {
+        devgramClan.bind(currentAccount,currentDialogFolderId==0?org.telegram.messenger.DevGramClanDirectory.peer(user!=null?user:chat):0);
         if (isTransitionSupport) {
             return;
         }
         if (isDialogCell) {
             boolean needUpdate = updateHelper.update();
-            if (!needUpdate && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
+            if (!needUpdate && !devgramClanLayoutChanged && currentDialogFolderId == 0 && currentDialogCommunityId == 0 && encryptedChat == null) {
                 return;
             }
         }
 
+        devgramClanLayoutChanged=false;
         if (useForceThreeLines || SharedConfig.useThreeLinesLayout || true) {
             Theme.dialogs_namePaint[0].setTextSize(dp(17));
             Theme.dialogs_nameEncryptedPaint[0].setTextSize(dp(17));
@@ -2419,6 +2493,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
             nameWidth = getMeasuredWidth() - nameLeft - dp(messagePaddingStart + 5 + 8) - timeWidth;
             nameLeft += timeWidth;
         }
+        int clanWidth=devgramClan.width();nameWidth-=clanWidth;if(LocaleController.isRTL)nameLeft+=clanWidth;
         if (drawNameLock) {
             nameWidth -= dp(LocaleController.isRTL ? 8 : 4) + Theme.dialogs_lockDrawable.getIntrinsicWidth();
         }
@@ -3283,7 +3358,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private float devgramStretch = 0f;
     private boolean devgramGooeyActive;
     private void devgramGooeyPre(Canvas canvas, float cx, float cy) {
-        if (!MessagesController.getGlobalMainSettings().getBoolean("dg_gooey", true)) {
+        if (!org.telegram.messenger.DevGramGooeyConfig.enabled()) {
             return;
         }
         float y = getY();
@@ -4045,6 +4120,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     @SuppressLint("DrawAllocation")
     @Override
     protected void onDraw(Canvas canvas) {
+        devgramClan.clearHit();
         if (currentDialogId == 0 && customDialog == null) {
             return;
         }
@@ -4273,6 +4349,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         }
 
         float cornersRadius = dp(8) * cornerProgress;
+        if(currentDialogId>0&&currentDialogFolderId==0){if(devgramImageBadge==null)devgramImageBadge=new org.telegram.ui.Components.DevGramChatBadgeRenderer(this);devgramImageBadge.draw(canvas,currentAccount,currentDialogId);}
         if (isSelected) {
             rect.set(0, 0, getMeasuredWidth(), AndroidUtilities.lerp(getMeasuredHeight(), getCollapsedHeight(), rightFragmentOpenedProgress));
             rect.offset(0, -translateY + collapseOffset);
@@ -4837,6 +4914,12 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 devgramStreakRect.set(left - dp(4), y - dp(4), left + sz + dp(4), y + sz + dp(4));
             } else {
                 devgramStreakRect.setEmpty();
+            }
+
+            if(nameLayout!=null&&nameLayout.getLineCount()>0){
+                boolean clanMuteVisible=dialogsType!=2&&(drawMuted||dialogMutedProgress>0)&&!drawVerified&&drawScam==0;
+                float clanX=devgramClanTagLeft(clanMuteVisible);
+                devgramClan.draw(canvas,clanX,nameTop+nameLayout.getLineBottom(0)/2f,Theme.dialogs_namePaint[paintIndex].getColor(),1f,timeLayout!=null&&!LocaleController.isRTL?timeLeft-dp(6):getWidth()-dp(14));
             }
 
             if (drawReorder || reorderIconProgress != 0) {
@@ -6474,6 +6557,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if(devgramClan.touch(event))return true;
         // DevGram: клик по огоньку-стрику -> показываем сообщение (как в профиле)
         if (drawDevgramStreak && !devgramStreakRect.isEmpty()) {
             final int action = event.getAction();

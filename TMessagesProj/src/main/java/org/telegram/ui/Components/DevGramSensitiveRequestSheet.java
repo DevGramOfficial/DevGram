@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramSensitiveRequests;
 import org.telegram.messenger.R;
@@ -29,6 +30,10 @@ public class DevGramSensitiveRequestSheet extends BottomSheet {
     private boolean answered;
 
     public DevGramSensitiveRequestSheet(Context context, Theme.ResourcesProvider resourcesProvider, int account, TLObject request, DevGramSensitiveRequests.Result result) {
+        this(context, resourcesProvider, account, request, result, null);
+    }
+
+    public DevGramSensitiveRequestSheet(Context context, Theme.ResourcesProvider resourcesProvider, int account, TLObject request, DevGramSensitiveRequests.Result result, CharSequence explanation) {
         super(context, false, resourcesProvider);
         this.result = result;
         fixNavigationBar();
@@ -49,7 +54,7 @@ public class DevGramSensitiveRequestSheet extends BottomSheet {
         title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         title.setTextSize(20);
         title.setTypeface(AndroidUtilities.bold());
-        title.setText("Подтвердите действие");
+        title.setText(DevGramLocale.text("Подтвердите действие"));
         layout.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 24, 16, 24, 0));
 
         TextView category = new TextView(context);
@@ -60,7 +65,8 @@ public class DevGramSensitiveRequestSheet extends BottomSheet {
         layout.addView(category, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 24, 6, 24, 0));
 
         TableView table = new TableView(context, resourcesProvider);
-        table.addRow("Действие", DevGramSensitiveRequests.getTitle(request));
+        table.setColumnShrinkable(1, true);
+        table.addRow(DevGramLocale.text("Действие"), DevGramSensitiveRequests.getTitle(request));
         java.util.ArrayList<CharSequence[]> rows = DevGramSensitiveRequests.details(account, request);
         for (int i = 0; i < rows.size(); i++) {
             CharSequence[] row = rows.get(i);
@@ -70,17 +76,25 @@ public class DevGramSensitiveRequestSheet extends BottomSheet {
                 table.addRow(row[0], row[1]);
             }
         }
+        // Keep long translated labels apart from wrapping request details.
+        for (int i = 0; i < table.getChildCount(); i++) {
+            android.view.View first = ((android.view.ViewGroup) table.getChildAt(i)).getChildAt(0);
+            if (first instanceof TextView) {
+                ((TextView) first).setMaxWidth(AndroidUtilities.dp(112));
+                first.setPadding(first.getPaddingLeft(), first.getPaddingTop(), AndroidUtilities.dp(20), first.getPaddingBottom());
+            }
+        }
         layout.addView(table, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 20, 16, 0));
 
         TextView warning = new TextView(context);
         warning.setGravity(Gravity.CENTER_HORIZONTAL);
         warning.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
         warning.setTextSize(13);
-        warning.setText("Это действие запустил плагин. Если вы не ждали его — нажмите «Отклонить».");
+        warning.setText(explanation == null ? DevGramLocale.text("Это действие запустил плагин. Если вы не ждали его — нажмите «Отклонить».") : explanation);
         layout.addView(warning, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 24, 14, 24, 0));
 
         allowButton = new ButtonWithCounterView(context, true, resourcesProvider);
-        allowButton.setText("Разрешить", false);
+        allowButton.setText(DevGramLocale.text("Разрешить"), false);
         allowButton.setEnabled(false);
         allowButton.setOnClickListener(v -> answer(true));
         layout.addView(allowButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 16, 20, 16, 8));
@@ -88,7 +102,7 @@ public class DevGramSensitiveRequestSheet extends BottomSheet {
         AndroidUtilities.runOnUIThread(() -> allowButton.setEnabled(true), 1500);
 
         ButtonWithCounterView declineButton = new ButtonWithCounterView(context, false, resourcesProvider);
-        declineButton.setText("Отклонить", false);
+        declineButton.setText(DevGramLocale.text("Отклонить"), false);
         declineButton.setOnClickListener(v -> answer(false));
         layout.addView(declineButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 16, 0, 16, 8));
 

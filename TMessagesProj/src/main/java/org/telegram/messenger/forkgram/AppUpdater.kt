@@ -14,6 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.telegram.messenger.AndroidUtilities
 import org.telegram.messenger.BuildVars
+import org.telegram.messenger.DevGramLocale
 import org.telegram.messenger.LocaleController
 import org.telegram.messenger.MessagesController
 import org.telegram.messenger.R
@@ -28,7 +29,7 @@ import java.net.URL
 
 object AppUpdater {
 
-    private const val TITLE = "DevGram — обновление"
+    private val TITLE: String get() = DevGramLocale.text("DevGram — обновление")
     private const val DESC = ""
     private const val PREFS_NAME = "AppUpdaterPrefs"
     private const val KEY_LAST_APK_PATH = "lastApkPath"
@@ -258,7 +259,7 @@ object AppUpdater {
                 ) {
                     if (manual) {
                         AndroidUtilities.runOnUIThread {
-                            Toast.makeText(context, "Обновление уже скачивается…", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, DevGramLocale.text("Обновление уже скачивается…"), Toast.LENGTH_SHORT).show()
                         }
                     }
                     return
@@ -271,7 +272,6 @@ object AppUpdater {
                     .edit().remove(KEY_DOWNLOAD_ID).apply()
             }
             lastTimestampOfCheck = System.currentTimeMillis()
-            val currentVersion = BuildVars.BUILD_VERSION_STRING
 
             // DevGram: бета-канal (только для поддержавших) — отдельный путь через api.devgram.space.
             // Проверяем доступ (значок) и наличие токена; иначе тихо откатываемся на основной канал.
@@ -289,14 +289,14 @@ object AppUpdater {
             if (updateChannel.length > 1 &&
                 UserConfig.getInstance(UserConfig.selectedAccount).isClientActivated()
             ) {
-                checkUpdateFromTelegramChannel(parentActivity, context, legacyCallback, modernCallback, manual, currentVersion)
+                checkUpdateFromTelegramChannel(parentActivity, context, legacyCallback, modernCallback, manual)
             } else {
-                checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
             }
         } catch (e: Exception) {
             android.util.Log.e("DevGram", "Error in checkNewVersion", e)
             if (manual) {
-                Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, DevGramLocale.text("Ошибка проверки обновлений"), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -305,12 +305,12 @@ object AppUpdater {
     // подходящего APK действительно нет или файл повреждён.
     private fun installOrDownload(context: Context, url: String, expectedCode: Long, expectedName: String?) {
         val appContext = context.applicationContext
-        Toast.makeText(context, "Проверяю скачанное обновление…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, DevGramLocale.text("Проверяю скачанное обновление…"), Toast.LENGTH_SHORT).show()
         Thread({
             val cached = pruneCachedInstallers(appContext, expectedCode, expectedName)
             AndroidUtilities.runOnUIThread {
                 if (cached != null && openInstaller(appContext, cached)) {
-                    Toast.makeText(appContext, "Обновление уже скачано", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, DevGramLocale.text("Обновление уже скачано"), Toast.LENGTH_SHORT).show()
                 } else {
                     startApkDownload(appContext, url, expectedCode, expectedName)
                 }
@@ -340,13 +340,13 @@ object AppUpdater {
             if (downloadId > 0L) {
                 context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                     .edit().putLong(KEY_DOWNLOAD_ID, downloadId).apply()
-                Toast.makeText(context, "Загрузка обновления…", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, DevGramLocale.text("Загрузка обновления…"), Toast.LENGTH_SHORT).show()
             } else {
                 downloadId = 0L
-                Toast.makeText(context, "Не удалось начать загрузку", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, DevGramLocale.text("Не удалось начать загрузку"), Toast.LENGTH_SHORT).show()
             }
         } else {
-            Toast.makeText(context, "Откройте «Загрузки»", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, DevGramLocale.text("Откройте «Загрузки»"), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -365,18 +365,18 @@ object AppUpdater {
         httpRequest("GET", "https://api.devgram.space/api/beta/latest?versionCode=$curCode") { response ->
             try {
                 if (response == null) {
-                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Ошибка сети", Toast.LENGTH_SHORT).show() }
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, DevGramLocale.text("Ошибка сети"), Toast.LENGTH_SHORT).show() }
                     return@httpRequest
                 }
                 lastTimestampOfCheck = System.currentTimeMillis()
                 val root = JSONObject(response)
                 if (!root.optBoolean("available")) {
-                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Беты пока нет", Toast.LENGTH_SHORT).show() }
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, DevGramLocale.text("Беты пока нет"), Toast.LENGTH_SHORT).show() }
                     return@httpRequest
                 }
                 val betaCode = root.optLong("versionCode", 0)
                 if (betaCode <= curCode) {
-                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "У вас последняя бета", Toast.LENGTH_SHORT).show() }
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, DevGramLocale.text("У вас последняя бета"), Toast.LENGTH_SHORT).show() }
                     return@httpRequest
                 }
                 val vn = root.optString("versionName")
@@ -384,7 +384,7 @@ object AppUpdater {
                 val uid = UserConfig.getInstance(UserConfig.selectedAccount).clientUserId
                 val token = org.telegram.messenger.DevGramConfig.getBetaToken()
                 if (token.isEmpty()) {
-                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Активируйте бету в настройках", Toast.LENGTH_SHORT).show() }
+                    if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, DevGramLocale.text("Активируйте бету в настройках"), Toast.LENGTH_SHORT).show() }
                     return@httpRequest
                 }
                 val url = "https://api.devgram.space/api/beta/download?uid=$uid&token=" +
@@ -392,18 +392,18 @@ object AppUpdater {
 
                 val builder = AlertDialog.Builder(parentActivity)
                 builder.setTopAnimation(R.raw.ic_download, 56, false, Theme.getColor(Theme.key_dialogTopBackground))
-                builder.setTitle("Бета $vn")
+                builder.setTitle(DevGramLocale.text("Бета $vn", "Beta $vn"))
                 builder.setMessage(formatChangelog(log, vn))
                 builder.setMessageTextViewClickable(false)
-                builder.setNegativeButton("Позже", null)
-                builder.setPositiveButton("Установить") { _, _ ->
+                builder.setNegativeButton(DevGramLocale.text("Позже"), null)
+                builder.setPositiveButton(DevGramLocale.text("Установить")) { _, _ ->
                     try { installOrDownload(context, url, betaCode, vn) }
-                    catch (e: Exception) { Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show() }
+                    catch (e: Exception) { Toast.makeText(context, DevGramLocale.text("Ошибка загрузки: ${e.message}", "Download error: ${e.message}"), Toast.LENGTH_SHORT).show() }
                 }
                 callback(builder)
             } catch (e: Exception) {
                 android.util.Log.e("DevGram", "Beta check error", e)
-                if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, "Не удалось проверить бету", Toast.LENGTH_SHORT).show() }
+                if (manual) AndroidUtilities.runOnUIThread { Toast.makeText(context, DevGramLocale.text("Не удалось проверить бету"), Toast.LENGTH_SHORT).show() }
             }
         }
     }
@@ -413,8 +413,7 @@ object AppUpdater {
         context: Context,
         legacyCallback: (AlertDialog.Builder?) -> Int,
         modernCallback: (TLRPC.TL_help_appUpdate?) -> Int,
-        manual: Boolean,
-        currentVersion: String
+        manual: Boolean
     ) {
 
         val req = TLRPC.TL_contacts_resolveUsername()
@@ -423,14 +422,14 @@ object AppUpdater {
         ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(req) { response, error ->
             if (error != null || response !is TLRPC.TL_contacts_resolvedPeer) {
                 android.util.Log.w("DevGram", "Failed to resolve update channel, falling back to GitHub")
-                checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                 return@sendRequest
             }
 
             val chat = response.chats.firstOrNull()
             if (chat == null) {
                 android.util.Log.w("DevGram", "Update channel not found, falling back to GitHub")
-                checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                 return@sendRequest
             }
 
@@ -444,14 +443,14 @@ object AppUpdater {
             ConnectionsManager.getInstance(UserConfig.selectedAccount).sendRequest(messagesReq) { historyResponse, historyError ->
                 if (historyError != null || historyResponse !is TLRPC.messages_Messages) {
                     android.util.Log.w("DevGram", "Failed to get channel history, falling back to GitHub")
-                    checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                    checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                     return@sendRequest
                 }
 
                 val message = historyResponse.messages.firstOrNull()
                 if (message?.message == null) {
                     android.util.Log.w("DevGram", "No messages in update channel, falling back to GitHub")
-                    checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                    checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                     return@sendRequest
                 }
 
@@ -461,34 +460,36 @@ object AppUpdater {
                     val androidInfo = updateInfo.optJSONObject("android")
                     if (androidInfo == null) {
                         android.util.Log.w("DevGram", "Invalid update JSON format, falling back to GitHub")
-                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                         return@sendRequest
                     }
 
                     val isBeta = org.telegram.messenger.ApplicationLoader.getApplicationId().contains(".beta")
-                    val stableInfo = if (isBeta) {
-                        androidInfo.optString("beta")
-                    } else {
-                        androidInfo.optString("release")
-                    }
+                    // A display version is not an ordering key. Legacy announcements
+                    // without a code fall back to the actual GitHub APK metadata.
+                    val stableKey = if (isBeta) "beta" else "release"
+                    val stableInfo = androidInfo.optString(stableKey)
+                    val stableCode = androidInfo.optLong(stableKey + "VersionCode", 0L)
                     val optionalInfo = if (manual && isBeta) androidInfo.optString("optional") else ""
-                    val releaseInfo = when {
-                        optionalInfo.isEmpty() -> stableInfo
-                        stableInfo.isEmpty() -> optionalInfo
-                        compareVersions(optionalInfo.substringBefore(":"), stableInfo.substringBefore(":")) > 0 -> optionalInfo
-                        else -> stableInfo
+                    val optionalCode = if (optionalInfo.isNotEmpty()) androidInfo.optLong("optionalVersionCode", 0L) else 0L
+                    val useOptional = optionalCode > stableCode
+                    val releaseInfo = if (useOptional) optionalInfo else stableInfo
+                    val releaseCode = if (useOptional) optionalCode else stableCode
+                    if (releaseCode <= 0L) {
+                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
+                        return@sendRequest
                     }
 
                     if (releaseInfo.isEmpty()) {
                         android.util.Log.w("DevGram", "No version info found, falling back to GitHub")
-                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                         return@sendRequest
                     }
 
                     val parts = releaseInfo.split(":")
                     if (parts.size != 2) {
                         android.util.Log.w("DevGram", "Invalid version format, falling back to GitHub")
-                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                         return@sendRequest
                     }
 
@@ -497,7 +498,7 @@ object AppUpdater {
 
                     if (fileInfo.size != 2) {
                         android.util.Log.w("DevGram", "Invalid file info format, falling back to GitHub")
-                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                         return@sendRequest
                     }
 
@@ -506,16 +507,16 @@ object AppUpdater {
 
                     if (messageId == null) {
                         android.util.Log.w("DevGram", "Invalid message ID, falling back to GitHub")
-                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                        checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                         return@sendRequest
                     }
 
                     lastTimestampOfCheck = System.currentTimeMillis()
 
-                    if (compareVersions(newVersion, currentVersion) <= 0) {
+                    if (releaseCode <= installedVersionCode(context)) {
                         if (manual) {
                             AndroidUtilities.runOnUIThread {
-                                Toast.makeText(context, "Обновлений нет", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, DevGramLocale.text("Обновлений нет"), Toast.LENGTH_SHORT).show()
                             }
                         }
                         return@sendRequest
@@ -526,7 +527,7 @@ object AppUpdater {
 
                 } catch (e: Exception) {
                     android.util.Log.e("DevGram", "Error parsing update info from Telegram, falling back to GitHub", e)
-                    checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual, currentVersion)
+                    checkUpdateFromGitHub(parentActivity, context, legacyCallback, manual)
                 }
             }
         }
@@ -614,7 +615,7 @@ object AppUpdater {
     private fun formatChangelog(raw: String?, version: String): CharSequence {
         val src = (raw ?: "").replace("\r\n", "\n").replace("\r", "\n")
         if (src.isBlank()) {
-            return "Доступна новая версия DevGram."
+            return DevGramLocale.text("Доступна новая версия DevGram.")
         }
         val out = StringBuilder()
         for (lineRaw in src.split("\n")) {
@@ -644,120 +645,108 @@ object AppUpdater {
         }
         var result = out.toString().trim().replace(Regex("\n{3,}"), "\n\n")
         if (result.isBlank()) {
-            result = "Доступна новая версия DevGram."
+            result = DevGramLocale.text("Доступна новая версия DevGram.")
         }
         return AndroidUtilities.replaceTags(result)
     }
 
-    private fun compareVersions(left: String, right: String): Int {
-        val leftParts = left.split(".")
-        val rightParts = right.split(".")
-        for (i in 0 until maxOf(leftParts.size, rightParts.size)) {
-            val leftPart = leftParts.getOrNull(i)?.trim()?.toIntOrNull() ?: 0
-            val rightPart = rightParts.getOrNull(i)?.trim()?.toIntOrNull() ?: 0
-            if (leftPart != rightPart) {
-                return leftPart.compareTo(rightPart)
-            }
+    // Accessed on the UI thread. GitHub asset IDs/size/update time change when an APK is replaced.
+    private val releaseMetadata = LinkedHashMap<String, ReleaseApkInfo>()
+    private var releaseMetadataLoading = false
+
+    private data class ReleaseCandidate(val asset: JSONObject, val info: ReleaseApkInfo)
+
+    private fun readReleaseMetadata(context: Context, assets: List<JSONObject>, manual: Boolean, callback: (ReleaseCandidate) -> Unit) {
+        if (releaseMetadataLoading) {
+            if (manual) Toast.makeText(context, DevGramLocale.text("Проверка уже выполняется. Дождитесь завершения."), Toast.LENGTH_SHORT).show()
+            return
         }
-        return 0
+        releaseMetadataLoading = true
+        val cached = HashMap(releaseMetadata)
+        val found = LinkedHashMap<String, ReleaseApkInfo>()
+        Thread({
+            var candidate: ReleaseCandidate? = null
+            var failed = false
+            for (asset in assets.take(16)) {
+                val url = asset.optString("browser_download_url")
+                val size = asset.optLong("size", 0L)
+                val key = "${asset.optLong("id")}:$size:${asset.optString("updated_at")}:$url"
+                val metadata = try { cached[key] ?: ReleaseApkInfo.read(url, size) } catch (_: Exception) { null }
+                if (metadata == null) { failed = true; continue }
+                found[key] = metadata
+                if (!metadata.debuggable && metadata.packageName == context.packageName &&
+                    (candidate == null || metadata.versionCode > candidate.info.versionCode)) {
+                    candidate = ReleaseCandidate(asset, metadata)
+                }
+            }
+            val selected = candidate
+            AndroidUtilities.runOnUIThread {
+                releaseMetadataLoading = false
+                releaseMetadata.putAll(found)
+                while (releaseMetadata.size > 16) releaseMetadata.remove(releaseMetadata.keys.first())
+                if (selected != null) callback(selected)
+                else if (manual) Toast.makeText(context, DevGramLocale.text(if (failed) "Не удалось проверить обновления" else "В релизе нет APK"), Toast.LENGTH_SHORT).show()
+            }
+        }, "DevGramReleaseMetadata").start()
     }
 
     private fun checkUpdateFromGitHub(
         parentActivity: Activity,
         context: Context,
         callback: (AlertDialog.Builder?) -> Int,
-        manual: Boolean,
-        currentVersion: String
+        manual: Boolean
     ) {
-
-        try {
-            val userRepo = BuildVars.USER_REPO
-            if (userRepo.isEmpty()) {
-                return
+        val repo = BuildVars.USER_REPO
+        if (repo.isEmpty()) return
+        httpRequest("GET", "https://api.github.com/repos/$repo/releases/latest") { response ->
+            if (parentActivity.isFinishing || parentActivity.isDestroyed) return@httpRequest
+            if (response == null) {
+                if (manual) Toast.makeText(context, DevGramLocale.text("Не удалось проверить обновления"), Toast.LENGTH_SHORT).show()
+                return@httpRequest
             }
-
-            httpRequest("GET", "https://api.github.com/repos/$userRepo/releases/latest") { response ->
-                try {
-                    if (response == null) {
-                        android.util.Log.w("DevGram", "Connection error.")
-                        return@httpRequest
+            try {
+                val root = JSONObject(response)
+                val assets = root.optJSONArray("assets") ?: JSONArray()
+                val apks = (0 until assets.length()).mapNotNull { assets.optJSONObject(it) }
+                    .filter { it.optString("name").endsWith(".apk", ignoreCase = true) &&
+                        !it.optString("name").contains("debug", ignoreCase = true) }
+                val candidates = apks.sortedByDescending { it.optString("name").contains("compressed", ignoreCase = true) }
+                if (candidates.isEmpty()) {
+                    if (manual) Toast.makeText(context, DevGramLocale.text("В релизе нет APK"), Toast.LENGTH_SHORT).show()
+                    return@httpRequest
+                }
+                val installedCode = installedVersionCode(context)
+                if (installedCode <= 0L) {
+                    if (manual) Toast.makeText(context, DevGramLocale.text("Не удалось проверить обновления"), Toast.LENGTH_SHORT).show()
+                    return@httpRequest
+                }
+                readReleaseMetadata(context.applicationContext, candidates, manual) metadata@{ release ->
+                    val info = release.info
+                    val url = release.asset.optString("browser_download_url")
+                    if (parentActivity.isFinishing || parentActivity.isDestroyed) return@metadata
+                    if (info.packageName != context.packageName || info.debuggable) {
+                        if (manual) Toast.makeText(context, DevGramLocale.text("Не удалось проверить обновления"), Toast.LENGTH_SHORT).show()
+                        return@metadata
                     }
                     lastTimestampOfCheck = System.currentTimeMillis()
-
-                    val root = JSONObject(response)
-                    // Теги релизов у нас вида "v12.10.2" — убираем ведущий v/V,
-                    // иначе compareVersions распарсит "v12" как 0 и сломает сравнение.
-                    val tag = root.optString("tag_name").trim().removePrefix("v").removePrefix("V")
-
-                    if (tag.isEmpty() || compareVersions(tag, currentVersion) <= 0) {
-                        if (manual) {
-                            Toast.makeText(context, "Обновлений нет", Toast.LENGTH_SHORT).show()
-                        }
-                        return@httpRequest
+                    if (!info.isNewerThan(context.packageName, installedCode)) {
+                        if (manual) Toast.makeText(context, DevGramLocale.text("Обновлений нет"), Toast.LENGTH_SHORT).show()
+                        return@metadata
                     }
-
-                    // New version!
-                    val body = root.optString("body")
-                    val assets: JSONArray = root.optJSONArray("assets") ?: run {
-                        android.util.Log.w("DevGram", "No assets in release")
-                        return@httpRequest
-                    }
-
-                    val apks = (0 until assets.length())
-                        .mapNotNull { assets.optJSONObject(it) }
-                        .filter { it.optString("name").endsWith(".apk", ignoreCase = true) }
-
-                    val asset = apks.firstOrNull { it.optString("name").contains("compressed", ignoreCase = true) }
-                        ?: apks.lastOrNull()
-                        ?: run {
-                            android.util.Log.w("DevGram", "No apk asset in release")
-                            if (manual) {
-                                Toast.makeText(context, "В релизе нет APK", Toast.LENGTH_SHORT).show()
-                            }
-                            return@httpRequest
-                        }
-
-                    val url = asset.optString("browser_download_url").takeIf { it.isNotEmpty() } ?: run {
-                        android.util.Log.w("DevGram", "Empty download URL")
-                        if (manual) {
-                            Toast.makeText(context, "Пустая ссылка на загрузку", Toast.LENGTH_SHORT).show()
-                        }
-                        return@httpRequest
-                    }
-
+                    val name = info.versionName.ifEmpty { root.optString("tag_name").removePrefix("v").removePrefix("V") }
                     val builder = AlertDialog.Builder(parentActivity)
-                    // Красивая шапка: анимированная иконка загрузки на акцентной подложке
-                    builder.setTopAnimation(
-                        R.raw.ic_download,
-                        56,
-                        false,
-                        Theme.getColor(Theme.key_dialogTopBackground)
-                    )
-                    builder.setTitle("Обновление $tag")
-                    builder.setMessage(formatChangelog(body, tag))
+                    builder.setTopAnimation(R.raw.ic_download, 56, false, Theme.getColor(Theme.key_dialogTopBackground))
+                    builder.setTitle(DevGramLocale.text("Обновление $name (${info.versionCode})", "Update $name (${info.versionCode})"))
+                    builder.setMessage(formatChangelog(root.optString("body"), name))
                     builder.setMessageTextViewClickable(false)
-                    builder.setNegativeButton("Позже", null)
-                    builder.setPositiveButton("Установить") { _, _ ->
-                        try {
-                            installOrDownload(context, url, 0L, tag)
-                        } catch (e: Exception) {
-                            android.util.Log.e("DevGram", "Error starting download", e)
-                            Toast.makeText(context, "Ошибка загрузки: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
+                    builder.setNegativeButton(DevGramLocale.text("Позже"), null)
+                    builder.setPositiveButton(DevGramLocale.text("Установить")) { _, _ ->
+                        installOrDownload(context, url, info.versionCode, name)
                     }
-
                     callback(builder)
-                } catch (e: Exception) {
-                    android.util.Log.e("DevGram", "Error processing update check", e)
-                    if (manual) {
-                        Toast.makeText(context, "Не удалось проверить обновления", Toast.LENGTH_SHORT).show()
-                    }
                 }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("DevGram", "Error in checkUpdateFromGitHub", e)
-            if (manual) {
-                Toast.makeText(context, "Ошибка проверки обновлений", Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                if (manual) Toast.makeText(context, DevGramLocale.text("Не удалось проверить обновления"), Toast.LENGTH_SHORT).show()
             }
         }
     }

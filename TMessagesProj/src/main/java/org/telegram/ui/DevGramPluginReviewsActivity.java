@@ -7,6 +7,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.DevGramPlugins;
@@ -32,7 +33,7 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("Отзывы · " + entry.name);
+        actionBar.setTitle(DevGramLocale.text("Отзывы · ") + entry.name);
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
@@ -61,12 +62,12 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
             int roundedRating = reviews.isEmpty() ? 0 : Math.max(0, Math.min(5, (int) Math.round(total / reviews.size())));
             TextView stars = label(context, "★".repeat(roundedRating) + "☆".repeat(5 - roundedRating), 20, true, 0xFFE0A400);
             stars.setGravity(Gravity.CENTER); summary.addView(stars, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
-            TextView count = label(context, reviews.isEmpty() ? "Отзывов пока нет" : reviews.size() + " " + plural(reviews.size()), 14, false,
+            TextView count = label(context, reviews.isEmpty() ? DevGramLocale.text("Отзывов пока нет") : reviews.size() + " " + plural(reviews.size()), 14, false,
                     Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
             count.setGravity(Gravity.CENTER); summary.addView(count, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 5, 0, 0));
             content.addView(summary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
             if (reviews.isEmpty()) {
-                TextView empty = label(context, "Станьте первым, кто поделится впечатлением о плагине.", 15, false,
+                TextView empty = label(context, DevGramLocale.text("Станьте первым, кто поделится впечатлением о плагине."), 15, false,
                         Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
                 empty.setGravity(Gravity.CENTER); empty.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(40), AndroidUtilities.dp(24), AndroidUtilities.dp(40));
                 content.addView(empty, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -92,7 +93,7 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
                 Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider)), LayoutHelper.createLinear(-1, -2, 0, 2, 0, 0));
         head.addView(author, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
         TextView menu = label(context, "⋮", 28, true, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
-        menu.setGravity(Gravity.CENTER); menu.setContentDescription("Действия с отзывом");
+        menu.setGravity(Gravity.CENTER); menu.setContentDescription(DevGramLocale.text("Действия с отзывом"));
         menu.setOnClickListener(v -> showActions(context, review, card));
         head.addView(menu, LayoutHelper.createLinear(44, 44)); card.addView(head);
         TextView stars = label(context, "★".repeat(Math.max(0, Math.min(5, review.rating))) + "☆".repeat(Math.max(0, 5 - review.rating)), 16, true, 0xFFE0A400);
@@ -117,11 +118,11 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
         boolean own = review.userId == DevGramPlugins.myId();
         LinearLayout root = new LinearLayout(context); root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(20));
-        root.addView(label(context, own ? "Ваш отзыв" : "Действия с отзывом", 20, true,
+        root.addView(label(context, own ? DevGramLocale.text("Ваш отзыв") : DevGramLocale.text("Действия с отзывом"), 20, true,
                 Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider)), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 12));
         BottomSheet[] ref = new BottomSheet[1];
-        if (!own) addAction(root, context, reported ? "Вы уже подавали жалобу" : "Пожаловаться", reported ? "Повторная жалоба на этот отзыв недоступна" : "Сообщить команде DevGram о нарушении", false, () -> { ref[0].dismiss(); if(reported)BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,"Вы уже подавали жалобу").show();else showReportReasonMenu(context, review.userId); });
-        if (own || developer) addAction(root, context, "Удалить отзыв", own ? "Отзыв исчезнет из карточки плагина" : "Удаление доступно команде DevGram", true, () -> {
+        if (!own) addAction(root, context, reported ? DevGramLocale.text("Вы уже подавали жалобу") : DevGramLocale.text("Пожаловаться"), reported ? DevGramLocale.text("Повторная жалоба на этот отзыв недоступна") : DevGramLocale.text("Сообщить команде DevGram о нарушении"), false, () -> { ref[0].dismiss(); if(reported)BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,DevGramLocale.text("Вы уже подавали жалобу")).show();else showReportReasonMenu(context, review.userId); });
+        if (own || developer) addAction(root, context, DevGramLocale.text("Удалить отзыв"), own ? DevGramLocale.text("Отзыв исчезнет из карточки плагина") : DevGramLocale.text("Удаление доступно команде DevGram"), true, () -> {
             if (own) DevGramPlugins.deleteOwnReview(entry.id, ok -> afterDelete(ok, card));
             else DevGramPlugins.deleteReviewAsDeveloper(entry.id, review.userId, ok -> afterDelete(ok, card));
             ref[0].dismiss();
@@ -130,24 +131,24 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
     }
 
     private void afterDelete(boolean ok, View card) {
-        if (ok) { card.setVisibility(View.GONE); BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Отзыв удалён").show(); }
-        else BulletinFactory.of(this).createErrorBulletin("Не удалось удалить отзыв").show();
+        if (ok) { card.setVisibility(View.GONE); BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Отзыв удалён")).show(); }
+        else BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось удалить отзыв")).show();
     }
 
     private void showReportReasonMenu(Context context, long uid) {
-        String[] reasons = {"Спам или реклама", "Оскорбления и травля", "Ложная информация", "Другая причина"};
-        DevGramPluginUi.showChoices(this, "Жалоба на отзыв", "Выберите нарушение — команда DevGram проверит жалобу.",
+        String[] reasons = {DevGramLocale.text("Спам или реклама"), DevGramLocale.text("Оскорбления и травля"), DevGramLocale.text("Ложная информация"), DevGramLocale.text("Другая причина")};
+        DevGramPluginUi.showChoices(this, DevGramLocale.text("Жалоба на отзыв"), DevGramLocale.text("Выберите нарушение — команда DevGram проверит жалобу."),
                 reasons, new int[]{R.drawable.msg_report, R.drawable.msg_block, R.drawable.msg_info, R.drawable.msg_edit}, reasons.length, which -> {
-                    if (which == 3) DevGramPluginUi.showTextInput(this, "Другая причина", "Опишите нарушение коротко и по существу.",
-                            "Что именно нарушает этот отзыв?", "", "Отправить жалобу", true, reason -> sendReport(uid, reason));
+                    if (which == 3) DevGramPluginUi.showTextInput(this, DevGramLocale.text("Другая причина"), DevGramLocale.text("Опишите нарушение коротко и по существу."),
+                            DevGramLocale.text("Что именно нарушает этот отзыв?"), "", DevGramLocale.text("Отправить жалобу"), true, reason -> sendReport(uid, reason));
                     else sendReport(uid, reasons[which]);
                 });
     }
 
     private void sendReport(long uid, String reason) {
         reason = reason == null ? "" : reason.trim();
-        if (reason.isEmpty()) { BulletinFactory.of(this).createErrorBulletin("Укажите причину жалобы").show(); return; }
-        DevGramPlugins.reportReview(entry.id, uid, reason, ok -> {if(!ok)DevGramPlugins.hasReportedReview(entry.id,uid,reported->{if(reported)BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,"Вы уже подавали жалобу").show();});BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? "Жалоба отправлена" : "Не удалось отправить жалобу").show();});
+        if (reason.isEmpty()) { BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Укажите причину жалобы")).show(); return; }
+        DevGramPlugins.reportReview(entry.id, uid, reason, ok -> {if(!ok)DevGramPlugins.hasReportedReview(entry.id,uid,reported->{if(reported)BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,DevGramLocale.text("Вы уже подавали жалобу")).show();});BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? DevGramLocale.text("Жалоба отправлена") : DevGramLocale.text("Не удалось отправить жалобу")).show();});
     }
 
     private void addAction(LinearLayout root, Context context, String title, String subtitle, boolean danger, Runnable click) {
@@ -159,5 +160,12 @@ public class DevGramPluginReviewsActivity extends BaseFragment {
     }
 
     private TextView label(Context context, String value, int size, boolean bold, int color) { TextView text = new TextView(context); text.setText(value); text.setTextSize(size); text.setTextColor(color); if (bold) text.setTypeface(AndroidUtilities.bold()); return text; }
-    private String plural(int count) { int n = count % 100, n1 = count % 10; return n > 10 && n < 20 ? "отзывов" : n1 == 1 ? "отзыв" : n1 >= 2 && n1 <= 4 ? "отзыва" : "отзывов"; }
+    private String plural(int count) {
+        if (!DevGramLocale.isRussian()) {
+            return count == 1 ? DevGramLocale.text("отзыв") : DevGramLocale.text("отзывов");
+        }
+        int n = count % 100, n1 = count % 10;
+        return n > 10 && n < 20 ? DevGramLocale.text("отзывов") : n1 == 1 ? DevGramLocale.text("отзыв")
+                : n1 >= 2 && n1 <= 4 ? DevGramLocale.text("отзыва") : DevGramLocale.text("отзывов");
+    }
 }

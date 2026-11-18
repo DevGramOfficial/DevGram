@@ -5,6 +5,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.LocaleController;
@@ -103,7 +104,7 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
         initOptionStrings();
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(LocaleController.getString(R.string.InlineMathResult));
+        actionBar.setTitle(DevGramLocale.getString(R.string.InlineMathResult));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -121,8 +122,8 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
     }
 
     private void initOptionStrings() {
-        angleOptions = new String[]{LocaleController.getString(R.string.InlineAngleDegrees), LocaleController.getString(R.string.InlineAngleRadians)};
-        measureOptions = new String[]{LocaleController.getString(R.string.QualityAuto), LocaleController.getString(R.string.InlineMeasureMetric), LocaleController.getString(R.string.InlineMeasureImperial)};
+        angleOptions = new String[]{DevGramLocale.getString(R.string.InlineAngleDegrees), DevGramLocale.getString(R.string.InlineAngleRadians)};
+        measureOptions = new String[]{DevGramLocale.getString(R.string.QualityAuto), DevGramLocale.getString(R.string.InlineMeasureMetric), DevGramLocale.getString(R.string.InlineMeasureImperial)};
         Locale locale = LocaleController.getInstance().getCurrentLocale();
         if (locale == null) {
             locale = Locale.getDefault();
@@ -158,7 +159,7 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
         currencyCodes = new ArrayList<>();
         currencyCodes.add("");
         ArrayList<String> labels = new ArrayList<>();
-        labels.add(LocaleController.getString(R.string.QualityAuto));
+        labels.add(DevGramLocale.getString(R.string.QualityAuto));
         for (String[] pair : fiat) {
             currencyCodes.add(pair[0]);
             labels.add(pair[1] + " — " + pair[0]);
@@ -167,40 +168,40 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asRippleCheck(ID_SHOW, LocaleController.getString(R.string.InlineShowResults)).setChecked(DevGramConfig.inlineCalc));
-        items.add(UItem.asShadow(LocaleController.getString(R.string.InlineMathResultHint)));
+        items.add(UItem.asRippleCheck(ID_SHOW, DevGramLocale.getString(R.string.InlineShowResults)).setChecked(DevGramConfig.inlineCalc));
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.InlineMathResultHint)));
         if (DevGramConfig.inlineCalc) {
-            items.add(UItem.asHeader(LocaleController.getString(R.string.InlineFeatures)));
+            items.add(UItem.asHeader(DevGramLocale.getString(R.string.InlineFeatures)));
             items.add(check(ID_CALCULATOR, R.string.InlineCalculator, DevGramConfig.inlineMath, R.drawable.msg_calculator));
             items.add(check(ID_CURRENCIES, R.string.InlineCurrencies, DevGramConfig.inlineCurrency, R.drawable.menu_feature_paid));
             items.add(check(ID_UNITS, R.string.InlineUnits, DevGramConfig.inlineUnits, R.drawable.msg_ruler));
             items.add(check(ID_TIME_ZONES, R.string.InlineTimeZones, DevGramConfig.inlineTimeZones, R.drawable.msg_language));
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader(LocaleController.getString(R.string.Settings)));
+            items.add(UItem.asHeader(DevGramLocale.getString(R.string.Settings)));
             items.add(check(ID_DIGIT_GROUPING, R.string.InlineDigitGrouping, DevGramConfig.inlineDigitGrouping, 0));
             if (DevGramConfig.inlineMath) {
-                items.add(UItem.asButton(ID_ANGLE_UNIT, LocaleController.getString(R.string.InlineAngleUnit), angleOptions[InlineConfig.getInlineAngleUnit().ordinal()]));
+                items.add(UItem.asButton(ID_ANGLE_UNIT, DevGramLocale.getString(R.string.InlineAngleUnit), angleOptions[InlineConfig.getInlineAngleUnit().ordinal()]));
             }
             if (DevGramConfig.inlineCurrency) {
-                items.add(UItem.asButton(ID_DEFAULT_CURRENCY, LocaleController.getString(R.string.InlineDefaultCurrency), defaultCurrencyValue()));
+                items.add(UItem.asButton(ID_DEFAULT_CURRENCY, DevGramLocale.getString(R.string.InlineDefaultCurrency), defaultCurrencyValue()));
             }
             if (DevGramConfig.inlineUnits) {
-                items.add(UItem.asButton(ID_MEASURE_SYSTEM, LocaleController.getString(R.string.InlineMeasureSystem), measureOptions[InlineConfig.getInlineMeasureSystem().ordinal()]));
+                items.add(UItem.asButton(ID_MEASURE_SYSTEM, DevGramLocale.getString(R.string.InlineMeasureSystem), measureOptions[InlineConfig.getInlineMeasureSystem().ordinal()]));
             }
             items.add(UItem.asShadow(settingsInfo()));
         }
-        items.add(UItem.asHeader(LocaleController.getString(R.string.InlineCapabilities)));
+        items.add(UItem.asHeader(DevGramLocale.getString(R.string.InlineCapabilities)));
         MathOptions options = expanded.isEmpty() ? null : InlineResults.INSTANCE.options(rates, decimalSeparator(), true);
         for (Section section : Section.values()) {
-            CharSequence badge = DevGramConfig.inlineCalc && !section.enabled() ? LocaleController.getString(R.string.InlineFeatureOff) : null;
+            CharSequence badge = DevGramConfig.inlineCalc && !section.enabled() ? DevGramLocale.getString(R.string.InlineFeatureOff) : null;
             List<InlineDocBlock> docs = options != null && expanded.contains(section) ? blocks(section, options) : null;
-            items.add(InlineFeatureCell.Factory.INSTANCE.of(section.id, new InlineFeature(section.icon, LocaleController.getString(section.title), LocaleController.getString(section.subtitle), badge, docs), this::onFeatureClick));
+            items.add(InlineFeatureCell.Factory.INSTANCE.of(section.id, new InlineFeature(section.icon, DevGramLocale.getString(section.title), DevGramLocale.getString(section.subtitle), badge, docs), this::onFeatureClick));
         }
-        items.add(UItem.asShadow(LocaleController.getString(R.string.InlineTapToCopy)));
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.InlineTapToCopy)));
     }
 
     private static UItem check(int id, int title, boolean checked, int icon) {
-        UItem item = UItem.asCheck(id, LocaleController.getString(title)).setChecked(checked);
+        UItem item = UItem.asCheck(id, DevGramLocale.getString(title)).setChecked(checked);
         item.iconResId = icon;
         return item;
     }
@@ -209,7 +210,7 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
         Object tag = view.getTag();
         if (tag instanceof String) {
             if (AndroidUtilities.addToClipboard((CharSequence) tag)) {
-                BulletinFactory.of(this).createCopyBulletin(LocaleController.getString(R.string.TextCopied)).show();
+                BulletinFactory.of(this).createCopyBulletin(DevGramLocale.getString(R.string.TextCopied)).show();
             }
             return;
         }
@@ -251,14 +252,14 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
                 break;
             case ID_DEFAULT_CURRENCY: {
                 int current = Math.max(0, currencyCodes.indexOf(InlineRates.INSTANCE.normalize(DevGramConfig.inlineTargetCurrency)));
-                showRadioDialog(LocaleController.getString(R.string.InlineDefaultCurrency), currencyOptions, current, which -> DevGramConfig.setInlineTargetCurrency(currencyCodes.get(which)));
+                showRadioDialog(DevGramLocale.getString(R.string.InlineDefaultCurrency), currencyOptions, current, which -> DevGramConfig.setInlineTargetCurrency(currencyCodes.get(which)));
                 return;
             }
             case ID_ANGLE_UNIT:
-                showRadioDialog(LocaleController.getString(R.string.InlineAngleUnit), angleOptions, InlineConfig.getInlineAngleUnit().ordinal(), DevGramConfig::setInlineAngleUnit);
+                showRadioDialog(DevGramLocale.getString(R.string.InlineAngleUnit), angleOptions, InlineConfig.getInlineAngleUnit().ordinal(), DevGramConfig::setInlineAngleUnit);
                 return;
             case ID_MEASURE_SYSTEM:
-                showRadioDialog(LocaleController.getString(R.string.InlineMeasureSystem), measureOptions, InlineConfig.getInlineMeasureSystem().ordinal(), DevGramConfig::setInlineMeasureSystem);
+                showRadioDialog(DevGramLocale.getString(R.string.InlineMeasureSystem), measureOptions, InlineConfig.getInlineMeasureSystem().ordinal(), DevGramConfig::setInlineMeasureSystem);
                 return;
             default:
                 return;
@@ -304,21 +305,21 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
         } else {
             builder.setView(linearLayout);
         }
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         dialog[0] = builder.create();
         showDialog(dialog[0]);
     }
 
     private String defaultCurrencyValue() {
         String code = InlineRates.INSTANCE.normalize(DevGramConfig.inlineTargetCurrency);
-        return rates.supports(code) ? code : LocaleController.getString(R.string.QualityAuto);
+        return rates.supports(code) ? code : DevGramLocale.getString(R.string.QualityAuto);
     }
 
     private String settingsInfo() {
         if (!DevGramConfig.inlineCurrency) {
             return null;
         }
-        String info = LocaleController.getString(R.string.InlineAutoCurrencyInfo);
+        String info = DevGramLocale.getString(R.string.InlineAutoCurrencyInfo);
         ExchangeRates.State state = ExchangeRates.peekCached();
         if (state == null) {
             return info;
@@ -353,7 +354,7 @@ public class DevGramInlineResultsActivity extends DevGramSettingsFragment {
     }
 
     private static InlineDocBlock text(int res) {
-        return new InlineDocBlock.Text(LocaleController.getString(res));
+        return new InlineDocBlock.Text(DevGramLocale.getString(res));
     }
 
     /** Примеры на языке интерфейса с готовым ответом справа. */

@@ -12,8 +12,8 @@ import android.widget.TextView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
@@ -53,7 +53,7 @@ public class DevGramWeatherCityActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Город погоды");
+        actionBar.setTitle(DevGramLocale.text("Город погоды"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -82,14 +82,14 @@ public class DevGramWeatherCityActivity extends BaseFragment {
                         if (lastQuery.length() < 2) {
                             results.clear();
                             if (adapter != null) adapter.notifyDataSetChanged();
-                            setHint("Начните вводить название города");
+                            setHint(DevGramLocale.text("Начните вводить название города"));
                             return;
                         }
-                        setHint("Поиск…");
+                        setHint(DevGramLocale.text("Поиск…"));
                         AndroidUtilities.runOnUIThread(searchRunnable, 450); // дебаунс
                     }
                 });
-        searchItem.setSearchFieldHint("Введите город…");
+        searchItem.setSearchFieldHint(DevGramLocale.text("Введите город…"));
 
         FrameLayout content = new FrameLayout(context);
         content.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
@@ -98,7 +98,7 @@ public class DevGramWeatherCityActivity extends BaseFragment {
         hintView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
         hintView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         hintView.setGravity(Gravity.CENTER);
-        hintView.setText("Начните вводить название города");
+        hintView.setText(DevGramLocale.text("Начните вводить название города"));
         content.addView(hintView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
                 Gravity.CENTER, 30, 0, 30, 0));
 
@@ -144,7 +144,7 @@ public class DevGramWeatherCityActivity extends BaseFragment {
             results.addAll(list);
             if (adapter != null) adapter.notifyDataSetChanged();
             if (results.isEmpty()) {
-                setHint("Ничего не найдено");
+                setHint(DevGramLocale.text("Ничего не найдено"));
             } else if (hintView != null) {
                 hintView.setVisibility(View.GONE);
             }

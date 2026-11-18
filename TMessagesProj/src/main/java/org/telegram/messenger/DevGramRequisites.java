@@ -37,8 +37,8 @@ public class DevGramRequisites {
     // дефолт на случай пустого кэша/оффлайна (совпадает с прежними хардкод-реквизитами)
     private static Data defaults() {
         List<Card> cards = new ArrayList<>();
-        cards.add(new Card("alfa", "Альфа-Банк", "2200150522613204", "", ""));
-        cards.add(new Card("tbank", "Т-Банк", "2200396111123788", "", ""));
+        cards.add(new Card("alfa", DevGramLocale.text("Альфа-Банк"), "2200150522613204", "", ""));
+        cards.add(new Card("tbank", DevGramLocale.text("Т-Банк"), "2200396111123788", "", ""));
         return new Data(cards, "UQD9m9PQ5BfQa_sAA09HqJ2WLfmFDoyPxsZ8kSEyD-lXMYsx");
     }
 
@@ -60,7 +60,7 @@ public class DevGramRequisites {
 
     // Обновить с сервера в фоне; onDone вызывается в UI-потоке (можно null).
     public static void refresh(Runnable onDone) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             try {
                 java.net.HttpURLConnection c = (java.net.HttpURLConnection)
                         new java.net.URL(URL).openConnection();
@@ -126,7 +126,7 @@ public class DevGramRequisites {
             return;
         }
         iv.setTag(url);
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             android.graphics.Bitmap bmp = null;
             try {
                 java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();

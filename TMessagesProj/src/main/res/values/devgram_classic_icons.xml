@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keep legacy pack keys usable for controls restored from the reference. -->
+    <item type="drawable" name="msg_invite">@drawable/devgram_classic_msg_invite</item>
+    <item type="drawable" name="msg_status_edit">@drawable/devgram_classic_msg_status_edit</item>
+    <item type="drawable" name="msg_status_set">@drawable/devgram_classic_msg_status_set</item>
+    <item type="drawable" name="fab_compose_small">@drawable/devgram_classic_fab_compose_small</item>
+</resources>

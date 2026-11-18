@@ -4,7 +4,7 @@
     android:installLocation="auto">
 
     <!-- Gemini Nano is only entered behind an API 26 runtime guard; keep DevGram's API 24 baseline. -->
-    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.common,com.google.mlkit.genai.prompt" />
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.genai.common,com.google.mlkit.genai.prompt,com.google.mlkit.vision.segmentation.subject" />
 
     <supports-screens android:anyDensity="true"
                       android:largeScreens="true"
@@ -87,7 +87,6 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="replace" />
 
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW"/>
@@ -595,6 +594,9 @@
             </intent-filter>
         </activity-alias>
 
+        <provider android:name="org.telegram.messenger.devgram.icons.IconPackProvider"
+            android:authorities="${applicationId}.icon_pack_provider"
+            android:exported="false" android:grantUriPermissions="true" />
         <activity
             android:name="org.telegram.ui.LaunchActivity"
             android:theme="@style/Theme.TMessages.Start"
@@ -604,6 +606,16 @@
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="application/zip" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" />
+                <data android:scheme="content" android:mimeType="application/x-devgram-icons" />
+                <data android:scheme="file" android:mimeType="application/zip" />
+                <data android:scheme="file" android:mimeType="application/octet-stream" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
             </intent-filter>
@@ -699,12 +711,14 @@
         </activity-alias>
         <activity
             android:name="org.telegram.ui.BubbleActivity"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode|smallestScreenSize|screenLayout"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
             android:allowEmbedded="true"
             android:documentLaunchMode="always"
             android:resizeableActivity="true"/>
+        <!-- Development: widget-sandbox's conformance set on the widget renderer, launched by adb.
+             Finishes at once outside internal (DEBUG_PRIVATE_VERSION) builds. -->
         <activity
             android:name="org.telegram.ui.ShareActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode"
@@ -822,6 +836,13 @@
             </intent-filter>
         </receiver>
 
+        <!-- The widget engine (HTML widgets' code): no permissions, files or network; one process for every widget. -->
+        <service
+            android:name="org.telegram.utils.twidget.WidgetEngineService"
+            android:process=":widgets"
+            android:isolatedProcess="true"
+            android:exported="false" />
+
         <service
             android:name=".AuthenticatorService"
             android:exported="true"
@@ -896,7 +917,7 @@
             android:name=".LocationSharingService"
             android:enabled="true"
             android:exported="true"
-            android:foregroundServiceType="location|dataSync"
+            android:foregroundServiceType="location"
         />
         <service
             android:name=".voip.VoIPService"
@@ -1072,6 +1093,11 @@
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
             android:value="org.telegram.messenger.chromecast.ChromecastOptionsProvider" />
 
+        <service android:name="org.telegram.messenger.DevGramMusicListener"
+            android:label="@string/DevGramMusicActivityService" android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+        </service>
     </application>
 
 </manifest>

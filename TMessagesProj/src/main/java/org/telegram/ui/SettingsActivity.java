@@ -759,7 +759,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(SettingCell.Factory.of(51, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.settings_account, "Мой профиль"));
             items.add(UItem.asShadow(null));
 
-            items.add(SettingCell.Factory.of(250, 0xFF2AABEE, 0xFF229ED9, R.drawable.settings_devgram, "DevGram", "Настройки мода"));
+            items.add(SettingCell.Factory.of(250, 0xFF2AABEE, 0xFF229ED9, R.drawable.settings_devgram, "DevGram", org.telegram.messenger.DevGramLocale.text("Настройки мода")));
+            if (org.telegram.messenger.DevGramProfileCustomization.enabled()) items.add(SettingCell.Factory.of(251, 0xFF9671EC, 0xFF6D52C1, R.drawable.msg_palette, org.telegram.messenger.DevGramLocale.text("Кастомизация профиля")));
             items.add(UItem.asShadow(null));
 
             items.add(SettingCell.Factory.of(52, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.outline_saved_24, getString(R.string.SavedMessages)));
@@ -778,7 +779,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         } else {
             // DevGram: настройки мода — первым пунктом (как в exteraGram)
-            items.add(SettingCell.Factory.of(250, 0xFF2AABEE, 0xFF229ED9, R.drawable.settings_devgram, "DevGram", "Настройки мода"));
+            items.add(SettingCell.Factory.of(250, 0xFF2AABEE, 0xFF229ED9, R.drawable.settings_devgram, "DevGram", org.telegram.messenger.DevGramLocale.text("Настройки мода")));
+            if (org.telegram.messenger.DevGramProfileCustomization.enabled()) items.add(SettingCell.Factory.of(251, 0xFF9671EC, 0xFF6D52C1, R.drawable.msg_palette, org.telegram.messenger.DevGramLocale.text("Кастомизация профиля")));
             items.add(UItem.asShadow(null));
 
             items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
@@ -834,7 +836,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         if (SharedSettings.experimentalSettingsAllowed.get()) {
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader("Experimental"));
+            items.add(UItem.asHeader(getString(R.string.SettingsExperimental)));
             items.add(SettingCell.Factory.of(24, 0xFFF45255, 0xFFDF3955, 0, getString(R.string.RoundVideoSettings)));
         }
 
@@ -868,6 +870,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     private void onClick(UItem item, View view, int position, float x, float y) {
         if (item.id == 250) {
             presentSettingFragment(new DevGramSettingsActivity());
+        } else if (item.id == 251) {
+            presentSettingFragment(new DevGramProfileStyleActivity());
             return;
         }
         if (item.instanceOf(AccountsToggleCell.Factory.class)) {

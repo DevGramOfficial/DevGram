@@ -72,6 +72,9 @@ public class SimpleTextView extends View implements Drawable.Callback {
         return devgramHideStatusGate && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("dg_hideStatus", false);
     }
     private Drawable rightDrawable2;
+    private org.telegram.ui.Components.DevGramClanTagDrawable devgramClanTag;
+    private OnClickListener devgramClanClick;
+    private boolean devgramClanPressed;
     private Drawable rightDrawable3; // DevGram: третий слот (значок форка), рисуется после rightDrawable2
     public int rightDrawable3X;
     public int rightDrawable3Y;
@@ -187,8 +190,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
 
     @Override
     protected void onAttachedToWindow() {
+        if(devgramClanDecoration!=null)devgramClanDecoration.attach();
         super.onAttachedToWindow();
         attachedToWindow = true;
+        if(devgramClanTag!=null)devgramClanTag.attach();
         emojiStack = AnimatedEmojiSpan.update(emojiCacheType, this, emojiStack, layout);
     }
 
@@ -204,8 +209,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
 
     @Override
     protected void onDetachedFromWindow() {
+        if(devgramClanDecoration!=null)devgramClanDecoration.detach();
         super.onDetachedFromWindow();
         attachedToWindow = false;
+        if(devgramClanTag!=null)devgramClanTag.detach();
         AnimatedEmojiSpan.release(this, emojiStack);
         wasLayout = false;
     }
@@ -275,8 +282,31 @@ public class SimpleTextView extends View implements Drawable.Callback {
         widthWrapContent = value;
     }
 
+    private int devgramVisibleWidth = Integer.MAX_VALUE;
+
+    public void setDevGramVisibleWidth(int width) {
+        width = Math.max(0, width);
+        if (devgramVisibleWidth == width) return;
+        devgramVisibleWidth = width;
+        recreateLayoutMaybe();
+        invalidate();
+    }
+
+    private int devgramViewWidth() {
+        return devgramClanTag == null ? getMeasuredWidth() : Math.min(getMeasuredWidth(), devgramVisibleWidth);
+    }
+
+    private boolean devgramScrollName() {
+        return scrollNonFitText || devgramClanTag != null && maxLines == 1 && !buildFullLayout;
+    }
+
+    private int devgramClanWidth() {
+        return devgramClanTag == null || rightDrawableScale <= 0 ? 0
+                : (int) (devgramClanTag.getIntrinsicWidth() * rightDrawableScale) + drawablePadding;
+    }
+
     private void updateFadePaints() {
-        if ((fadePaint == null || fadePaintBack == null) && scrollNonFitText) {
+        if ((fadePaint == null || fadePaintBack == null) && devgramScrollName()) {
             fadePaint = new Paint();
             fadePaint.setShader(new LinearGradient(0, 0, dp(6), 0, new int[]{0xffffffff, 0}, new float[]{0f, 1f}, Shader.TileMode.CLAMP));
             fadePaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
@@ -313,6 +343,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
     public void setGravity(int value) {
         gravity = value;
     }
+    public int getGravity() { return gravity; }
 
     public void setTypeface(Typeface typeface) {
         textPaint.setTypeface(typeface);
@@ -335,6 +366,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
             int dw = (int) (rightDrawable3.getIntrinsicWidth() * rightDrawableScale);
             size += dw + drawablePadding;
         }
+        if(devgramClanTag!=null)size+=(int)(devgramClanTag.getIntrinsicWidth()*rightDrawableScale)+drawablePadding;
         return size;
     }
 
@@ -357,7 +389,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
             }
 
             if ((gravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.CENTER_HORIZONTAL) {
-                offsetX = (width - textWidth) / 2 - (int) layout.getLineLeft(0);
+                offsetX = (devgramClanTag == null ? width - textWidth : Math.max(0, width - textWidth)) / 2 - (int) layout.getLineLeft(0);
             } else if ((gravity & Gravity.HORIZONTAL_GRAVITY_MASK) == Gravity.LEFT) {
                 if (firstLineLayout != null) {
                     offsetX = -(int) firstLineLayout.getLineLeft(0);
@@ -399,6 +431,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     protected boolean createLayout(int width) {
+        if (devgramClanTag != null) width = Math.min(width, getMaxTextWidth() - getPaddingLeft() - getPaddingRight() - minusWidth);
         CharSequence text = this.text;
         replacingDrawableTextIndex = -1;
         rightDrawableHidden = false;
@@ -423,6 +456,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
                         width -= drawablePadding;
                     }
                 }
+                if(!rightDrawableOutside&&devgramClanTag!=null&&rightDrawable3!=null)width-=(int)(rightDrawable3.getIntrinsicWidth()*rightDrawableScale)+drawablePadding;
                 if (replacedText != null && replacedDrawable != null) {
                     replacingDrawableTextIndex = text.toString().indexOf(replacedText);
                     if (replacingDrawableTextIndex >= 0) {
@@ -461,16 +495,16 @@ public class SimpleTextView extends View implements Drawable.Callback {
                             } else {
                                 part = "…";
                             }
-                            firstLineLayout = new StaticLayout(string, 0, string.length(), textPaint, scrollNonFitText ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
-                            layout = new StaticLayout(substr, 0, substr.length(), textPaint, scrollNonFitText ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
+                            firstLineLayout = new StaticLayout(string, 0, string.length(), textPaint, devgramScrollName() ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
+                            layout = new StaticLayout(substr, 0, substr.length(), textPaint, devgramScrollName() ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
                             if (layout.getLineLeft(0) != 0) {
                                 part = "\u200F" + part;
                             }
-                            partLayout = new StaticLayout(part, 0, part.length(), textPaint, scrollNonFitText ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
+                            partLayout = new StaticLayout(part, 0, part.length(), textPaint, devgramScrollName() ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
                             fullLayout = StaticLayoutEx.createStaticLayout(full, textPaint, width + dp(8) + fullLayoutAdditionalWidth, getAlignment(), 1.0f, 0.0f, false, TextUtils.TruncateAt.END, width + fullLayoutAdditionalWidth, fullTextMaxLines, false);
                         }
                     } else {
-                        layout = new StaticLayout(string, 0, string.length(), textPaint, scrollNonFitText || ellipsizeByGradient ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
+                        layout = new StaticLayout(string, 0, string.length(), textPaint, devgramScrollName() || ellipsizeByGradient ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
                         fullLayout = null;
                         partLayout = null;
                         firstLineLayout = null;
@@ -479,7 +513,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
                     layout = StaticLayoutEx.createStaticLayout(text, textPaint, width, getAlignment(), 1.0f, 0.0f, false, TextUtils.TruncateAt.END, width, maxLines, false);
                 } else {
                     CharSequence string;
-                    if (scrollNonFitText || ellipsizeByGradient) {
+                    if (devgramScrollName() || ellipsizeByGradient) {
                         string = text;
                     } else {
                         string = TextUtils.ellipsize(text, textPaint, width, TextUtils.TruncateAt.END);
@@ -488,7 +522,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
                         calcOffset(width);
                         return false;
                     }*/
-                    layout = new StaticLayout(string, 0, string.length(), textPaint, scrollNonFitText || ellipsizeByGradient ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
+                    layout = new StaticLayout(string, 0, string.length(), textPaint, devgramScrollName() || ellipsizeByGradient ? dp(2000) : width + dp(8), getAlignment(), 1.0f, 0.0f, false);
                 }
 
                 spoilersPool.addAll(spoilers);
@@ -532,7 +566,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
             currentScrollDelay = SCROLL_DELAY_MS;
             checkUi_layerType();
         }
-        createLayout(width - getPaddingLeft() - getPaddingRight() - minusWidth - (leftDrawableOutside && leftDrawable != null ? leftDrawable.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable != null ? rightDrawable.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() + drawablePadding : 0));
+        createLayout(width - getPaddingLeft() - getPaddingRight() - minusWidth - (leftDrawableOutside && leftDrawable != null ? leftDrawable.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable != null ? rightDrawable.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() + drawablePadding : 0) - devgramClanWidth() - (rightDrawableOutside && rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() + drawablePadding : 0));
 
         int finalHeight;
         if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY) {
@@ -542,7 +576,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
         }
         if (widthWrapContent) {
 //            textWidth = (int) Math.ceil(layout.getLineWidth(0));
-            width = Math.min(width, getPaddingLeft() + textWidth + getPaddingRight() + minusWidth + (leftDrawableOutside && leftDrawable != null ? leftDrawable.getIntrinsicWidth() + drawablePadding : 0) + (rightDrawableOutside && rightDrawable != null ? rightDrawable.getIntrinsicWidth() + drawablePadding : 0) + (rightDrawableOutside && rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() + drawablePadding : 0) + (rightDrawableOutside && rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() + drawablePadding : 0));
+            width = Math.min(width, getPaddingLeft() + textWidth + getPaddingRight() + minusWidth + (leftDrawableOutside && leftDrawable != null ? leftDrawable.getIntrinsicWidth() + drawablePadding : 0) + (rightDrawableOutside && rightDrawable != null ? rightDrawable.getIntrinsicWidth() + drawablePadding : 0) + (rightDrawableOutside && rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() + drawablePadding : 0) + devgramClanWidth() + (rightDrawableOutside && rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() + drawablePadding : 0));
             width = Math.max(width, 0);
         }
         setMeasuredDimension(width, finalHeight);
@@ -632,7 +666,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
 
     @Override
     protected boolean verifyDrawable(@NonNull Drawable who) {
-        return who == rightDrawable || who == rightDrawable2 || who == rightDrawable3 || who == leftDrawable || super.verifyDrawable(who);
+        return who == devgramClanTag || who == rightDrawable || who == rightDrawable2 || who == rightDrawable3 || who == leftDrawable || super.verifyDrawable(who);
     }
 
     public void replaceTextWithDrawable(Drawable drawable, String replacedText) {
@@ -731,6 +765,20 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     // DevGram: клик по значку в левом слоте (значок бренда теперь слева от имени).
+    private org.telegram.ui.Components.DevGramClanTagDecoration devgramClanDecoration;
+    public void bindDevGramClanPeer(int account,long peer,boolean editing){
+        if(devgramClanDecoration==null)devgramClanDecoration=new org.telegram.ui.Components.DevGramClanTagDecoration(this,null);
+        devgramClanDecoration.bindSimple(account,peer,editing);
+    }
+    public void setDevGramClanTag(org.telegram.ui.Components.DevGramClanTagDrawable value,OnClickListener click){
+        if(devgramClanTag!=null){devgramClanTag.detach();devgramClanTag.setCallback(null);}
+        devgramClanTag=value;devgramClanClick=click;devgramClanPressed=false;
+        if(value!=null){value.setCallback(this);if(attachedToWindow)value.attach();}
+        resetScrolling();currentScrollDelay=SCROLL_DELAY_MS;updateFadePaints();
+        if(!recreateLayoutMaybe())invalidate();requestLayout();
+    }
+    public boolean hitDevGramClanTag(float x,float y){if(devgramClanTag==null||devgramClanClick==null)return false;Rect bounds=devgramClanTag.getBounds();return x>=bounds.left-dp(3)&&x<=bounds.right+dp(3)&&y>=bounds.top-dp(6)&&y<=bounds.bottom+dp(6);}
+
     public void setLeftDrawableOnClick(OnClickListener onClickListener) {
         leftDrawableOnClickListener = onClickListener;
     }
@@ -883,7 +931,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     private void checkUi_layerType() {
-        final boolean fade = scrollNonFitText && (textDoesNotFit || scrollingOffset != 0);
+        final boolean fade = devgramScrollName() && (textDoesNotFit || scrollingOffset != 0);
         final boolean needHardwareLayer = fade || ellipsizeByGradient;
         final int layerType = needHardwareLayer ? LAYER_TYPE_HARDWARE : LAYER_TYPE_NONE;
         if (getLayerType() != layerType) {
@@ -899,7 +947,12 @@ public class SimpleTextView extends View implements Drawable.Callback {
         layoutX = 0;
         layoutY = 0;
 
-        boolean fade = scrollNonFitText && (textDoesNotFit || scrollingOffset != 0);
+        int devgramMarqueeSave = -1;
+        if (devgramClanTag != null) {
+            devgramMarqueeSave = canvas.save();
+            canvas.clipRect(0, 0, Math.max(0, getMaxTextWidth() - paddingRight), getMeasuredHeight());
+        }
+        boolean fade = devgramScrollName() && (textDoesNotFit || scrollingOffset != 0);
         totalWidth = textWidth;
         if (leftDrawable != null && !leftDrawableOutside) {
             int x = (int) -scrollingOffset;
@@ -1060,9 +1113,10 @@ public class SimpleTextView extends View implements Drawable.Callback {
         }
 
         if (layout != null) {
-            if (leftDrawableOutside || rightDrawableOutside || ellipsizeByGradient || paddingRight > 0) {
+            final int textClipLeft = devgramMarqueeTextClipLeft(textOffsetX, fade);
+            if (leftDrawableOutside || rightDrawableOutside || ellipsizeByGradient || paddingRight > 0 || devgramClanTag != null) {
                 canvas.save();
-                canvas.clipRect(textOffsetX, 0, getMaxTextWidth() - paddingRight - dp(rightDrawable != null && !(rightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) && rightDrawableOutside ? 2 : 0), getMeasuredHeight());
+                canvas.clipRect(textClipLeft, 0, getMaxTextWidth() - paddingRight - dp(rightDrawable != null && !(rightDrawable instanceof AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable) && rightDrawableOutside ? 2 : 0), getMeasuredHeight());
             }
             Emoji.emojiDrawingUseAlpha = usaAlphaForEmoji;
             if (wrapBackgroundDrawable != null) {
@@ -1162,7 +1216,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
                 } else {
                     fadePaint.setAlpha(255);
                 }
-                canvas.drawRect(textOffsetX, 0, textOffsetX + dp(6), getMeasuredHeight(), fadePaint);
+                canvas.drawRect(textClipLeft, 0, textClipLeft + dp(6), getMeasuredHeight(), fadePaint);
                 canvas.save();
                 canvas.translate(getMaxTextWidth() - paddingRight - dp(6), 0);
                 canvas.drawRect(0, 0, 0 + dp(6), getMeasuredHeight(), fadePaintBack);
@@ -1178,10 +1232,12 @@ public class SimpleTextView extends View implements Drawable.Callback {
             }
             updateScrollAnimation();
             Emoji.emojiDrawingUseAlpha = true;
-            if (leftDrawableOutside || rightDrawableOutside || ellipsizeByGradient || paddingRight > 0) {
+            if (leftDrawableOutside || rightDrawableOutside || ellipsizeByGradient || paddingRight > 0 || devgramClanTag != null) {
                 canvas.restore();
             }
         }
+
+        if (devgramMarqueeSave >= 0) canvas.restoreToCount(devgramMarqueeSave);
 
         if (leftDrawable != null && leftDrawableOutside) {
             int x = 0;
@@ -1271,6 +1327,38 @@ public class SimpleTextView extends View implements Drawable.Callback {
             rightDrawable3Y = y + (dh >> 1);
             rightDrawable3.draw(canvas);
         }
+        // The tag is a fixed accessory: draw it after the clipped, scrolling name.
+        if(devgramClanTag!=null&&rightDrawableScale>0)drawDevGramClanTag(canvas,textOffsetX);
+    }
+
+    private int devgramMarqueeTextClipLeft(int textOffsetX, boolean scrolling) {
+        return scrolling && leftDrawable != null && !leftDrawableOutside ? 0 : textOffsetX;
+    }
+
+    private int devgramClanTagLeft(int textOffsetX) {
+        int natural = textOffsetX + textWidth;
+        int gravityX = gravity & Gravity.HORIZONTAL_GRAVITY_MASK;
+        if (gravityX == Gravity.CENTER_HORIZONTAL || gravityX == Gravity.RIGHT) natural += offsetX;
+        if (!rightDrawableHidden) {
+            if (rightDrawable != null && !devgramRightHidden()) natural += (int) (rightDrawable.getIntrinsicWidth() * rightDrawableScale) + drawablePadding;
+            if (rightDrawable2 != null) natural += (int) (rightDrawable2.getIntrinsicWidth() * rightDrawableScale) + drawablePadding;
+            if (rightDrawable3 != null) natural += (int) (rightDrawable3.getIntrinsicWidth() * rightDrawableScale) + drawablePadding;
+        }
+        int right = devgramViewWidth() - getPaddingRight() - paddingRight - minusWidth;
+        return Math.max(textOffsetX, Math.min(natural + drawablePadding, right - devgramClanWidth() + drawablePadding));
+    }
+
+    private void drawDevGramClanTag(Canvas canvas, int textOffsetX) {
+        int x = devgramClanTagLeft(textOffsetX);
+        int w = (int) (devgramClanTag.getIntrinsicWidth() * rightDrawableScale);
+        int h = (int) (devgramClanTag.getIntrinsicHeight() * rightDrawableScale);
+        int y = (gravity & Gravity.VERTICAL_GRAVITY_MASK) == Gravity.CENTER_VERTICAL
+                ? (getMeasuredHeight() - h) / 2 + rightDrawableTopPadding
+                : getPaddingTop() + (textHeight - h) / 2 + rightDrawableTopPadding;
+        devgramClanTag.color(textPaint.getColor());
+        devgramClanTag.setAlpha(textPaint.getAlpha());
+        devgramClanTag.setBounds(x, y, x + w, y + h);
+        devgramClanTag.draw(canvas);
     }
 
     public int getRightDrawableX() {
@@ -1282,13 +1370,13 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     public int getMaxTextWidth() {
-        return getMeasuredWidth() - (rightDrawableOutside && rightDrawable != null ? rightDrawable.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() + drawablePadding : 0);
+        return devgramViewWidth() - (rightDrawableOutside && rightDrawable != null ? rightDrawable.getIntrinsicWidth() + drawablePadding : 0) - (rightDrawableOutside && rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() + drawablePadding : 0) - devgramClanWidth() - (rightDrawableOutside && rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() + drawablePadding : 0);
     }
 
     public float getExactWidth() {
         return getPaint().measureText(getText().toString())
                 + getSideDrawablesSize()
-                - (leftDrawable != null || rightDrawable != null || rightDrawable2 != null || rightDrawable3 != null ? drawablePadding : 0);
+                - (leftDrawable != null || rightDrawable != null || rightDrawable2 != null || rightDrawable3 != null || devgramClanTag != null ? drawablePadding : 0);
     }
 
     public float getExactWidthIncludeDrawables() {
@@ -1296,11 +1384,14 @@ public class SimpleTextView extends View implements Drawable.Callback {
             + (leftDrawable != null ? leftDrawable.getIntrinsicWidth() : 0)
             + (rightDrawable != null ? rightDrawable.getIntrinsicWidth() : 0)
             + (rightDrawable2 != null ? rightDrawable2.getIntrinsicWidth() : 0)
-            + (rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() : 0);
+            + (rightDrawable3 != null ? rightDrawable3.getIntrinsicWidth() : 0)
+            + (devgramClanTag != null ? devgramClanTag.getIntrinsicWidth() : 0);
     }
 
     // DevGram: цвет/градиент ника поддержавшего. Кладётся прямо при отрисовке — так его не перебивают
     // анимации, которые постоянно меняют цвет текста (setTextColor в шапке профиля и чата).
+    private final org.telegram.ui.Components.DevGramNameEffects devgramNameEffects = new org.telegram.ui.Components.DevGramNameEffects();
+    public void setDevGramNameAppearance(org.json.JSONObject document,float visibility){devgramNameEffects.set(document,visibility);}
     private int[] devgramNickColors;
     private final org.telegram.ui.Components.DevGramNickColor.Cache devgramNickShader = new org.telegram.ui.Components.DevGramNickColor.Cache();
 
@@ -1312,6 +1403,11 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     private void drawLayout(Canvas canvas) {
+        if(layout!=null&&devgramNameEffects.enabled()){
+            devgramNameEffects.apply(textPaint,layout.getLineCount()>0?layout.getLineWidth(0):0,layout.getHeight(),false);
+            try{drawLayoutInternal(canvas);}finally{devgramNameEffects.restore(textPaint);}
+            devgramNameEffects.animate(this,false);return;
+        }
         if (devgramNickColors == null || layout == null) {
             drawLayoutInternal(canvas);
             return;
@@ -1374,7 +1470,7 @@ public class SimpleTextView extends View implements Drawable.Callback {
     }
 
     private void updateScrollAnimation() {
-        if (!scrollNonFitText || !textDoesNotFit && scrollingOffset == 0) {
+        if (!devgramScrollName() || !textDoesNotFit && scrollingOffset == 0) {
             return;
         }
         long newUpdateTime = SystemClock.elapsedRealtime();
@@ -1476,6 +1572,15 @@ public class SimpleTextView extends View implements Drawable.Callback {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if(devgramClanTag!=null&&devgramClanClick!=null){
+            Rect bounds=devgramClanTag.getBounds();
+            if(event.getAction()==MotionEvent.ACTION_DOWN&&event.getX()>=bounds.left-dp(3)&&event.getX()<=bounds.right+dp(3)&&event.getY()>=bounds.top-dp(6)&&event.getY()<=bounds.bottom+dp(6)){devgramClanPressed=true;touchDownX=event.getX();touchDownY=event.getY();getParent().requestDisallowInterceptTouchEvent(true);return true;}
+            if(devgramClanPressed){
+                if(event.getAction()==MotionEvent.ACTION_MOVE&&(Math.abs(event.getX()-touchDownX)>AndroidUtilities.touchSlop||Math.abs(event.getY()-touchDownY)>AndroidUtilities.touchSlop)){devgramClanPressed=false;getParent().requestDisallowInterceptTouchEvent(false);}
+                else if(event.getAction()==MotionEvent.ACTION_UP||event.getAction()==MotionEvent.ACTION_CANCEL){devgramClanPressed=false;getParent().requestDisallowInterceptTouchEvent(false);if(event.getAction()==MotionEvent.ACTION_UP)devgramClanClick.onClick(this);}
+                return true;
+            }
+        }
         if (rightDrawableOnClickListener != null && rightDrawable != null) {
             AndroidUtilities.rectTmp.set(rightDrawableX - dp(16), rightDrawableY - dp(16), rightDrawableX + dp(16), rightDrawableY + dp(16));
             if (event.getAction() == MotionEvent.ACTION_DOWN && AndroidUtilities.rectTmp.contains((int) event.getX(), (int) event.getY())) {

@@ -326,7 +326,7 @@ final class RoundVideoCameraXController extends RoundVideoCamera {
         if (!active || stopping) return;
         try {
             RoundVideoCodecRecorder codec = new RoundVideoCodecRecorder(writer, timelineOffsetUs, outputSize,
-                    videoBitrate, frameRate.getValue(), diagnostics, this::reportError);
+                    videoBitrate, frameRate.getValue(), diagnostics, this::reportError, this::reportError);
             recorder = codec;
             Surface encoderSurface = codec.prepare();
             RoundVideoGlProcessor processor = new RoundVideoGlProcessor(new Size(outputSize, outputSize), encoderSurface,
@@ -458,7 +458,7 @@ final class RoundVideoCameraXController extends RoundVideoCamera {
     private void notifyConfigured(RoundCameraXSession session, boolean cameraSwitch) {
         Size size = pipelineDual && activeFacing == RoundVideoSession.CameraFacing.BACK ? secondaryStreamSize : primaryStreamSize;
         callback.onConfigured(new RoundVideoCameraController.CameraInfo(session.getActiveCameraId(), activeFacing,
-                cameraResolution, activeFrameRate, size, size, session.getMaxZoomRatio(),
+                cameraResolution, activeFrameRate, size, session.getMaxZoomRatio(),
                 activeFacing == RoundVideoSession.CameraFacing.BACK && session.isFlashAvailable()), cameraSwitch);
     }
 

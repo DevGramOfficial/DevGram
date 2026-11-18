@@ -297,6 +297,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     public void setupGlass(BlurredBackgroundDrawableViewFactory factory,
                            BlurredBackgroundColorProvider colorProvider,
                            boolean isForum) {
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) {
+            glassMode = false;
+            glassFlatDivider = false;
+            setBackgroundColor(Theme.getColor(Theme.key_actionBarDefault, resourcesProvider));
+            if (menu != null) { menu.setTranslationX(0); menu.setGlassMode(false); }
+            if (backButtonImageView != null) backButtonImageView.setTranslationX(0);
+            return;
+        }
         setBackground(null);
         setClipChildren(false);
         glassMode = true;
@@ -658,6 +666,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private boolean isCenterTitle;
+    public boolean doNotDrawCenterGlass;
+    private boolean centerTitleAndGlass;
 
     public void centerTitle() {
         isCenterTitle = true;
@@ -668,6 +678,16 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 }
             }
         }
+    }
+
+    public void setCenterTitleAndGlass(boolean value) {
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) value = false;
+        centerTitleAndGlass = value;
+        if (value) {
+            centerTitle();
+        }
+        requestLayout();
+        invalidate();
     }
 
     public void setTitleRightMargin(int value) {
@@ -1295,6 +1315,22 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         return actionBarColor;
     }
 
+    int getTitleColorToSet() {
+        return titleColorToSet;
+    }
+
+    int getSubtitleColorInternal() {
+        return subtitleTextView != null ? subtitleTextView.getTextColor() : 0;
+    }
+
+    int getActionModeColorFor(View view) {
+        return actionMode != null && actionMode == view ? actionModeColor : 0;
+    }
+
+    boolean isActionModeView(View view) {
+        return actionMode != null && actionMode == view;
+    }
+
     public boolean isActionModeShowed() {
         return actionMode != null && actionModeVisible;
     }
@@ -1881,13 +1917,15 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 ellipsizeSpanAnimator.addView(titleTextView[1]);
             }
             overlayTitleAnimationInProgress = true;
+            // the new title keeps the alpha the title had, e.g. hidden under the topics opened in the side panel
+            final float titleAlpha = adaptiveBackgroundHideTitle ? 1.0f - onTopAnimated : titleTextView[0].getAlpha();
             SimpleTextView tmp = titleTextView[1];
             titleTextView[1] = titleTextView[0];
             titleTextView[0] = tmp;
             titleTextView[0].setAlpha(0);
             titleTextView[0].setTranslationY(-dp(20));
             titleTextView[0].animate()
-                    .alpha(adaptiveBackgroundHideTitle ? 1.0f - onTopAnimated : 1f)
+                    .alpha(titleAlpha)
                     .translationY(0)
                     .setDuration(220).start();
             ViewPropertyAnimator animator = titleTextView[1].animate()
@@ -2416,6 +2454,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     @Override
     protected void dispatchDraw(Canvas canvas) {
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) {
+            super.dispatchDraw(canvas);
+            return;
+        }
         final int p = glassPadding;
         final int s = dp(46);
 

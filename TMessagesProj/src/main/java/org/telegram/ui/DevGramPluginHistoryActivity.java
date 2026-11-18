@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
@@ -34,7 +35,7 @@ public class DevGramPluginHistoryActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("История публикации");
+        actionBar.setTitle(DevGramLocale.text("История публикации"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
@@ -59,13 +60,13 @@ public class DevGramPluginHistoryActivity extends BaseFragment {
         content.removeAllViews();
         LinearLayout hero = surface(context, 22);
         hero.addView(label(context, pluginName, 20, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider)));
-        hero.addView(label(context, loading ? "Загружаем события…" : history.size() + " " + eventWord(history.size()), 14, false,
+        hero.addView(label(context, loading ? DevGramLocale.text("Загружаем события…") : history.size() + " " + eventWord(history.size()), 14, false,
                 Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
         content.addView(hero, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
         if (loading) return;
         if (history.isEmpty()) {
-            TextView empty = label(context, "История пока пуста", 16, false,
+            TextView empty = label(context, DevGramLocale.text("История пока пуста"), 16, false,
                     Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(0, AndroidUtilities.dp(70), 0, 0);
@@ -107,11 +108,11 @@ public class DevGramPluginHistoryActivity extends BaseFragment {
     }
 
     private String statusTitle(String action) {
-        if ("submitted".equals(action)) return "Заявка отправлена";
-        if ("update_submitted".equals(action)) return "Обновление отправлено";
-        if ("approved".equals(action)) return "Опубликовано";
-        if ("rejected".equals(action)) return "Отклонено";
-        if ("rejected_blocked".equals(action)) return "Отклонено и заблокировано";
+        if ("submitted".equals(action)) return DevGramLocale.text("Заявка отправлена");
+        if ("update_submitted".equals(action)) return DevGramLocale.text("Обновление отправлено");
+        if ("approved".equals(action)) return DevGramLocale.text("Опубликовано");
+        if ("rejected".equals(action)) return DevGramLocale.text("Отклонено");
+        if ("rejected_blocked".equals(action)) return DevGramLocale.text("Отклонено и заблокировано");
         return action;
     }
 
@@ -148,7 +149,8 @@ public class DevGramPluginHistoryActivity extends BaseFragment {
     }
 
     private String eventWord(int count) {
+        if (!DevGramLocale.isRussian()) return count == 1 ? DevGramLocale.text("событие") : DevGramLocale.text("событий");
         int n = count % 100, n1 = count % 10;
-        return n > 10 && n < 20 ? "событий" : n1 == 1 ? "событие" : n1 >= 2 && n1 <= 4 ? "события" : "событий";
+        return n > 10 && n < 20 ? DevGramLocale.text("событий") : n1 == 1 ? DevGramLocale.text("событие") : n1 >= 2 && n1 <= 4 ? DevGramLocale.text("события") : DevGramLocale.text("событий");
     }
 }

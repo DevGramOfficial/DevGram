@@ -12,9 +12,9 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPlugins;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -55,7 +55,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(pluginName != null ? pluginName : "Плагин");
+        actionBar.setTitle(pluginName != null ? pluginName : DevGramLocale.text("Плагин"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -70,7 +70,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
         translateButton = new org.telegram.ui.Components.DevGramTranslateButton(context,
                 Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         translateItem.addView(translateButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-        translateItem.setContentDescription("Перевести");
+        translateItem.setContentDescription(DevGramLocale.text("Перевести"));
         translateItem.setVisibility(View.GONE);
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
         org.telegram.ui.Components.DevGramSettingsLayout content =
@@ -150,7 +150,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
             }
         }
         if (rows.isEmpty()) {
-            items.add(UItem.asShadow("У этого плагина нет настроек."));
+            items.add(UItem.asShadow(DevGramLocale.text("У этого плагина нет настроек.")));
         }
         if (!translateChecked && !visibleTexts.isEmpty()) {
             translateChecked = true;
@@ -180,7 +180,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
         org.telegram.messenger.DevGramPluginTranslation.translate(new ArrayList<>(visibleTexts), map -> {
             if (map == null) {
                 translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_TRANSLATE);
-                org.telegram.ui.Components.BulletinFactory.of(this).createErrorBulletin("Не удалось перевести").show();
+                org.telegram.ui.Components.BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось перевести")).show();
                 return;
             }
             translations.putAll(map);
@@ -221,7 +221,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
                 DevGramPlugins.pluginSettingChanged(pluginId, key, String.valueOf(which));
                 d.dismiss(); refresh();
             });
-            dialog.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            dialog.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
             showDialog(dialog.create());
         }
     }
@@ -249,7 +249,7 @@ public class DevGramPluginSettingsActivity extends DevGramSettingsFragment {
             DevGramPlugins.pluginSettingChanged(pluginId, key, et.getText().toString());
             refresh();
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
         et.requestFocus();
         AndroidUtilities.showKeyboard(et);

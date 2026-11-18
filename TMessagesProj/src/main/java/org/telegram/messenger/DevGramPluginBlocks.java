@@ -67,7 +67,7 @@ public final class DevGramPluginBlocks {
     }
 
     public static void check(String pluginId, String sha256, Fingerprint fingerprint, Callback callback) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             Status result = checkBlocking(pluginId, sha256, fingerprint);
             AndroidUtilities.runOnUIThread(() -> callback.onResult(result));
         });
@@ -92,13 +92,13 @@ public final class DevGramPluginBlocks {
             connection.setRequestProperty("Accept", "application/json");
             int code = connection.getResponseCode();
             if (code < 200 || code >= 300) {
-                return new Status(false, false, "Сервер вернул HTTP " + code);
+                return new Status(false, false, DevGramLocale.text("Сервер вернул HTTP ") + code);
             }
             JSONObject object = new JSONObject(read(connection.getInputStream()));
             return new Status(true, object.optBoolean("blocked", false), object.optString("reason", ""));
         } catch (Throwable error) {
             FileLog.e(error);
-            return new Status(false, false, "Не удалось проверить блокировку плагина");
+            return new Status(false, false, DevGramLocale.text("Не удалось проверить блокировку плагина"));
         } finally {
             if (connection != null) connection.disconnect();
         }
@@ -113,7 +113,7 @@ public final class DevGramPluginBlocks {
                                   Fingerprint fingerprint, boolean blocked, Callback callback) {
         long uid = UserConfig.getInstance(account).getClientUserId();
         if (!DevGramBadges.hasDeveloperFeatures(uid)) {
-            callback.onResult(new Status(false, false, "Нет прав разработчика"));
+            callback.onResult(new Status(false, false, DevGramLocale.text("Нет прав разработчика")));
             return;
         }
         Runnable send = () -> sendChange(account, uid, pluginId, sha256, name, fingerprint, blocked, callback);
@@ -121,7 +121,7 @@ public final class DevGramPluginBlocks {
             DevGramBeta.activate(account, (ok, error) -> {
                 if (ok) send.run();
                 else callback.onResult(new Status(false, false,
-                        error == null ? "Не удалось получить токен разработчика" : error));
+                        error == null ? DevGramLocale.text("Не удалось получить токен разработчика") : error));
             });
         } else {
             send.run();
@@ -130,7 +130,7 @@ public final class DevGramPluginBlocks {
 
     private static void sendChange(int account, long uid, String pluginId, String sha256, String name,
                                    Fingerprint fingerprint, boolean blocked, Callback callback) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             Status result = sendChangeBlocking(uid, DevGramConfig.getBetaToken(uid), pluginId, sha256,
                     name, fingerprint, blocked);
             AndroidUtilities.runOnUIThread(() -> callback.onResult(result));
@@ -151,7 +151,7 @@ public final class DevGramPluginBlocks {
             body.put("structure", fp.structure);
             body.put("simhash", fp.simhash);
             body.put("featureCount", fp.featureCount);
-            body.put("reason", blocked ? "Заблокировано разработчиком DevGram" : "");
+            body.put("reason", blocked ? DevGramLocale.text("Заблокировано разработчиком DevGram") : "");
             body.put("blocked", blocked);
             byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
 
@@ -172,14 +172,14 @@ public final class DevGramPluginBlocks {
             String response = stream == null ? "" : read(stream);
             if (code < 200 || code >= 300) {
                 return new Status(false, false,
-                        code == 403 ? "Сервер не подтвердил права разработчика" : "Сервер вернул HTTP " + code);
+                        code == 403 ? DevGramLocale.text("Сервер не подтвердил права разработчика") : DevGramLocale.text("Сервер вернул HTTP ") + code);
             }
             JSONObject object = new JSONObject(response);
             return new Status(object.optBoolean("ok", true), object.optBoolean("blocked", blocked),
                     object.optString("reason", ""));
         } catch (Throwable error) {
             FileLog.e(error);
-            return new Status(false, false, "Не удалось изменить блокировку плагина");
+            return new Status(false, false, DevGramLocale.text("Не удалось изменить блокировку плагина"));
         } finally {
             if (connection != null) connection.disconnect();
         }

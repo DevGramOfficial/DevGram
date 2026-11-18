@@ -9,6 +9,7 @@ import android.content.Context;
 import android.view.Gravity;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.DevGramGeneralConfig;
 import org.telegram.messenger.DevGramTranslator;
@@ -42,8 +43,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_AI_FEATURES = 7705;
     private static final int ID_OPEN_NAVIGATION = 7706;
     private static final int ID_OPEN_APP_ICON = 7707;
+    private static final int ID_ICON_PACKS = 10601;
+    private static final int ID_PROFILE_CUSTOMIZATION = 7709;
     private static final int ID_OPEN_SWIPE_ACTIONS = 149;
-    private static final int ID_OPEN_IOS_CHAT_STYLE = 148;
     // DevGram: экран AI Chat (повтор AiPreferencesActivity exteraGram)
     static final int ID_AI_SERVICES = 152;
     private static final int ID_AI_ROLES = 153;
@@ -172,7 +174,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private String doubleTapReactionLabel() {
         String r = org.telegram.messenger.MediaDataController.getInstance(currentAccount).getDoubleTapReaction();
         if (r == null || r.isEmpty()) return "—";
-        return r.startsWith("animated_") ? "Своя эмодзи" : r;
+        return r.startsWith("animated_") ? DevGramLocale.text("Своя эмодзи") : r;
     }
 
     // MD3 (master + 5 подпунктов) и остальные настройки внешнего вида — pref-ключи dg_*.
@@ -191,15 +193,26 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_PILL_STACK = 62;
     private static final int ID_DISGUISE = 63; // DevGram: маскировка (иконка + имя приложения)
     private static final int ID_LOCKED_CHATS = 64; // DevGram: скрытые запароленные чаты
+    private static final int ID_CHAT_HEADER_SHADING = 65;
 
     // Варианты для строк-селекторов (как в exteraGram)
-    private static final String[] ACTIONBAR_TITLE_OPTIONS = {"Название приложения", "Имя пользователя", "Имя", "Чаты"};
-    private static final String[] DIVIDER_STYLE_OPTIONS = {"Скрыть", "Линия", "Сегменты"};
+    private static String[] getActionbarTitleOptions() {
+        return new String[]{DevGramLocale.text("Название приложения"), DevGramLocale.text("Имя пользователя"), DevGramLocale.text("Имя"), DevGramLocale.text("Чаты")};
+    }
+    private static String[] getDividerStyleOptions() {
+        return new String[]{DevGramLocale.text("Скрыть"), DevGramLocale.text("Линия"), DevGramLocale.text("Сегменты")};
+    }
     // Порядок значений совпадает с enum ExteraGram: GLARE, SOLID, HIDDEN.
-    private static final String[] GLASS_OUTLINE_OPTIONS = {"Блики", "Сплошная", "Скрыта"};
+    private static String[] getGlassOutlineOptions() {
+        return new String[]{DevGramLocale.text("Блики"), DevGramLocale.text("Сплошная"), DevGramLocale.text("Скрыта")};
+    }
     private static final String[] TRANSLATION_PROVIDERS = {"Telegram", "Google", "Yandex", "DeepL", "Microsoft"};
-    private static final String[] TRANSLATION_FORMALITIES = {"По умолчанию", "Неформально", "Формально"};
-    private static final String[] ID_DC_OPTIONS = {"Скрыть", "Telegram API", "Bot API"};
+    private static String[] getTranslationFormalities() {
+        return new String[]{DevGramLocale.text("По умолчанию"), DevGramLocale.text("Неформально"), DevGramLocale.text("Формально")};
+    }
+    private static String[] getIdDcOptions() {
+        return new String[]{DevGramLocale.text("Скрыть"), "Telegram API", "Bot API"};
+    }
 
     // Показать меню выбора; пишет int-ключ, обновляет список
     private void showChoice(String title, String[] options, String key, int def) {
@@ -230,7 +243,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 listView.invalidateItemDecorations();
             }
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 
@@ -238,19 +251,19 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         if (getParentActivity() == null) return;
         final org.telegram.messenger.DevGramGhostSettings.Settings settings =
                 org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
-        final String[] options = {"Никогда", "Только в режиме призрака", "Всегда"};
+        final String[] options = {DevGramLocale.text("Никогда"), DevGramLocale.text("Только в режиме призрака"), DevGramLocale.text("Всегда")};
         CharSequence[] labels = new CharSequence[options.length];
         for (int i = 0; i < options.length; i++) {
             labels[i] = (settings.sendWithoutSound == i ? "• " : "    ") + options[i];
         }
         new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
-                .setTitle("Отправлять без звука")
+                .setTitle(DevGramLocale.text("Отправлять без звука"))
                 .setItems(labels, (dialog, which) -> {
                     settings.sendWithoutSound = which;
                     settings.save();
                     refreshListImmediately();
                 })
-                .setNegativeButton("Отмена", null)
+                .setNegativeButton(DevGramLocale.text("Отмена"), null)
                 .show();
     }
 
@@ -280,12 +293,12 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
         org.telegram.ui.Cells.HeaderCell header = new org.telegram.ui.Cells.HeaderCell(
                 getParentActivity(), Theme.key_dialogTextBlue2, 21, 15, false);
-        header.setText("СОХРАНЯТЬ ВЛОЖЕНИЯ");
+        header.setText(DevGramLocale.text("СОХРАНЯТЬ ВЛОЖЕНИЯ"));
         content.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         final String[] labels = {
-                "В личных чатах", "В публичных каналах", "В приватных каналах",
-                "В публичных группах", "В приватных группах"
+                DevGramLocale.text("В личных чатах"), DevGramLocale.text("В публичных каналах"), DevGramLocale.text("В приватных каналах"),
+                DevGramLocale.text("В публичных группах"), DevGramLocale.text("В приватных группах")
         };
         final String[] keys = {
                 "saveMediaPrivateChats", "saveMediaPublicChannels", "saveMediaPrivateChannels",
@@ -315,13 +328,13 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
         final org.telegram.ui.Cells.MaxFileSizeCell cellular =
                 new org.telegram.ui.Cells.MaxFileSizeCell(getParentActivity());
-        cellular.setText("Максимальный размер по мобильной сети");
+        cellular.setText(DevGramLocale.text("Максимальный размер по мобильной сети"));
         cellular.setSize(DevGramConfig.mediaCellularLimit());
         content.addView(cellular, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 80));
 
         final org.telegram.ui.Cells.MaxFileSizeCell wifi =
                 new org.telegram.ui.Cells.MaxFileSizeCell(getParentActivity());
-        wifi.setText("Максимальный размер по Wi‑Fi");
+        wifi.setText(DevGramLocale.text("Максимальный размер по Wi‑Fi"));
         wifi.setSize(DevGramConfig.mediaWifiLimit());
         content.addView(wifi, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 80));
 
@@ -332,11 +345,11 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 org.telegram.messenger.AndroidUtilities.dp(8));
         content.addView(buttons, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
 
-        android.widget.TextView cancel = mediaSheetButton("ОТМЕНА");
+        android.widget.TextView cancel = mediaSheetButton(DevGramLocale.text("ОТМЕНА"));
         buttons.addView(cancel, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 36, Gravity.LEFT | Gravity.CENTER_VERTICAL));
         cancel.setOnClickListener(v -> builder.getDismissRunnable().run());
 
-        android.widget.TextView save = mediaSheetButton("СОХРАНИТЬ");
+        android.widget.TextView save = mediaSheetButton(DevGramLocale.text("СОХРАНИТЬ"));
         buttons.addView(save, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 36, Gravity.RIGHT | Gravity.CENTER_VERTICAL));
         save.setOnClickListener(v -> {
             for (int i = 0; i < keys.length; i++) {
@@ -366,13 +379,13 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
     private void confirmClearSpy() {
         new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
-                .setTitle("Очистить историю DevGram?")
-                .setMessage("Будут удалены сохранённые удалёнки, редакции, время прочтения и вложения.")
-                .setPositiveButton("Очистить", (d, w) -> {
+                .setTitle(DevGramLocale.text("Очистить историю DevGram?"))
+                .setMessage(DevGramLocale.text("Будут удалены сохранённые удалёнки, редакции, время прочтения и вложения."))
+                .setPositiveButton(DevGramLocale.text("Очистить"), (d, w) -> {
                     org.telegram.messenger.DevGramMessagesController.getInstance().clean();
                     refreshListImmediately();
-                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Данные очищены").show();
-                }).setNegativeButton("Отмена", null).show();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done, DevGramLocale.text("Данные очищены")).show();
+                }).setNegativeButton(DevGramLocale.text("Отмена"), null).show();
     }
 
     private void importSpyDatabase() {
@@ -383,9 +396,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             String data = clip == null || clip.getItemCount() == 0 ? null
                     : clip.getItemAt(0).coerceToText(getParentActivity()).toString();
             if (!org.telegram.messenger.DevGramMessagesController.getInstance().importData(data)) throw new IllegalArgumentException();
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Резервная копия импортирована").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.done, DevGramLocale.text("Резервная копия импортирована")).show();
         } catch (Throwable e) {
-            BulletinFactory.of(this).createErrorBulletin("В буфере нет резервной копии DevGram").show();
+            BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("В буфере нет резервной копии DevGram")).show();
         }
     }
 
@@ -413,7 +426,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_TRANSITION_ANIMATION = 58;
 
     private static final String[] MD3_KEYS = {"dg_md3_progress", "dg_md3_slider", "dg_md3_switch", "dg_md3_title", "dg_md3_bottomnav", "dg_md3_fab", "dg_md3_profile"};
-    private static final String[] TRANSITION_ANIMATIONS = {"По умолчанию", "AOSP", "Пружинная"};
+    private static String[] getTransitionAnimations() {
+        return new String[]{DevGramLocale.text("По умолчанию"), "AOSP", DevGramLocale.text("Пружинная")};
+    }
 
     private static int md3Count() {
         int c = 0;
@@ -580,7 +595,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static final int ID_HIDE_CAMERA_TILE = 117;
     private static final int ID_PAUSE_VOICE_MINIMIZE = 118;
     private static final int ID_PAUSE_ROUND_MINIMIZE = 119;
-    private static final String[] DOUBLE_TAP_SEEK_OPTIONS = {"5 секунд", "10 секунд", "15 секунд", "30 секунд"};
+    private static String[] getDoubleTapSeekOptions() {
+        return new String[]{DevGramLocale.text("5 секунд"), DevGramLocale.text("10 секунд"), DevGramLocale.text("15 секунд"), DevGramLocale.text("30 секунд")};
+    }
 
     private final int category;
     private UniversalRecyclerView listView;
@@ -593,19 +610,19 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     public static String titleFor(int category) {
         switch (category) {
             case CATEGORY_GHOST:
-                return "Режим призрака";
+                return DevGramLocale.text("Режим призрака");
             case CATEGORY_SPY:
-                return "Слежка";
+                return DevGramLocale.text("Слежка");
             case CATEGORY_APPEARANCE:
-                return "Внешний вид";
+                return DevGramLocale.text("Внешний вид");
             case CATEGORY_CHATS:
-                return "Чаты";
+                return DevGramLocale.text("Чаты");
             case CATEGORY_AI:
-                return "ИИ-чат";
+                return DevGramLocale.text("ИИ-чат");
             case CATEGORY_NAVIGATION:
-                return "Навигация приложения";
+                return DevGramLocale.text("Навигация приложения");
             default:
-                return "Основные";
+                return DevGramLocale.text("Основные");
         }
     }
 
@@ -650,8 +667,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         if (category == CATEGORY_GHOST) {
             org.telegram.messenger.DevGramGhostSettings.Settings ghost =
                     org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
-            items.add(UItem.asHeader("Режим призрака"));
-            items.add(UItem.asExpandableSwitch(ID_GHOST_MASTER, "Режим призрака", ghostCount() + "/5")
+            items.add(UItem.asHeader(DevGramLocale.text("Режим призрака")));
+            items.add(UItem.asExpandableSwitch(ID_GHOST_MASTER, DevGramLocale.text("Режим призрака"), ghostCount() + "/5")
                     .setChecked(DevGramConfig.isGhostModeActive())
                     .setCollapsed(!ghostModeExpanded)
                     .setClickCallback(v -> {
@@ -659,40 +676,40 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                         refreshListImmediately();
                     }));
             if (ghostModeExpanded) {
-                items.add(UItem.asRoundCheckbox(ID_GHOST_READ, "Не читать сообщения" + ghostLock(ghost.readLocked))
+                items.add(UItem.asRoundCheckbox(ID_GHOST_READ, DevGramLocale.text("Не читать сообщения") + ghostLock(ghost.readLocked))
                         .setChecked(!ghost.sendReadMessages).pad());
-                items.add(UItem.asRoundCheckbox(ID_GHOST_STORIES, "Не читать истории" + ghostLock(ghost.storiesLocked))
+                items.add(UItem.asRoundCheckbox(ID_GHOST_STORIES, DevGramLocale.text("Не читать истории") + ghostLock(ghost.storiesLocked))
                         .setChecked(!ghost.sendReadStories).pad());
-                items.add(UItem.asRoundCheckbox(ID_GHOST_ONLINE, "Не отправлять онлайн" + ghostLock(ghost.onlineLocked))
+                items.add(UItem.asRoundCheckbox(ID_GHOST_ONLINE, DevGramLocale.text("Не отправлять онлайн") + ghostLock(ghost.onlineLocked))
                         .setChecked(!ghost.sendOnline).pad());
-                items.add(UItem.asRoundCheckbox(ID_GHOST_TYPING, "Не отправлять набор текста" + ghostLock(ghost.typingLocked))
+                items.add(UItem.asRoundCheckbox(ID_GHOST_TYPING, DevGramLocale.text("Не отправлять набор текста") + ghostLock(ghost.typingLocked))
                         .setChecked(!ghost.sendTyping).pad());
-                items.add(UItem.asRoundCheckbox(ID_GHOST_OFFLINE, "Отправлять офлайн после онлайна" + ghostLock(ghost.offlineLocked))
+                items.add(UItem.asRoundCheckbox(ID_GHOST_OFFLINE, DevGramLocale.text("Отправлять офлайн после онлайна") + ghostLock(ghost.offlineLocked))
                         .setChecked(ghost.sendOfflineAfterOnline).pad());
-                items.add(UItem.asShadow("Зажмите параметр, чтобы заблокировать его от главного переключателя."));
+                items.add(UItem.asShadow(DevGramLocale.text("Зажмите параметр, чтобы заблокировать его от главного переключателя.")));
             }
-            items.add(UItem.asCheck(ID_GHOST_MARK_READ, "Читать при действиях")
+            items.add(UItem.asCheck(ID_GHOST_MARK_READ, DevGramLocale.text("Читать при действиях"))
                     .setChecked(ghost.markReadAfterAction));
-            items.add(UItem.asShadow("Автоматически читает сообщение при отправке нового или при реакции на сообщение."));
-            items.add(UItem.asCheck(ID_GHOST_SCHEDULED, "Использовать отложку")
+            items.add(UItem.asShadow(DevGramLocale.text("Автоматически читает сообщение при отправке нового или при реакции на сообщение.")));
+            items.add(UItem.asCheck(ID_GHOST_SCHEDULED, DevGramLocale.text("Использовать отложку"))
                     .setChecked(ghost.useScheduledMessages));
-            items.add(UItem.asShadow("Автоматически ставит задержку примерно 12 секунд при отправке сообщений. При использовании этой функции вы не будете появляться в сети."));
-            String sound = ghost.sendWithoutSound == 2 ? "Всегда" : ghost.sendWithoutSound == 1 ? "Только в режиме призрака" : "Никогда";
-            items.add(UItem.asButton(ID_GHOST_SOUND, "Отправлять без звука", sound));
-            items.add(UItem.asShadow("Отправляет сообщения по умолчанию без звука."));
-            items.add(UItem.asCheck(ID_GHOST_SUGGEST_STORY, "Предлагать призрака для сторис")
+            items.add(UItem.asShadow(DevGramLocale.text("Автоматически ставит задержку примерно 12 секунд при отправке сообщений. При использовании этой функции вы не будете появляться в сети.")));
+            String sound = ghost.sendWithoutSound == 2 ? DevGramLocale.text("Всегда") : ghost.sendWithoutSound == 1 ? DevGramLocale.text("Только в режиме призрака") : DevGramLocale.text("Никогда");
+            items.add(UItem.asButton(ID_GHOST_SOUND, DevGramLocale.text("Отправлять без звука"), sound));
+            items.add(UItem.asShadow(DevGramLocale.text("Отправляет сообщения по умолчанию без звука.")));
+            items.add(UItem.asCheck(ID_GHOST_SUGGEST_STORY, DevGramLocale.text("Предлагать призрака для сторис"))
                     .setChecked(ghost.suggestBeforeStory));
-            items.add(UItem.asShadow("Показывает предупреждение перед открытием сторис, предлагая включить режим призрака."));
+            items.add(UItem.asShadow(DevGramLocale.text("Показывает предупреждение перед открытием сторис, предлагая включить режим призрака.")));
         } else if (category == CATEGORY_SPY) {
             // Пометка удалённых: живое превью сверху + 3 функции (как у AyuGram), остальное ниже
-            items.add(UItem.asHeader("Пометка удалённых"));
+            items.add(UItem.asHeader(DevGramLocale.text("Пометка удалённых")));
             if (deletedPreviewCell == null) {
                 deletedPreviewCell = new org.telegram.ui.Components.DevGramDeletedPreviewCell(getContext());
             }
             items.add(UItem.asCustom(ID_DELETED_PREVIEW, deletedPreviewCell));
-            items.add(UItem.asCheck(ID_DELETED_TRANSPARENT, "Полупрозрачные удалёнки")
+            items.add(UItem.asCheck(ID_DELETED_TRANSPARENT, DevGramLocale.text("Полупрозрачные удалёнки"))
                     .setChecked(DevGramConfig.getSemiTransparentDeleted()));
-            items.add(UItem.asButton(ID_DELETED_ICON, "Метка удалёнок",
+            items.add(UItem.asButton(ID_DELETED_ICON, DevGramLocale.text("Метка удалёнок"),
                     org.telegram.messenger.DevGramDeletedMark.getMark(resourceProvider)));
             if (org.telegram.messenger.DevGramDeletedMark.getIcon() != 0) {
                 if (deletedColorRow == null) {
@@ -708,61 +725,63 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 deletedColorRow.setSelected(org.telegram.messenger.DevGramDeletedMark.getColorIndex());
                 items.add(UItem.asCustom(ID_DELETED_ICON_COLOR, deletedColorRow));
             }
-            items.add(UItem.asShadow("Значок появляется у удалённых сообщений в строке времени."));
+            items.add(UItem.asShadow(DevGramLocale.text("Значок появляется у удалённых сообщений в строке времени.")));
             // Сохранение — ниже
-            items.add(UItem.asHeader("Режим шпиона"));
-            items.add(UItem.asCheck(ID_SAVE_DELETED, "Сохранять удалённые")
+            items.add(UItem.asHeader(DevGramLocale.text("Режим шпиона")));
+            items.add(UItem.asCheck(ID_SAVE_DELETED, DevGramLocale.text("Сохранять удалённые"))
                     .setChecked(DevGramConfig.saveDeletedMessages));
-            items.add(UItem.asCheck(ID_SAVE_HISTORY, "Сохранять историю изменений")
+            items.add(UItem.asCheck(ID_SAVE_HISTORY, DevGramLocale.text("Сохранять историю изменений"))
                     .setChecked(DevGramConfig.saveMessagesHistory));
             items.add(UItem.asShadow(null));
-            items.add(UItem.asCheck(ID_SAVE_BOTS, "Сохранять в чатах с ботами")
+            items.add(UItem.asCheck(ID_SAVE_BOTS, DevGramLocale.text("Сохранять в чатах с ботами"))
                     .setChecked(DevGramConfig.saveInBotChats));
             items.add(UItem.asShadow(null));
-            items.add(UItem.asCheck(ID_SAVE_READ_DATE, "Сохранять точное время прочтения")
+            items.add(UItem.asCheck(ID_SAVE_READ_DATE, DevGramLocale.text("Сохранять точное время прочтения"))
                     .setChecked(DevGramConfig.saveReadDate));
-            items.add(UItem.asShadow("Локально сохраняет данные о прочтении сообщений. Используется, если Telegram не предоставит дату прочтения."));
-            items.add(UItem.asCheck(ID_SAVE_LOCAL_ONLINE, "Запоминать замеченный онлайн")
+            items.add(UItem.asShadow(DevGramLocale.text("Локально сохраняет данные о прочтении сообщений. Используется, если Telegram не предоставит дату прочтения.")));
+            items.add(UItem.asCheck(ID_SAVE_LOCAL_ONLINE, DevGramLocale.text("Запоминать замеченный онлайн"))
                     .setChecked(DevGramConfig.saveLocalOnline));
-            items.add(UItem.asShadow("Сохраняет последний известный онлайн для людей со скрытым последним посещением."));
-            items.add(UItem.asButtonCheck(ID_SAVE_MEDIA, "Сохранять вложения", "Настроить чаты и лимиты")
+            items.add(UItem.asShadow(DevGramLocale.text("Сохраняет последний известный онлайн для людей со скрытым последним посещением.")));
+            items.add(UItem.asButtonCheck(ID_SAVE_MEDIA, DevGramLocale.text("Сохранять вложения"), DevGramLocale.text("Настроить чаты и лимиты"))
                     .setChecked(DevGramConfig.saveMedia));
-            items.add(UItem.asButton(ID_MEDIA_SAVE_PATH, "Папка вложений", DevGramConfig.savedMediaFolder()));
+            items.add(UItem.asButton(ID_MEDIA_SAVE_PATH, DevGramLocale.text("Папка вложений"), DevGramConfig.savedMediaFolder()));
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader("Максимальный размер папки"));
+            items.add(UItem.asHeader(DevGramLocale.text("Максимальный размер папки")));
             items.add(UItem.asSlideView(
-                    new String[]{"300 МБ", "1 ГБ", "2 ГБ", "5 ГБ", "16 ГБ", "∞"},
+                    new String[]{DevGramLocale.text("300 МБ"), DevGramLocale.text("1 ГБ"), DevGramLocale.text("2 ГБ"), DevGramLocale.text("5 ГБ"), DevGramLocale.text("16 ГБ"), "∞"},
                     mediaCacheLimitIndex(),
                     index -> DevGramConfig.setMediaCacheLimit(MEDIA_CACHE_LIMITS[index])
             ).setId(ID_MEDIA_CACHE_LIMIT));
-            items.add(UItem.asShadow("Если папка превысит лимит, самые старые вложения будут удалены с устройства."));
-            items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, "Экспорт базы данных"));
-            items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, R.drawable.msg_archive, "Импорт базы данных"));
-            items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, R.drawable.msg_clear, "Очистить"));
+            items.add(UItem.asShadow(DevGramLocale.text("Если папка превысит лимит, самые старые вложения будут удалены с устройства.")));
+            items.add(UItem.asButton(ID_EXPORT_SPY_DATABASE, R.drawable.msg_unarchive, DevGramLocale.text("Экспорт базы данных")));
+            items.add(UItem.asButton(ID_IMPORT_SPY_DATABASE, R.drawable.msg_archive, DevGramLocale.text("Импорт базы данных")));
+            items.add(UItem.asButton(ID_CLEAR_SPY_DATABASE, R.drawable.msg_clear, DevGramLocale.text("Очистить")));
             items.add(UItem.asShadow(null));
         } else if (category == CATEGORY_APPEARANCE) {
+            items.add(UItem.asHeader(DevGramLocale.text("Профили")));
+            items.add(UItem.asCheck(ID_PROFILE_CUSTOMIZATION, DevGramLocale.text("Кастомизация профилей"))
+                    .setChecked(org.telegram.messenger.DevGramProfileCustomization.enabled()));
+            items.add(UItem.asShadow(DevGramLocale.text("Оформление своего и чужих профилей, редактор и мастерская. Выключение скрывает связанные меню и сохраняет ваши оформления.")));
+
             // Секции и порядок — как в exteraGram 12.9.0:
             // Закругление аватарок → Список чатов → Папки с чатами → Внешний вид → Настройки размытия
 
-            // — Дизайн — общий пресет внешнего вида приложения. Применяет комбинацию уже
-            // существующих настроек этого экрана (радиус аватарок, MD3-эффекты, «липкая»
-            // анимация, заголовок по центру, профиль в стиле iOS) — не отдельный рендер-код.
-            // Отправная точка, а не жёсткая блокировка: любой пункт можно донастроить вручную
-            // ниже после выбора пресета.
-            items.add(UItem.asHeader("Дизайн"));
+            // App-wide layout switch; classic chrome follows AyuGram 12.2.10.
+            items.add(UItem.asHeader(DevGramLocale.text("Дизайн")));
             items.add(UItem.asSlideView(
-                    new String[]{"DevGram", "iOS", "Старый"},
-                    org.telegram.messenger.DevGramConfig.getDesignMode(),
+                    new String[]{"DevGram", DevGramLocale.text("Старый")},
+                    org.telegram.messenger.DevGramConfig.getDesignMode() == org.telegram.messenger.DevGramConfig.DESIGN_MODE_OLD ? 1 : 0,
                     index -> {
-                        org.telegram.messenger.DevGramConfig.applyDesignPreset(index);
+                        org.telegram.messenger.DevGramConfig.applyDesignPreset(index == 1
+                                ? org.telegram.messenger.DevGramConfig.DESIGN_MODE_OLD
+                                : org.telegram.messenger.DevGramConfig.DESIGN_MODE_DEVGRAM);
                         refreshThenRebuildAppearanceScreens();
                     }).setId(ID_DESIGN_MODE));
-            items.add(UItem.asShadow("Пресет внешнего вида. Ниже можно донастроить каждый пункт отдельно."));
 
             // — Закругление аватарок — непрерывный слайдер Квадрат..Круг + живое превью
-            items.add(UItem.asHeader("Закругление аватарок"));
+            items.add(UItem.asHeader(DevGramLocale.text("Закругление аватарок")));
             items.add(UItem.asIntSlideView(1, 0, avatarCornersInit(), 30,
-                    val -> val <= 0 ? "Квадрат" : (val >= 30 ? "Круг" : String.valueOf(val)),
+                    val -> val <= 0 ? DevGramLocale.text("Квадрат") : (val >= 30 ? DevGramLocale.text("Круг") : String.valueOf(val)),
                     val -> {
                         org.telegram.messenger.MessagesController.getGlobalMainSettings()
                                 .edit().putFloat("avatarCornersF", val).apply();
@@ -770,154 +789,156 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                         if (chatListPreview != null) chatListPreview.invalidate();
                     }).setId(ID_AVATAR_SHAPE));
             items.add(UItem.asCustom(getAvatarPreview()));
-            items.add(UItem.asCheck(ID_SINGLE_CORNER, "Единое закругление")
+            items.add(UItem.asCheck(ID_SINGLE_CORNER, DevGramLocale.text("Единое закругление"))
                     .setChecked(gPref("dg_singleCorner", false)));
-            items.add(UItem.asShadow("Форумы будут иметь ту же форму, что и чаты."));
+            items.add(UItem.asShadow(DevGramLocale.text("Форумы будут иметь ту же форму, что и чаты.")));
 
             // — Список чатов —
-            items.add(UItem.asHeader("Список чатов"));
+            items.add(UItem.asHeader(DevGramLocale.text("Список чатов")));
             items.add(UItem.asCustom(getChatListPreview()));
-            items.add(UItem.asCheck(ID_FORCE_SNOW, "Принудительный снег")
+            items.add(UItem.asCheck(ID_FORCE_SNOW, DevGramLocale.text("Принудительный снег"))
                     .setChecked(DevGramConfig.forceSnow));
             // «Скрыть статус» — только если у пользователя есть эмодзи-статус/премиум
             if (chatListPreview != null && chatListPreview.userHasStatus()) {
-                items.add(UItem.asCheck(ID_HIDE_STATUS, "Скрыть статус")
+                items.add(UItem.asCheck(ID_HIDE_STATUS, DevGramLocale.text("Скрыть статус"))
                         .setChecked(gPref("dg_hideStatus", false)));
             }
-            items.add(UItem.asCheck(ID_CENTER_TITLE, "Заголовок по центру")
+            items.add(UItem.asCheck(ID_CENTER_TITLE, DevGramLocale.text("Заголовок по центру"))
                     .setChecked(org.telegram.messenger.DevGramIOSConfig.centerChatTitle()));
-            items.add(UItem.asCheck(ID_HIDE_STORIES, "Скрыть истории")
+            items.add(UItem.asCheck(ID_HIDE_STORIES, DevGramLocale.text("Скрыть истории"))
                     .setChecked(gPref("dg_hideStories", false)));
-            items.add(UItem.asCheck(ID_HIDE_FAB, "Скрыть плавающую кнопку")
+            items.add(UItem.asCheck(ID_HIDE_FAB, DevGramLocale.text("Скрыть плавающую кнопку"))
                     .setChecked(gPref("dg_hideFab", false)));
-            items.add(UItem.asCheck(ID_HIDE_SEARCHBAR, "Скрыть строку поиска")
+            items.add(UItem.asCheck(ID_HIDE_SEARCHBAR, DevGramLocale.text("Скрыть строку поиска"))
                     .setChecked(gPref("dg_hideSearchBar", false)));
-            items.add(UItem.asCheck(ID_MINI_AVATARS, org.telegram.messenger.DevGramNewBadge.mark("Мини-аватарки отправителей", org.telegram.messenger.DevGramNewBadge.MINI_AVATARS))
+            items.add(UItem.asCheck(ID_MINI_AVATARS, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("Мини-аватарки отправителей"), org.telegram.messenger.DevGramNewBadge.MINI_AVATARS))
                     .setChecked(gPref("senderMiniAvatars", true)));
-            items.add(UItem.asButton(ID_ACTIONBAR_TITLE, "Текст в заголовке",
-                    ACTIONBAR_TITLE_OPTIONS[gInt("dg_actionBarTitle", 0)]));
-            items.add(UItem.asShadow("Падающий снег появится в верхней панели."));
+            items.add(UItem.asButton(ID_ACTIONBAR_TITLE, DevGramLocale.text("Текст в заголовке"),
+                    getActionbarTitleOptions()[gInt("dg_actionBarTitle", 0)]));
+            items.add(UItem.asShadow(DevGramLocale.text("Падающий снег появится в верхней панели.")));
 
             // — Папки с чатами —
-            items.add(UItem.asHeader("Папки с чатами"));
+            items.add(UItem.asHeader(DevGramLocale.text("Папки с чатами")));
             items.add(UItem.asCustom(getFoldersPreview()));
             items.add(UItem.asSlideView(
-                    new String[]{"Текст", "Значок + текст", "Значок"},
+                    new String[]{DevGramLocale.text("Текст"), DevGramLocale.text("Значок + текст"), DevGramLocale.text("Значок")},
                     DevGramConfig.getFolderTabsStyle(),
                     index -> {
                         DevGramConfig.setFolderTabsStyle(index);
                         if (foldersPreview != null) foldersPreview.invalidate();
                     }).setId(ID_FOLDER_TABS_STYLE));
-            items.add(UItem.asCheck(ID_TAB_COUNTER, "Счётчик уведомлений")
+            items.add(UItem.asCheck(ID_TAB_COUNTER, DevGramLocale.text("Счётчик уведомлений"))
                     .setChecked(gPref("dg_tabCounter", true)));
-            items.add(UItem.asCheck(ID_HIDE_ALL_CHATS, "Скрыть вкладку «Все чаты»")
+            items.add(UItem.asCheck(ID_HIDE_ALL_CHATS, DevGramLocale.text("Скрыть вкладку «Все чаты»"))
                     .setChecked(gPref("hideAllChatsTab", false)));
-            items.add(UItem.asButton(ID_DEF_FOLDER, "Папка по умолчанию", defaultFolderLabel()));
-            items.add(UItem.asShadow("Иконки папок синхронизируются с вашим аккаунтом."));
+            items.add(UItem.asButton(ID_DEF_FOLDER, DevGramLocale.text("Папка по умолчанию"), defaultFolderLabel()));
+            items.add(UItem.asShadow(DevGramLocale.text("Иконки папок синхронизируются с вашим аккаунтом.")));
 
             // Переходы с иконками — как у exteraGram после папок.
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_NAVIGATION, R.drawable.msg_newphone, "Навигация приложения",
-                    "Нижняя панель, переходы и жест «назад»"));
-            items.add(UItem.asButton(ID_OPEN_APP_ICON, R.drawable.menu_edit_appearance, "Иконка приложения"));
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_NAVIGATION, R.drawable.msg_newphone, DevGramLocale.text("Навигация приложения"),
+                    DevGramLocale.text("Нижняя панель, переходы и жест «назад»")));
+            items.add(UItem.asButton(ID_OPEN_APP_ICON, R.drawable.menu_edit_appearance, DevGramLocale.text("Иконка приложения")));
+            items.add(UItem.asButtonWithSubtext(ID_ICON_PACKS, R.drawable.menu_edit_appearance, DevGramLocale.text("Наборы иконок"), DevGramLocale.text("Solar, Remix, свои наборы и редактор значков")));
             items.add(UItem.asButtonWithSubtext(ID_PILL_STACK, R.drawable.outline_header_search, "Pill Stack",
-                    "Интерактивные виджеты в поле поиска"));
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_IOS_CHAT_STYLE, R.drawable.msg_theme,
-                    "Стиль iOS", "Шапка, счётчик, нижняя панель, звук и меню сообщения"));
+                    DevGramLocale.text("Интерактивные виджеты в поле поиска")));
             items.add(UItem.asShadow(null));
 
             // — Внешний вид —
-            items.add(UItem.asHeader("Внешний вид"));
+            items.add(UItem.asHeader(DevGramLocale.text("Внешний вид")));
             items.add(UItem.asCustom(getFabPreview()));
-            items.add(UItem.asCheck(ID_SYSTEM_FONTS, "Системные шрифты")
+            items.add(UItem.asCheck(ID_SYSTEM_FONTS, DevGramLocale.text("Системные шрифты"))
                     .setChecked(gPref("dg_systemFonts", true)));
-            items.add(UItem.asCheck(ID_SYSTEM_EMOJI, "Системные эмодзи")
+            items.add(UItem.asCheck(ID_SYSTEM_EMOJI, DevGramLocale.text("Системные эмодзи"))
                     .setChecked(DevGramConfig.isUseSystemEmoji()));
+            items.add(UItem.asCheck(ID_CHAT_HEADER_SHADING, DevGramLocale.text("Затемнение шапки чата"),
+                    DevGramLocale.text("Показывать плавное затемнение позади верхней панели чата."), true)
+                    .setChecked(gPref("dg_chatHeaderShading", false)));
             items.add(UItem.asCheck(ID_MD3, org.telegram.messenger.DevGramNewBadge.mark("Material Design 3  " + md3Count() + "/" + (MD3_KEYS.length + 1), org.telegram.messenger.DevGramNewBadge.MATERIAL3))
                     .setChecked(gPref("dg_md3", true)));
             if (gPref("dg_md3", true)) {
-                items.add(UItem.asRoundCheckbox(ID_MD3_PROGRESS, "Индикаторы загрузки")
+                items.add(UItem.asRoundCheckbox(ID_MD3_PROGRESS, DevGramLocale.text("Индикаторы загрузки"))
                         .setChecked(gPref("dg_md3_progress", true)));
-                items.add(UItem.asRoundCheckbox(ID_MD3_SLIDER, "Стиль слайдера")
+                items.add(UItem.asRoundCheckbox(ID_MD3_SLIDER, DevGramLocale.text("Стиль слайдера"))
                         .setChecked(gPref("dg_md3_slider", true)));
-                items.add(UItem.asRoundCheckbox(ID_MD3_SWITCH, "Стиль переключателей")
+                items.add(UItem.asRoundCheckbox(ID_MD3_SWITCH, DevGramLocale.text("Стиль переключателей"))
                         .setChecked(gPref("dg_md3_switch", true)));
-                items.add(UItem.asRoundCheckbox(ID_MD3_TITLE, "Заголовок чата")
+                items.add(UItem.asRoundCheckbox(ID_MD3_TITLE, DevGramLocale.text("Заголовок чата"))
                         .setChecked(gPref("dg_md3_title", false)));
-                items.add(UItem.asRoundCheckbox(ID_MD3_BOTTOMNAV, "Нижняя панель навигации")
+                items.add(UItem.asRoundCheckbox(ID_MD3_BOTTOMNAV, DevGramLocale.text("Нижняя панель навигации"))
                         .setChecked(gPref("dg_md3_bottomnav", false)));
-                items.add(UItem.asRoundCheckbox(ID_MD3_FAB, "Плавающие кнопки")
+                items.add(UItem.asRoundCheckbox(ID_MD3_FAB, DevGramLocale.text("Плавающие кнопки"))
                         .setChecked(gPref("dg_md3_fab", false)));
-                items.add(UItem.asRoundCheckbox(ID_MD3_PROFILE, "Кнопки профиля")
+                items.add(UItem.asRoundCheckbox(ID_MD3_PROFILE, DevGramLocale.text("Кнопки профиля"))
                         .setChecked(gPref("dg_md3_profile", false)));
-                items.add(UItem.asRoundCheckbox(ID_NEW_PLAYER, "Плеер")
+                items.add(UItem.asRoundCheckbox(ID_NEW_PLAYER, DevGramLocale.text("Плеер"))
                         .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()));
             }
-            items.add(UItem.asCheck(ID_GOOEY, "«Липкая» анимация аватарок")
-                    .setChecked(gPref("dg_gooey", true)));
+            items.add(UItem.asCheck(ID_GOOEY, DevGramLocale.text("«Липкая» анимация аватарок"))
+                    .setChecked(gPref("dg_gooey", org.telegram.messenger.DevGramGooeyConfig.DEFAULT_ENABLED)));
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader("Интерфейс DevGram"));
-            items.add(UItem.asCheck(ID_GHOST_STATUS, "Показывать значок режима призрака")
+            items.add(UItem.asHeader(DevGramLocale.text("Интерфейс DevGram")));
+            items.add(UItem.asCheck(ID_GHOST_STATUS, DevGramLocale.text("Показывать значок режима призрака"))
                     .setChecked(DevGramConfig.displayGhostStatus));
             // DevGram: в режиме дизайна iOS «Контакты» всегда показаны в нижнем меню
             // (как в Settings.app/Telegram-iOS) — тумблер скрытия не показываем.
             if (!org.telegram.ui.Components.DevGramMaterial3.iosNavigation()) {
-                items.add(UItem.asCheck(ID_SHOW_CONTACTS, "Показывать «Контакты» в нижнем меню")
+                items.add(UItem.asCheck(ID_SHOW_CONTACTS, DevGramLocale.text("Показывать «Контакты» в нижнем меню"))
                         .setChecked(getUserConfig().showContactsTab));
             }
-            items.add(UItem.asCheck(ID_HIDE_EMOJI_CATEGORIES, "Скрыть категории в поиске эмодзи")
+            items.add(UItem.asCheck(ID_HIDE_EMOJI_CATEGORIES, DevGramLocale.text("Скрыть категории в поиске эмодзи"))
                     .setChecked(DevGramConfig.hideEmojiCategories));
-            items.add(UItem.asShadow("Настройки навигации, профилей и панели выбора эмодзи."));
+            items.add(UItem.asShadow(DevGramLocale.text("Настройки навигации, профилей и панели выбора эмодзи.")));
 
             // — Секции —
-            items.add(UItem.asHeader("Секции"));
+            items.add(UItem.asHeader(DevGramLocale.text("Секции")));
             items.add(UItem.asIntSlideView(1, 0, gInt("dg_sectionRadius", 20), 28,
-                    val -> val <= 0 ? "Откл." : (val >= 28 ? "Макс" : val + " dp"),
+                    val -> val <= 0 ? DevGramLocale.text("Откл.") : (val >= 28 ? DevGramLocale.text("Макс") : val + " dp"),
                     val -> org.telegram.messenger.MessagesController.getGlobalMainSettings()
                             .edit().putInt("dg_sectionRadius", val).apply()).setId(ID_STICKER_SIZE + 100));
-            items.add(UItem.asCheck(ID_SEPARATE_HEADERS, "Отделить заголовки")
+            items.add(UItem.asCheck(ID_SEPARATE_HEADERS, DevGramLocale.text("Отделить заголовки"))
                     .setChecked(gPref("dg_separateHeaders", true))
                     .setEnabled(gInt("dg_dividerStyle", 1) != 2));
-            items.add(UItem.asButton(ID_DIVIDER_STYLE, "Тип разделителей",
-                    DIVIDER_STYLE_OPTIONS[gInt("dg_dividerStyle", 1)]));
+            items.add(UItem.asButton(ID_DIVIDER_STYLE, DevGramLocale.text("Тип разделителей"),
+                    getDividerStyleOptions()[gInt("dg_dividerStyle", 1)]));
             items.add(UItem.asShadow(null));
 
             // — Настройки размытия — (порядок как у exteraGram: обводка → меню → размытие)
-            items.add(UItem.asHeader("Настройки размытия"));
-            items.add(UItem.asButton(ID_GLASS_OUTLINE, "Обводка стекла",
-                    GLASS_OUTLINE_OPTIONS[gInt("dg_glassOutline", 0)]));
-            items.add(UItem.asCheck(ID_GLASS_MENU, "Стеклянное меню сообщения")
+            items.add(UItem.asHeader(DevGramLocale.text("Настройки размытия")));
+            items.add(UItem.asButton(ID_GLASS_OUTLINE, DevGramLocale.text("Обводка стекла"),
+                    getGlassOutlineOptions()[gInt("dg_glassOutline", 0)]));
+            items.add(UItem.asCheck(ID_GLASS_MENU, DevGramLocale.text("Стеклянное меню сообщения"))
                     .setChecked(DevGramConfig.glassMenu));
-            items.add(UItem.asCheck(ID_CHAT_BLUR, "Принудительное размытие")
+            items.add(UItem.asCheck(ID_CHAT_BLUR, DevGramLocale.text("Принудительное размытие"))
                     .setChecked(org.telegram.messenger.LiteMode.isEnabled(org.telegram.messenger.LiteMode.FLAG_CHAT_BLUR)));
-            items.add(UItem.asShadow("Меню сообщения и панель реакций становятся матовым стеклом. "
-                    + "Стеклу нужно размытие — включите «Принудительное размытие»."));
+            items.add(UItem.asShadow(DevGramLocale.text("Меню сообщения и панель реакций становятся матовым стеклом. ")
+                    + DevGramLocale.text("Стеклу нужно размытие — включите «Принудительное размытие».")));
 
             // — Маскировка — подмена иконки и названия приложения в списке приложений.
-            items.add(UItem.asHeader("Маскировка"));
-            items.add(UItem.asButton(ID_DISGUISE, "Иконка и название", disguiseCurrentTitle()));
-            items.add(UItem.asShadow("В списке приложений DevGram будет выглядеть как выбранное приложение "
-                    + "(например, «Калькулятор»). Само приложение не меняется."));
+            items.add(UItem.asHeader(DevGramLocale.text("Маскировка")));
+            items.add(UItem.asButton(ID_DISGUISE, DevGramLocale.text("Иконка и название"), disguiseCurrentTitle()));
+            items.add(UItem.asShadow(DevGramLocale.text("В списке приложений DevGram будет выглядеть как выбранное приложение ")
+                    + DevGramLocale.text("(например, «Калькулятор»). Само приложение не меняется.")));
 
             // — Скрытые чаты — прячем выбранные чаты за пасскодом/биометрией.
-            items.add(UItem.asHeader(org.telegram.messenger.LocaleController.getString(R.string.DevGramLockedChats)));
+            items.add(UItem.asHeader(DevGramLocale.getString(R.string.DevGramLockedChats)));
             items.add(UItem.asButton(ID_LOCKED_CHATS,
-                    org.telegram.messenger.LocaleController.getString(R.string.DevGramLockedChats),
+                    DevGramLocale.getString(R.string.DevGramLockedChats),
                     lockedChatsSubtitle()));
-            items.add(UItem.asShadow(org.telegram.messenger.LocaleController.getString(R.string.DevGramLockedChatsInfo)));
+            items.add(UItem.asShadow(DevGramLocale.getString(R.string.DevGramLockedChatsInfo)));
         } else if (category == CATEGORY_NAVIGATION) {
             // Экран «Навигация приложения» — как AppNavigationPreferencesActivity у exteraGram.
-            items.add(UItem.asHeader("Общие"));
-            items.add(UItem.asCheck(ID_TABLET_MODE, "Отключить планшетный режим")
+            items.add(UItem.asHeader(DevGramLocale.text("Общие")));
+            items.add(UItem.asCheck(ID_TABLET_MODE, DevGramLocale.text("Отключить планшетный режим"))
                     .setChecked(org.telegram.messenger.SharedConfig.forceDisableTabletMode));
-            items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, "Скрыть подписи в нижней панели")
+            items.add(UItem.asCheck(ID_HIDE_NAV_LABELS, DevGramLocale.text("Скрыть подписи в нижней панели"))
                     .setChecked(gPref("dg_hideNavLabels", false)));
-            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark("Анимация переходов", org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
-                    TRANSITION_ANIMATIONS[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
-            items.add(UItem.asShadow("Стиль переходов между экранами: системный, AOSP или expressive-пружина."));
+            items.add(UItem.asButton(ID_TRANSITION_ANIMATION, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("Анимация переходов"), org.telegram.messenger.DevGramNewBadge.TRANSITION_ANIMATION),
+                    getTransitionAnimations()[org.telegram.ui.Components.DevGramMaterial3.transitionAnimation()]));
+            items.add(UItem.asShadow(DevGramLocale.text("Стиль переходов между экранами: системный, AOSP или expressive-пружина.")));
             if (android.os.Build.VERSION.SDK_INT >= 34) {
-                items.add(UItem.asHeader("Сила жеста «назад»"));
+                items.add(UItem.asHeader(DevGramLocale.text("Сила жеста «назад»")));
                 items.add(UItem.asIntSlideView(1, 0, Math.round(org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.intensity() * 10), 20,
-                        val -> val <= 0 ? "Выкл." : val >= 20 ? "Макс." : val % 10 == 0 ? String.valueOf(val / 10) : String.format(java.util.Locale.US, "%.1f", val / 10f),
+                        val -> val <= 0 ? DevGramLocale.text("Выкл.") : val >= 20 ? DevGramLocale.text("Макс.") : val % 10 == 0 ? String.valueOf(val / 10) : String.format(java.util.Locale.US, "%.1f", val / 10f),
                         val -> {
                             org.telegram.messenger.MessagesController.getGlobalMainSettings().edit().putFloat("dg_predictiveBack", val / 10f).apply();
                             // включение/выключение анимации применяется только после перезапуска
@@ -927,11 +948,11 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                                 cancelRestart();
                             }
                         }).setId(ID_PREDICTIVE_BACK));
-                items.add(UItem.asShadow("Насколько сдвигается экран при жесте «назад»."));
+                items.add(UItem.asShadow(DevGramLocale.text("Насколько сдвигается экран при жесте «назад».")));
             }
         } else if (category == CATEGORY_CHATS) {
             // Порядок и состав повторяют ChatsPreferencesActivity ExteraGram.
-            items.add(UItem.asHeader("Стикеры"));
+            items.add(UItem.asHeader(DevGramLocale.text("Стикеры")));
             items.add(UItem.asCustom(getStickerSizePreview()));
             items.add(UItem.asIntSlideView(1, 2, (int) DevGramConfig.getStickerSize(), 14,
                     val -> String.valueOf(val),
@@ -939,360 +960,362 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                         DevGramConfig.setStickerSize(val);
                         if (stickerSizePreview != null) stickerSizePreview.reloadStickerSize();
                     }).setId(ID_STICKER_SIZE));
-            items.add(UItem.asCheck(ID_HIDE_STICKER_TIME, "Скрыть время на стикерах")
+            items.add(UItem.asCheck(ID_HIDE_STICKER_TIME, DevGramLocale.text("Скрыть время на стикерах"))
                     .setChecked(DevGramConfig.hideStickerTime));
-            items.add(UItem.asCheck(ID_REPLY_ELEMENTS, "Оформление ответов  "
+            items.add(UItem.asCheck(ID_REPLY_ELEMENTS, DevGramLocale.text("Оформление ответов  ")
                     + ((gPref("dg_replyColors", true) ? 1 : 0)
                     + (gPref("dg_replyEmoji", true) ? 1 : 0)
                     + (gPref("dg_replyBackground", true) ? 1 : 0)) + "/3")
                     .setChecked(gPref("dg_replyElements", true)));
             if (gPref("dg_replyElements", true)) {
-                items.add(UItem.asRoundCheckbox(ID_REPLY_COLORS, "Цвета отправителей")
+                items.add(UItem.asRoundCheckbox(ID_REPLY_COLORS, DevGramLocale.text("Цвета отправителей"))
                         .setChecked(gPref("dg_replyColors", true)));
-                items.add(UItem.asRoundCheckbox(ID_REPLY_EMOJI, "Фоновый эмодзи")
+                items.add(UItem.asRoundCheckbox(ID_REPLY_EMOJI, DevGramLocale.text("Фоновый эмодзи"))
                         .setChecked(gPref("dg_replyEmoji", true)));
-                items.add(UItem.asRoundCheckbox(ID_REPLY_BACKGROUND, "Цветной фон ответа")
+                items.add(UItem.asRoundCheckbox(ID_REPLY_BACKGROUND, DevGramLocale.text("Цветной фон ответа"))
                         .setChecked(gPref("dg_replyBackground", true)));
             }
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Форма стикеров"));
+            items.add(UItem.asHeader(DevGramLocale.text("Форма стикеров")));
             items.add(UItem.asCustom(getStickerShapePreview()));
             items.add(UItem.asShadow(null));
 
             // Переходы с иконками — та же тройка и порядок, что у exteraGram.
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_AI, R.drawable.ai_chat, "ИИ-чат",
-                    "Сервисы, роли и история"));
-            items.add(UItem.asButtonWithSubtext(ID_INLINE_CALC, R.drawable.msg_calculator, "Результаты в поле ввода",
-                    "Калькулятор, валюты, единицы и часовые пояса"));
-            items.add(UItem.asButtonWithSubtext(ID_OPEN_CHAT_SETTINGS, R.drawable.msg_discussion, "Настройки чатов",
-                    "Размер текста, обои и темы"));
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_AI, R.drawable.ai_chat, DevGramLocale.text("ИИ-чат"),
+                    DevGramLocale.text("Сервисы, роли и история")));
+            items.add(UItem.asButtonWithSubtext(ID_INLINE_CALC, R.drawable.msg_calculator, DevGramLocale.text("Результаты в поле ввода"),
+                    DevGramLocale.text("Калькулятор, валюты, единицы и часовые пояса")));
+            items.add(UItem.asButtonWithSubtext(ID_OPEN_CHAT_SETTINGS, R.drawable.msg_discussion, DevGramLocale.text("Настройки чатов"),
+                    DevGramLocale.text("Размер текста, обои и темы")));
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Стикеры"));
-            items.add(UItem.asCheck(ID_FULL_RECENT_STICKERS, "Не ограничивать недавние стикеры")
+            items.add(UItem.asHeader(DevGramLocale.text("Стикеры")));
+            items.add(UItem.asCheck(ID_FULL_RECENT_STICKERS, DevGramLocale.text("Не ограничивать недавние стикеры"))
                     .setChecked(gPref("fullRecentStickers", true)));
-            items.add(UItem.asCheck(ID_SHOW_ARCHIVED_STICKERS, "Показывать архивные стикеры")
+            items.add(UItem.asCheck(ID_SHOW_ARCHIVED_STICKERS, DevGramLocale.text("Показывать архивные стикеры"))
                     .setChecked(gPref("showArchivedStickers", false)));
-            items.add(UItem.asCheck(ID_DISABLE_QUICK_REACTION, "Отключить быструю реакцию")
+            items.add(UItem.asCheck(ID_DISABLE_QUICK_REACTION, DevGramLocale.text("Отключить быструю реакцию"))
                     .setChecked(gPref("disableQuickReaction", false)));
-            items.add(UItem.asCheck(ID_HIDE_SAVED_TAGS, "Скрыть теги в Избранном")
+            items.add(UItem.asCheck(ID_HIDE_SAVED_TAGS, DevGramLocale.text("Скрыть теги в Избранном"))
                     .setChecked(gPref("hideSavedMessagesTags", false)));
-            items.add(UItem.asCheck(ID_HIDE_REACTIONS, "Скрывать реакции  "
+            items.add(UItem.asCheck(ID_HIDE_REACTIONS, DevGramLocale.text("Скрывать реакции  ")
                     + ((gPref("dg_hideReactionsChannels", false) ? 1 : 0)
                     + (gPref("dg_hideReactionsGroups", false) ? 1 : 0)
                     + (gPref("dg_hideReactionsPrivate", false) ? 1 : 0)) + "/3")
                     .setChecked(gPref("dg_hideReactions", false)));
             if (gPref("dg_hideReactions", false)) {
-                items.add(UItem.asRoundCheckbox(ID_HIDE_REACTIONS_CHANNELS, "В каналах")
+                items.add(UItem.asRoundCheckbox(ID_HIDE_REACTIONS_CHANNELS, DevGramLocale.text("В каналах"))
                         .setChecked(gPref("dg_hideReactionsChannels", false)));
-                items.add(UItem.asRoundCheckbox(ID_HIDE_REACTIONS_GROUPS, "В группах")
+                items.add(UItem.asRoundCheckbox(ID_HIDE_REACTIONS_GROUPS, DevGramLocale.text("В группах"))
                         .setChecked(gPref("dg_hideReactionsGroups", false)));
-                items.add(UItem.asRoundCheckbox(ID_HIDE_REACTIONS_PRIVATE, "В личных чатах")
+                items.add(UItem.asRoundCheckbox(ID_HIDE_REACTIONS_PRIVATE, DevGramLocale.text("В личных чатах"))
                         .setChecked(gPref("dg_hideReactionsPrivate", false)));
             }
-            items.add(UItem.asShadow("Настройка скрывает реакции только в выбранных типах чатов."));
+            items.add(UItem.asShadow(DevGramLocale.text("Настройка скрывает реакции только в выбранных типах чатов.")));
 
-            items.add(UItem.asHeader("Жесты"));
+            items.add(UItem.asHeader(DevGramLocale.text("Жесты")));
             items.add(UItem.asCustom(getDoubleTapPreview()));
-            items.add(UItem.asButton(ID_DOUBLE_TAP_IN, "Входящие сообщения",
+            items.add(UItem.asButton(ID_DOUBLE_TAP_IN, DevGramLocale.text("Входящие сообщения"),
                     org.telegram.messenger.DevGramDoubleTapUtils.currentLabel(false)));
-            items.add(UItem.asButton(ID_DOUBLE_TAP_OUT, "Исходящие сообщения",
+            items.add(UItem.asButton(ID_DOUBLE_TAP_OUT, DevGramLocale.text("Исходящие сообщения"),
                     org.telegram.messenger.DevGramDoubleTapUtils.currentLabel(true)));
-            items.add(UItem.asButton(ID_DOUBLE_TAP_REACTION, "Реакция по двойному нажатию",
+            items.add(UItem.asButton(ID_DOUBLE_TAP_REACTION, DevGramLocale.text("Реакция по двойному нажатию"),
                     doubleTapReactionLabel()));
-            items.add(UItem.asButton(ID_OPEN_SWIPE_ACTIONS, org.telegram.messenger.DevGramNewBadge.mark("Действия свайпом", org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS), swipeActionsValue()));
-            items.add(UItem.asShadow("Действие по двойному нажатию — отдельно для входящих и исходящих. Для действия «Реакции» выбери саму реакцию выше."));
+            items.add(UItem.asButton(ID_OPEN_SWIPE_ACTIONS, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("Действия свайпом"), org.telegram.messenger.DevGramNewBadge.SWIPE_ACTIONS), swipeActionsValue()));
+            items.add(UItem.asShadow(DevGramLocale.text("Действие по двойному нажатию — отдельно для входящих и исходящих. Для действия «Реакции» выбери саму реакцию выше.")));
 
-            items.add(UItem.asHeader("Чаты"));
-            items.add(UItem.asCheck(ID_AI_FEATURES, "ИИ-функции  "
+            items.add(UItem.asHeader(DevGramLocale.text("Чаты")));
+            items.add(UItem.asCheck(ID_AI_FEATURES, DevGramLocale.text("ИИ-функции  ")
                     + ((gPref("hideAiEditor", false) ? 0 : 1)
                     + (gPref("dg_hideAiSummaries", false) ? 0 : 1)) + "/2")
                     .setChecked(gPref("dg_aiFeatures", true)));
             if (gPref("dg_aiFeatures", true)) {
-                items.add(UItem.asRoundCheckbox(ID_AI_EDITOR, "Редактор")
+                items.add(UItem.asRoundCheckbox(ID_AI_EDITOR, DevGramLocale.text("Редактор"))
                         .setChecked(!gPref("hideAiEditor", false)));
-                items.add(UItem.asRoundCheckbox(ID_AI_SUMMARIES, "Краткие пересказы")
+                items.add(UItem.asRoundCheckbox(ID_AI_SUMMARIES, DevGramLocale.text("Краткие пересказы"))
                         .setChecked(!gPref("dg_hideAiSummaries", false)));
             }
-            items.add(UItem.asCheck(ID_QUICK_TRANSITIONS, "Быстрые переходы  "
+            items.add(UItem.asCheck(ID_QUICK_TRANSITIONS, DevGramLocale.text("Быстрые переходы  ")
                     + ((gPref("dg_quickTransitionsChannels", true) ? 1 : 0)
                     + (gPref("dg_quickTransitionsTopics", true) ? 1 : 0)) + "/2")
                     .setChecked(gPref("dg_quickTransitions", true)));
             if (gPref("dg_quickTransitions", true)) {
-                items.add(UItem.asRoundCheckbox(ID_QUICK_TRANSITIONS_CHANNELS, "Между каналами")
+                items.add(UItem.asRoundCheckbox(ID_QUICK_TRANSITIONS_CHANNELS, DevGramLocale.text("Между каналами"))
                         .setChecked(gPref("dg_quickTransitionsChannels", true)));
-                items.add(UItem.asRoundCheckbox(ID_QUICK_TRANSITIONS_TOPICS, "Между темами")
+                items.add(UItem.asRoundCheckbox(ID_QUICK_TRANSITIONS_TOPICS, DevGramLocale.text("Между темами"))
                         .setChecked(gPref("dg_quickTransitionsTopics", true)));
             }
-            items.add(UItem.asCheck(ID_DISABLE_GREETING, "Скрыть приветственный стикер")
+            items.add(UItem.asCheck(ID_DISABLE_GREETING, DevGramLocale.text("Скрыть приветственный стикер"))
                     .setChecked(DevGramConfig.disableGreetingSticker));
-            items.add(UItem.asCheck(ID_HIDE_KEYBOARD_ON_SCROLL, "Скрывать клавиатуру при прокрутке")
+            items.add(UItem.asCheck(ID_HIDE_KEYBOARD_ON_SCROLL, DevGramLocale.text("Скрывать клавиатуру при прокрутке"))
                     .setChecked(DevGramConfig.hideKeyboardOnScroll));
-            items.add(UItem.asCheck(ID_COMMA_AFTER_MENTION, "Запятая после упоминания")
+            items.add(UItem.asCheck(ID_COMMA_AFTER_MENTION, DevGramLocale.text("Запятая после упоминания"))
                     .setChecked(DevGramConfig.addCommaAfterMention));
-            items.add(UItem.asCheck(ID_HIDE_SEND_AS, "Скрыть кнопку «Отправить от имени»")
+            items.add(UItem.asCheck(ID_HIDE_SEND_AS, DevGramLocale.text("Скрыть кнопку «Отправить от имени»"))
                     .setChecked(gPref("hideSendAs", false)));
-            items.add(UItem.asCheck(ID_DISABLE_MARKDOWN, "Отключить Markdown")
+            items.add(UItem.asCheck(ID_DISABLE_MARKDOWN, DevGramLocale.text("Отключить Markdown"))
                     .setChecked(DevGramConfig.disableMarkdown));
-            items.add(UItem.asCheck(ID_WEATHER_STORIES, "Виджет погоды в историях")
+            items.add(UItem.asCheck(ID_WEATHER_STORIES, DevGramLocale.text("Виджет погоды в историях"))
                     .setChecked(DevGramConfig.weatherInStories));
-            items.add(UItem.asCheck(ID_REPLACE_FORWARD, "Заменять пересылку")
+            items.add(UItem.asCheck(ID_REPLACE_FORWARD, DevGramLocale.text("Заменять пересылку"))
                     .setChecked(gPref("replaceForward", true)));
-            items.add(UItem.asCheck(ID_MENTION_BY_NAME, "Упоминать по имени")
+            items.add(UItem.asCheck(ID_MENTION_BY_NAME, DevGramLocale.text("Упоминать по имени"))
                     .setChecked(gPref("mentionByName", false)));
-            items.add(UItem.asCheck(ID_DISABLE_LINK_PREVIEW, "Не создавать предпросмотр ссылок")
+            items.add(UItem.asCheck(ID_DISABLE_LINK_PREVIEW, DevGramLocale.text("Не создавать предпросмотр ссылок"))
                     .setChecked(gPref("disableLinkPreviewByDefault", false)));
-            items.add(UItem.asShadow("Кнопка «Отправить от имени» скрывается в чатах, где можно писать от лица канала."));
+            items.add(UItem.asShadow(DevGramLocale.text("Кнопка «Отправить от имени» скрывается в чатах, где можно писать от лица канала.")));
 
-            items.add(UItem.asHeader("Сообщения"));
+            items.add(UItem.asHeader(DevGramLocale.text("Сообщения")));
             items.add(UItem.asCustom(getMessagesPreview()));
-            items.add(UItem.asCheck(ID_REMOVE_MESSAGE_TAIL, "Убрать хвост сообщения")
+            items.add(UItem.asCheck(ID_REMOVE_MESSAGE_TAIL, DevGramLocale.text("Убрать хвост сообщения"))
                     .setChecked(DevGramConfig.removeMessageTail));
-            items.add(UItem.asCheck(ID_REPLACE_EDITED, "Заменить «изменено» значком")
+            items.add(UItem.asCheck(ID_REPLACE_EDITED, DevGramLocale.text("Заменить «изменено» значком"))
                     .setChecked(DevGramConfig.replaceEditedWithIcon));
-            items.add(UItem.asCheck(ID_SHOW_ONLINE_STATUS, "Показывать онлайн на аватарах")
+            items.add(UItem.asCheck(ID_SHOW_ONLINE_STATUS, DevGramLocale.text("Показывать онлайн на аватарах"))
                     .setChecked(gPref("dg_showOnlineStatus", false)));
-            items.add(UItem.asCheck(ID_SHOW_FORWARDS_COUNT, "Показывать число пересылок")
+            items.add(UItem.asCheck(ID_SHOW_FORWARDS_COUNT, DevGramLocale.text("Показывать число пересылок"))
                     .setChecked(gPref("dg_showForwardsCount", false)));
-            items.add(UItem.asCheck(ID_HIDE_SHARE_BUTTON, "Скрыть кнопку «Поделиться»")
+            items.add(UItem.asCheck(ID_HIDE_SHARE_BUTTON, DevGramLocale.text("Скрыть кнопку «Поделиться»"))
                     .setChecked(DevGramConfig.hideShareButton));
-            items.add(UItem.asCheck(ID_SHOW_POLL_RESULTS, "Показывать результаты опроса до голоса")
+            items.add(UItem.asCheck(ID_SHOW_POLL_RESULTS, DevGramLocale.text("Показывать результаты опроса до голоса"))
                     .setChecked(gPref("dg_showPollResults", false)));
             // Мастер-группа «Меню сообщения» (как у exteraGram): галочки прячут пункты контекстного меню
-            items.add(UItem.asCheck(ID_MSGMENU, "Меню сообщения  " + msgMenuCount() + "/8")
+            items.add(UItem.asCheck(ID_MSGMENU, DevGramLocale.text("Меню сообщения  ") + msgMenuCount() + "/8")
                     .setChecked(gPref("dg_msgmenu", true)));
             if (gPref("dg_msgmenu", true)) {
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_COPYPHOTO, "Копировать фото")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_COPYPHOTO, DevGramLocale.text("Копировать фото"))
                         .setChecked(gPref("dg_msgmenu_copyphoto", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_SAVE, "Сохранить")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_SAVE, DevGramLocale.text("Сохранить"))
                         .setChecked(gPref("dg_msgmenu_save", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_REPEAT, "Повторить")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_REPEAT, DevGramLocale.text("Повторить"))
                         .setChecked(gPref("dg_msgmenu_repeat", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_CLEAR, "Очистить")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_CLEAR, DevGramLocale.text("Очистить"))
                         .setChecked(gPref("dg_msgmenu_clear", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_HISTORY, "История сообщений")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_HISTORY, DevGramLocale.text("История сообщений"))
                         .setChecked(gPref("dg_msgmenu_history", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_REPORT, "Пожаловаться")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_REPORT, DevGramLocale.text("Пожаловаться"))
                         .setChecked(gPref("dg_msgmenu_report", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_GENERATE, "Сгенерировать ответ")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_GENERATE, DevGramLocale.text("Сгенерировать ответ"))
                         .setChecked(gPref("dg_msgmenu_generate", true)));
-                items.add(UItem.asRoundCheckbox(ID_MSGMENU_DETAILS, "Детали")
+                items.add(UItem.asRoundCheckbox(ID_MSGMENU_DETAILS, DevGramLocale.text("Детали"))
                         .setChecked(gPref("dg_msgmenu_details", true)));
             }
-            items.add(UItem.asCheck(ID_GROUP_MESSAGE_MENU, "Группировать меню сообщения")
+            items.add(UItem.asCheck(ID_GROUP_MESSAGE_MENU, DevGramLocale.text("Группировать меню сообщения"))
                     .setChecked(gPref("dg_groupMessageMenu", true)));
-            items.add(UItem.asShadow("Изменения сразу отображаются на превью выше."));
+            items.add(UItem.asShadow(DevGramLocale.text("Изменения сразу отображаются на превью выше.")));
 
-            items.add(UItem.asHeader("Распознавание голоса"));
-            items.add(UItem.asButton(ID_RECOGNITION_LANG, "Язык распознавания", recognitionLangLabel()));
-            items.add(UItem.asCheck(ID_RECOGNITION_AI, "Обрабатывать результат ИИ")
+            items.add(UItem.asHeader(DevGramLocale.text("Распознавание голоса")));
+            items.add(UItem.asButton(ID_RECOGNITION_LANG, DevGramLocale.text("Язык распознавания"), recognitionLangLabel()));
+            items.add(UItem.asCheck(ID_RECOGNITION_AI, DevGramLocale.text("Обрабатывать результат ИИ"))
                     .setChecked(DevGramConfig.isRecognitionAiPostProcessing()));
-            items.add(UItem.asShadow("Офлайн-распознавание голосовых через Vosk — прямо на телефоне, без интернета "
-                    + "(нужно скачать модель языка ~40–50 МБ). Работает по кнопке транскрипции у голосовых."));
+            items.add(UItem.asShadow(DevGramLocale.text("Офлайн-распознавание голосовых через Vosk — прямо на телефоне, без интернета ")
+                    + DevGramLocale.text("(нужно скачать модель языка ~40–50 МБ). Работает по кнопке транскрипции у голосовых.")));
 
-            items.add(UItem.asHeader("Голосовые сообщения"));
-            items.add(UItem.asCheck(ID_DISABLE_AUTOPLAY_VOICE, "Не включать следующее голосовое автоматически")
+            items.add(UItem.asHeader(DevGramLocale.text("Голосовые сообщения")));
+            items.add(UItem.asCheck(ID_DISABLE_AUTOPLAY_VOICE, DevGramLocale.text("Не включать следующее голосовое автоматически"))
                     .setChecked(gPref("disableAutoplayNextVoice", false)));
             items.add(UItem.asShadow(null));
 
             // Разбивка как у exteraGram: Камера / Фото / Видео.
-            items.add(UItem.asHeader("Камера"));
-            items.add(UItem.asButton(ID_CAMERA_TYPE, "Тип камеры", cameraTypeLabel()));
-            items.add(UItem.asButton(ID_VIDEO_CAMERA, "Камера кружков", videoCameraLabel()));
-            items.add(UItem.asCheck(ID_REMEMBER_LAST_CAMERA, "Запоминать последнюю камеру")
+            items.add(UItem.asHeader(DevGramLocale.text("Камера")));
+            items.add(UItem.asButton(ID_CAMERA_TYPE, DevGramLocale.text("Тип камеры"), cameraTypeLabel()));
+            items.add(UItem.asButton(ID_VIDEO_CAMERA, DevGramLocale.text("Камера кружков"), videoCameraLabel()));
+            items.add(UItem.asCheck(ID_REMEMBER_LAST_CAMERA, DevGramLocale.text("Запоминать последнюю камеру"))
                     .setChecked(DevGramConfig.isRememberLastCamera()));
-            items.add(UItem.asCheck(ID_ZOOM_SLIDER, "Слайдер зума")
+            items.add(UItem.asCheck(ID_ZOOM_SLIDER, DevGramLocale.text("Слайдер зума"))
                     .setChecked(DevGramConfig.isZoomSlider()));
-            items.add(UItem.asCheck(ID_STATIC_ZOOM, "Статичный зум")
+            items.add(UItem.asCheck(ID_STATIC_ZOOM, DevGramLocale.text("Статичный зум"))
                     .setChecked(DevGramConfig.isStaticZoom()));
-            items.add(UItem.asShadow("«Запоминать» — кружки открываются той камерой, которой снимали в прошлый раз. "
-                    + "«Слайдер зума» — ползунок зума в камере кружков. «Статичный зум» — не сбрасывать зум после жеста."));
+            items.add(UItem.asShadow(DevGramLocale.text("«Запоминать» — кружки открываются той камерой, которой снимали в прошлый раз. ")
+                    + DevGramLocale.text("«Слайдер зума» — ползунок зума в камере кружков. «Статичный зум» — не сбрасывать зум после жеста.")));
 
-            items.add(UItem.asHeader("Фото"));
-            items.add(UItem.asCheck(ID_ALWAYS_HD, "Всегда отправлять фото в HD")
+            items.add(UItem.asHeader(DevGramLocale.text("Фото")));
+            items.add(UItem.asCheck(ID_ALWAYS_HD, DevGramLocale.text("Всегда отправлять фото в HD"))
                     .setChecked(org.telegram.messenger.SharedConfig.photoHighQualityDefault));
-            items.add(UItem.asCheck(ID_HIDE_CAMERA_TILE, "Скрыть плитку камеры")
+            items.add(UItem.asCheck(ID_HIDE_CAMERA_TILE, DevGramLocale.text("Скрыть плитку камеры"))
                     .setChecked(gPref("dg_hideCameraTile", false)));
-            items.add(UItem.asCheck(ID_PHOTO_HAS_STICKER, "Помечать фото со стикерами")
+            items.add(UItem.asCheck(ID_PHOTO_HAS_STICKER, DevGramLocale.text("Помечать фото со стикерами"))
                     .setChecked(gPref("photoHasSticker", true)));
-            items.add(UItem.asCheck(ID_DISABLE_FLIP_PHOTOS, "Не отражать фотографии")
+            items.add(UItem.asCheck(ID_DISABLE_FLIP_PHOTOS, DevGramLocale.text("Не отражать фотографии"))
                     .setChecked(gPref("disableFlipPhotos", false)));
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Вложения"));
-            items.add(UItem.asCheck(ID_DISABLE_RECENT_FILES, "Скрыть недавние файлы во вложениях")
+            items.add(UItem.asHeader(DevGramLocale.text("Вложения")));
+            items.add(UItem.asCheck(ID_DISABLE_RECENT_FILES, DevGramLocale.text("Скрыть недавние файлы во вложениях"))
                     .setChecked(gPref("disableRecentFilesAttachment", false)));
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Видео"));
-            items.add(UItem.asCheck(ID_PREFER_ORIGINAL_QUALITY, "Предпочитать исходное качество видео")
+            items.add(UItem.asHeader(DevGramLocale.text("Видео")));
+            items.add(UItem.asCheck(ID_PREFER_ORIGINAL_QUALITY, DevGramLocale.text("Предпочитать исходное качество видео"))
                     .setChecked(gPref("dg_preferOriginalQuality", false)));
-            items.add(UItem.asButton(ID_DOUBLE_TAP_SEEK, "Перемотка двойным нажатием",
-                    DOUBLE_TAP_SEEK_OPTIONS[Math.max(0, Math.min(3, gInt("dg_doubleTapSeek", 1)))]));
-            items.add(UItem.asCheck(ID_SWIPE_TO_PIP, "Смахивание в картинку-в-картинке")
+            items.add(UItem.asButton(ID_DOUBLE_TAP_SEEK, DevGramLocale.text("Перемотка двойным нажатием"),
+                    getDoubleTapSeekOptions()[Math.max(0, Math.min(3, gInt("dg_doubleTapSeek", 1)))]));
+            items.add(UItem.asCheck(ID_SWIPE_TO_PIP, DevGramLocale.text("Смахивание в картинку-в-картинке"))
                     .setChecked(gPref("dg_swipeToPip", true)));
-            items.add(UItem.asCheck(ID_DISABLE_VOLUME_AUTOPLAY, "Включать звук кнопками громкости")
+            items.add(UItem.asCheck(ID_DISABLE_VOLUME_AUTOPLAY, DevGramLocale.text("Включать звук кнопками громкости"))
                     .setChecked(!gPref("disablePlayVisibleVideoOnVolume", false)));
             // Мастер-группа «Пауза при сворачивании» (как у exteraGram): тумблер + галочки типов
-            items.add(UItem.asCheck(ID_PAUSE_MINIMIZE, "Пауза при сворачивании  " + pauseMinCount() + "/3")
+            items.add(UItem.asCheck(ID_PAUSE_MINIMIZE, DevGramLocale.text("Пауза при сворачивании  ") + pauseMinCount() + "/3")
                     .setChecked(gPref("dg_pauseOnMinimize", false)));
             if (gPref("dg_pauseOnMinimize", false)) {
-                items.add(UItem.asRoundCheckbox(ID_PAUSE_VIDEO_MINIMIZE, "Видео")
+                items.add(UItem.asRoundCheckbox(ID_PAUSE_VIDEO_MINIMIZE, DevGramLocale.text("Видео"))
                         .setChecked(gPref("dg_pauseVideoOnMinimize", false)));
-                items.add(UItem.asRoundCheckbox(ID_PAUSE_VOICE_MINIMIZE, "Голосовые")
+                items.add(UItem.asRoundCheckbox(ID_PAUSE_VOICE_MINIMIZE, DevGramLocale.text("Голосовые"))
                         .setChecked(gPref("dg_pauseVoiceOnMinimize", false)));
-                items.add(UItem.asRoundCheckbox(ID_PAUSE_ROUND_MINIMIZE, "Кружки")
+                items.add(UItem.asRoundCheckbox(ID_PAUSE_ROUND_MINIMIZE, DevGramLocale.text("Кружки"))
                         .setChecked(gPref("dg_pauseRoundOnMinimize", false)));
             }
-            items.add(UItem.asShadow("Проигрываемое медиа встаёт на паузу, когда сворачиваешь приложение."));
+            items.add(UItem.asShadow(DevGramLocale.text("Проигрываемое медиа встаёт на паузу, когда сворачиваешь приложение.")));
         } else if (category == CATEGORY_AI) {
             // Экран «AI Chat» — повтор AiPreferencesActivity exteraGram.
-            items.add(UItem.asTopView("AI Chat", "Генерируйте текст по сообщениям или перед отправкой.",
+            items.add(UItem.asTopView("AI Chat", DevGramLocale.text("Генерируйте текст по сообщениям или перед отправкой."),
                     "RestrictedEmoji", "🤖"));
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Основные"));
-            items.add(UItem.asButton(ID_AI_SERVICES, R.drawable.msg_language, "Сервисы", aiServicesLabel()));
-            items.add(UItem.asButton(ID_AI_ROLES, R.drawable.msg_openprofile, "Роли", aiRoleLabel()));
-            items.add(UItem.asButton(ID_AI_HISTORY, R.drawable.msg_discussion, org.telegram.messenger.DevGramNewBadge.mark("История сообщений", org.telegram.messenger.DevGramNewBadge.AI_HISTORY), aiHistoryLabel()));
-            items.add(UItem.asShadow("История диалога позволяет ИИ понимать предыдущие запросы и "
-                    + "учитывать их при генерации новых ответов."));
+            items.add(UItem.asHeader(DevGramLocale.text("Основные")));
+            items.add(UItem.asButton(ID_AI_SERVICES, R.drawable.msg_language, DevGramLocale.text("Сервисы"), aiServicesLabel()));
+            items.add(UItem.asButton(ID_AI_ROLES, R.drawable.msg_openprofile, DevGramLocale.text("Роли"), aiRoleLabel()));
+            items.add(UItem.asButton(ID_AI_HISTORY, R.drawable.msg_discussion, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("История сообщений"), org.telegram.messenger.DevGramNewBadge.AI_HISTORY), aiHistoryLabel()));
+            items.add(UItem.asShadow(DevGramLocale.text("История диалога позволяет ИИ понимать предыдущие запросы и ")
+                    + DevGramLocale.text("учитывать их при генерации новых ответов.")));
 
             boolean nonPremium = !getUserConfig().isPremium();
-            items.add(UItem.asHeader("Функции Telegram"));
-            UItem replaceEditor = UItem.asCheck(ID_AI_REPLACE_EDITOR, org.telegram.messenger.DevGramNewBadge.mark("Заменить ИИ-редактор Telegram", org.telegram.messenger.DevGramNewBadge.AI_REPLACE_EDITOR))
+            items.add(UItem.asHeader(DevGramLocale.text("Функции Telegram")));
+            UItem replaceEditor = UItem.asCheck(ID_AI_REPLACE_EDITOR, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("Заменить ИИ-редактор Telegram"), org.telegram.messenger.DevGramNewBadge.AI_REPLACE_EDITOR))
                     .setChecked(gPref("dg_aiReplaceTelegramEditor", nonPremium)).setMultiline(true);
-            replaceEditor.subtext = "Перевод, стилизация и проверка черновиков через выбранный ИИ-сервис.";
+            replaceEditor.subtext = DevGramLocale.text("Перевод, стилизация и проверка черновиков через выбранный ИИ-сервис.");
             items.add(replaceEditor);
-            UItem replaceSummaries = UItem.asCheck(ID_AI_REPLACE_SUMMARIES, org.telegram.messenger.DevGramNewBadge.mark("Заменить пересказы Telegram", org.telegram.messenger.DevGramNewBadge.AI_REPLACE_SUMMARIES))
+            UItem replaceSummaries = UItem.asCheck(ID_AI_REPLACE_SUMMARIES, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("Заменить пересказы Telegram"), org.telegram.messenger.DevGramNewBadge.AI_REPLACE_SUMMARIES))
                     .setChecked(gPref("dg_aiReplaceTelegramSummaries", nonPremium)).setMultiline(true);
-            replaceSummaries.subtext = "Пересказ длинных сообщений и постов без Premium и лимитов Telegram.";
+            replaceSummaries.subtext = DevGramLocale.text("Пересказ длинных сообщений и постов без Premium и лимитов Telegram.");
             items.add(replaceSummaries);
             items.add(UItem.asShadow(nonPremium
-                    ? "Для аккаунтов без Premium обе замены включены по умолчанию."
-                    : "Запросы выполняет активный сервис из настроек AI Chat."));
+                    ? DevGramLocale.text("Для аккаунтов без Premium обе замены включены по умолчанию.")
+                    : DevGramLocale.text("Запросы выполняет активный сервис из настроек AI Chat.")));
 
-            items.add(UItem.asHeader("Генерация"));
-            UItem streaming = UItem.asCheck(ID_AI_STREAMING, "Потоковая передача ответа")
+            items.add(UItem.asHeader(DevGramLocale.text("Генерация")));
+            UItem streaming = UItem.asCheck(ID_AI_STREAMING, DevGramLocale.text("Потоковая передача ответа"))
                     .setChecked(gPref("dg_aiStreaming", true)).setMultiline(true);
-            streaming.subtext = "Обеспечивает более плавное и быстрое отображение ответов.";
+            streaming.subtext = DevGramLocale.text("Обеспечивает более плавное и быстрое отображение ответов.");
             items.add(streaming);
-            items.add(UItem.asCheck(ID_AI_RESP_ONLY, "Показывать только ответ")
+            items.add(UItem.asCheck(ID_AI_RESP_ONLY, DevGramLocale.text("Показывать только ответ"))
                     .setChecked(gPref("dg_aiShowResponseOnly", false)));
-            items.add(UItem.asCheck(ID_AI_QUOTE, "Вставлять ответ как цитату")
+            items.add(UItem.asCheck(ID_AI_QUOTE, DevGramLocale.text("Вставлять ответ как цитату"))
                     .setChecked(gPref("dg_aiInsertAsQuote", true)));
             items.add(UItem.asShadow(null));
 
-            items.add(UItem.asHeader("Температура"));
+            items.add(UItem.asHeader(DevGramLocale.text("Температура")));
             items.add(UItem.asIntSlideView(1, 0, aiTempInit(), 20,
                     val -> String.format(java.util.Locale.US, "%.1f", val / 10f),
                     val -> org.telegram.messenger.MessagesController.getGlobalMainSettings()
                             .edit().putFloat("dg_aiTemperature", val / 10f).apply()).setId(ID_AI_TEMPERATURE));
-            items.add(UItem.asShadow("Температура управляет случайностью ответа: чем выше значение, "
-                    + "тем креативнее ответ; чем ниже — тем точнее."));
+            items.add(UItem.asShadow(DevGramLocale.text("Температура управляет случайностью ответа: чем выше значение, ")
+                    + DevGramLocale.text("тем креативнее ответ; чем ниже — тем точнее.")));
         } else {
             // прокси DevGram — в разделе «Поддержавшим»
 
-            items.add(UItem.asHeader("Перевод сообщений"));
-            items.add(UItem.asCheck(ID_TRANSLATE_BUTTON, "Показывать кнопку «Перевести»")
+            items.add(UItem.asHeader(DevGramLocale.text("Перевод сообщений")));
+            items.add(UItem.asCheck(ID_TRANSLATE_BUTTON, DevGramLocale.text("Показывать кнопку «Перевести»"))
                     .setChecked(getMessagesController().getTranslateController().isContextTranslateEnabled()));
-            items.add(UItem.asCheck(ID_TRANSLATE_CHAT, "Показывать перевод всего чата")
+            items.add(UItem.asCheck(ID_TRANSLATE_CHAT, DevGramLocale.text("Показывать перевод всего чата"))
                     .setChecked(getMessagesController().getTranslateController().isChatTranslateEnabled()));
             int provider = DevGramGeneralConfig.getTranslationProvider();
-            items.add(UItem.asButton(ID_TRANSLATION_PROVIDER, "Сервис перевода", TRANSLATION_PROVIDERS[provider]));
+            items.add(UItem.asButton(ID_TRANSLATION_PROVIDER, DevGramLocale.text("Сервис перевода"), TRANSLATION_PROVIDERS[provider]));
             if (provider == 3) {
-                items.add(UItem.asButton(ID_TRANSLATION_FORMALITY, "Стиль перевода",
-                        TRANSLATION_FORMALITIES[DevGramGeneralConfig.getTranslationFormality()]));
+                items.add(UItem.asButton(ID_TRANSLATION_FORMALITY, DevGramLocale.text("Стиль перевода"),
+                        getTranslationFormalities()[DevGramGeneralConfig.getTranslationFormality()]));
             }
-            items.add(UItem.asButton(ID_TRANSLATION_TARGET, "Язык перевода", translationTargetLabel()));
-            items.add(UItem.asButton(ID_DO_NOT_TRANSLATE, "Не переводить", doNotTranslateLabel()));
-            items.add(UItem.asShadow("Настройки применяются к переводу отдельных сообщений и целых чатов. "
-                    + "Google, Yandex и DeepL переводят чаты без Telegram Premium."));
+            items.add(UItem.asButton(ID_TRANSLATION_TARGET, DevGramLocale.text("Язык перевода"), translationTargetLabel()));
+            items.add(UItem.asButton(ID_DO_NOT_TRANSLATE, DevGramLocale.text("Не переводить"), doNotTranslateLabel()));
+            items.add(UItem.asShadow(DevGramLocale.text("Настройки применяются к переводу отдельных сообщений и целых чатов. ")
+                    + DevGramLocale.text("Google, Yandex и DeepL переводят чаты без Telegram Premium.")));
 
-            items.add(UItem.asHeader("Основные"));
-            items.add(UItem.asButtonCheck(ID_NUMBER_ROUNDING, "Отключить округление чисел", "1,23K → 1 234")
+            items.add(UItem.asHeader(DevGramLocale.text("Основные")));
+            items.add(UItem.asButtonCheck(ID_NUMBER_ROUNDING, DevGramLocale.text("Отключить округление чисел"), "1,23K → 1 234")
                     .setChecked(DevGramConfig.disableNumberRounding));
-            items.add(UItem.asButtonCheck(ID_TIME_WITH_SECONDS, "Время с секундами", "12:34 → 12:34:56")
+            items.add(UItem.asButtonCheck(ID_TIME_WITH_SECONDS, DevGramLocale.text("Время с секундами"), "12:34 → 12:34:56")
                     .setChecked(DevGramConfig.isFormatWithSeconds()));
-            items.add(UItem.asCheck(ID_INAPP_VIBRATION, "Вибрация внутри приложения")
+            items.add(UItem.asCheck(ID_INAPP_VIBRATION, DevGramLocale.text("Вибрация внутри приложения"))
                     .setChecked(DevGramGeneralConfig.isInAppVibration()));
-            items.add(UItem.asCheck(ID_FILTER_ZALGO, "Фильтровать Zalgo-текст")
+            items.add(UItem.asCheck(ID_FILTER_ZALGO, DevGramLocale.text("Фильтровать Zalgo-текст"))
                     .setChecked(DevGramGeneralConfig.isFilterZalgo()));
-            items.add(UItem.asShadow("Избыточные комбинируемые символы будут скрыты, чтобы текст не ломал интерфейс."));
+            items.add(UItem.asShadow(DevGramLocale.text("Избыточные комбинируемые символы будут скрыты, чтобы текст не ломал интерфейс.")));
 
             if ((getMessagesController().availableMapProviders & 4) != 0) {
-                items.add(UItem.asHeader("Карты"));
-                items.add(UItem.asCheck(ID_YANDEX_MAPS, "Использовать Яндекс Карты")
+                items.add(UItem.asHeader(DevGramLocale.text("Карты")));
+                items.add(UItem.asCheck(ID_YANDEX_MAPS, DevGramLocale.text("Использовать Яндекс Карты"))
                         .setChecked(DevGramGeneralConfig.isUseYandexMaps()));
-                items.add(UItem.asShadow("Для статических карт и предпросмотра геопозиций будет использоваться Яндекс."));
+                items.add(UItem.asShadow(DevGramLocale.text("Для статических карт и предпросмотра геопозиций будет использоваться Яндекс.")));
             }
 
-            items.add(UItem.asHeader("Ускорение загрузки"));
-            items.add(UItem.asSlideView(new String[]{"Выкл.", "Быстро", "Ультра"},
+            items.add(UItem.asHeader(DevGramLocale.text("Ускорение загрузки")));
+            items.add(UItem.asSlideView(new String[]{DevGramLocale.text("Выкл."), DevGramLocale.text("Быстро"), DevGramLocale.text("Ультра")},
                     DevGramGeneralConfig.getDownloadSpeedBoost(), DevGramGeneralConfig::setDownloadSpeedBoost)
                     .setId(ID_DOWNLOAD_BOOST));
-            items.add(UItem.asCheck(ID_UPLOAD_BOOST, "Ускорять отправку файлов")
+            items.add(UItem.asCheck(ID_UPLOAD_BOOST, DevGramLocale.text("Ускорять отправку файлов"))
                     .setChecked(DevGramGeneralConfig.isUploadSpeedBoost()));
-            items.add(UItem.asShadow("Увеличивает размер частей и число параллельных сетевых запросов."));
+            items.add(UItem.asShadow(DevGramLocale.text("Увеличивает размер частей и число параллельных сетевых запросов.")));
 
-            items.add(UItem.asHeader("Хранилище"));
-            items.add(UItem.asButton(ID_CUSTOM_SAVE_PATH, "Папка сохранения", customSavePathLabel()));
-            items.add(UItem.asShadow("Подпапка внутри Изображений, Видео, Загрузок и Музыки. Пустое значение сохраняет прямо в системные папки."));
+            items.add(UItem.asHeader(DevGramLocale.text("Хранилище")));
+            items.add(UItem.asButton(ID_CUSTOM_SAVE_PATH, DevGramLocale.text("Папка сохранения"), customSavePathLabel()));
+            items.add(UItem.asShadow(DevGramLocale.text("Подпапка внутри Изображений, Видео, Загрузок и Музыки. Пустое значение сохраняет прямо в системные папки.")));
 
-            items.add(UItem.asHeader("Профиль"));
+            items.add(UItem.asHeader(DevGramLocale.text("Профиль")));
             int fiveMinutesAgo = org.telegram.tgnet.ConnectionsManager.getInstance(currentAccount).getCurrentTime() - 300;
-            items.add(UItem.asButtonCheck(ID_RELATIVE_LAST_SEEN, "Относительное время последнего посещения",
+            items.add(UItem.asButtonCheck(ID_RELATIVE_LAST_SEEN, DevGramLocale.text("Относительное время последнего посещения"),
                     org.telegram.messenger.LocaleController.formatDateOnline(fiveMinutesAgo, null))
                     .setChecked(DevGramGeneralConfig.isRelativeLastSeen()));
             // Точки последнего захода (цветной кружок у недавно вышедших в списке чатов).
             // Идея смены цвета — @katieska_2011, идея полного отключения — @swastuII.
-            items.add(UItem.asCheck(ID_LAST_SEEN_DOTS, "Точки последнего захода")
+            items.add(UItem.asCheck(ID_LAST_SEEN_DOTS, DevGramLocale.text("Точки последнего захода"))
                     .setChecked(gPref("enableLastSeenDots", true)));
             if (gPref("enableLastSeenDots", true)) {
-                items.add(UItem.asButton(ID_LAST_SEEN_DOTS_COLOR, "Цвет точек"));
+                items.add(UItem.asButton(ID_LAST_SEEN_DOTS_COLOR, DevGramLocale.text("Цвет точек")));
             }
             // «Скрывать мой номер телефона» убрано отсюда — дубль с разделом Безопасность
             // (там «Скрыть чувствительные данные» → телефон). Обработчик/конфиг оставлены.
-            items.add(UItem.asButton(ID_SHOW_ID_DC, "Показывать ID и датацентр",
-                    ID_DC_OPTIONS[DevGramGeneralConfig.getShowIdAndDc()]));
-            items.add(UItem.asShadow("ID отображается в профиле; датацентр определяется по фотографии профиля."));
+            items.add(UItem.asButton(ID_SHOW_ID_DC, DevGramLocale.text("Показывать ID и датацентр"),
+                    getIdDcOptions()[DevGramGeneralConfig.getShowIdAndDc()]));
+            items.add(UItem.asShadow(DevGramLocale.text("ID отображается в профиле; датацентр определяется по фотографии профиля.")));
 
-            items.add(UItem.asHeader("Архивированные чаты"));
-            items.add(UItem.asCheck(ID_HIDE_ARCHIVE, "Скрыть папку «Архив»")
+            items.add(UItem.asHeader(DevGramLocale.text("Архивированные чаты")));
+            items.add(UItem.asCheck(ID_HIDE_ARCHIVE, DevGramLocale.text("Скрыть папку «Архив»"))
                     .setChecked(DevGramGeneralConfig.isHideArchiveFolder()));
             if (!DevGramGeneralConfig.isHideArchiveFolder()) {
-                items.add(UItem.asCheck(ID_ARCHIVE_ON_PULL, "Открывать архив свайпом вниз")
+                items.add(UItem.asCheck(ID_ARCHIVE_ON_PULL, DevGramLocale.text("Открывать архив свайпом вниз"))
                         .setChecked(DevGramGeneralConfig.isArchiveOnPull()));
             }
-            items.add(UItem.asCheck(ID_DISABLE_UNARCHIVE_SWIPE, "Отключить разархивацию свайпом")
+            items.add(UItem.asCheck(ID_DISABLE_UNARCHIVE_SWIPE, DevGramLocale.text("Отключить разархивацию свайпом"))
                     .setChecked(DevGramGeneralConfig.isDisableUnarchiveSwipe()));
-            items.add(UItem.asShadow("Защищает чаты в архиве от случайного возврата в основной список."));
+            items.add(UItem.asShadow(DevGramLocale.text("Защищает чаты в архиве от случайного возврата в основной список.")));
 
             items.add(UItem.asHeader("DevGram"));
-            items.add(UItem.asCheck(ID_DISABLE_ADS, "Скрывать рекламу")
+            items.add(UItem.asCheck(ID_DISABLE_ADS, DevGramLocale.text("Скрывать рекламу"))
                     .setChecked(DevGramConfig.disableAds));
-            items.add(UItem.asCheck(ID_LOCAL_PREMIUM, "Локальный премиум")
+            items.add(UItem.asCheck(ID_LOCAL_PREMIUM, DevGramLocale.text("Локальный премиум"))
                     .setChecked(DevGramConfig.localPremium));
-            items.add(UItem.asCheck(ID_STREAKS, "Огоньки (серии)")
+            items.add(UItem.asCheck(ID_STREAKS, DevGramLocale.text("Огоньки (серии)"))
                     .setChecked(DevGramConfig.streaksEnabled));
-            items.add(UItem.asShadow("🔥N рядом с именем — сколько дней подряд вы общаетесь в личке "
-                    + "(показывается от 3 дней). Выключишь — огоньки пропадут у всех."));
+            items.add(UItem.asShadow(DevGramLocale.text("🔥N рядом с именем — сколько дней подряд вы общаетесь в личке ")
+                    + DevGramLocale.text("(показывается от 3 дней). Выключишь — огоньки пропадут у всех.")));
 
             // — Дополнительно (перенос новых тумблеров 12.10.4 из скрытой Fork-панели)
-            items.add(UItem.asHeader("Дополнительно"));
-            items.add(UItem.asCheck(ID_MOTION_PHOTO, "Отключить motion photo")
+            items.add(UItem.asHeader(DevGramLocale.text("Дополнительно")));
+            items.add(UItem.asCheck(ID_MOTION_PHOTO, DevGramLocale.text("Отключить motion photo"))
                     .setChecked(gPref("disableMotionPhoto", false)));
-            items.add(UItem.asCheck(ID_SAT_SAVING, "Экономия на спутниковых сетях")
+            items.add(UItem.asCheck(ID_SAT_SAVING, DevGramLocale.text("Экономия на спутниковых сетях"))
                     .setChecked(gPref("satelliteDataSaving", true)));
-            items.add(UItem.asButton(ID_LINK_REPLACE, "Замена ссылок при вставке"));
+            items.add(UItem.asButton(ID_LINK_REPLACE, DevGramLocale.text("Замена ссылок при вставке")));
             items.add(UItem.asShadow(null));
         }
     }
 
     // ===== Пометка удалённых: кастомизация значка и цвета (порт AyuGram) =====
 
-    private static final String[] DELETED_ICON_NAMES = {"Нет", "Корзина", "Крест", "Перечёркнутый глаз"};
+    private static String[] getDeletedIconNames() {
+        return new String[]{DevGramLocale.text("Нет"), DevGramLocale.text("Корзина"), DevGramLocale.text("Крест"), DevGramLocale.text("Перечёркнутый глаз")};
+    }
 
     private CharSequence[] markNames(String[] base, int current) {
         CharSequence[] out = new CharSequence[base.length];
@@ -1304,9 +1327,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         if (getParentActivity() == null) return;
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Значок удалённых");
+        b.setTitle(DevGramLocale.text("Значок удалённых"));
         int current = org.telegram.messenger.DevGramDeletedMark.getIcon();
-        CharSequence[] names = markNames(DELETED_ICON_NAMES, current);
+        CharSequence[] names = markNames(getDeletedIconNames(), current);
         b.setItems(names, org.telegram.messenger.DevGramDeletedMark.ICONS, (dlg, which) -> {
             org.telegram.messenger.DevGramDeletedMark.setIcon(which);
             if (deletedPreviewCell != null) deletedPreviewCell.refresh();
@@ -1315,25 +1338,25 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             // а также сразу добавляет или убирает строку выбора цвета для варианта «Нет».
             refreshListImmediately();
         });
-        b.setNegativeButton(org.telegram.messenger.LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
     }
 
     // DevGram: подпись под пунктом «Маскировка» — имя текущей маски или «Выключена».
     private String disguiseCurrentTitle() {
         if (!org.telegram.messenger.DevGramDisguise.isDisguised()) {
-            return "Выключена";
+            return DevGramLocale.text("Выключена");
         }
-        return org.telegram.messenger.LocaleController.getString(org.telegram.messenger.DevGramDisguise.current().title);
+        return DevGramLocale.getString(org.telegram.messenger.DevGramDisguise.current().title);
     }
 
     // DevGram: подпись под пунктом «Скрытые чаты».
     private CharSequence lockedChatsSubtitle() {
         if (!org.telegram.messenger.DevGramLockedChats.hasPasscode()) {
-            return "Пасскод не задан";
+            return DevGramLocale.text("Пасскод не задан");
         }
         int n = org.telegram.messenger.DevGramLockedChats.count();
-        return n == 0 ? "Нет скрытых чатов" : (n + (n % 10 == 1 && n % 100 != 11 ? " чат" : " чат."));
+        return n == 0 ? DevGramLocale.text("Нет скрытых чатов") : (n + ((DevGramLocale.isRussian() ? n % 10 == 1 && n % 100 != 11 : n == 1) ? DevGramLocale.text(" чат") : DevGramLocale.text(" чат.")));
     }
 
     // DevGram: красивое меню-каталог маскировок (карточки с реальными иконками приложений).
@@ -1345,8 +1368,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             org.telegram.ui.Components.BulletinFactory.of(this)
                     .createSimpleBulletin(R.raw.done,
                             disguised
-                                    ? "Приложение замаскировано под «" + disguiseCurrentTitle() + "»"
-                                    : "Маскировка снята")
+                                    ? DevGramLocale.text("Приложение замаскировано под «") + disguiseCurrentTitle() + DevGramLocale.text("»")
+                                    : DevGramLocale.text("Маскировка снята"))
                     .show();
         });
         showDialog(sheet);
@@ -1366,7 +1389,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             else return DevGramSettingsLink.showLinkOptions(this, view, DevGramSettingsLink.codeForCategory(category), item.id);
             s.save();
             refreshListImmediately();
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Блокировка настройки изменена").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, DevGramLocale.text("Блокировка настройки изменена")).show();
             return true;
         }
         // только у настраиваемых строк (у header/shadow id == 0)
@@ -1375,7 +1398,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == ID_GHOST_MASTER) {
+        if (item.id == ID_PROFILE_CUSTOMIZATION) {
+            org.telegram.messenger.DevGramProfileCustomization.setEnabled(!org.telegram.messenger.DevGramProfileCustomization.enabled());
+        } else if (item.id == ID_GHOST_MASTER) {
             ghostModeExpanded = !ghostModeExpanded;
         } else if (item.id == ID_GHOST_READ) {
             org.telegram.messenger.DevGramGhostSettings.Settings s = org.telegram.messenger.DevGramGhostSettings.get(currentAccount);
@@ -1439,7 +1464,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_EXPORT_SPY_DATABASE) {
             org.telegram.messenger.AndroidUtilities.addToClipboard(
                     org.telegram.messenger.DevGramMessagesController.getInstance().exportData());
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Резервная копия скопирована").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.done, DevGramLocale.text("Резервная копия скопирована")).show();
             return;
         } else if (item.id == ID_IMPORT_SPY_DATABASE) {
             importSpyDatabase(); return;
@@ -1483,10 +1508,10 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             rebuildAllScreens();
             return;
         } else if (item.id == ID_TRANSLATION_PROVIDER) {
-            showChoice("Сервис перевода", TRANSLATION_PROVIDERS, "dg_translationProvider", 0);
+            showChoice(DevGramLocale.text("Сервис перевода"), TRANSLATION_PROVIDERS, "dg_translationProvider", 0);
             return;
         } else if (item.id == ID_TRANSLATION_FORMALITY) {
-            showChoice("Стиль перевода", TRANSLATION_FORMALITIES, "dg_translationFormality", 0);
+            showChoice(DevGramLocale.text("Стиль перевода"), getTranslationFormalities(), "dg_translationFormality", 0);
             return;
         } else if (item.id == ID_TRANSLATION_TARGET) {
             showTranslationTargetPicker();
@@ -1528,7 +1553,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             rebuildAllScreens();
             return;
         } else if (item.id == ID_SHOW_ID_DC) {
-            showChoice("Показывать ID и датацентр", ID_DC_OPTIONS, "dg_showIdAndDc", 1);
+            showChoice(DevGramLocale.text("Показывать ID и датацентр"), getIdDcOptions(), "dg_showIdAndDc", 1);
             return;
         } else if (item.id == ID_HIDE_ARCHIVE) {
             DevGramGeneralConfig.setHideArchiveFolder(!DevGramGeneralConfig.isHideArchiveFolder());
@@ -1587,20 +1612,24 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             presentFragment(new PillStackPreferencesActivity());
             return;
         } else if (item.id == ID_GOOEY) {
-            gToggle("dg_gooey", true);
+            gToggle("dg_gooey", org.telegram.messenger.DevGramGooeyConfig.DEFAULT_ENABLED);
         } else if (item.id == ID_ACTIONBAR_TITLE) {
-            showChoice("Текст в заголовке", ACTIONBAR_TITLE_OPTIONS, "dg_actionBarTitle", 0);
+            showChoice(DevGramLocale.text("Текст в заголовке"), getActionbarTitleOptions(), "dg_actionBarTitle", 0);
             return;
         } else if (item.id == ID_DIVIDER_STYLE) {
-            showChoice("Тип разделителей", DIVIDER_STYLE_OPTIONS, "dg_dividerStyle", 1);
+            showChoice(DevGramLocale.text("Тип разделителей"), getDividerStyleOptions(), "dg_dividerStyle", 1);
             return;
         } else if (item.id == ID_GLASS_OUTLINE) {
-            showChoice("Обводка стекла", GLASS_OUTLINE_OPTIONS, "dg_glassOutline", 0);
+            showChoice(DevGramLocale.text("Обводка стекла"), getGlassOutlineOptions(), "dg_glassOutline", 0);
             return;
         } else if (item.id == ID_SEPARATE_HEADERS) {
             if (gInt("dg_dividerStyle", 1) != 2) {
                 gToggle("dg_separateHeaders", true);
             }
+        } else if (item.id == ID_CHAT_HEADER_SHADING) {
+            gToggle("dg_chatHeaderShading", false);
+            refreshThenRebuildAppearanceScreens();
+            return;
         } else if (item.id == ID_MD3) {
             gToggle("dg_md3", true);
             refreshThenRebuildAppearanceScreens();
@@ -1639,7 +1668,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             listView.adapter.update(true);
             return;
         } else if (item.id == ID_TRANSITION_ANIMATION) {
-            showChoice("Анимация переходов", TRANSITION_ANIMATIONS, "dg_transitionAnimation",
+            showChoice(DevGramLocale.text("Анимация переходов"), getTransitionAnimations(), "dg_transitionAnimation",
                     org.telegram.ui.Components.DevGramMaterial3.TRANSITION_SPRING);
             return;
         } else if (item.id == ID_CENTER_TITLE) {
@@ -1819,9 +1848,8 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_OPEN_NAVIGATION) {
             presentFragment(new DevGramCategoryActivity(CATEGORY_NAVIGATION));
             return;
-        } else if (item.id == ID_OPEN_IOS_CHAT_STYLE) {
-            presentFragment(new DevGramIOSChatSettingsActivity());
-            return;
+        } else if (item.id == ID_ICON_PACKS) {
+            presentFragment(new org.telegram.ui.devgram.icons.IconPacksActivity());
         } else if (item.id == ID_OPEN_APP_ICON) {
             presentFragment(new DevGramAppIconsActivity());
             return;
@@ -1892,7 +1920,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_PAUSE_ROUND_MINIMIZE) {
             gToggle("dg_pauseRoundOnMinimize", false);
         } else if (item.id == ID_DOUBLE_TAP_SEEK) {
-            showChoice("Перемотка двойным нажатием", DOUBLE_TAP_SEEK_OPTIONS,
+            showChoice(DevGramLocale.text("Перемотка двойным нажатием"), getDoubleTapSeekOptions(),
                     "dg_doubleTapSeek", 1);
             return;
         } else {
@@ -1916,7 +1944,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 }
             }
         }
-        return org.telegram.messenger.LocaleController.getString(R.string.FilterAllChats);
+        return DevGramLocale.getString(R.string.FilterAllChats);
     }
 
     private void showDefaultFolderPicker() {
@@ -1927,7 +1955,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         for (int a = 0; a < filters.size(); a++) {
             org.telegram.messenger.MessagesController.DialogFilter filter = filters.get(a);
             if (filter.isDefault()) {
-                names.add(org.telegram.messenger.LocaleController.getString(R.string.FilterAllChats));
+                names.add(DevGramLocale.getString(R.string.FilterAllChats));
                 ids.add(-1);
             } else {
                 names.add(filter.name);
@@ -1935,7 +1963,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             }
         }
         if (names.isEmpty()) {
-            names.add(org.telegram.messenger.LocaleController.getString(R.string.FilterAllChats));
+            names.add(DevGramLocale.getString(R.string.FilterAllChats));
             ids.add(-1);
         }
         final int currentId = org.telegram.messenger.MessagesController.getGlobalMainSettings().getInt("defaultFolderId", -1);
@@ -1946,13 +1974,13 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         }
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Папка по умолчанию");
+        b.setTitle(DevGramLocale.text("Папка по умолчанию"));
         b.setItems(labels, (dlg, which) -> {
             org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
                     .putInt("defaultFolderId", idsF.get(which)).apply();
             refreshList();
         });
-        b.setNegativeButton(org.telegram.messenger.LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
     }
 
@@ -1969,7 +1997,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         if (pendingRestart != null) {
             return;
         }
-        restartBulletin = BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Начинаю перезапуск приложения…").show();
+        restartBulletin = BulletinFactory.of(this).createSimpleBulletin(R.raw.info, DevGramLocale.text("Начинаю перезапуск приложения…")).show();
         pendingRestart = () -> {
             pendingRestart = null;
             restartApplication();
@@ -2054,18 +2082,18 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         }
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Язык перевода");
+        b.setTitle(DevGramLocale.text("Язык перевода"));
         b.setItems(labels, (dialog, which) -> {
             org.telegram.ui.Components.TranslateAlert2.setToLanguage(languages.get(which).code);
             refreshList();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 
     private static String customSavePathLabel() {
         String path = DevGramGeneralConfig.getCustomSavePath();
-        return android.text.TextUtils.isEmpty(path) ? "Системная папка" : path;
+        return android.text.TextUtils.isEmpty(path) ? DevGramLocale.text("Системная папка") : path;
     }
 
     private org.telegram.ui.Components.EditTextBoldCursor createThemedDialogInput(String hint) {
@@ -2099,18 +2127,18 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 org.telegram.ui.Components.LayoutHelper.WRAP_CONTENT));
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Папка сохранения");
+        b.setTitle(DevGramLocale.text("Папка сохранения"));
         b.setView(box);
-        b.setPositiveButton("Сохранить", (dialog, which) -> {
+        b.setPositiveButton(DevGramLocale.text("Сохранить"), (dialog, which) -> {
             String value = input.getText() == null ? "" : input.getText().toString().trim();
             if (!value.isEmpty() && !value.matches("^(?!\\.{1,2}$)[A-Za-zА-Яа-яЁё0-9._ -]{1,255}$")) {
-                android.widget.Toast.makeText(getParentActivity(), "Недопустимое имя папки", android.widget.Toast.LENGTH_SHORT).show();
+                android.widget.Toast.makeText(getParentActivity(), DevGramLocale.text("Недопустимое имя папки"), android.widget.Toast.LENGTH_SHORT).show();
                 return;
             }
             DevGramGeneralConfig.setCustomSavePath(value);
             refreshList();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
         input.requestFocus();
         input.setSelection(input.length());
@@ -2125,19 +2153,19 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         box.setPadding(pad, 0, pad, 0);
         box.addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
-                .setTitle("Папка вложений")
+                .setTitle(DevGramLocale.text("Папка вложений"))
                 .setView(box)
-                .setPositiveButton("Сохранить", (dialog, which) -> {
+                .setPositiveButton(DevGramLocale.text("Сохранить"), (dialog, which) -> {
                     String value = input.getText() == null ? "" : input.getText().toString().trim();
                     if (!value.matches("^(?!\\.{1,2}$)[A-Za-zА-Яа-яЁё0-9._ -]{1,96}$")) {
-                        android.widget.Toast.makeText(getParentActivity(), "Недопустимое имя папки",
+                        android.widget.Toast.makeText(getParentActivity(), DevGramLocale.text("Недопустимое имя папки"),
                                 android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     org.telegram.messenger.DevGramMediaSaver.changeDirectory(value);
                     refreshListImmediately();
                 })
-                .setNegativeButton("Отмена", null)
+                .setNegativeButton(DevGramLocale.text("Отмена"), null)
                 .show();
         input.requestFocus();
         input.setSelection(input.length());
@@ -2164,14 +2192,14 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 }
                 org.telegram.ui.ActionBar.AlertDialog.Builder b =
                         new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-                b.setTitle("Диагностика прокси");
+                b.setTitle(DevGramLocale.text("Диагностика прокси"));
                 b.setMessage(report);
-                b.setPositiveButton("Копировать", (d, w) -> {
+                b.setPositiveButton(DevGramLocale.text("Копировать"), (d, w) -> {
                     org.telegram.messenger.AndroidUtilities.addToClipboard(report);
                     org.telegram.ui.Components.BulletinFactory.of(this)
-                            .createCopyBulletin("Скопировано").show();
+                            .createCopyBulletin(DevGramLocale.text("Скопировано")).show();
                 });
-                b.setNegativeButton("Закрыть", null);
+                b.setNegativeButton(DevGramLocale.text("Закрыть"), null);
                 showDialog(b.create());
             });
         }, "DevGramProxyDiag").start();
@@ -2183,7 +2211,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private CharSequence swipeActionsValue() {
         java.util.ArrayList<org.telegram.messenger.DevGramSwipeAction> enabled = org.telegram.messenger.DevGramSwipeAction.enabled();
         if (enabled.isEmpty()) {
-            return "Выкл.";
+            return DevGramLocale.text("Выкл.");
         }
         android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
         int count = Math.min(enabled.size(), 5);
@@ -2218,7 +2246,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         CharSequence[] items = {"Camera 1", "Camera 2", "Camera X"};
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Тип камеры");
+        b.setTitle(DevGramLocale.text("Тип камеры"));
         b.setItems(items, (d, which) -> {
             android.content.SharedPreferences p = org.telegram.messenger.MessagesController.getGlobalMainSettings();
             if (which == 2) {
@@ -2229,7 +2257,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             }
             refreshList();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 
@@ -2237,7 +2265,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     // === AI Chat (повтор AiPreferencesActivity exteraGram) ===
     private static String aiServicesLabel() {
         if (!org.telegram.messenger.DevGramAiClient.isConfigured()) {
-            return "Нет";
+            return DevGramLocale.text("Нет");
         }
         if (org.telegram.messenger.DevGramGeminiNano.isSelected()) {
             return org.telegram.messenger.DevGramGeminiNano.modelLabel();
@@ -2247,12 +2275,12 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     }
 
     private static String aiHistoryLabel() {
-        if (!gPref("dg_aiSaveHistory", true)) return "Выключена";
+        if (!gPref("dg_aiSaveHistory", true)) return DevGramLocale.text("Выключена");
         try {
             int count = new org.json.JSONArray(gPrefString("dg_aiHistory", "[]")).length();
-            return count == 0 ? "Пусто" : Integer.toString(count);
+            return count == 0 ? DevGramLocale.text("Пусто") : Integer.toString(count);
         } catch (Throwable ignore) {
-            return "Пусто";
+            return DevGramLocale.text("Пусто");
         }
     }
 
@@ -2267,17 +2295,17 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     }
 
     private void showAiRolePicker() {
-        final String[] roles = {"Assistant", "Переводчик", "Программист", "Редактор", "Собеседник"};
+        final String[] roles = {"Assistant", DevGramLocale.text("Переводчик"), DevGramLocale.text("Программист"), DevGramLocale.text("Редактор"), DevGramLocale.text("Собеседник")};
         final String[] prompts = {
                 "",
-                "Ты профессиональный переводчик. Переводи текст пользователя, сохраняя смысл и тон. Отвечай только переводом.",
-                "Ты опытный программист. Помогай с кодом, давай точные и краткие ответы с примерами.",
-                "Ты редактор. Улучшай текст пользователя: грамотность, ясность, стиль. Отвечай только исправленным текстом.",
-                "Ты дружелюбный собеседник. Отвечай живо, по делу и с эмпатией."
+                DevGramLocale.text("Ты профессиональный переводчик. Переводи текст пользователя, сохраняя смысл и тон. Отвечай только переводом."),
+                DevGramLocale.text("Ты опытный программист. Помогай с кодом, давай точные и краткие ответы с примерами."),
+                DevGramLocale.text("Ты редактор. Улучшай текст пользователя: грамотность, ясность, стиль. Отвечай только исправленным текстом."),
+                DevGramLocale.text("Ты дружелюбный собеседник. Отвечай живо, по делу и с эмпатией.")
         };
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Роли");
+        b.setTitle(DevGramLocale.text("Роли"));
         b.setItems(roles, (d, which) -> {
             org.telegram.messenger.MessagesController.getGlobalMainSettings().edit()
                     .putString("dg_aiRole", roles[which])
@@ -2285,24 +2313,24 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     .apply();
             refreshList();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 
     // Камера кружков: тристейт как у exteraGram — 0 Передняя / 1 Задняя / 2 Спросить.
     private static String videoCameraLabel() {
         switch (gInt("dg_roundCameraMode", 0)) {
-            case 1: return "Задняя";
-            case 2: return "Спросить";
-            default: return "Передняя";
+            case 1: return DevGramLocale.text("Задняя");
+            case 2: return DevGramLocale.text("Спросить");
+            default: return DevGramLocale.text("Передняя");
         }
     }
 
     private void showVideoCameraPicker() {
-        CharSequence[] items = {"Передняя", "Задняя", "Спросить"};
+        CharSequence[] items = {DevGramLocale.text("Передняя"), DevGramLocale.text("Задняя"), DevGramLocale.text("Спросить")};
         org.telegram.ui.ActionBar.AlertDialog.Builder b =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        b.setTitle("Камера кружков");
+        b.setTitle(DevGramLocale.text("Камера кружков"));
         b.setItems(items, (d, which) -> {
             android.content.SharedPreferences.Editor e =
                     org.telegram.messenger.MessagesController.getGlobalMainSettings().edit();
@@ -2313,7 +2341,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             e.apply();
             refreshList();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 
@@ -2321,38 +2349,38 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private static String recognitionLangLabel() {
         String lang = DevGramConfig.getRecognitionLanguage();
         if ("none".equals(lang)) {
-            return "Отключено";
+            return DevGramLocale.text("Отключено");
         }
         boolean downloaded = org.telegram.messenger.DevGramVoiceRecognizer.getInstance().isDownloaded(lang);
-        return recognitionLangName(lang) + (downloaded ? "" : " · не скачано");
+        return recognitionLangName(lang) + (downloaded ? "" : DevGramLocale.text(" · не скачано"));
     }
 
     private static String recognitionLangName(String code) {
         switch (code) {
-            case "en": return "Английский";
-            case "ru": return "Русский";
-            case "de": return "Немецкий";
-            case "es": return "Испанский";
-            case "fr": return "Французский";
-            case "gu": return "Гуджарати";
-            case "it": return "Итальянский";
-            case "pt": return "Португальский";
-            case "nl": return "Нидерландский";
-            case "pl": return "Польский";
-            case "uk": return "Украинский";
-            case "tr": return "Турецкий";
-            case "cs": return "Чешский";
-            case "ca": return "Каталанский";
-            case "eo": return "Эсперанто";
-            case "fa": return "Персидский";
-            case "hi": return "Хинди";
-            case "ja": return "Японский";
-            case "kk": return "Казахский";
-            case "ko": return "Корейский";
-            case "tg": return "Таджикский";
-            case "uz": return "Узбекский";
-            case "vi": return "Вьетнамский";
-            case "zh": return "Китайский";
+            case "en": return DevGramLocale.text("Английский");
+            case "ru": return DevGramLocale.text("Русский");
+            case "de": return DevGramLocale.text("Немецкий");
+            case "es": return DevGramLocale.text("Испанский");
+            case "fr": return DevGramLocale.text("Французский");
+            case "gu": return DevGramLocale.text("Гуджарати");
+            case "it": return DevGramLocale.text("Итальянский");
+            case "pt": return DevGramLocale.text("Португальский");
+            case "nl": return DevGramLocale.text("Нидерландский");
+            case "pl": return DevGramLocale.text("Польский");
+            case "uk": return DevGramLocale.text("Украинский");
+            case "tr": return DevGramLocale.text("Турецкий");
+            case "cs": return DevGramLocale.text("Чешский");
+            case "ca": return DevGramLocale.text("Каталанский");
+            case "eo": return DevGramLocale.text("Эсперанто");
+            case "fa": return DevGramLocale.text("Персидский");
+            case "hi": return DevGramLocale.text("Хинди");
+            case "ja": return DevGramLocale.text("Японский");
+            case "kk": return DevGramLocale.text("Казахский");
+            case "ko": return DevGramLocale.text("Корейский");
+            case "tg": return DevGramLocale.text("Таджикский");
+            case "uz": return DevGramLocale.text("Узбекский");
+            case "vi": return DevGramLocale.text("Вьетнамский");
+            case "zh": return DevGramLocale.text("Китайский");
             default: return code;
         }
     }
@@ -2364,15 +2392,15 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         final java.util.List<String> codes = new java.util.ArrayList<>();
         final java.util.List<CharSequence> labels = new java.util.ArrayList<>();
         codes.add("none");
-        labels.add("Отключено");
+        labels.add(DevGramLocale.text("Отключено"));
         for (org.telegram.messenger.DevGramVoiceRecognizer.RecognitionModel m : models) {
             codes.add(m.language);
             boolean dl = org.telegram.messenger.DevGramVoiceRecognizer.getInstance().isDownloaded(m.language);
-            labels.add(recognitionLangName(m.language) + (dl ? "  ✓" : "  · " + (m.size / 1024 / 1024) + " МБ"));
+            labels.add(recognitionLangName(m.language) + (dl ? "  ✓" : "  · " + (m.size / 1024 / 1024) + DevGramLocale.text(" МБ")));
         }
         org.telegram.ui.ActionBar.AlertDialog.Builder builder =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Язык распознавания");
+        builder.setTitle(DevGramLocale.text("Язык распознавания"));
         builder.setItems(labels.toArray(new CharSequence[0]), (dialog, which) -> {
             String code = codes.get(which);
             DevGramConfig.setRecognitionLanguage(code);
@@ -2383,7 +2411,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                 downloadRecognitionModel(code);
             }
         });
-        builder.setNegativeButton("Отмена", null);
+        builder.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(builder.create());
     }
 
@@ -2394,7 +2422,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         final org.telegram.ui.ActionBar.AlertDialog progress =
                 new org.telegram.ui.ActionBar.AlertDialog(getParentActivity(), org.telegram.ui.ActionBar.AlertDialog.ALERT_TYPE_SPINNER);
         progress.setCanCancel(false);
-        progress.setMessage("Скачивание модели: " + recognitionLangName(code) + "…");
+        progress.setMessage(DevGramLocale.text("Скачивание модели: ") + recognitionLangName(code) + "…");
         progress.show();
         new Thread(() -> org.telegram.messenger.DevGramVoiceRecognizer.getInstance().downloadModel(code,
                 new org.telegram.messenger.DevGramVoiceRecognizer.DownloadCallback() {
@@ -2402,7 +2430,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                     public void onProgress(float p) {
                         org.telegram.messenger.AndroidUtilities.runOnUIThread(() -> {
                             try {
-                                progress.setMessage("Скачивание модели: " + recognitionLangName(code)
+                                progress.setMessage(DevGramLocale.text("Скачивание модели: ") + recognitionLangName(code)
                                         + "  " + Math.round(p * 100) + "%");
                             } catch (Throwable ignore) {
                             }
@@ -2419,7 +2447,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                             refreshList();
                             if (getParentActivity() != null) {
                                 android.widget.Toast.makeText(getParentActivity(),
-                                        "Модель готова: " + recognitionLangName(code), android.widget.Toast.LENGTH_SHORT).show();
+                                        DevGramLocale.text("Модель готова: ") + recognitionLangName(code), android.widget.Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
@@ -2433,7 +2461,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
                             }
                             if (getParentActivity() != null) {
                                 android.widget.Toast.makeText(getParentActivity(),
-                                        "Ошибка загрузки модели", android.widget.Toast.LENGTH_LONG).show();
+                                        DevGramLocale.text("Ошибка загрузки модели"), android.widget.Toast.LENGTH_LONG).show();
                             }
                         });
                     }
@@ -2445,7 +2473,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
         int[] icons = org.telegram.messenger.DevGramDoubleTapUtils.icons(out);
         org.telegram.ui.ActionBar.AlertDialog.Builder builder =
                 new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-        builder.setTitle(out ? "Исходящие сообщения" : "Входящие сообщения");
+        builder.setTitle(out ? DevGramLocale.text("Исходящие сообщения") : DevGramLocale.text("Входящие сообщения"));
         builder.setItems(labels, icons, (dialog, which) -> {
             if (out) {
                 DevGramConfig.setDoubleTapActionOut(which);
@@ -2457,16 +2485,16 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             }
             refreshList();
         });
-        builder.setNegativeButton("Отмена", null);
+        builder.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(builder.create());
     }
 
     static String currentAppIconTitle() {
         for (LauncherIconController.LauncherIcon icon : LauncherIconController.LauncherIcon.values()) {
             if (LauncherIconController.isEnabled(icon)) {
-                return icon.disguise ? "Сейчас включена маскировка" : org.telegram.messenger.LocaleController.getString(icon.title);
+                return icon.disguise ? DevGramLocale.text("Сейчас включена маскировка") : DevGramLocale.getString(icon.title);
             }
         }
-        return org.telegram.messenger.LocaleController.getString(LauncherIconController.LauncherIcon.DEFAULT.title);
+        return DevGramLocale.getString(LauncherIconController.LauncherIcon.DEFAULT.title);
     }
 }

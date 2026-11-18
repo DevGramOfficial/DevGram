@@ -682,7 +682,7 @@ public class ChatAttachAlertLocationLayout extends ChatAttachAlert.AttachAlertLa
                 updateClipView();
             }
         };
-        iBlur3Capture = listView;
+        setBlur3Capture(listView);
         iBlur3CaptureView = listView;
         occupyNavigationBar = true;
         listView.setClipToPadding(false);

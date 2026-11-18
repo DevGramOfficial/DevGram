@@ -60,6 +60,22 @@ import java.util.ArrayList;
 
 public class ViewPagerFixed extends FrameLayout {
 
+    public interface OnScrollListener {
+        void onScrolled(int dx);
+    }
+
+    private final ArrayList<OnScrollListener> onScrollListeners = new ArrayList<>();
+
+    public void addOnScrollListener(@NonNull OnScrollListener listener) {
+        if (!onScrollListeners.contains(listener)) {
+            onScrollListeners.add(listener);
+        }
+    }
+
+    public void removeOnScrollListener(@NonNull OnScrollListener listener) {
+        onScrollListeners.remove(listener);
+    }
+
     private Theme.ResourcesProvider resourcesProvider;
     public int currentPosition;
     public float currentProgress = 1f;

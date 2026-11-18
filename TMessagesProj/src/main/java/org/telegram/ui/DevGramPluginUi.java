@@ -8,6 +8,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -79,8 +80,8 @@ final class DevGramPluginUi {
         Context context = fragment.getParentActivity();
         if (context == null) return;
         LinearLayout root = sheetRoot(context, fragment,
-                currentText == null ? "Ваш отзыв" : "Изменить отзыв",
-                "Оцените плагин и расскажите другим, чем он оказался полезен.");
+                currentText == null ? DevGramLocale.text("Ваш отзыв") : DevGramLocale.text("Изменить отзыв"),
+                DevGramLocale.text("Оцените плагин и расскажите другим, чем он оказался полезен."));
         final int[] rating = {currentRating <= 0 ? 5 : currentRating};
         TextView[] stars = new TextView[5];
         LinearLayout starRow = new LinearLayout(context);
@@ -95,11 +96,11 @@ final class DevGramPluginUi {
         }
         updateStars(stars, rating[0]);
         root.addView(starRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52, 0, 0, 0, 10));
-        EditText input = input(context, fragment, "Что понравилось или стоит улучшить?");
+        EditText input = input(context, fragment, DevGramLocale.text("Что понравилось или стоит улучшить?"));
         input.setText(currentText == null ? "" : currentText);
         root.addView(input, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
         ButtonWithCounterView save = new ButtonWithCounterView(context, fragment.getResourceProvider()).setRound();
-        save.setText(currentText == null ? "Опубликовать отзыв" : "Сохранить изменения", false);
+        save.setText(currentText == null ? DevGramLocale.text("Опубликовать отзыв") : DevGramLocale.text("Сохранить изменения"), false);
         save.setColor(Theme.getColor(Theme.key_featuredStickers_addButton, fragment.getResourceProvider()));
         root.addView(save, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
         BottomSheet.Builder builder = new BottomSheet.Builder(context, true, fragment.getResourceProvider());

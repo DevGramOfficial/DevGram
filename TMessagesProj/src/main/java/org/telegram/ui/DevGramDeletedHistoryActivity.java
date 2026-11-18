@@ -21,6 +21,7 @@ import android.view.ViewGroup;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DevGramMessagesController;
@@ -110,7 +111,7 @@ public class DevGramDeletedHistoryActivity extends BaseFragment {
                 return c.title;
             }
         }
-        return "Удалённые";
+        return DevGramLocale.text("Удалённые");
     }
 
     @Override
@@ -158,7 +159,7 @@ public class DevGramDeletedHistoryActivity extends BaseFragment {
 
         if (messages.isEmpty()) {
             android.widget.TextView empty = new android.widget.TextView(context);
-            empty.setText("Здесь пока нет сохранённых удалённых сообщений");
+            empty.setText(DevGramLocale.text("Здесь пока нет сохранённых удалённых сообщений"));
             empty.setGravity(Gravity.CENTER);
             empty.setTextColor(Theme.getColor(Theme.key_chat_serviceText, resourceProvider));
             empty.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -185,17 +186,17 @@ public class DevGramDeletedHistoryActivity extends BaseFragment {
 
         final ActionBarPopupWindow[] popup = new ActionBarPopupWindow[1];
 
-        addMenuItem(layout, "Ответить", R.drawable.menu_reply, popup, () -> replyInChat(message));
-        addMenuItem(layout, "Переслать", R.drawable.msg_forward, popup, () -> forwardMessage(message));
+        addMenuItem(layout, DevGramLocale.text("Ответить"), R.drawable.menu_reply, popup, () -> replyInChat(message));
+        addMenuItem(layout, DevGramLocale.text("Переслать"), R.drawable.msg_forward, popup, () -> forwardMessage(message));
         if (hasText) {
-            addMenuItem(layout, "Копировать", R.drawable.msg_copy, popup, () -> {
+            addMenuItem(layout, DevGramLocale.text("Копировать"), R.drawable.msg_copy, popup, () -> {
                 AndroidUtilities.addToClipboard(text);
-                BulletinFactory.of(this).createCopyBulletin(LocaleController.getString(R.string.TextCopied)).show();
+                BulletinFactory.of(this).createCopyBulletin(DevGramLocale.getString(R.string.TextCopied)).show();
             });
         }
-        addMenuItem(layout, "Показать в чате", R.drawable.msg_openin, popup, () -> openInChat(message.getId()));
-        addMenuItem(layout, "Детали", R.drawable.msg_info, popup, () -> showDetails(message, catchTime));
-        addMenuItem(layout, "Удалить", R.drawable.msg_delete, popup, () -> removeEntry(message));
+        addMenuItem(layout, DevGramLocale.text("Показать в чате"), R.drawable.msg_openin, popup, () -> openInChat(message.getId()));
+        addMenuItem(layout, DevGramLocale.text("Детали"), R.drawable.msg_info, popup, () -> showDetails(message, catchTime));
+        addMenuItem(layout, DevGramLocale.text("Удалить"), R.drawable.msg_delete, popup, () -> removeEntry(message));
 
         popup[0] = new ActionBarPopupWindow(layout, LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT);
         popup[0].setPauseNotifications(true);
@@ -300,15 +301,15 @@ public class DevGramDeletedHistoryActivity extends BaseFragment {
     }
 
     private String deletedMediaLabel(MessageObject m) {
-        if (m.isVoice()) return "Голосовое сообщение";
-        if (m.isRoundVideo()) return "Видеосообщение";
+        if (m.isVoice()) return DevGramLocale.text("Голосовое сообщение");
+        if (m.isRoundVideo()) return DevGramLocale.text("Видеосообщение");
         if (m.isGif()) return "GIF";
-        if (m.isVideo()) return "Видео";
-        if (m.isPhoto()) return "Фотография";
-        if (m.isMusic()) return "Аудио";
-        if (m.isSticker() || m.isAnimatedSticker()) return "Стикер";
-        if (m.getDocument() != null) return "Файл";
-        return "Медиа";
+        if (m.isVideo()) return DevGramLocale.text("Видео");
+        if (m.isPhoto()) return DevGramLocale.text("Фотография");
+        if (m.isMusic()) return DevGramLocale.text("Аудио");
+        if (m.isSticker() || m.isAnimatedSticker()) return DevGramLocale.text("Стикер");
+        if (m.getDocument() != null) return DevGramLocale.text("Файл");
+        return DevGramLocale.text("Медиа");
     }
 
     // Переслать: стандартный пикер пересылки.
@@ -344,13 +345,13 @@ public class DevGramDeletedHistoryActivity extends BaseFragment {
         }
         StringBuilder sb = new StringBuilder();
         sb.append("ID: ").append(message.getId()).append('\n');
-        sb.append("Дата: ").append(LocaleController.formatDateTime(message.messageOwner.date, true)).append('\n');
-        sb.append("Дата удаления: ").append(catchTime != 0 ? LocaleController.formatDateTime(catchTime, true) : "—");
+        sb.append(DevGramLocale.text("Дата: ")).append(LocaleController.formatDateTime(message.messageOwner.date, true)).append('\n');
+        sb.append(DevGramLocale.text("Дата удаления: ")).append(catchTime != 0 ? LocaleController.formatDateTime(catchTime, true) : "—");
 
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Детали");
+        builder.setTitle(DevGramLocale.text("Детали"));
         builder.setMessage(sb.toString());
-        builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
+        builder.setPositiveButton(DevGramLocale.getString(R.string.OK), null);
         showDialog(builder.create());
     }
 
@@ -371,11 +372,12 @@ public class DevGramDeletedHistoryActivity extends BaseFragment {
     }
 
     private String pluralMessages(int n) {
+        if (!DevGramLocale.isRussian()) return n == 1 ? DevGramLocale.text("сообщение") : DevGramLocale.text("сообщений");
         int mod10 = n % 10;
         int mod100 = n % 100;
-        if (mod10 == 1 && mod100 != 11) return "сообщение";
-        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "сообщения";
-        return "сообщений";
+        if (mod10 == 1 && mod100 != 11) return DevGramLocale.text("сообщение");
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return DevGramLocale.text("сообщения");
+        return DevGramLocale.text("сообщений");
     }
 
     // Ячейка удалёнки:

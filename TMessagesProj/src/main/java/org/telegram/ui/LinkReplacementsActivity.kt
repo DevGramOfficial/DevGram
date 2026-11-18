@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 
 import org.telegram.messenger.AndroidUtilities
 import org.telegram.messenger.BotWebViewVibrationEffect
+import org.telegram.messenger.DevGramLocale
 import org.telegram.messenger.LocaleController
 import org.telegram.messenger.MessagesController
 import org.telegram.messenger.R
@@ -43,7 +44,7 @@ class LinkReplacementsActivity : BaseFragment() {
     override fun createView(context: Context): View {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back)
         actionBar.setAllowOverlayTitle(true)
-        actionBar.setTitle(LocaleController.getString(R.string.ReplaceLinksOnPaste))
+        actionBar.setTitle(DevGramLocale.getString(R.string.ReplaceLinksOnPaste))
         if (AndroidUtilities.isTablet()) {
             actionBar.setOccupyStatusBar(false)
         }
@@ -58,7 +59,7 @@ class LinkReplacementsActivity : BaseFragment() {
         })
 
         actionBar.createMenu().addItem(MENU_RESET, R.drawable.msg_reset)
-            .setContentDescription(LocaleController.getString(R.string.Reset))
+            .setContentDescription(DevGramLocale.getString(R.string.Reset))
 
         val frameLayout = FrameLayout(context)
         frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray))
@@ -82,13 +83,13 @@ class LinkReplacementsActivity : BaseFragment() {
         items.add(
             UItem.asButtonCheck(
                 ID_ENABLED,
-                LocaleController.getString(R.string.ReplaceLinksOnPaste),
-                LocaleController.getString(R.string.ReplaceLinksOnPasteInfo)
+                DevGramLocale.getString(R.string.ReplaceLinksOnPaste),
+                DevGramLocale.getString(R.string.ReplaceLinksOnPasteInfo)
             ).setChecked(LinkReplacements.isEnabled()).setMultiline(true)
         )
         items.add(UItem.asShadow(null))
 
-        items.add(UItem.asHeader(LocaleController.getString(R.string.LinkReplacementRules)))
+        items.add(UItem.asHeader(DevGramLocale.getString(R.string.LinkReplacementRules)))
         for (a in rules.indices) {
             val rule = rules[a]
             items.add(
@@ -97,17 +98,17 @@ class LinkReplacementsActivity : BaseFragment() {
             )
         }
         items.add(
-            UItem.asButton(ID_ADD, R.drawable.msg_add, LocaleController.getString(R.string.LinkReplacementAdd))
+            UItem.asButton(ID_ADD, R.drawable.msg_add, DevGramLocale.getString(R.string.LinkReplacementAdd))
                 .accent()
         )
-        items.add(UItem.asShadow(LocaleController.getString(R.string.LinkReplacementRulesInfo)))
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.LinkReplacementRulesInfo)))
     }
 
     private fun getRuleValue(rule: LinkReplacements.Rule): CharSequence {
         if (rule.valid) {
             return rule.replacement
         }
-        val invalid = SpannableString(LocaleController.getString(R.string.LinkReplacementInvalid))
+        val invalid = SpannableString(DevGramLocale.getString(R.string.LinkReplacementInvalid))
         invalid.setSpan(
             ForegroundColorSpan(Theme.getColor(Theme.key_text_RedRegular)),
             0,
@@ -148,7 +149,7 @@ class LinkReplacementsActivity : BaseFragment() {
             return false
         }
         ItemOptions.makeOptions(this, view)
-            .add(R.drawable.msg_delete, LocaleController.getString(R.string.Delete), true) { deleteRule(index) }
+            .add(R.drawable.msg_delete, DevGramLocale.getString(R.string.Delete), true) { deleteRule(index) }
             .setScrimViewBackground(listView.getClipBackground(view))
             .show()
         return true
@@ -199,7 +200,7 @@ class LinkReplacementsActivity : BaseFragment() {
 
         val builder = AlertDialog.Builder(context)
         builder.setTitle(
-            LocaleController.getString(
+            DevGramLocale.getString(
                 if (rule == null) R.string.LinkReplacementAdd else R.string.LinkReplacementEdit
             )
         )
@@ -211,7 +212,7 @@ class LinkReplacementsActivity : BaseFragment() {
         val patternField = createField(
             context,
             rule?.pattern.orEmpty(),
-            LocaleController.getString(R.string.LinkReplacementFind),
+            DevGramLocale.getString(R.string.LinkReplacementFind),
             EditorInfo.IME_ACTION_NEXT
         )
         linearLayout.addView(patternField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 36, 0, 24, 0, 24, 0))
@@ -219,14 +220,14 @@ class LinkReplacementsActivity : BaseFragment() {
         val replacementField = createField(
             context,
             rule?.replacement.orEmpty(),
-            LocaleController.getString(R.string.LinkReplacementReplaceWith),
+            DevGramLocale.getString(R.string.LinkReplacementReplaceWith),
             EditorInfo.IME_ACTION_DONE
         )
         linearLayout.addView(replacementField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 36, 0, 24, 0, 24, 0))
 
         builder.setView(linearLayout)
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null)
-        builder.setPositiveButton(LocaleController.getString(R.string.Save), null)
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null)
+        builder.setPositiveButton(DevGramLocale.getString(R.string.Save), null)
 
         val dialog = builder.create()
         showDialog(dialog)
@@ -236,7 +237,7 @@ class LinkReplacementsActivity : BaseFragment() {
         button?.setOnClickListener {
             val pattern = patternField.text.toString().trim()
             if (!LinkReplacements.isValidPattern(pattern)) {
-                patternField.setErrorText(LocaleController.getString(R.string.LinkReplacementInvalid))
+                patternField.setErrorText(DevGramLocale.getString(R.string.LinkReplacementInvalid))
                 AndroidUtilities.shakeViewSpring(patternField, -6f)
                 BotWebViewVibrationEffect.APP_ERROR.vibrate()
                 return@setOnClickListener

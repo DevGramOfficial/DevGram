@@ -7,6 +7,7 @@ import android.widget.FrameLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -29,12 +30,14 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     private static final int ID_DELETE = 25;
 
     // {label, endpoint-пресет, model-пресет}. «Свой» — без пресета.
-    private static final String[][] PROVIDERS = {
+    private static String[][] getProviders() {
+        return new String[][]{
             {"Gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini-2.0-flash"},
             {"OpenAI", "https://api.openai.com/v1/chat/completions", "gpt-4o-mini"},
             {"OpenRouter", "https://openrouter.ai/api/v1/chat/completions", "openai/gpt-4o-mini"},
-            {"Свой", "", ""},
+            {DevGramLocale.text("Свой"), "", ""},
     };
+    }
 
     private int editIndex; // -1 = новый сервис; после сохранения указывает на созданную запись
     private String provider = "OpenAI";
@@ -63,16 +66,16 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle(editIndex >= 0 ? "Изменить сервис" : "Новый сервис");
+        actionBar.setTitle(editIndex >= 0 ? DevGramLocale.text("Изменить сервис") : DevGramLocale.text("Новый сервис"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
 
         urlCell = new EditTextCell(context, "Endpoint", false);
         urlCell.setText(initEndpoint);
-        modelCell = new EditTextCell(context, "Модель", false);
+        modelCell = new EditTextCell(context, DevGramLocale.text("Модель"), false);
         modelCell.setText(initModel);
-        keyCell = new EditTextCell(context, "API-ключ", false);
+        keyCell = new EditTextCell(context, DevGramLocale.text("API-ключ"), false);
         keyCell.setText(initKey);
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onItemClick, null);
@@ -82,24 +85,24 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asHeader("Провайдер"));
-        for (int i = 0; i < PROVIDERS.length; i++) {
-            items.add(UItem.asRadio(ID_PROVIDER_BASE + i, PROVIDERS[i][0]).setChecked(provider.equals(PROVIDERS[i][0])));
+        items.add(UItem.asHeader(DevGramLocale.text("Провайдер")));
+        for (int i = 0; i < getProviders().length; i++) {
+            items.add(UItem.asRadio(ID_PROVIDER_BASE + i, getProviders()[i][0]).setChecked(provider.equals(getProviders()[i][0])));
         }
-        items.add(UItem.asShadow("Выберите подходящий сервис для взаимодействия с языковыми моделями."));
+        items.add(UItem.asShadow(DevGramLocale.text("Выберите подходящий сервис для взаимодействия с языковыми моделями.")));
 
-        items.add(UItem.asHeader("Данные сервиса"));
+        items.add(UItem.asHeader(DevGramLocale.text("Данные сервиса")));
         items.add(UItem.asCustom(urlCell));
         items.add(UItem.asCustom(modelCell));
         items.add(UItem.asCustom(keyCell));
-        UItem reas = UItem.asCheck(ID_REASONING, "Рассуждения").setChecked(reasoning).setMultiline(true);
-        reas.subtext = "Позволяет поддерживаемым моделям этого сервиса тратить больше токенов на обдумывание ответа.";
+        UItem reas = UItem.asCheck(ID_REASONING, DevGramLocale.text("Рассуждения")).setChecked(reasoning).setMultiline(true);
+        reas.subtext = DevGramLocale.text("Позволяет поддерживаемым моделям этого сервиса тратить больше токенов на обдумывание ответа.");
         items.add(reas);
         items.add(UItem.asShadow(null));
 
-        items.add(UItem.asButton(ID_VERIFY, R.drawable.ic_ab_done, "Проверить и сохранить").accent());
+        items.add(UItem.asButton(ID_VERIFY, R.drawable.ic_ab_done, DevGramLocale.text("Проверить и сохранить")).accent());
         if (editIndex >= 0) {
-            items.add(UItem.asButton(ID_DELETE, R.drawable.msg_delete, "Удалить").red());
+            items.add(UItem.asButton(ID_DELETE, R.drawable.msg_delete, DevGramLocale.text("Удалить")).red());
         }
         items.add(UItem.asShadow(null));
     }
@@ -107,9 +110,9 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     private void onItemClick(UItem item, View view, int position, float x, float y) {
         if (item.id >= ID_PROVIDER_BASE && item.id < ID_REASONING) {
             int i = item.id - ID_PROVIDER_BASE;
-            provider = PROVIDERS[i][0];
-            if (!PROVIDERS[i][1].isEmpty()) urlCell.setText(PROVIDERS[i][1]);
-            if (!PROVIDERS[i][2].isEmpty()) modelCell.setText(PROVIDERS[i][2]);
+            provider = getProviders()[i][0];
+            if (!getProviders()[i][1].isEmpty()) urlCell.setText(getProviders()[i][1]);
+            if (!getProviders()[i][2].isEmpty()) modelCell.setText(getProviders()[i][2]);
             update();
         } else if (item.id == ID_REASONING) {
             reasoning = !reasoning;
@@ -133,7 +136,7 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     private void verifyAndSave() {
         if (getParentActivity() == null) return;
         if (key().isEmpty()) {
-            android.widget.Toast.makeText(getParentActivity(), "Укажите API-ключ", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(getParentActivity(), DevGramLocale.text("Укажите API-ключ"), android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         AlertDialog progress = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
@@ -148,10 +151,10 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
                 return;
             }
             AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-            b.setTitle("Сервис не отвечает");
+            b.setTitle(DevGramLocale.text("Сервис не отвечает"));
             b.setMessage(String.valueOf(error.getMessage()));
-            b.setPositiveButton("Сохранить всё равно", (d, w) -> { save(); finishFragment(); });
-            b.setNegativeButton("Отмена", null);
+            b.setPositiveButton(DevGramLocale.text("Сохранить всё равно"), (d, w) -> { save(); finishFragment(); });
+            b.setNegativeButton(DevGramLocale.text("Отмена"), null);
             showDialog(b.create());
         });
     }
@@ -159,9 +162,9 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
     private void confirmDelete() {
         if (getParentActivity() == null || editIndex < 0) return;
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Удалить сервис?");
+        b.setTitle(DevGramLocale.text("Удалить сервис?"));
         b.setMessage(provider);
-        b.setPositiveButton("Удалить", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Удалить"), (d, w) -> {
             JSONArray arr = DevGramAiServicesActivity.services();
             if (editIndex < arr.length()) arr.remove(editIndex);
             int sel = Math.max(0, Math.min(MessagesController.getGlobalMainSettings().getInt("dg_aiServiceSel", 0), arr.length() - 1));
@@ -171,7 +174,7 @@ public class DevGramAiServiceEditActivity extends DevGramSettingsFragment {
             else MessagesController.getGlobalMainSettings().edit().putString("dg_aiKey", "").apply();
             finishFragment();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 

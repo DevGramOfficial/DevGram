@@ -43,7 +43,7 @@ public class LastFmHelper {
     }
     
     public void login(String username, String password, LoginCallback callback) {
-        Utilities.globalQueue.postRunnable(() -> {
+        org.telegram.messenger.DevGramNetworkQueue.postRunnable(() -> {
             try {
                 // Step 1: Get token
                 String token = getToken();
@@ -97,7 +97,7 @@ public class LastFmHelper {
         params.put("sk", getSessionKey());
         params.put("api_sig", generateApiSignature(params));
         
-        Utilities.globalQueue.postRunnable(() -> {
+        org.telegram.messenger.DevGramNetworkQueue.postRunnable(() -> {
             try {
                 sendPostRequestVoid(params);
                 if (BuildVars.LOGS_ENABLED) {
@@ -129,7 +129,7 @@ public class LastFmHelper {
         params.put("sk", getSessionKey());
         params.put("api_sig", generateApiSignature(params));
         
-        Utilities.globalQueue.postRunnable(() -> {
+        org.telegram.messenger.DevGramNetworkQueue.postRunnable(() -> {
             try {
                 sendPostRequestVoid(params);
                 if (BuildVars.LOGS_ENABLED) {

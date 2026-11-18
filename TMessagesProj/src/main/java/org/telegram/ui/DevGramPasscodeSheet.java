@@ -9,8 +9,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.BottomSheet;
@@ -185,7 +185,7 @@ public class DevGramPasscodeSheet extends BottomSheet {
                 if (onCreated != null) onCreated.run(pin);
                 dismiss();
             } else {
-                fail(LocaleController.getString(R.string.DevGramLockedChatsPasscodeMismatch));
+                fail(DevGramLocale.getString(R.string.DevGramLockedChatsPasscodeMismatch));
                 firstPin = null;
                 updateTitle();
             }
@@ -195,7 +195,7 @@ public class DevGramPasscodeSheet extends BottomSheet {
                 if (onUnlocked != null) onUnlocked.run();
                 dismiss();
             } else {
-                fail(LocaleController.getString(R.string.DevGramLockedChatsWrongPasscode));
+                fail(DevGramLocale.getString(R.string.DevGramLockedChatsWrongPasscode));
             }
         }
     }
@@ -213,10 +213,10 @@ public class DevGramPasscodeSheet extends BottomSheet {
     private void updateTitle() {
         if (setMode) {
             titleView.setText(firstPin == null
-                    ? LocaleController.getString(R.string.DevGramLockedChatsNewPasscode)
-                    : LocaleController.getString(R.string.DevGramLockedChatsRepeatPasscode));
+                    ? DevGramLocale.getString(R.string.DevGramLockedChatsNewPasscode)
+                    : DevGramLocale.getString(R.string.DevGramLockedChatsRepeatPasscode));
         } else {
-            titleView.setText(LocaleController.getString(R.string.DevGramLockedChatsEnterPasscode));
+            titleView.setText(DevGramLocale.getString(R.string.DevGramLockedChatsEnterPasscode));
         }
     }
 

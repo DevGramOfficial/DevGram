@@ -83,6 +83,7 @@ import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
+import org.telegram.utils.glass.source.GlassSource;
 import org.telegram.ui.Components.chat.ViewPositionWatcher;
 import org.telegram.ui.Components.glass.GlassTabView;
 import org.telegram.ui.Stories.recorder.HintView2;
@@ -93,6 +94,15 @@ import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 
 public class MainTabsActivity extends ViewPagerActivity implements NotificationCenter.NotificationCenterDelegate, FactorAnimator.Target {
+    private org.telegram.ui.Components.DevGramClassicDrawer classicDrawer;
+
+    public void openClassicDrawer() {
+        if (classicDrawer != null) classicDrawer.open();
+    }
+    public void classicDrawerVisibilityChanged() { checkSystemBarColors(); }
+    @Override public boolean isLightStatusBar() {
+        return classicDrawer != null && classicDrawer.getVisibility() == View.VISIBLE ? classicDrawer.isLightStatusBar() : super.isLightStatusBar();
+    }
 
     public static final int TABS_COUNT = 4;
     // DevGram: стоковая (не-iOS) нумерация позиций — используется только внутри
@@ -175,7 +185,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
                         if (fragment instanceof TabFragmentDelegate) {
                             TabFragmentDelegate delegate = (TabFragmentDelegate) fragment;
-                            BlurredBackgroundSourceRenderNode source = delegate.getGlassSource();
+                            GlassSource source = delegate.getGlassSource();
                             if (source != null) {
                                 hash.addF(fragmentPosition.left);
                                 hash.addF(fragmentPosition.top);
@@ -209,7 +219,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
                         if (fragment instanceof TabFragmentDelegate) {
                             TabFragmentDelegate delegate = (TabFragmentDelegate) fragment;
-                            BlurredBackgroundSourceRenderNode source = delegate.getGlassSource();
+                            GlassSource source = delegate.getGlassSource();
                             if (source != null) {
                                 canvas.save();
                                 canvas.translate(fragmentPosition.left, fragmentPosition.top);
@@ -240,6 +250,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     @Override
     protected FrameLayout createContentView(Context context) {
         return new FrameLayout(context) {
+            @Override public boolean onInterceptTouchEvent(MotionEvent event) {
+                return classicDrawer != null && classicDrawer.intercept(event) || super.onInterceptTouchEvent(event);
+            }
+            @Override public boolean onTouchEvent(MotionEvent event) {
+                return classicDrawer != null && classicDrawer.onTouchEvent(event) || super.onTouchEvent(event);
+            }
             @Override
             protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
                 super.onLayout(changed, left, top, right, bottom);
@@ -335,6 +351,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     public View createView(Context context) {
+        classicDrawer = null;
         super.createView(context);
         tabletLayout = false;
 
@@ -443,6 +460,13 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         updateLayout();
         checkUnreadCount(false);
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) {
+            viewPager.setPosition(posChats());
+            classicDrawer = new org.telegram.ui.Components.DevGramClassicDrawer(this);
+            contentView.addView(classicDrawer, LayoutHelper.createFrame(-1, -1));
+            tabsViewWrapper.setVisibility(View.GONE);
+            fadeView.setVisibility(View.GONE);
+        }
         return contentView;
     }
 
@@ -906,6 +930,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     public boolean onBackPressed(boolean invoked) {
+        if (classicDrawer != null && classicDrawer.isOpen()) {
+            if (invoked) classicDrawer.close(null);
+            return false;
+        }
         final boolean result = super.onBackPressed(invoked);
         if (result) {
             final int startPosition = getStartPosition();
@@ -920,7 +948,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     public boolean canUseSystemBack() {
-        return viewPager != null && !viewPager.isManualScrolling() && !viewPager.isTouch()
+        return (classicDrawer == null || !classicDrawer.isOpen()) && viewPager != null && !viewPager.isManualScrolling() && !viewPager.isTouch()
             && viewPager.getCurrentPosition() == getStartPosition() && !hasShownSheet()
             && getCurrentVisibleFragment() instanceof DialogsActivity
             && ((DialogsActivity) getCurrentVisibleFragment()).canUseSystemBack();
@@ -934,6 +962,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         bundle.putBoolean("hasMainTabs", true);
         dialogsActivity = new DialogsActivity(bundle);
         dialogsActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
+        dialogsActivity.setClassicDrawerOpener(this::openClassicDrawer);
         putFragmentAtPosition(posChats(), dialogsActivity);
         return dialogsActivity;
     }
@@ -945,6 +974,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             args.putBoolean("hasMainTabs", true);
             dialogsActivity = new DialogsActivity(args);
             dialogsActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
+            dialogsActivity.setClassicDrawerOpener(this::openClassicDrawer);
             return dialogsActivity;
         } else if (getUserConfig().showContactsTab && position == posContacts()) {
             Bundle args = new Bundle();
@@ -1016,8 +1046,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         }
 
-        default BlurredBackgroundSourceRenderNode getGlassSource() {
+        default GlassSource getGlassSource() {
             return null;
+        }
+
+        default GlassSource getFrostedGlassSource() {
+            return getGlassSource();
         }
     }
 
@@ -1032,6 +1066,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private boolean canScrollInternal(MotionEvent ev, boolean forward) {
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) return false;
         final BaseFragment fragment = getCurrentVisibleFragment();
         if (fragment instanceof TabFragmentDelegate) {
             final TabFragmentDelegate delegate = (TabFragmentDelegate) fragment;
@@ -1235,6 +1270,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         if (viewPager == null || fadeView == null) {
             return;
         }
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) { fadeView.setVisibility(View.GONE); return; }
 
         final float animatedPosition = viewPager.getPositionAnimated();
         final float isProfile = 1f - MathUtils.clamp(Math.abs(posProfile() - animatedPosition), 0, 1);
@@ -1253,6 +1289,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         if (tabsView == null || updateLayoutWrapper == null) {
             return;
         }
+        if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) { tabsViewWrapper.setVisibility(View.GONE); return; }
+        tabsViewWrapper.setVisibility(View.VISIBLE);
         final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
         final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
         final int normalY = -(updateLayoutHeight);
@@ -1404,6 +1442,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private void blur3_updateColors() {
+        if (classicDrawer != null) classicDrawer.updateColors();
         blur3_updateFadeColors();
         if (tabsViewBackground != null) {
             tabsViewBackground.updateColors();

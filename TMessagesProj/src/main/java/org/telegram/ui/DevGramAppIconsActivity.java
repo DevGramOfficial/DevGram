@@ -30,9 +30,9 @@ import androidx.annotation.NonNull;
 import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LiteMode;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
@@ -90,7 +90,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
         accentColor = accentOf(context, previewIcon);
 
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle(LocaleController.getString(R.string.AppIcon));
+        actionBar.setTitle(DevGramLocale.getString(R.string.AppIcon));
         actionBar.setAllowOverlayTitle(false);
         actionBar.setCastShadows(false);
         actionBar.setAddToContainer(false);
@@ -192,7 +192,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
         }
         // DevGram: эксклюзивные иконки — только поддержавшим
         if (DevGramSupporterActivity.isAvailable(currentAccount)) {
-            items.add(UItem.asHeader("Для поддержавших"));
+            items.add(UItem.asHeader(DevGramLocale.text("Для поддержавших")));
             for (LauncherIconController.LauncherIcon icon : LauncherIconController.LauncherIcon.values()) {
                 if (icon.supporter) items.add(IconCell.Factory.of(icon, icon == previewIcon));
             }
@@ -226,7 +226,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
 
     private void updateButton(boolean animated) {
         if (button != null) {
-            button.setText(previewIcon == appliedIcon ? "Оставить" : "Применить", animated);
+            button.setText(previewIcon == appliedIcon ? DevGramLocale.text("Оставить") : DevGramLocale.text("Применить"), animated);
         }
     }
 
@@ -505,7 +505,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
             subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             subtitle.setGravity(Gravity.CENTER);
             subtitle.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
-            subtitle.setText("Иконка приложения DevGram");
+            subtitle.setText(DevGramLocale.text("Иконка приложения DevGram"));
             addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 24, 4, 24, 0));
         }
 
@@ -515,7 +515,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
 
         void set(LauncherIconController.LauncherIcon icon, boolean animated) {
             preview.setImageDrawable(previewDrawable(getContext(), icon));
-            title.setText(LocaleController.getString(icon.title));
+            title.setText(DevGramLocale.getString(icon.title));
             if (animated) {
                 preview.setScaleX(0.9f);
                 preview.setScaleY(0.9f);
@@ -579,7 +579,7 @@ public class DevGramAppIconsActivity extends BaseFragment {
 
         void set(LauncherIconController.LauncherIcon icon, boolean selected, boolean animated) {
             preview.setImageDrawable(previewDrawable(getContext(), icon));
-            title.setText(LocaleController.getString(icon.title));
+            title.setText(DevGramLocale.getString(icon.title));
             checkBox.setChecked(selected, animated);
             float to = selected ? 1f : 0f;
             if (selectionAnimator != null) {

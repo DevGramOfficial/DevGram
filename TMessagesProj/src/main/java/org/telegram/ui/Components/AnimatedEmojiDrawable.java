@@ -1021,9 +1021,18 @@ public class AnimatedEmojiDrawable extends Drawable {
     }
 
     private ColorFilter colorFilterToSet;
+    private ColorFilter lastColorFilter;
+
+    /** the filter passed to setColorFilter last (lets ThemeBind.drawableColorFilter re-apply it on theme changes) */
+    @Nullable
+    @Override
+    public ColorFilter getColorFilter() {
+        return lastColorFilter;
+    }
 
     @Override
     public void setColorFilter(@Nullable ColorFilter colorFilter) {
+        lastColorFilter = colorFilter;
         if (imageReceiver == null || document == null) {
             colorFilterToSet = colorFilter;
         } else if (canOverrideColor()) {
@@ -1184,6 +1193,19 @@ public class AnimatedEmojiDrawable extends Drawable {
 
         private boolean hasParticles;
         private StarsReactionsSheet.Particles particles;
+        // Badge copies in a marquee share a simulation in local coordinates.
+        protected boolean particlesRelativeToBounds;
+        private void drawParticles(Canvas canvas,Rect bounds,float alpha) {
+            int save=-1;
+            if(particlesRelativeToBounds){
+                save=canvas.save();canvas.translate(bounds.left,bounds.top);
+                particles.setBounds(0,0,bounds.width(),bounds.height());
+            }else particles.setBounds(bounds);
+            try{
+                particles.process();
+                particles.draw(canvas,Theme.multAlpha(lastColor==null?0xFFFFFFFF:lastColor,alpha));
+            }finally{if(save>=0)canvas.restoreToCount(save);}
+        }
         public void setParticles(boolean show, boolean animated) {
             if (hasParticles == show) return;
             if (animated) {
@@ -1236,9 +1258,7 @@ public class AnimatedEmojiDrawable extends Drawable {
             bounds.offset(offsetX, offsetY);
             final float particlesAlpha = this.particlesAlpha.set(hasParticles);
             if (particlesAlpha > 0) {
-                particles.setBounds(bounds);
-                particles.process();
-                particles.draw(canvas, Theme.multAlpha(lastColor == null ? 0xFFFFFFFF : lastColor, particlesAlpha));
+                drawParticles(canvas,bounds,particlesAlpha);
                 Choreographer60FpsContent.getInstance().addFrameCallback(invalidateRunnable, 15);
             } else {
                 Choreographer60FpsContent.getInstance().removeFrameCallback(invalidateRunnable);

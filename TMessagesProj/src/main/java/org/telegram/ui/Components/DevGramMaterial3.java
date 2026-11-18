@@ -25,7 +25,7 @@ public class DevGramMaterial3 {
     public static final float GLASS_ALPHA_DARK = .93f;
 
     public static boolean enabled() {
-        return MessagesController.getGlobalMainSettings().getBoolean("dg_md3", true);
+        return !DevGramClassicDesign.enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_md3", true);
     }
 
     public static boolean loadingEnabled() {
@@ -67,7 +67,9 @@ public class DevGramMaterial3 {
     // всю ширину, что и в MD3-режиме (сверено по реальным скриншотам Swiftgram: там именно
     // плавающая капсула с отступами от краёв, а не плоская стыкованная полоса).
     public static boolean iosNavigation() {
-        return org.telegram.messenger.DevGramConfig.getDesignMode() == org.telegram.messenger.DevGramConfig.DESIGN_MODE_IOS;
+        // The separate iOS design was removed. Keep this compatibility method false so
+        // stale preferences cannot re-enable any iOS-specific layout path.
+        return false;
     }
 
     public static int mainTabsHeightDp() {

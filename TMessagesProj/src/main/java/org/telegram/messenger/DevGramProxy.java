@@ -64,20 +64,25 @@ public class DevGramProxy {
         }
         boolean running = DevGramPlugins.isWsProxyRunning();
         String err = DevGramPlugins.wsProxyLastError();
-        sb.append("Слушает 127.0.0.1:1443: ").append(listening ? "ДА ✅" : "НЕТ ❌").append('\n');
-        sb.append("Python-поток жив: ").append(running ? "да" : "нет").append('\n');
-        sb.append("Прокси включён: ").append(isEnabled() ? "да" : "нет").append('\n');
+        sb.append(DevGramLocale.text("Слушает 127.0.0.1:1443: ")).append(listening ? DevGramLocale.text("ДА ✅") : DevGramLocale.text("НЕТ ❌")).append('\n');
+        sb.append(DevGramLocale.text("Python-поток жив: ")).append(running ? DevGramLocale.text("да") : DevGramLocale.text("нет")).append('\n');
+        sb.append(DevGramLocale.text("Прокси включён: ")).append(isEnabled() ? DevGramLocale.text("да") : DevGramLocale.text("нет")).append('\n');
         if (err != null && !err.isEmpty()) {
-            sb.append("\nОшибка:\n").append(err.length() > 900 ? err.substring(0, 900) + "…" : err);
+            sb.append(DevGramLocale.text("\nОшибка:\n")).append(err.length() > 900 ? err.substring(0, 900) + "…" : err);
         } else if (listening) {
-            sb.append("\nЛокальный прокси поднят. Если Telegram всё равно «Соединение…» — проблема в WSS к DC (сеть/блокировка).");
+            sb.append(DevGramLocale.text("\nЛокальный прокси поднят. Если Telegram всё равно «Соединение…» — проблема в WSS к DC (сеть/блокировка)."));
         }
         return sb.toString();
     }
 
     public static void setEnabled(boolean enable) {
+        DevGramProxyNetwork.clearBuiltinRestore();
         MessagesController.getGlobalMainSettings().edit().putBoolean(FLAG, enable).apply();
         if (enable) {
+            if (DevGramProxyNetwork.shouldDisable()) {
+                DevGramProxyNetwork.requestCheck();
+                return;
+            }
             ensureLocalStarted();
             ConnectionsManager.setProxySettings(true, ourProxySettings());
         } else {
@@ -122,7 +127,7 @@ public class DevGramProxy {
         } catch (Throwable ignore) {
         }
         // применить итоговое состояние (скрытый локальный прокси, если включён)
-        if (isEnabled()) {
+        if (isEnabled() && !DevGramProxyNetwork.shouldDisable()) {
             ensureLocalStarted();
             ConnectionsManager.setProxySettings(true, ourProxySettings());
         }
@@ -148,9 +153,9 @@ public class DevGramProxy {
         SharedPreferences p = MessagesController.getGlobalMainSettings();
         String ip = p.getString("proxy_ip", "");
         if (p.getBoolean("proxy_enabled", false) && !TextUtils.isEmpty(ip)) {
-            ConnectionsManager.setProxySettings(true, org.telegram.utils.proxy.ProxySettings.fromSharedPreferences(p));
+            DevGramProxyNetwork.applyAutomatic(true, org.telegram.utils.proxy.ProxySettings.fromSharedPreferences(p));
         } else {
-            ConnectionsManager.setProxySettings(false, null);
+            DevGramProxyNetwork.applyAutomatic(false, null);
         }
     }
 
@@ -158,7 +163,7 @@ public class DevGramProxy {
     // ВАЖНО: тип именно MTPROTO — только он сохраняет secret в конструкторе ProxySettings;
     // при Type.SOCKS5 секрет обнуляется (secret = "") → native получает пустой секрет,
     // fake-TLS не поднимается и прокси молча не работает.
-    private static org.telegram.utils.proxy.ProxySettings ourProxySettings() {
+    static org.telegram.utils.proxy.ProxySettings ourProxySettings() {
         return org.telegram.utils.proxy.ProxySettings.builder()
                 .setType(org.telegram.utils.proxy.ProxySettings.Type.MTPROTO)
                 .setAddress(ADDRESS)

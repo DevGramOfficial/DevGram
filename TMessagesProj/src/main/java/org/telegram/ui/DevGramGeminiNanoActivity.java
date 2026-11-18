@@ -4,6 +4,7 @@ import android.content.Context;
 import android.view.View;
 import android.widget.Toast;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.DevGramGeminiNano;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
@@ -57,56 +58,56 @@ public class DevGramGeminiNanoActivity extends DevGramSettingsFragment {
         int status = DevGramGeminiNano.getStatus();
 
         items.add(UItem.asTopView("Gemini Nano",
-                "Модель работает прямо на устройстве. Текст запросов и ответов не отправляется на сервер.",
+                DevGramLocale.text("Модель работает прямо на устройстве. Текст запросов и ответов не отправляется на сервер."),
                 "RestrictedEmoji", "✨"));
         items.add(UItem.asShadow(null));
-        items.add(UItem.asCheck(ID_ENABLE, "Использовать Gemini Nano").setChecked(selected));
-        items.add(UItem.asShadow("Модель загружается один раз через системный сервис Android AICore."));
+        items.add(UItem.asCheck(ID_ENABLE, DevGramLocale.text("Использовать Gemini Nano")).setChecked(selected));
+        items.add(UItem.asShadow(DevGramLocale.text("Модель загружается один раз через системный сервис Android AICore.")));
 
-        items.add(UItem.asHeader("Версия модели"));
-        items.add(UItem.asCheck(ID_PREVIEW, "Preview-модель").setChecked(preview).setMultiline(true));
+        items.add(UItem.asHeader(DevGramLocale.text("Версия модели")));
+        items.add(UItem.asCheck(ID_PREVIEW, DevGramLocale.text("Preview-модель")).setChecked(preview).setMultiline(true));
         items.get(items.size() - 1).subtext = preview
-                ? "Новые возможности, но поведение может меняться."
-                : "Стабильная версия модели.";
-        items.add(UItem.asCheck(ID_FAST, "Быстрая модель").setChecked(fast).setMultiline(true));
+                ? DevGramLocale.text("Новые возможности, но поведение может меняться.")
+                : DevGramLocale.text("Стабильная версия модели.");
+        items.add(UItem.asCheck(ID_FAST, DevGramLocale.text("Быстрая модель")).setChecked(fast).setMultiline(true));
         items.get(items.size() - 1).subtext = fast
-                ? "Быстрее отвечает и расходует меньше ресурсов."
-                : "Полная модель с приоритетом качества.";
+                ? DevGramLocale.text("Быстрее отвечает и расходует меньше ресурсов.")
+                : DevGramLocale.text("Полная модель с приоритетом качества.");
         if (DevGramGeminiNano.isThinkingModeAvailable()) {
-            items.add(UItem.asCheck(ID_REASONING, "Режим рассуждения").setChecked(reasoning).setMultiline(true));
-            items.get(items.size() - 1).subtext = "Модель тратит больше времени на сложные ответы.";
+            items.add(UItem.asCheck(ID_REASONING, DevGramLocale.text("Режим рассуждения")).setChecked(reasoning).setMultiline(true));
+            items.get(items.size() - 1).subtext = DevGramLocale.text("Модель тратит больше времени на сложные ответы.");
         }
-        items.add(UItem.asShadow("Доступность и загрузка проверяются отдельно для каждой комбинации."));
+        items.add(UItem.asShadow(DevGramLocale.text("Доступность и загрузка проверяются отдельно для каждой комбинации.")));
 
-        items.add(UItem.asHeader("Состояние"));
+        items.add(UItem.asHeader(DevGramLocale.text("Состояние")));
         if (status == DevGramGeminiNano.STATUS_DOWNLOADABLE) {
-            items.add(UItem.asButton(ID_DOWNLOAD, R.drawable.msg_download, "Загрузить модель",
+            items.add(UItem.asButton(ID_DOWNLOAD, R.drawable.msg_download, DevGramLocale.text("Загрузить модель"),
                     DevGramGeminiNano.statusText()).accent());
         } else if (status == DevGramGeminiNano.STATUS_DOWNLOADING) {
-            UItem row = UItem.asButton(ID_DOWNLOAD, R.drawable.msg_download, "Модель загружается",
+            UItem row = UItem.asButton(ID_DOWNLOAD, R.drawable.msg_download, DevGramLocale.text("Модель загружается"),
                     DevGramGeminiNano.statusText());
             row.enabled = false;
             items.add(row);
         } else {
-            items.add(UItem.asButton(ID_REFRESH, R.drawable.msg_retry, "Проверить доступность",
+            items.add(UItem.asButton(ID_REFRESH, R.drawable.msg_retry, DevGramLocale.text("Проверить доступность"),
                     DevGramGeminiNano.statusText()));
         }
         if (status == DevGramGeminiNano.STATUS_AVAILABLE) {
             if (!DevGramGeminiNano.getBaseModelName().isEmpty()) {
-                items.add(UItem.asButton(0, "Базовая модель", DevGramGeminiNano.getBaseModelName()));
+                items.add(UItem.asButton(0, DevGramLocale.text("Базовая модель"), DevGramGeminiNano.getBaseModelName()));
             }
             if (DevGramGeminiNano.getTokenLimit() > 0) {
-                items.add(UItem.asButton(0, "Лимит контекста",
-                        DevGramGeminiNano.getTokenLimit() + " токенов"));
+                items.add(UItem.asButton(0, DevGramLocale.text("Лимит контекста"),
+                        DevGramGeminiNano.getTokenLimit() + DevGramLocale.text(" токенов")));
             }
         }
-        items.add(UItem.asShadow("Gemini Nano поддерживается только частью устройств Android 8.0+ с AICore."));
+        items.add(UItem.asShadow(DevGramLocale.text("Gemini Nano поддерживается только частью устройств Android 8.0+ с AICore.")));
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
         if (item.id == ID_ENABLE) {
             if (DevGramGeminiNano.getStatus() == DevGramGeminiNano.STATUS_UNAVAILABLE) {
-                Toast.makeText(getParentActivity(), "Gemini Nano недоступен на этом устройстве", Toast.LENGTH_LONG).show();
+                Toast.makeText(getParentActivity(), DevGramLocale.text("Gemini Nano недоступен на этом устройстве"), Toast.LENGTH_LONG).show();
                 return;
             }
             MessagesController.getGlobalMainSettings().edit()
@@ -133,11 +134,11 @@ public class DevGramGeminiNanoActivity extends DevGramSettingsFragment {
                 @Override public void onProgress(long downloaded, int percent) { refresh(); }
                 @Override public void onCompleted() {
                     MessagesController.getGlobalMainSettings().edit().putBoolean("dg_aiUseNano", true).apply();
-                    Toast.makeText(getParentActivity(), "Gemini Nano готов к работе", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getParentActivity(), DevGramLocale.text("Gemini Nano готов к работе"), Toast.LENGTH_SHORT).show();
                     refresh();
                 }
                 @Override public void onFailed(Throwable error) {
-                    Toast.makeText(getParentActivity(), error.getMessage() == null ? "Не удалось загрузить модель" : error.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(getParentActivity(), error.getMessage() == null ? DevGramLocale.text("Не удалось загрузить модель") : error.getMessage(), Toast.LENGTH_LONG).show();
                     refresh();
                 }
             });

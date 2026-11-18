@@ -10,6 +10,7 @@ import android.text.TextPaint;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MessagesController;
 import org.telegram.ui.ActionBar.Theme;
@@ -27,7 +28,9 @@ public class DevGramStickerShapeCell extends View {
     private final Path bubble = new Path();
     private OnPick onPick;
 
-    private static final String[] TITLES = {"По умолчанию", "Закруглённая", "Сообщение"};
+    private static String[] getTitles() {
+        return new String[]{DevGramLocale.text("По умолчанию"), DevGramLocale.text("Закруглённая"), DevGramLocale.text("Сообщение")};
+    }
 
     public DevGramStickerShapeCell(Context context) {
         super(context);
@@ -86,7 +89,7 @@ public class DevGramStickerShapeCell extends View {
             }
             // подпись
             label.setColor(i == sel ? accent : Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-            String t = TITLES[i];
+            String t = getTitles()[i];
             float tw = Math.min(label.measureText(t), cr.width());
             canvas.drawText(t, cr.centerX() - tw / 2f, cr.bottom + AndroidUtilities.dp(20), label);
         }

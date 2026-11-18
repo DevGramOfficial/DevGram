@@ -16,6 +16,7 @@ import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramAiClient;
 import org.telegram.messenger.DevGramGeminiNano;
@@ -104,14 +105,14 @@ public class DevGramAiResponseAlert extends BottomSheet {
                 LayoutHelper.WRAP_CONTENT, 22, 0, 0, 0, 0));
 
         insertView = icon(context, R.drawable.msg_send);
-        insertView.setContentDescription("Вставить");
+        insertView.setContentDescription(DevGramLocale.text("Вставить"));
         insertView.setVisibility(View.GONE);
         insertView.setOnClickListener(v -> insert());
         header.addView(insertView, LayoutHelper.createFrame(44, 44,
                 Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 44, 0));
 
         optionsView = icon(context, R.drawable.ic_ab_other);
-        optionsView.setContentDescription("Действия");
+        optionsView.setContentDescription(DevGramLocale.text("Действия"));
         optionsView.setVisibility(View.GONE);
         optionsView.setOnClickListener(this::showOptions);
         header.addView(optionsView, LayoutHelper.createFrame(44, 44,
@@ -216,7 +217,7 @@ public class DevGramAiResponseAlert extends BottomSheet {
             }
         } catch (Throwable ignore) {}
         options.addGap();
-        options.add(R.drawable.msg_settings, "Настроить роли", () -> {
+        options.add(R.drawable.msg_settings, DevGramLocale.text("Настроить роли"), () -> {
             dismiss();
             fragment.presentFragment(new DevGramAiRolesActivity());
         });
@@ -250,7 +251,7 @@ public class DevGramAiResponseAlert extends BottomSheet {
             JSONObject service = services.optJSONObject(i);
             if (service == null) continue;
             final int index = i;
-            String title = service.optString("name", service.optString("model", "Сервис"));
+            String title = service.optString("name", service.optString("model", DevGramLocale.text("Сервис")));
             options.addChecked(!DevGramGeminiNano.isSelected() && selected == i, title, () -> {
                 DevGramAiServicesActivity.applyActive(index);
                 modelView.setText(currentModel());
@@ -258,7 +259,7 @@ public class DevGramAiResponseAlert extends BottomSheet {
             });
         }
         options.addGap();
-        options.add(R.drawable.msg_settings, "Настроить сервисы", () -> {
+        options.add(R.drawable.msg_settings, DevGramLocale.text("Настроить сервисы"), () -> {
             dismiss();
             fragment.presentFragment(new DevGramAiServicesActivity());
         });
@@ -278,7 +279,7 @@ public class DevGramAiResponseAlert extends BottomSheet {
                 if (value.isEmpty()) continue;
                 TextView line = new TextView(context);
                 boolean assistant = "assistant".equals(item.optString("role"));
-                line.setText((assistant ? "ИИ: " : "Вы: ") + value);
+                line.setText((assistant ? DevGramLocale.text("ИИ: ") : DevGramLocale.text("Вы: ")) + value);
                 line.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
                 line.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
                 line.setMaxLines(3);
@@ -301,7 +302,7 @@ public class DevGramAiResponseAlert extends BottomSheet {
             generating = false;
             typingDots.stop();
             responseView.setCompoundDrawables(null, null, null, null);
-            if (TextUtils.isEmpty(response)) responseView.setText("Генерация остановлена");
+            if (TextUtils.isEmpty(response)) responseView.setText(DevGramLocale.text("Генерация остановлена"));
             finishState();
         } else if (failed) {
             generate();
@@ -312,14 +313,14 @@ public class DevGramAiResponseAlert extends BottomSheet {
 
     private void showOptions(View anchor) {
         ItemOptions options = ItemOptions.makeOptions(getContainerView(), resourcesProvider, anchor);
-        options.add(R.drawable.msg_copy, "Копировать", () -> {
+        options.add(R.drawable.msg_copy, DevGramLocale.text("Копировать"), () -> {
             if (!TextUtils.isEmpty(response) && AndroidUtilities.addToClipboard(response)) {
-                BulletinFactory.of(fragment).createCopyBulletin("Ответ скопирован").show();
+                BulletinFactory.of(fragment).createCopyBulletin(DevGramLocale.text("Ответ скопирован")).show();
             }
         });
-        options.add(R.drawable.msg_retry, "Повторить", this::generate);
-        options.add(R.drawable.msg_edit, "Изменить запрос", () -> editPrompt(prompt));
-        options.add(R.drawable.msg_add, "Спросить ещё", () -> editPrompt(""));
+        options.add(R.drawable.msg_retry, DevGramLocale.text("Повторить"), this::generate);
+        options.add(R.drawable.msg_edit, DevGramLocale.text("Изменить запрос"), () -> editPrompt(prompt));
+        options.add(R.drawable.msg_add, DevGramLocale.text("Спросить ещё"), () -> editPrompt(""));
         options.show();
     }
 
@@ -348,13 +349,13 @@ public class DevGramAiResponseAlert extends BottomSheet {
         optionsView.setVisibility(View.GONE);
         responseView.setAlpha(1f);
         responseView.setTranslationY(0);
-        responseView.setText("ИИ думает");
+        responseView.setText(DevGramLocale.text("ИИ думает"));
         responseView.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText2));
         responseView.setCompoundDrawablePadding(AndroidUtilities.dp(8));
         responseView.setCompoundDrawablesWithIntrinsicBounds(null, null, typingDots, null);
         typingDots.start();
         mainButton.setLoading(false);
-        mainButton.setText("Остановить", true);
+        mainButton.setText(DevGramLocale.text("Остановить"), true);
 
         boolean streaming = MessagesController.getGlobalMainSettings()
                 .getBoolean("dg_aiStreaming", true);
@@ -382,10 +383,10 @@ public class DevGramAiResponseAlert extends BottomSheet {
                     failed = true;
                     response = "";
                     responseView.setText(error != null && !TextUtils.isEmpty(error.getMessage())
-                            ? "Не удалось получить ответ\n\n" + error.getMessage()
-                            : "ИИ-сервис не вернул ответ.");
+                            ? DevGramLocale.text("Не удалось получить ответ\n\n") + error.getMessage()
+                            : DevGramLocale.text("ИИ-сервис не вернул ответ."));
                     responseView.setTextColor(getThemedColor(Theme.key_text_RedRegular));
-                    mainButton.setText("Повторить", true);
+                    mainButton.setText(DevGramLocale.text("Повторить"), true);
                     return;
                 }
                 response = full.trim();
@@ -401,7 +402,7 @@ public class DevGramAiResponseAlert extends BottomSheet {
 
     private void finishState() {
         failed = false;
-        mainButton.setText("Закрыть", true);
+        mainButton.setText(DevGramLocale.text("Закрыть"), true);
         if (!TextUtils.isEmpty(response)) {
             AndroidUtilities.updateViewVisibilityAnimated(insertView, true, 1f, true);
             AndroidUtilities.updateViewVisibilityAnimated(optionsView, true, 1f, true);

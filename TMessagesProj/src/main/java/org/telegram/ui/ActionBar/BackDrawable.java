@@ -15,6 +15,8 @@ import android.graphics.Color;
 import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.provider.Settings;
@@ -26,6 +28,9 @@ import androidx.core.graphics.ColorUtils;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.Utilities;
+import org.telegram.messenger.R;
+import org.telegram.messenger.devgram.icons.IconManager;
+import org.telegram.messenger.devgram.icons.IconObserver;
 
 public class BackDrawable extends Drawable {
 
@@ -44,6 +49,45 @@ public class BackDrawable extends Drawable {
     private float animationTime = 300.0f;
     private boolean rotated = true;
     private int arrowRotation;
+    private long iconPackRevision = Long.MIN_VALUE;
+    private Drawable packBack, packClose;
+    private boolean hasPackOverride;
+    private int drawableAlpha = 255, packTintColor;
+    private ColorFilter externalColorFilter, packTint;
+
+    private boolean drawPackIcons(Canvas canvas) {
+        IconObserver.INSTANCE.log(R.drawable.ic_ab_back);
+        IconManager icons = IconManager.INSTANCE;
+        if (iconPackRevision != icons.revision()) {
+            iconPackRevision = icons.revision();
+            packBack = icons.overrideDrawable(R.drawable.ic_ab_back);
+            packClose = icons.overrideDrawable(R.drawable.ic_ab_close);
+            hasPackOverride = packBack != null || packClose != null;
+            if (hasPackOverride) {
+                if (packBack == null) packBack = icons.baseDrawable(R.drawable.ic_ab_back);
+                if (packClose == null) packClose = icons.baseDrawable(R.drawable.ic_ab_close);
+            }
+            packTint = null;
+        }
+        if (!hasPackOverride) return false;
+        if (packTint == null || packTintColor != paint.getColor()) {
+            packTintColor = paint.getColor();
+            packTint = new PorterDuffColorFilter(packTintColor, PorterDuff.Mode.SRC_IN);
+        }
+        if (arrowRotation != 0) canvas.rotate(arrowRotation, getIntrinsicWidth() / 2f, getIntrinsicHeight() / 2f);
+        float close = alwaysClose ? 1f : currentRotation;
+        drawPackIcon(canvas, packBack, 1f - close);
+        drawPackIcon(canvas, packClose, close);
+        return true;
+    }
+
+    private void drawPackIcon(Canvas canvas, Drawable icon, float opacity) {
+        if (icon == null || opacity <= 0f) return;
+        icon.setBounds(0, 0, getIntrinsicWidth(), getIntrinsicHeight());
+        icon.setColorFilter(externalColorFilter != null ? externalColorFilter : packTint);
+        icon.setAlpha(Math.round(drawableAlpha * opacity));
+        icon.draw(canvas);
+    }
 
     public float getRotation() {
         return finalRotation;
@@ -146,6 +190,10 @@ public class BackDrawable extends Drawable {
             moveBackLastFrameTime = System.currentTimeMillis();
             invalidateSelf();
         }
+        if (drawPackIcons(canvas)) {
+            canvas.restore();
+            return;
+        }
         float baseOffset = !showStick ? AndroidUtilities.dp(3.5f) * (1f - currentRotation) : 0;
         float signedOffset = AndroidUtilities.lerp(baseOffset, -baseOffset, moveBackProgress);
         canvas.translate(getIntrinsicWidth() / 2f + signedOffset, getIntrinsicHeight() / 2f);
@@ -175,11 +223,13 @@ public class BackDrawable extends Drawable {
 
     @Override
     public void setAlpha(int alpha) {
+        drawableAlpha = alpha;
         paint.setAlpha(alpha);
     }
 
     @Override
     public void setColorFilter(ColorFilter cf) {
+        externalColorFilter = cf;
         paint.setColorFilter(cf);
     }
 

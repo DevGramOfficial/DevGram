@@ -28,11 +28,16 @@ import androidx.core.math.MathUtils;
 
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
+import org.telegram.utils.glass.source.GlassSource;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceBitmap;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
 
 public class BlurredBackgroundWithFadeDrawable extends Drawable {
+
+    public void updateColors() {
+        invalidateSelf();
+    }
     private final Paint maskFadeGradientPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final BlurredBackgroundDrawable drawable;
 
@@ -132,7 +137,7 @@ public class BlurredBackgroundWithFadeDrawable extends Drawable {
             return;
         }
 
-        BlurredBackgroundSource source = drawable.getUnwrappedSource();
+        GlassSource source = drawable.getUnwrappedSource();
         if (!ignoreFastWay && source instanceof BlurredBackgroundSourceColor) {
             // fast way - just draw gradient
 

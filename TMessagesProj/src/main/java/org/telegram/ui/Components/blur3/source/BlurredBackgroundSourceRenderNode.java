@@ -13,7 +13,6 @@ import androidx.annotation.RequiresApi;
 import org.telegram.ui.Components.blur3.DownscaleScrollableNoiseSuppressor;
 import org.telegram.ui.Components.blur3.RenderNodeWithHash;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
-import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawableRenderNode;
 
 import java.util.List;
 
@@ -148,7 +147,7 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
     public int getVisiblePositions(List<RectF> positions, int index, int expand) {
         int count = 0;
 
-        for (BlurredBackgroundDrawableRenderNode d : drawables) {
+        for (BlurredBackgroundDrawable d : drawables) {
             if (d.hasDisplayList() && d.getAlpha() > 0 && !d.getPaddedBounds().isEmpty()) {
                 final RectF rectf;
                 if (index < positions.size()) {
@@ -157,7 +156,7 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
                     rectf = new RectF();
                     positions.add(rectf);
                 }
-                d.getPositionRelativeSource(rectf);
+                rectf.set(d.getPaddedBounds());
                 rectf.inset(-expand, -expand);
 
                 index++;
@@ -168,7 +167,7 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
         return count;
     }
 
-    private final ReferenceList<BlurredBackgroundDrawableRenderNode> drawables = new ReferenceList<>();
+    private final ReferenceList<BlurredBackgroundDrawable> drawables = new ReferenceList<>();
 
     private Runnable onDrawablesRelativePositionChangeListener;
     public void setOnDrawablesRelativePositionChangeListener(Runnable callback) {
@@ -183,15 +182,16 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
     }
 
     public void invalidateDisplayListForDrawables() {
-        for (BlurredBackgroundDrawableRenderNode d : drawables) {
+        for (BlurredBackgroundDrawable d : drawables) {
             d.invalidateDisplayList();
         }
     }
 
     @Override
     public BlurredBackgroundDrawable createDrawable() {
-        BlurredBackgroundDrawableRenderNode d = new BlurredBackgroundDrawableRenderNode(this);
+        BlurredBackgroundDrawable d = new BlurredBackgroundDrawable(this);
         drawables.add(d);
         return d;
     }
 }
+

@@ -12,6 +12,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.ImageReceiver;
@@ -39,20 +40,30 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
     private final RectF bubble = new RectF();
     private final Path clip = new Path();
     private final String name;
-    private AnimatedEmojiDrawable badge;
+    private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable badge;
     private long badgeId;
     private int frameStyle;
     private StaticLayout textLayout;
     private int textLayoutWidth;
 
-    private static final String SAMPLE = "Привет! Так выглядит моё сообщение 👋";
+    public void setDocument(org.json.JSONObject document) {
+        long uid = UserConfig.getInstance(account).getClientUserId();
+        org.json.JSONObject effective = org.telegram.messenger.DevGramProfileDocument.effective(document, uid);
+        textPaint.setTypeface(org.telegram.messenger.DevGramProfileDocument.messageFont(effective));
+        setFrame(DevGramMessageFrame.fromDocument(effective, effective.optInt("messageFrame", DevGramBadges.borderOf(uid))));
+        DevGramBadges.Badge actual = DevGramBadges.badgeOf(uid); setBadge(actual == null ? 0 : DevGramBadges.emojiIdOf(uid));
+    }
+
+    private static String getSample() {
+        return DevGramLocale.text("Привет! Так выглядит моё сообщение 👋");
+    }
 
     public DevGramAppearancePreview(Context context, int account, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.account = account;
         this.resourcesProvider = resourcesProvider;
         TLRPC.User me = UserConfig.getInstance(account).getCurrentUser();
-        name = me != null ? UserObject.getUserName(me) : "Вы";
+        name = me != null ? UserObject.getUserName(me) : DevGramLocale.text("Вы");
         avatarDrawable.setInfo(account, me);
         avatarImage.setRoundRadius(AndroidUtilities.dp(18));
         avatarImage.setForUserOrChat(me, avatarDrawable);
@@ -60,18 +71,25 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
         namePaint.setTypeface(AndroidUtilities.bold());
         textPaint.setTextSize(AndroidUtilities.dp(15));
         timePaint.setTextSize(AndroidUtilities.dp(11));
+        textPaint.setColor(Theme.getColor(Theme.key_chat_messageTextIn, resourcesProvider));
         long uid = UserConfig.getInstance(account).getClientUserId();
         DevGramBadges.Badge b = DevGramBadges.badgeOf(uid);
-        setBadge(b != null ? b.emojiId : DevGramBadges.EMOJI_SUPPORTER);
+        setBadge(b != null ? DevGramBadges.emojiIdOf(uid) : 0);
         setFrame(DevGramBadges.borderOf(uid));
     }
 
     public void setBadge(long emojiId) {
         if (badgeId == emojiId && badge != null) return;
-        if (badge != null && isAttachedToWindow()) badge.removeView(this);
+        if (badge != null && isAttachedToWindow()) badge.detach();
         badgeId = emojiId;
-        badge = emojiId != 0 ? AnimatedEmojiDrawable.make(account, AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, emojiId) : null;
-        if (badge != null && isAttachedToWindow()) badge.addView(this);
+        if (emojiId != 0) {
+            badge = new DevGramBadgeEmojiDrawable(this, AndroidUtilities.dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, () -> textPaint.getColor());
+            badge.setCurrentAccount(account);
+            badge.set(emojiId, false);
+        } else {
+            badge = null;
+        }
+        if (badge != null && isAttachedToWindow()) badge.attach();
         invalidate();
     }
 
@@ -113,11 +131,11 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
         DevGramMessageFrame.Style st = DevGramMessageFrame.get(frameStyle);
         float left = avatarX + avatarSize + AndroidUtilities.dp(10);
         float maxW = card.right - left - AndroidUtilities.dp(40);
-        int textW = (int) Math.min(maxW - AndroidUtilities.dp(24), textPaint.measureText(SAMPLE));
+        int textW = (int) Math.min(maxW - AndroidUtilities.dp(24), textPaint.measureText(getSample()));
         textPaint.setColor(st != null && st.text != 0 ? st.text : Theme.getColor(Theme.key_chat_messageTextIn, resourcesProvider));
         if (textLayout == null || textLayoutWidth != textW) {
             textLayoutWidth = textW;
-            CharSequence text = org.telegram.messenger.Emoji.replaceEmoji(SAMPLE, textPaint.getFontMetricsInt(), false);
+            CharSequence text = org.telegram.messenger.Emoji.replaceEmoji(getSample(), textPaint.getFontMetricsInt(), false);
             textLayout = new StaticLayout(text, textPaint, Math.max(1, textW), Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false);
         }
         float nameH = AndroidUtilities.dp(20);
@@ -162,7 +180,7 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         avatarImage.onAttachedToWindow();
-        if (badge != null) badge.addView(this);
+        if (badge != null) badge.attach();
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
     }
 
@@ -170,7 +188,7 @@ public class DevGramAppearancePreview extends View implements NotificationCenter
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         avatarImage.onDetachedFromWindow();
-        if (badge != null) badge.removeView(this);
+        if (badge != null) badge.detach();
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
     }
 

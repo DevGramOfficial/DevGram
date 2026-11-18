@@ -8,6 +8,7 @@ import android.text.TextPaint;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.ui.ActionBar.Theme;
 
@@ -100,7 +101,7 @@ public class DevGramFramePickerView extends View implements org.telegram.messeng
             Paint fill = style != 0 ? DevGramMessageFrame.fillPaint(shaderCaches[i], style, bubble.left, bubble.top, bubble.right, bubble.bottom, 1f) : null;
             canvas.drawRoundRect(bubble, br, br, fill != null ? fill : bubblePaint);
             if (style != 0) DevGramMessageFrame.draw(canvas, bubble, br, shaderCaches[i], style, 1f);
-            String title = style == 0 ? "Без обводки" : DevGramMessageFrame.get(style).title;
+            String title = style == 0 ? DevGramLocale.text("Без обводки") : DevGramLocale.text(DevGramMessageFrame.get(style).title);
             canvas.drawText(title, cx, rect.bottom - AndroidUtilities.dp(10), titlePaint);
         }
     }

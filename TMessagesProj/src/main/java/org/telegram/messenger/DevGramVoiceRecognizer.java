@@ -290,7 +290,7 @@ public class DevGramVoiceRecognizer {
             }
             if (!started) {
                 closeRecognitionResources(recognizer, pcm, resourcesClosed);
-                callback.onError(new IOException("Не удалось запустить Vosk"));
+                callback.onError(new IOException(DevGramLocale.text("Не удалось запустить Vosk")));
                 return;
             }
         } catch (Throwable e) {
@@ -336,7 +336,7 @@ public class DevGramVoiceRecognizer {
             return;
         }
         unloadModels();
-        FileLog.d("DevGramVoiceRecognizer: модели выгружены после 10 минут простоя");
+        FileLog.d(DevGramLocale.text("DevGramVoiceRecognizer: модели выгружены после 10 минут простоя"));
     }
 
     public void unloadModels() {

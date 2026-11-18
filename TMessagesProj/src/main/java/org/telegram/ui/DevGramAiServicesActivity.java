@@ -7,6 +7,7 @@ import android.view.View;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramGeminiNano;
 import org.telegram.messenger.MessagesController;
@@ -89,7 +90,7 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("Сервисы");
+        actionBar.setTitle(DevGramLocale.text("Сервисы"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
@@ -125,9 +126,9 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asTopView("Сервисы", "Выберите подходящий сервис для взаимодействия с языковыми моделями.",
+        items.add(UItem.asTopView(DevGramLocale.text("Сервисы"), DevGramLocale.text("Выберите подходящий сервис для взаимодействия с языковыми моделями."),
                 "RestrictedEmoji", "🔑"));
-        items.add(UItem.asHeader("Сервисы"));
+        items.add(UItem.asHeader(DevGramLocale.text("Сервисы")));
         UItem nano = UItem.asRadio2(ID_NANO, org.telegram.messenger.DevGramNewBadge.mark("Gemini Nano", org.telegram.messenger.DevGramNewBadge.GEMINI_NANO), DevGramGeminiNano.statusText())
                 .setChecked(DevGramGeminiNano.isSelected());
         nano.multiline = true;
@@ -137,10 +138,10 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
         for (int i = 0; i < arr.length(); i++) {
             JSONObject s = arr.optJSONObject(i);
             if (s == null) continue;
-            items.add(UItem.asRadio2(ID_BASE + i, s.optString("name", s.optString("provider", "Сервис")), s.optString("model"))
+            items.add(UItem.asRadio2(ID_BASE + i, s.optString("name", s.optString("provider", DevGramLocale.text("Сервис"))), s.optString("model"))
                     .setChecked(!DevGramGeminiNano.isSelected() && i == sel));
         }
-        UItem add = UItem.asButton(ID_NEW, R.drawable.msg_add, "Новый сервис").accent();
+        UItem add = UItem.asButton(ID_NEW, R.drawable.msg_add, DevGramLocale.text("Новый сервис")).accent();
         add.pad = 61;
         items.add(add);
     }
@@ -159,10 +160,10 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
                 refreshNano();
             } else if (status == DevGramGeminiNano.STATUS_UNAVAILABLE) {
                 AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-                builder.setTitle("Gemini Nano недоступен");
-                builder.setMessage("AICore не предоставил локальную модель для этого устройства или выбранного варианта.");
-                builder.setNegativeButton("Закрыть", null);
-                builder.setPositiveButton("Проверить", (dialog, which) -> refreshNano());
+                builder.setTitle(DevGramLocale.text("Gemini Nano недоступен"));
+                builder.setMessage(DevGramLocale.text("AICore не предоставил локальную модель для этого устройства или выбранного варианта."));
+                builder.setNegativeButton(DevGramLocale.text("Закрыть"), null);
+                builder.setPositiveButton(DevGramLocale.text("Проверить"), (dialog, which) -> refreshNano());
                 showDialog(builder.create());
             }
         } else if (item.id >= ID_BASE) {
@@ -177,20 +178,20 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
             ItemOptions options = ItemOptions.makeOptions(this, view);
             boolean preview = MessagesController.getGlobalMainSettings().getBoolean("dg_aiNanoPreview", false);
             boolean fast = MessagesController.getGlobalMainSettings().getBoolean("dg_aiNanoFast", true);
-            options.addChecked(preview, "Preview-модель", () -> setNanoOption("dg_aiNanoPreview", !preview));
-            options.addChecked(fast, "Быстрая модель", () -> setNanoOption("dg_aiNanoFast", !fast));
+            options.addChecked(preview, DevGramLocale.text("Preview-модель"), () -> setNanoOption("dg_aiNanoPreview", !preview));
+            options.addChecked(fast, DevGramLocale.text("Быстрая модель"), () -> setNanoOption("dg_aiNanoFast", !fast));
             if (DevGramGeminiNano.isThinkingModeAvailable()) {
                 boolean reasoning = MessagesController.getGlobalMainSettings()
                         .getBoolean("dg_aiNanoReasoning", false);
-                options.addChecked(reasoning, "Рассуждение", () -> {
+                options.addChecked(reasoning, DevGramLocale.text("Рассуждение"), () -> {
                     MessagesController.getGlobalMainSettings().edit()
                             .putBoolean("dg_aiNanoReasoning", !reasoning).apply();
                     listView.adapter.update(true);
                 });
             }
             options.addGap();
-            options.add(R.drawable.msg_retry, "Обновить статус", this::refreshNano);
-            options.add(R.drawable.msg_settings, "Управление AICore", this::openAiCoreSettings);
+            options.add(R.drawable.msg_retry, DevGramLocale.text("Обновить статус"), this::refreshNano);
+            options.add(R.drawable.msg_settings, DevGramLocale.text("Управление AICore"), this::openAiCoreSettings);
             options.setScrimViewBackground(listView.getClipBackground(view));
             options.show();
             return true;
@@ -200,7 +201,7 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
         }
         final int i = item.id - ID_BASE;
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setItems(new CharSequence[]{"Изменить", "Удалить"}, (d, which) -> {
+        b.setItems(new CharSequence[]{DevGramLocale.text("Изменить"), DevGramLocale.text("Удалить")}, (d, which) -> {
             if (which == 0) {
                 presentFragment(new DevGramAiServiceEditActivity(i));
             } else {
@@ -236,10 +237,10 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
     private void confirmNanoDownload() {
         if (getParentActivity() == null) return;
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Загрузить Gemini Nano?");
-        builder.setMessage("Модель загрузится один раз через Android AICore. После этого запросы будут обрабатываться прямо на устройстве.");
-        builder.setNegativeButton("Отмена", null);
-        builder.setPositiveButton("Загрузить", (dialog, which) -> {
+        builder.setTitle(DevGramLocale.text("Загрузить Gemini Nano?"));
+        builder.setMessage(DevGramLocale.text("Модель загрузится один раз через Android AICore. После этого запросы будут обрабатываться прямо на устройстве."));
+        builder.setNegativeButton(DevGramLocale.text("Отмена"), null);
+        builder.setPositiveButton(DevGramLocale.text("Загрузить"), (dialog, which) -> {
             DevGramGeminiNano.download(new DevGramGeminiNano.DownloadListener() {
                 @Override public void onStarted(long bytes) { updateNanoRow(); }
                 @Override public void onProgress(long downloaded, int percent) { updateNanoRow(); }
@@ -253,10 +254,10 @@ public class DevGramAiServicesActivity extends DevGramSettingsFragment {
                     updateNanoRow();
                     if (getParentActivity() == null) return;
                     AlertDialog.Builder failed = new AlertDialog.Builder(getParentActivity());
-                    failed.setTitle("Не удалось загрузить модель");
+                    failed.setTitle(DevGramLocale.text("Не удалось загрузить модель"));
                     failed.setMessage(error != null && error.getMessage() != null
-                            ? error.getMessage() : "AICore вернул ошибку загрузки.");
-                    failed.setPositiveButton("Закрыть", null);
+                            ? error.getMessage() : DevGramLocale.text("AICore вернул ошибку загрузки."));
+                    failed.setPositiveButton(DevGramLocale.text("Закрыть"), null);
                     showDialog(failed.create());
                 }
             });

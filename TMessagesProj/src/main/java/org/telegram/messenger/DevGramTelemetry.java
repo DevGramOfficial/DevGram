@@ -31,7 +31,7 @@ public class DevGramTelemetry {
         installCrashHandler(); // ставим всегда (чтобы работало и после включения тумблера без перезапуска)
         startMemoryWatchdog();  // ловим утечки/раздувание памяти ДО OOM (снапшот в краш-отчёт)
         DevGramExitReport.reportPendingAsync(); // нативные краши/ANR прошлых запусков (ApplicationExitInfo)
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             try {
                 if (crashesActive()) {
                     uploadPendingCrashes();
@@ -48,7 +48,7 @@ public class DevGramTelemetry {
     // Вызывается при переключении тумблеров «Сбор данных».
     public static void onSettingsChanged() {
         installCrashHandler();
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             try {
                 if (DevGramConfig.analyticsEnabled) {
                     logAppOpen(false); // при включении — обновить запись без накрутки счётчика открытий

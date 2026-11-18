@@ -1408,7 +1408,7 @@ public class NotificationsSettingsActivity extends BaseFragment implements Notif
 
     @Override
     public boolean isSupportEdgeToEdge() {
-        return true;
+        return false;
     }
     @Override
     public void onInsets(int left, int top, int right, int bottom) {

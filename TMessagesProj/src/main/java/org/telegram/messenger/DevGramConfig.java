@@ -41,8 +41,8 @@ public class DevGramConfig {
     // Встроенный WireGuard-VPN. По умолчанию выключен.
     public static boolean vpnEnabled = false;
 
-    // Профиль в стиле iOS (центрированная шапка, стеклянные кнопки/карточки). По умолчанию ВКЛючён.
-    public static boolean iosProfile = true;
+    // The separate iOS profile was removed; keep this disabled for migrated users.
+    public static boolean iosProfile = false;
 
     // --- сохранение истории ---
     // По умолчанию ВЫКЛЮЧЕНЫ, как и режим призрака: мод не должен ничего менять,
@@ -120,6 +120,7 @@ public class DevGramConfig {
                 return; // контекст ещё не готов — попробуем позже, поля пока держат дефолты
             }
             preferences = ApplicationLoader.applicationContext.getSharedPreferences("devgram_ghost", Activity.MODE_PRIVATE);
+            resetRemovedIosSettings();
             sendReadPackets = preferences.getBoolean("sendReadPackets", true);
             sendOnlinePackets = preferences.getBoolean("sendOnlinePackets", true);
             sendUploadTyping = preferences.getBoolean("sendUploadTyping", true);
@@ -127,7 +128,8 @@ public class DevGramConfig {
             localPremium = preferences.getBoolean("localPremium", false);
             streaksEnabled = preferences.getBoolean("streaksEnabled", true);
             vpnEnabled = preferences.getBoolean("vpnEnabled", false);
-            iosProfile = preferences.getBoolean("iosProfile", true);
+            iosProfile = false;
+            preferences.edit().putBoolean("iosProfile", false).apply();
             saveDeletedMessages = preferences.getBoolean("saveDeletedMessages", false);
             saveMessagesHistory = preferences.getBoolean("saveMessagesHistory", false);
             saveMedia = preferences.getBoolean("saveMedia", false);
@@ -168,6 +170,26 @@ public class DevGramConfig {
             swipeActionsReversed = preferences.getBoolean("swipeActionsReversed", false);
             loaded = true;
         }
+    }
+
+    private static void resetRemovedIosSettings() {
+        SharedPreferences appearance = ApplicationLoader.applicationContext
+                .getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
+        appearance.edit()
+                .putInt("dg_designMode", appearance.getInt("dg_designMode", DESIGN_MODE_DEVGRAM) == DESIGN_MODE_IOS
+                        ? DESIGN_MODE_DEVGRAM : appearance.getInt("dg_designMode", DESIGN_MODE_DEVGRAM))
+                .remove("dg_ios_center_chat_title")
+                .remove("dg_ios_adaptive_title_width")
+                .remove("dg_ios_show_unread_counter")
+                .remove("dg_ios_unread_counter_style")
+                .remove("dg_ios_input_panel")
+                .remove("dg_ios_notification_sound")
+                .remove("dg_ios_message_menu")
+                .remove("dg_ios_message_menu_native_blur")
+                .remove("dg_ios_message_menu_whole_album")
+                .remove("dg_ios_message_menu_remember_keyboard")
+                .remove("dg_ios_message_menu_compact")
+                .apply();
     }
 
     // --- раздел «Google»: тумблеры сбора данных ---
@@ -286,28 +308,34 @@ public class DevGramConfig {
         MessagesController.getGlobalMainSettings().edit().putInt("folderTabsStyle", v).apply();
     }
 
-    // Общий переключатель дизайна приложения: DevGram (наш) / iOS / «Старый» (пресет в стиле
-    // AyuGram — не отдельный рендер-код, а конкретная комбинация уже существующих
-    // exteraGram-настроек внешнего вида: радиус аватарок, размер бейджа непрочитанных,
-    // цветовая тема и т.п.).
+    // App-wide design: current DevGram or the classic AyuGram 12.2.10 chrome.
+    // Value 1 is reserved for the removed iOS mode and migrated to DevGram.
     public static final int DESIGN_MODE_DEVGRAM = 0;
     public static final int DESIGN_MODE_IOS = 1;
     public static final int DESIGN_MODE_OLD = 2;
 
     public static int getDesignMode() {
-        return MessagesController.getGlobalMainSettings().getInt("dg_designMode", DESIGN_MODE_DEVGRAM);
+        int mode = MessagesController.getGlobalMainSettings().getInt("dg_designMode", DESIGN_MODE_DEVGRAM);
+        if (mode == DESIGN_MODE_IOS) {
+            MessagesController.getGlobalMainSettings().edit().putInt("dg_designMode", DESIGN_MODE_DEVGRAM).apply();
+            return DESIGN_MODE_DEVGRAM;
+        }
+        return mode;
     }
 
     public static void setDesignMode(int v) {
+        if (v == DESIGN_MODE_IOS) {
+            v = DESIGN_MODE_DEVGRAM;
+        }
         MessagesController.getGlobalMainSettings().edit().putInt("dg_designMode", v).apply();
     }
 
-    // Применяет пресет для выбранного режима дизайна поверх уже существующих настроек
-    // внешнего вида (это не новый рендер-код — decompile AyuGram/exteraGram показал, что там
-    // те же ячейки/баблы, что и у нас, просто с другим набором значений тех же настроек:
-    // радиус аватарок, MD3-эффекты, «липкая» анимация и т.п.). Пользователь может донастроить
-    // каждый пункт вручную после применения пресета — это отправная точка, не жёсткая блокировка.
+    // Set the starting preferences, then rebuild screens. Classic layout branches in
+    // shared chrome keep the drawer, flat headers, full-width sections and compose bar.
     public static void applyDesignPreset(int mode) {
+        if (mode == DESIGN_MODE_IOS) {
+            mode = DESIGN_MODE_DEVGRAM;
+        }
         final boolean wasIos = org.telegram.ui.Components.DevGramMaterial3.iosNavigation();
         setDesignMode(mode);
         SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit();
@@ -359,13 +387,8 @@ public class DevGramConfig {
                 }
                 break;
             case DESIGN_MODE_OLD:
-                // «Старый» вид: без MD3/«липкой» анимации и стеклянных эффектов — то, что
-                // реально отличает AyuGram/классический Telegram от текущего DevGram, судя по
-                // декомпиляции и реальным скриншотам — не форма баблов (там сток), а полностью
-                // круглые аватарки (не 28dp, а честный круг) и новые Material3/glass-эффекты,
-                // которых в AyuGram просто нет/выключены. Скриншот чата AyuGram также показал
-                // сплошную белую линию-разделитель под шапкой чата вместо размытия/стекла —
-                // выключаем FLAG_CHAT_BLUR/FLAG_LIQUID_GLASS, чтобы вернуть чёткую границу.
+                // Classic chrome follows the owner's January 10 APK, not the modern
+                // AyuGram tree stored separately on this host.
                 editor.putFloat("avatarCornersF", 30f);
                 editor.putBoolean("dg_singleCorner", false);
                 editor.putBoolean("dg_md3", false);
@@ -376,7 +399,6 @@ public class DevGramConfig {
                 DevGramIOSConfig.setIosInputPanel(false);
                 DevGramIOSConfig.setIosMessageMenu(false);
                 setIosProfile(false);
-                LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, false);
                 LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, false);
                 resetContactsTabToHidden();
                 resetCallsTabToHidden();
@@ -665,7 +687,7 @@ public class DevGramConfig {
             localPremium = false;
             streaksEnabled = true;
             vpnEnabled = false;
-            iosProfile = true;
+            iosProfile = false;
             saveDeletedMessages = false;
             saveMessagesHistory = false;
             saveMedia = false;
@@ -1050,8 +1072,10 @@ public class DevGramConfig {
     }
 
     public static void setIosProfile(boolean v) {
-        iosProfile = v;
-        preferences.edit().putBoolean("iosProfile", v).apply();
+        iosProfile = false;
+        if (preferences != null) {
+            preferences.edit().putBoolean("iosProfile", false).apply();
+        }
     }
 
     public static void setStreaksEnabled(boolean v) {

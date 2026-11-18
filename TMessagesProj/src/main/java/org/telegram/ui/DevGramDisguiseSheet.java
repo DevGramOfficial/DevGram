@@ -18,9 +18,9 @@ import android.widget.TextView;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramDisguise;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
@@ -53,14 +53,14 @@ public class DevGramDisguiseSheet extends BottomSheet {
         title.setTextColor(getThemedColor(Theme.key_dialogTextBlack));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.bold());
-        title.setText(LocaleController.getString(R.string.DevGramDisguise));
+        title.setText(DevGramLocale.getString(R.string.DevGramDisguise));
         title.setPadding(AndroidUtilities.dp(22), AndroidUtilities.dp(18), AndroidUtilities.dp(22), AndroidUtilities.dp(2));
         container.addView(title, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
         TextView subtitle = new TextView(context);
         subtitle.setTextColor(getThemedColor(Theme.key_dialogTextGray3));
         subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-        subtitle.setText("Как приложение выглядит в списке приложений");
+        subtitle.setText(DevGramLocale.text("Как приложение выглядит в списке приложений"));
         subtitle.setPadding(AndroidUtilities.dp(22), AndroidUtilities.dp(44), AndroidUtilities.dp(22), AndroidUtilities.dp(8));
         container.addView(subtitle, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
@@ -101,7 +101,7 @@ public class DevGramDisguiseSheet extends BottomSheet {
             if (position == 0) {
                 // «Без маскировки» — обычный DevGram.
                 card.bind(getContext().getResources().getDrawable(R.mipmap.icon_01_launcher),
-                        LocaleController.getString(R.string.DevGramDisguiseNone), !DevGramDisguise.isDisguised());
+                        DevGramLocale.getString(R.string.DevGramDisguiseNone), !DevGramDisguise.isDisguised());
             } else {
                 LauncherIcon mask = masks.get(position - 1);
                 Drawable icon = DevGramDisguise.realIcon(getContext(), mask);

@@ -10,6 +10,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.ImageView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPluginBlocks;
 import org.telegram.messenger.DevGramPluginInfo;
@@ -66,23 +67,23 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         TextView heroTitle = text(context, entry.name, 24, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)); heroInfo.addView(heroTitle);
         String meta = (entry.version.isEmpty() ? "" : "v" + entry.version) + (entry.author.isEmpty() ? "" : (entry.version.isEmpty() ? "" : "  •  ") + entry.author);
         if (!meta.isEmpty()) heroInfo.addView(text(context, meta, 13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider)),LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,4,0,0));
-        heroRatingView = text(context, entry.rating > 0 ? String.format(java.util.Locale.US, "★ %.1f  ·  %d отзывов", entry.rating, entry.reviews) : "Новый плагин", 13, true, 0xFFE0A400); heroInfo.addView(heroRatingView,LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,8,0,0));
+        heroRatingView = text(context, entry.rating > 0 ? String.format(java.util.Locale.US, DevGramLocale.text("★ %.1f  ·  %d отзывов"), entry.rating, entry.reviews) : DevGramLocale.text("Новый плагин"), 13, true, 0xFFE0A400); heroInfo.addView(heroRatingView,LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,8,0,0));
         heroRow.addView(heroInfo,LayoutHelper.createLinear(0,LayoutHelper.WRAP_CONTENT,1f)); hero.addView(heroRow);
         content.addView(hero, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 12));
         // одна ссылка, если автор и канал — один и тот же адрес; две — только если они разные
         String authorUser = username(entry.author), channelUser = username(entry.channel);
         if (!entry.channel.isEmpty()) addLink("🧩 " + entry.channel, entry.channel);
-        if (authorUser != null && !authorUser.equalsIgnoreCase(channelUser)) addLink("Открыть автора @" + authorUser, "@" + authorUser);
+        if (authorUser != null && !authorUser.equalsIgnoreCase(channelUser)) addLink(DevGramLocale.text("Открыть автора @") + authorUser, "@" + authorUser);
         if (entry.submittedAt > 0) {
-            String dates = "Опубликован: " + android.text.format.DateFormat.format("dd.MM.yyyy", entry.submittedAt);
-            if (entry.updatedAt > entry.submittedAt) dates += "  ·  Обновлён: " + android.text.format.DateFormat.format("dd.MM.yyyy", entry.updatedAt);
+            String dates = DevGramLocale.text("Опубликован: ") + android.text.format.DateFormat.format("dd.MM.yyyy", entry.submittedAt);
+            if (entry.updatedAt > entry.submittedAt) dates += DevGramLocale.text("  ·  Обновлён: ") + android.text.format.DateFormat.format("dd.MM.yyyy", entry.updatedAt);
             addText(dates, 13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         }
         if (!entry.desc.isEmpty()) {
             LinearLayout info = section(context, 18);
             LinearLayout infoHead = new LinearLayout(context);
             infoHead.setGravity(Gravity.CENTER_VERTICAL);
-            infoHead.addView(text(context, "О плагине", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)), LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
+            infoHead.addView(text(context, DevGramLocale.text("О плагине"), 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)), LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
             TextView descView = text(context, entry.desc, 15, false, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
             infoHead.addView(translateButton(context, heroTitle, descView), LayoutHelper.createLinear(40, 40, 0, -8, -8, -8));
             info.addView(infoHead, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -91,56 +92,56 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         }
         addPluginInfo(context);
 
-        final String installLabel = DevGramPlugins.isInstalled(entry.id) ? "Обновить плагин" : "Установить плагин";
+        final String installLabel = DevGramPlugins.isInstalled(entry.id) ? DevGramLocale.text("Обновить плагин") : DevGramLocale.text("Установить плагин");
         final String blockHash = entry.isPackage ? entry.packageSha : DevGramPlugins.sha256(entry.source);
         final DevGramPluginBlocks.Fingerprint blockFingerprint = entry.isPackage
                 ? DevGramPluginBlocks.Fingerprint.EMPTY : DevGramPluginBlocks.fingerprintSource(entry.source);
         final boolean[] blockKnown = {false};
         final boolean[] blockState = {false};
-        TextView install = button(context, "Проверяю блокировку…");
+        TextView install = button(context, DevGramLocale.text("Проверяю блокировку…"));
         install.setEnabled(false);
         Runnable performInstall = () -> {
             if (entry.isPackage) {
                 // .dgplugin-пакет: исходника нет — качаем бинарь из архивного канала.
                 // Раньше тут звался install(entry.source), а у пакета source пустой → «Не удалось».
                 if (entry.packageMsg == 0) {
-                    BulletinFactory.of(this).createErrorBulletin("Пакет ещё не размещён в архиве").show();
+                    BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Пакет ещё не размещён в архиве")).show();
                     return;
                 }
                 install.setEnabled(false);
-                install.setText("Скачиваю и проверяю…");
+                install.setText(DevGramLocale.text("Скачиваю и проверяю…"));
                 org.telegram.messenger.DevGramPackages.installCatalogPackage(entry, ok -> {
                     install.setEnabled(!ok);
                     install.setAlpha(ok ? .72f : 1f);
-                    install.setText(ok ? "✓ Плагин установлен" : "Повторить установку");
+                    install.setText(ok ? DevGramLocale.text("✓ Плагин установлен") : DevGramLocale.text("Повторить установку"));
                     BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
-                            ok ? "Плагин установлен: " + entry.name : "Не удалось установить пакет").show();
+                            ok ? DevGramLocale.text("Плагин установлен: ") + entry.name : DevGramLocale.text("Не удалось установить пакет")).show();
                 });
                 return;
             }
             if (entry.source == null || entry.source.isEmpty()) {
-                BulletinFactory.of(this).createErrorBulletin("У плагина нет исходника в каталоге").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("У плагина нет исходника в каталоге")).show();
                 return;
             }
             DevGramPlugins.trustFromChannel(entry.source);
             if (DevGramPlugins.install(entry.source, entry.id, true)) {
-                install.setText("✓ Плагин установлен");
+                install.setText(DevGramLocale.text("✓ Плагин установлен"));
                 install.setEnabled(false);
                 install.setAlpha(.72f);
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Плагин установлен").show();
-            } else BulletinFactory.of(this).createErrorBulletin("Не удалось установить плагин").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Плагин установлен")).show();
+            } else BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось установить плагин")).show();
         };
         install.setOnClickListener(v -> {
             install.setEnabled(false);
-            install.setText("Проверяю блокировку…");
+            install.setText(DevGramLocale.text("Проверяю блокировку…"));
             DevGramPluginBlocks.check(entry.id, blockHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
                 blockState[0] = status.success && status.blocked;
                 if (!status.success || status.blocked) {
-                    install.setText(status.success ? "⛔ Установка заблокирована" : "Повторить проверку");
+                    install.setText(status.success ? DevGramLocale.text("⛔ Установка заблокирована") : DevGramLocale.text("Повторить проверку"));
                     install.setEnabled(!status.success);
                     BulletinFactory.of(this).createErrorBulletin(
-                            status.success ? "Установка этого плагина заблокирована" : status.reason).show();
+                            status.success ? DevGramLocale.text("Установка этого плагина заблокирована") : status.reason).show();
                     return;
                 }
                 install.setText(installLabel);
@@ -153,10 +154,10 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         final TextView[] blockButton = new TextView[1];
         Runnable applyBlockState = () -> {
             if (!blockKnown[0]) {
-                install.setText("Повторить проверку");
+                install.setText(DevGramLocale.text("Повторить проверку"));
                 install.setEnabled(true);
             } else if (blockState[0]) {
-                install.setText("⛔ Установка заблокирована");
+                install.setText(DevGramLocale.text("⛔ Установка заблокирована"));
                 install.setEnabled(false);
             } else {
                 install.setText(installLabel);
@@ -164,8 +165,8 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             }
             if (blockButton[0] != null) {
                 blockButton[0].setEnabled(true);
-                blockButton[0].setText(!blockKnown[0] ? "Повторить проверку блокировки  ›"
-                        : (blockState[0] ? "Разблокировать установку  ›" : "Заблокировать установку  ›"));
+                blockButton[0].setText(!blockKnown[0] ? DevGramLocale.text("Повторить проверку блокировки  ›")
+                        : (blockState[0] ? DevGramLocale.text("Разблокировать установку  ›") : DevGramLocale.text("Заблокировать установку  ›")));
             }
         };
         Runnable refreshBlock = () -> DevGramPluginBlocks.check(entry.id, blockHash, blockFingerprint, status -> {
@@ -175,24 +176,24 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         });
 
         if (DevGramPluginBlocks.canManage(getCurrentAccount())) {
-            TextView manageBlock = secondaryAction(context, "Заблокировать установку", true);
+            TextView manageBlock = secondaryAction(context, DevGramLocale.text("Заблокировать установку"), true);
             blockButton[0] = manageBlock;
             manageBlock.setOnClickListener(v -> {
                 if (!blockKnown[0]) {
                     manageBlock.setEnabled(false);
-                    manageBlock.setText("Проверяю…");
+                    manageBlock.setText(DevGramLocale.text("Проверяю…"));
                     refreshBlock.run();
                     return;
                 }
                 manageBlock.setEnabled(false);
-                manageBlock.setText("Сохраняю…");
+                manageBlock.setText(DevGramLocale.text("Сохраняю…"));
                 DevGramPluginBlocks.setBlocked(getCurrentAccount(), entry.id, blockHash, entry.name, blockFingerprint,
                         !blockState[0], status -> {
                             if (status.success) {
                                 blockKnown[0] = true;
                                 blockState[0] = status.blocked;
                                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                                        status.blocked ? "Установка плагина заблокирована" : "Блокировка снята").show();
+                                        status.blocked ? DevGramLocale.text("Установка плагина заблокирована") : DevGramLocale.text("Блокировка снята")).show();
                             } else {
                                 BulletinFactory.of(this).createErrorBulletin(status.reason).show();
                             }
@@ -212,21 +213,21 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             boolean sameVersion = installedVer != null && !installedVer.isEmpty()
                     && installedVer.equals(entry.version);
             if (sameVersion) {
-                TextView okBtn = button(context, "✓ Актуально в каталоге");
+                TextView okBtn = button(context, DevGramLocale.text("✓ Актуально в каталоге"));
                 okBtn.setEnabled(false);
                 okBtn.setAlpha(0.6f);
                 content.addView(okBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
             } else {
-                TextView updateBtn = button(context, "Обновить в каталоге");
+                TextView updateBtn = button(context, DevGramLocale.text("Обновить в каталоге"));
                 updateBtn.setOnClickListener(v -> publishCatalogUpdate(context, updateBtn));
                 content.addView(updateBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 54, 0, 0, 0, 18));
-                addText("Заменит файл в каталоге без модерации, сохранив рейтинг и отзывы. Сначала установите обновлённую версию плагина.",
+                addText(DevGramLocale.text("Заменит файл в каталоге без модерации, сохранив рейтинг и отзывы. Сначала установите обновлённую версию плагина."),
                         13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             }
         }
 
-        addSectionTitle("Отзывы");
-        ratingView = addText("Загрузка рейтинга…", 14, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
+        addSectionTitle(DevGramLocale.text("Отзывы"));
+        ratingView = addText(DevGramLocale.text("Загрузка рейтинга…"), 14, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         DevGramPlugins.fetchReviews(entry.id, reviews -> {
             ownReview = null;
             double sum = 0;
@@ -243,19 +244,19 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                     review.setOnClickListener(v -> showReviewActions(context,r,review));
                 }
             }
-            if (reviewButton != null) reviewButton.setText(ownReview == null ? "Оставить отзыв" : "Изменить мой отзыв");
+            if (reviewButton != null) reviewButton.setText(ownReview == null ? DevGramLocale.text("Оставить отзыв") : DevGramLocale.text("Изменить мой отзыв"));
         });
 
-        reviewButton = button(context, "Оставить отзыв");
+        reviewButton = button(context, DevGramLocale.text("Оставить отзыв"));
         reviewButton.setOnClickListener(v -> showReviewDialog(context, ownReview));
         content.addView(reviewButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 46, 0, 12, 0, 0));
-        TextView allReviews = secondaryAction(context, "Все отзывы", false);
+        TextView allReviews = secondaryAction(context, DevGramLocale.text("Все отзывы"), false);
         allReviews.setOnClickListener(v -> presentFragment(new DevGramPluginReviewsActivity(entry)));
         content.addView(allReviews, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 10, 0, 0));
-        TextView history = secondaryAction(context, "История публикации", false);
+        TextView history = secondaryAction(context, DevGramLocale.text("История публикации"), false);
         history.setOnClickListener(v -> presentFragment(new DevGramPluginHistoryActivity(entry.id, entry.name)));
         content.addView(history, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 0, 0));
-        reportButton = secondaryAction(context, "Пожаловаться на плагин", true);
+        reportButton = secondaryAction(context, DevGramLocale.text("Пожаловаться на плагин"), true);
         reportButton.setOnClickListener(v -> showPluginReportMenu(context));
         content.addView(reportButton, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 0, 0));
         DevGramPlugins.hasReportedPlugin(entry.id, this::setPluginReportState);
@@ -287,7 +288,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         java.io.File f = DevGramPlugins.pluginInstalledFile(entry.id);
         if (f == null) {
             BulletinFactory.of(this).createErrorBulletin(
-                    "Сначала установите обновлённую версию плагина, затем нажмите «Обновить в каталоге»").show();
+                    DevGramLocale.text("Сначала установите обновлённую версию плагина, затем нажмите «Обновить в каталоге»")).show();
             return;
         }
         final String path = f.getAbsolutePath();
@@ -302,32 +303,32 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         ce.version = entry.version;
         ce.update = true;
         // Кнопка меняет состояние прямо на экране — без перезахода в меню.
-        if (btn != null) { btn.setText("⏳ Отправляется…"); btn.setOnClickListener(null); }
+        if (btn != null) { btn.setText(DevGramLocale.text("⏳ Отправляется…")); btn.setOnClickListener(null); }
         final DevGramPlugins.SubmissionCallback cb = r -> {
             if (r == 1) {
-                if (btn != null) btn.setText("⏳ Применяется…");
+                if (btn != null) btn.setText(DevGramLocale.text("⏳ Применяется…"));
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                        "Обновление отправлено — применяется, статистика сохранится").show();
+                        DevGramLocale.text("Обновление отправлено — применяется, статистика сохранится")).show();
                 waitCatalogApplied(entry.id, 0, () -> {
                     if (btn != null) {
-                        btn.setText("✓ Обновлено в каталоге");
+                        btn.setText(DevGramLocale.text("✓ Обновлено в каталоге"));
                         btn.setOnClickListener(null);
                     }
                 }, () -> {
                     if (btn != null) {
-                        btn.setText("Обновить в каталоге");
+                        btn.setText(DevGramLocale.text("Обновить в каталоге"));
                         btn.setOnClickListener(v -> publishCatalogUpdate(context, btn));
                     }
                 });
             } else {
                 if (btn != null) {
-                    btn.setText("Обновить в каталоге");
+                    btn.setText(DevGramLocale.text("Обновить в каталоге"));
                     btn.setOnClickListener(v -> publishCatalogUpdate(context, btn));
                 }
-                String msg = (r == -1 ? "Плагин заблокирован — обновление запрещено"
-                        : (r == -2 ? "Файл не прошёл проверку"
-                        : (r == -3 ? "Пакет должен содержать открытые исходники .py"
-                        : "Не удалось отправить обновление, попробуйте ещё раз")));
+                String msg = (r == -1 ? DevGramLocale.text("Плагин заблокирован — обновление запрещено")
+                        : (r == -2 ? DevGramLocale.text("Файл не прошёл проверку")
+                        : (r == -3 ? DevGramLocale.text("Пакет должен содержать открытые исходники .py")
+                        : DevGramLocale.text("Не удалось отправить обновление, попробуйте ещё раз"))));
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.error, msg).show();
             }
         };
@@ -340,12 +341,12 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         } else {
             String src = readFileText(f);
             if (src == null || src.isEmpty()) {
-                BulletinFactory.of(this).createErrorBulletin("Не удалось прочитать файл плагина").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось прочитать файл плагина")).show();
                 return;
             }
             String meta = DevGramPlugins.parseMeta(src);
             if (meta == null || meta.isEmpty()) {
-                BulletinFactory.of(this).createErrorBulletin("Это не похоже на плагин DevGram").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Это не похоже на плагин DevGram")).show();
                 return;
             }
             String[] m = meta.split("\u001f", -1);
@@ -422,7 +423,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             DevGramPluginTranslation.translate(originals, map -> {
                 if (map == null) {
                     button.setState(DevGramTranslateButton.STATE_TRANSLATE);
-                    BulletinFactory.of(this).createErrorBulletin("Не удалось перевести").show();
+                    BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось перевести")).show();
                     return;
                 }
                 if (map.containsKey(entry.name)) titleView.setText(map.get(entry.name));
@@ -449,24 +450,24 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         content.addView(analysisBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
 
         LinearLayout infoBox = section(context, 18);
-        infoBox.addView(text(context, "Сведения", 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)));
+        infoBox.addView(text(context, DevGramLocale.text("Сведения"), 18, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText)));
         DevGramPluginInfoViews.addRow(context, infoBox, "ID", entry.id, null);
-        if (!entry.version.isEmpty()) DevGramPluginInfoViews.addRow(context, infoBox, "Версия", entry.version, null);
-        if (!entry.author.isEmpty()) DevGramPluginInfoViews.addRow(context, infoBox, "Автор", entry.author, null);
-        DevGramPluginInfoViews.addRow(context, infoBox, "Формат", entry.isPackage ? ".dgplugin — пакет" : "исходник Python", null);
+        if (!entry.version.isEmpty()) DevGramPluginInfoViews.addRow(context, infoBox, DevGramLocale.text("Версия"), entry.version, null);
+        if (!entry.author.isEmpty()) DevGramPluginInfoViews.addRow(context, infoBox, DevGramLocale.text("Автор"), entry.author, null);
+        DevGramPluginInfoViews.addRow(context, infoBox, DevGramLocale.text("Формат"), entry.isPackage ? DevGramLocale.text(".dgplugin — пакет") : DevGramLocale.text("исходник Python"), null);
         LinearLayout codeRows = new LinearLayout(context);
         codeRows.setOrientation(LinearLayout.VERTICAL);
         infoBox.addView(codeRows, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         content.addView(infoBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 4));
 
         if (entry.isPackage) {
-            if (entry.packageSize > 0) DevGramPluginInfoViews.addRow(context, codeRows, "Размер", DevGramPluginInfo.formatSize(entry.packageSize), null);
+            if (entry.packageSize > 0) DevGramPluginInfoViews.addRow(context, codeRows, DevGramLocale.text("Размер"), DevGramPluginInfo.formatSize(entry.packageSize), null);
             addHashRow(context, codeRows, entry.packageSha);
             loadPackageCode(context, summary, codeRows, 0);
         } else {
             String src = entry.source == null ? "" : entry.source;
             if (!src.isEmpty()) {
-                DevGramPluginInfoViews.addRow(context, codeRows, "Размер",
+                DevGramPluginInfoViews.addRow(context, codeRows, DevGramLocale.text("Размер"),
                         DevGramPluginInfo.formatSize(src.getBytes(java.nio.charset.StandardCharsets.UTF_8).length), null);
             }
             fillCodeMetadata(context, codeRows, src, true);
@@ -488,7 +489,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
                 summary.setFailed(PluginAnalyzer.STATUS_UNAVAILABLE);
                 return;
             }
-            summary.setRunning("Плагин размещается в каталоге…", "Отчёт появится сразу после загрузки файла");
+            summary.setRunning(DevGramLocale.text("Плагин размещается в каталоге…"), DevGramLocale.text("Отчёт появится сразу после загрузки файла"));
             DevGramPlugins.fetchCatalogEntry(entry.id, freshEntries -> {
                 if (!freshEntries.isEmpty()) {
                     DevGramPlugins.CatalogEntry fresh = freshEntries.get(0);
@@ -502,8 +503,8 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
             });
             return;
         }
-        summary.setRunning(attempt == 0 ? "Загружаем плагин…" : "Загружаем плагин, попытка " + (attempt + 1) + "…",
-                "После загрузки проверим весь пакет");
+        summary.setRunning(attempt == 0 ? DevGramLocale.text("Загружаем плагин…") : DevGramLocale.text("Загружаем плагин, попытка ") + (attempt + 1) + "…",
+                DevGramLocale.text("После загрузки проверим весь пакет"));
         org.telegram.messenger.DevGramPackages.fetchCatalogPackage(entry, file -> {
             if (file == null) {
                 if (attempt < 4) {
@@ -532,8 +533,8 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         int lines = DevGramPluginInfo.codeLines(src);
         LinearLayout tmp = new LinearLayout(context);
         tmp.setOrientation(LinearLayout.VERTICAL);
-        if (minVersion != null) DevGramPluginInfoViews.addRow(context, tmp, "Мин. версия DevGram", minVersion, null);
-        if (lines > 0) DevGramPluginInfoViews.addRow(context, tmp, "Строк кода", String.valueOf(lines), null);
+        if (minVersion != null) DevGramPluginInfoViews.addRow(context, tmp, DevGramLocale.text("Мин. версия DevGram"), minVersion, null);
+        if (lines > 0) DevGramPluginInfoViews.addRow(context, tmp, DevGramLocale.text("Строк кода"), String.valueOf(lines), null);
         while (tmp.getChildCount() > 0) {
             View row = tmp.getChildAt(0);
             tmp.removeView(row);
@@ -562,7 +563,7 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         if (hash == null || hash.isEmpty()) return;
         DevGramPluginInfoViews.addRow(context, box, "SHA-256", DevGramPluginInfoViews.shortHash(hash), () -> {
             AndroidUtilities.addToClipboard(hash);
-            BulletinFactory.of(this).createCopyBulletin("Хеш скопирован").show();
+            BulletinFactory.of(this).createCopyBulletin(DevGramLocale.text("Хеш скопирован")).show();
         });
     }
 
@@ -600,34 +601,34 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         DevGramPluginUi.showReview(this, existing == null ? 5 : existing.rating,
                 existing == null ? null : existing.text, (rating, reviewText) ->
                 DevGramPlugins.saveReview(entry.id, rating, reviewText, ok -> {
-                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? "Отзыв сохранён" : "Не удалось сохранить отзыв").show();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? DevGramLocale.text("Отзыв сохранён") : DevGramLocale.text("Не удалось сохранить отзыв")).show();
                     if (ok) DevGramPlugins.fetchReviews(entry.id, reviews -> {
                         double sum = 0; for (DevGramPlugins.Review r : reviews) sum += r.rating;
                         for (DevGramPlugins.Review r : reviews) if (r.userId == DevGramPlugins.myId()) ownReview = r;
-                        if (reviewButton != null) reviewButton.setText("Изменить мой отзыв");
+                        if (reviewButton != null) reviewButton.setText(DevGramLocale.text("Изменить мой отзыв"));
                         updateRatingLabels(reviews, sum);
                     });
                 }));
     }
 
     private void updateRatingLabels(java.util.ArrayList<DevGramPlugins.Review> reviews, double sum) {
-        String compact = reviews.isEmpty() ? "Новый плагин" : String.format(java.util.Locale.US, "★ %.1f  ·  %d отзывов", sum / reviews.size(), reviews.size());
-        if (ratingView != null) ratingView.setText(reviews.isEmpty() ? "Пока нет отзывов" : String.format(java.util.Locale.US, "%.1f ★  ·  %d отзывов", sum / reviews.size(), reviews.size()));
+        String compact = reviews.isEmpty() ? DevGramLocale.text("Новый плагин") : String.format(java.util.Locale.US, DevGramLocale.text("★ %.1f  ·  %d отзывов"), sum / reviews.size(), reviews.size());
+        if (ratingView != null) ratingView.setText(reviews.isEmpty() ? DevGramLocale.text("Пока нет отзывов") : String.format(java.util.Locale.US, DevGramLocale.text("%.1f ★  ·  %d отзывов"), sum / reviews.size(), reviews.size()));
         if (heroRatingView != null) heroRatingView.setText(compact);
     }
 
     private void showCustomReportDialog(Context context, long reviewUserId) {
-        DevGramPluginUi.showTextInput(this, "Своя причина",
-                "Опишите нарушение коротко и по существу.", "Что именно нарушает этот отзыв?",
-                "", "Отправить жалобу", true, reason -> sendReviewReport(reviewUserId, reason));
+        DevGramPluginUi.showTextInput(this, DevGramLocale.text("Своя причина"),
+                DevGramLocale.text("Опишите нарушение коротко и по существу."), DevGramLocale.text("Что именно нарушает этот отзыв?"),
+                "", DevGramLocale.text("Отправить жалобу"), true, reason -> sendReviewReport(reviewUserId, reason));
     }
 
     private void sendReviewReport(long reviewUserId, String reason) {
         DevGramPlugins.reportReview(entry.id, reviewUserId, reason, ok -> {
             if (!ok) DevGramPlugins.hasReportedReview(entry.id, reviewUserId, reported -> {
-                if (reported) BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Вы уже подавали жалобу").show();
+                if (reported) BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Вы уже подавали жалобу")).show();
             });
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? "Жалоба отправлена" : "Не удалось отправить жалобу").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, ok ? DevGramLocale.text("Жалоба отправлена") : DevGramLocale.text("Не удалось отправить жалобу")).show();
         });
     }
 
@@ -638,28 +639,28 @@ public class DevGramPluginDetailsActivity extends BaseFragment {
         java.util.ArrayList<String> actions = new java.util.ArrayList<>();
         java.util.ArrayList<Integer> icons = new java.util.ArrayList<>();
         if (own) {
-            actions.add("Изменить отзыв"); icons.add(R.drawable.msg_edit);
-            actions.add("Удалить отзыв"); icons.add(R.drawable.msg_delete);
+            actions.add(DevGramLocale.text("Изменить отзыв")); icons.add(R.drawable.msg_edit);
+            actions.add(DevGramLocale.text("Удалить отзыв")); icons.add(R.drawable.msg_delete);
         } else {
-            actions.add(reported ? "Жалоба уже отправлена" : "Пожаловаться на отзыв"); icons.add(R.drawable.msg_report);
-            if (dev) { actions.add("Удалить отзыв"); icons.add(R.drawable.msg_delete); }
+            actions.add(reported ? DevGramLocale.text("Жалоба уже отправлена") : DevGramLocale.text("Пожаловаться на отзыв")); icons.add(R.drawable.msg_report);
+            if (dev) { actions.add(DevGramLocale.text("Удалить отзыв")); icons.add(R.drawable.msg_delete); }
         }
         int[] iconArray = new int[icons.size()];
         for (int i = 0; i < icons.size(); i++) iconArray[i] = icons.get(i);
-        DevGramPluginUi.showChoices(this, r.name, "Действия с отзывом", actions.toArray(new String[0]),
-                iconArray, actions.size() - (actions.get(actions.size() - 1).startsWith("Удалить") ? 1 : 0), which -> {
+        DevGramPluginUi.showChoices(this, r.name, DevGramLocale.text("Действия с отзывом"), actions.toArray(new String[0]),
+                iconArray, actions.size() - (actions.get(actions.size() - 1).startsWith(DevGramLocale.text("Удалить")) ? 1 : 0), which -> {
                     String action = actions.get(which);
-                    if (action.startsWith("Изменить")) showReviewDialog(context, r);
-                    else if (action.startsWith("Пожаловаться")) showReportReasonMenu(context, r.userId);
-                    else if (action.startsWith("Жалоба")) BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Вы уже подавали жалобу").show();
+                    if (action.startsWith(DevGramLocale.text("Изменить"))) showReviewDialog(context, r);
+                    else if (action.startsWith(DevGramLocale.text("Пожаловаться"))) showReportReasonMenu(context, r.userId);
+                    else if (action.startsWith(DevGramLocale.text("Жалоба"))) BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Вы уже подавали жалобу")).show();
                     else if (own) DevGramPlugins.deleteOwnReview(entry.id, ok -> afterReviewDeleted(ok, card));
                     else DevGramPlugins.deleteReviewAsDeveloper(entry.id, r.userId, ok -> afterReviewDeleted(ok, card));
                 });
     }
-    private void afterReviewDeleted(boolean ok,View card){if(!ok){BulletinFactory.of(this).createErrorBulletin("Не удалось удалить отзыв").show();return;}card.setVisibility(View.GONE);ownReview=null;if(reviewButton!=null)reviewButton.setText("Оставить отзыв");DevGramPlugins.fetchReviews(entry.id,reviews->{double sum=0;for(DevGramPlugins.Review review:reviews)sum+=review.rating;updateRatingLabels(reviews,sum);});}
-    void showReportReasonMenu(Context context,long uid){String[] reasons={"Спам или реклама","Оскорбления и травля","Ложная информация","Другая причина"};DevGramPluginUi.showChoices(this,"Жалоба на отзыв","Команда DevGram проверит отзыв и сообщит решение.",reasons,new int[]{R.drawable.msg_report,R.drawable.msg_block,R.drawable.msg_info,R.drawable.msg_edit},reasons.length,w->{if(w==3)showCustomReportDialog(context,uid);else sendReviewReport(uid,reasons[w]);});}
-    private void showPluginReportMenu(Context context){String[] reasons={"Вредоносный код","Спам или обман","Нарушение авторских прав","Плагин не работает","Другая причина"};DevGramPluginUi.showChoices(this,"Жалоба на плагин","Выберите, что именно нужно проверить команде DevGram.",reasons,new int[]{R.drawable.msg_block,R.drawable.msg_report,R.drawable.msg_copy,R.drawable.msg_retry,R.drawable.msg_edit},reasons.length,w->{if(w==4)DevGramPluginUi.showTextInput(this,"Своя причина","Опишите проблему коротко и по существу.","Что именно не так с плагином?","","Отправить жалобу",true,this::sendPluginReport);else sendPluginReport(reasons[w]);});}
-    private void sendPluginReport(String reason){reason=reason==null?"":reason.trim();if(reason.isEmpty()){BulletinFactory.of(this).createErrorBulletin("Укажите причину").show();return;}DevGramPlugins.reportPlugin(entry.id,reason,ok->{if(ok)setPluginReportState(true);else DevGramPlugins.hasReportedPlugin(entry.id,reported->{if(reported)setPluginReportState(true);});BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,ok?"Жалоба отправлена команде":"Не удалось отправить жалобу").show();});}
-    private void setPluginReportState(boolean reported){if(reportButton==null||!reported)return;reportButton.setText("Вы уже подавали жалобу");reportButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider));reportButton.setOnClickListener(null);reportButton.setEnabled(false);reportButton.setAlpha(.75f);}
-    private void loadIcon(ImageView view,String url){org.telegram.messenger.Utilities.globalQueue.postRunnable(()->{try{java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();c.setConnectTimeout(8000);c.setReadTimeout(10000);android.graphics.Bitmap b=android.graphics.BitmapFactory.decodeStream(c.getInputStream());AndroidUtilities.runOnUIThread(()->{if(b!=null){view.clearColorFilter();view.setImageBitmap(b);}});}catch(Throwable ignore){}});}
+    private void afterReviewDeleted(boolean ok,View card){if(!ok){BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось удалить отзыв")).show();return;}card.setVisibility(View.GONE);ownReview=null;if(reviewButton!=null)reviewButton.setText(DevGramLocale.text("Оставить отзыв"));DevGramPlugins.fetchReviews(entry.id,reviews->{double sum=0;for(DevGramPlugins.Review review:reviews)sum+=review.rating;updateRatingLabels(reviews,sum);});}
+    void showReportReasonMenu(Context context,long uid){String[] reasons={DevGramLocale.text("Спам или реклама"),DevGramLocale.text("Оскорбления и травля"),DevGramLocale.text("Ложная информация"),DevGramLocale.text("Другая причина")};DevGramPluginUi.showChoices(this,DevGramLocale.text("Жалоба на отзыв"),DevGramLocale.text("Команда DevGram проверит отзыв и сообщит решение."),reasons,new int[]{R.drawable.msg_report,R.drawable.msg_block,R.drawable.msg_info,R.drawable.msg_edit},reasons.length,w->{if(w==3)showCustomReportDialog(context,uid);else sendReviewReport(uid,reasons[w]);});}
+    private void showPluginReportMenu(Context context){String[] reasons={DevGramLocale.text("Вредоносный код"),DevGramLocale.text("Спам или обман"),DevGramLocale.text("Нарушение авторских прав"),DevGramLocale.text("Плагин не работает"),DevGramLocale.text("Другая причина")};DevGramPluginUi.showChoices(this,DevGramLocale.text("Жалоба на плагин"),DevGramLocale.text("Выберите, что именно нужно проверить команде DevGram."),reasons,new int[]{R.drawable.msg_block,R.drawable.msg_report,R.drawable.msg_copy,R.drawable.msg_retry,R.drawable.msg_edit},reasons.length,w->{if(w==4)DevGramPluginUi.showTextInput(this,DevGramLocale.text("Своя причина"),DevGramLocale.text("Опишите проблему коротко и по существу."),DevGramLocale.text("Что именно не так с плагином?"),"",DevGramLocale.text("Отправить жалобу"),true,this::sendPluginReport);else sendPluginReport(reasons[w]);});}
+    private void sendPluginReport(String reason){reason=reason==null?"":reason.trim();if(reason.isEmpty()){BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Укажите причину")).show();return;}DevGramPlugins.reportPlugin(entry.id,reason,ok->{if(ok)setPluginReportState(true);else DevGramPlugins.hasReportedPlugin(entry.id,reported->{if(reported)setPluginReportState(true);});BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,ok?DevGramLocale.text("Жалоба отправлена команде"):DevGramLocale.text("Не удалось отправить жалобу")).show();});}
+    private void setPluginReportState(boolean reported){if(reportButton==null||!reported)return;reportButton.setText(DevGramLocale.text("Вы уже подавали жалобу"));reportButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider));reportButton.setOnClickListener(null);reportButton.setEnabled(false);reportButton.setAlpha(.75f);}
+    private void loadIcon(ImageView view,String url){org.telegram.messenger.DevGramNetworkQueue.postRunnable(()->{try{java.net.HttpURLConnection c=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();c.setConnectTimeout(8000);c.setReadTimeout(10000);android.graphics.Bitmap b=android.graphics.BitmapFactory.decodeStream(c.getInputStream());AndroidUtilities.runOnUIThread(()->{if(b!=null){view.clearColorFilter();view.setImageBitmap(b);}});}catch(Throwable ignore){}});}
 }

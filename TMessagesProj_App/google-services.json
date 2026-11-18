@@ -1,10 +1,30 @@
 {
   "project_info": {
     "project_number": "1068441750135",
+    "firebase_url": "https://devgram-d03e4-default-rtdb.europe-west1.firebasedatabase.app",
     "project_id": "devgram-d03e4",
     "storage_bucket": "devgram-d03e4.firebasestorage.app"
   },
   "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1068441750135:android:cd7399366b93a5606fd472",
+        "android_client_info": {
+          "package_name": "org.devgram.messenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAj-Fq-7707X54Yr8t51mFAkJmCLEKtYoU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
     {
       "client_info": {
         "mobilesdk_app_id": "1:1068441750135:android:05c41a4899d0e5ba6fd472",

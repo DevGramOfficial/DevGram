@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
 import org.telegram.ui.ActionBar.Theme;
@@ -73,7 +74,7 @@ public class DevGramAiHistoryMessageCell extends FrameLayout {
         textView.setMaxLines(expanded ? Integer.MAX_VALUE : 6);
         textView.setEllipsize(expanded ? null : TextUtils.TruncateAt.END);
         boolean assistant = "assistant".equals(message.optString("role"));
-        titleView.setText(assistant ? "ИИ-ассистент" : "Вы");
+        titleView.setText(assistant ? DevGramLocale.text("ИИ-ассистент") : DevGramLocale.text("Вы"));
         titleView.setTextColor(Theme.getColor(assistant
                 ? Theme.key_windowBackgroundWhiteGrayText2
                 : Theme.key_windowBackgroundWhiteBlueHeader, resourcesProvider));

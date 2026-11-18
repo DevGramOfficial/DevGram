@@ -11,6 +11,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.ApplicationLoader;
@@ -63,6 +64,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
     private static final int ID_UPDATE_INTERVAL = 21; // интервал авто-проверки
     private static final int ID_UPDATE_CHANNEL = 22;  // канал обновлений (основной/бета)
     private static final int ID_SUPPORTER = 30;       // раздел «Поддержавшим» — только с правом поддержавшего
+    private static final int ID_PROFILE_STYLE = 31;
 
     private static final String LINK_CHANNEL = "https://t.me/devgramnews";
     private static final String LINK_CHAT = "https://t.me/DevGramForum";
@@ -96,6 +98,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         super.onResume();
         maybePromptModLock();
         updateHeaderIcon(); // иконку могли сменить в «Оформлении» — подтянуть
+        if (listView != null) listView.adapter.update(true);
 
     }
 
@@ -199,40 +202,41 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         }
 
         // Категории — сами опции живут внутри разделов
-        items.add(UItem.asHeader("Категории"));
-        items.add(UItem.asButton(ID_CAT_GENERAL, R.drawable.devgram_cat_general, "Основные"));
-        items.add(UItem.asButton(ID_CAT_GHOST, R.drawable.devgram_cat_ghost, "Режим призрака"));
-        items.add(UItem.asButton(ID_CAT_SPY, R.drawable.devgram_cat_spy, "Слежка"));
-        items.add(UItem.asButton(ID_CAT_FILTERS, R.drawable.msg_search, "Фильтры сообщений"));
-        items.add(UItem.asButton(ID_CAT_APPEARANCE, R.drawable.msg_photo_settings, "Внешний вид"));
-        items.add(UItem.asButton(ID_CAT_CHATS, R.drawable.msg_discussion, "Чаты"));
-        items.add(UItem.asButton(ID_PLUGINS, R.drawable.devgram_cat_general, "Плагины"));
-        items.add(UItem.asButton(ID_OTHER, R.drawable.msg_settings, "Другое"));
+        items.add(UItem.asHeader(DevGramLocale.text("Категории")));
+        items.add(UItem.asButton(ID_CAT_GENERAL, R.drawable.devgram_cat_general, DevGramLocale.text("Основные")));
+        items.add(UItem.asButton(ID_CAT_GHOST, R.drawable.devgram_cat_ghost, DevGramLocale.text("Режим призрака")));
+        items.add(UItem.asButton(ID_CAT_SPY, R.drawable.devgram_cat_spy, DevGramLocale.text("Слежка")));
+        items.add(UItem.asButton(ID_CAT_FILTERS, R.drawable.msg_search, DevGramLocale.text("Фильтры сообщений")));
+        items.add(UItem.asButton(ID_CAT_APPEARANCE, R.drawable.msg_photo_settings, DevGramLocale.text("Внешний вид")));
+        if (org.telegram.messenger.DevGramProfileCustomization.enabled()) items.add(UItem.asButton(ID_PROFILE_STYLE, R.drawable.msg_colors, DevGramLocale.text("Оформление профиля")));
+        items.add(UItem.asButton(ID_CAT_CHATS, R.drawable.msg_discussion, DevGramLocale.text("Чаты")));
+        items.add(UItem.asButton(ID_PLUGINS, R.drawable.devgram_cat_general, DevGramLocale.text("Плагины")));
+        items.add(UItem.asButton(ID_OTHER, R.drawable.msg_settings, DevGramLocale.text("Другое")));
         if (DevGramSupporterActivity.isAvailable(currentAccount)) {
-            items.add(UItem.asButton(ID_SUPPORTER, R.drawable.msg_input_like, "Поддержавшим"));
+            items.add(UItem.asButton(ID_SUPPORTER, R.drawable.msg_input_like, DevGramLocale.text("Поддержавшим")));
         }
         items.add(UItem.asShadow(null));
 
         // Обновления DevGram (GitHub-релизы DevGramOfficial/DevGram)
-        items.add(UItem.asHeader("Обновления"));
-        items.add(UItem.asButton(ID_CHECK_UPDATE, R.drawable.msg_download, "Проверить обновления"));
-        items.add(UItem.asButton(ID_UPDATE_INTERVAL, R.drawable.msg_autodelete, "Интервал проверки", getUpdateIntervalText()));
+        items.add(UItem.asHeader(DevGramLocale.text("Обновления")));
+        items.add(UItem.asButton(ID_CHECK_UPDATE, R.drawable.msg_download, DevGramLocale.text("Проверить обновления")));
+        items.add(UItem.asButton(ID_UPDATE_INTERVAL, R.drawable.msg_autodelete, DevGramLocale.text("Интервал проверки"), getUpdateIntervalText()));
         // канал обновлений (основной/бета) — в разделе «Поддержавшим»
         items.add(UItem.asShadow(null));
 
         // Ссылки на официальный канал и форум
-        items.add(UItem.asHeader("Ссылки"));
-        items.add(UItem.asButton(ID_LINK_CHANNEL, R.drawable.devgram_channel, "Канал", "@DevGramNews"));
-        items.add(UItem.asButton(ID_LINK_CHAT, R.drawable.devgram_chat, "Форум", "@DevGramForum"));
-        items.add(UItem.asButton(ID_LINK_DOCS, R.drawable.msg_info, "Документация", "docs.devgram.space"));
-        items.add(UItem.asButton(ID_LINK_SITE, R.drawable.msg_language, "Сайт", "devgram.space"));
+        items.add(UItem.asHeader(DevGramLocale.text("Ссылки")));
+        items.add(UItem.asButton(ID_LINK_CHANNEL, R.drawable.devgram_channel, DevGramLocale.text("Канал"), "@DevGramNews"));
+        items.add(UItem.asButton(ID_LINK_CHAT, R.drawable.devgram_chat, DevGramLocale.text("Форум"), "@DevGramForum"));
+        items.add(UItem.asButton(ID_LINK_DOCS, R.drawable.msg_info, DevGramLocale.text("Документация"), "docs.devgram.space"));
+        items.add(UItem.asButton(ID_LINK_SITE, R.drawable.msg_language, DevGramLocale.text("Сайт"), "devgram.space"));
         items.add(UItem.asShadow(null));
 
         // Раздел для команды проекта: выдача значков. Видно только участникам команды.
         if (DevGramBadges.isTeam(getUserConfig().getClientUserId())) {
-            items.add(UItem.asHeader("Разработчику"));
-            items.add(UItem.asButton(ID_BADGES, R.drawable.devgram_supporter, "Значки DevGram"));
-            items.add(UItem.asShadow("Выдача значков пользователям и чатам по ID."));
+            items.add(UItem.asHeader(DevGramLocale.text("Разработчику")));
+            items.add(UItem.asButton(ID_BADGES, R.drawable.devgram_supporter, DevGramLocale.text("Значки DevGram")));
+            items.add(UItem.asShadow(DevGramLocale.text("Выдача значков пользователям и чатам по ID.")));
         }
     }
 
@@ -247,12 +251,15 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         else if (item.id == ID_CAT_CHATS) code = "chats";
         else if (item.id == ID_OTHER) code = "other";
         else if (item.id == ID_SUPPORTER) code = "supporter";
+        else if (item.id == ID_PROFILE_STYLE) code = "profileappearance";
         if (code == null) return false;
         return DevGramSettingsLink.showLinkOptions(this, view, code, 0);
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == ID_CAT_GENERAL) {
+        if (item.id == ID_PROFILE_STYLE) {
+            presentFragment(new DevGramProfileStyleActivity());
+        } else if (item.id == ID_CAT_GENERAL) {
             presentFragment(new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_GENERAL));
         } else if (item.id == ID_CAT_GHOST) {
             presentFragment(new DevGramCategoryActivity(DevGramCategoryActivity.CATEGORY_GHOST));
@@ -298,17 +305,17 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
             return;
         }
         if (!org.telegram.messenger.DevGramBeta.hasAccess(currentAccount)) {
-            BulletinFactory.of(this).createErrorBulletin("Бета — только для поддержавших (значок ✈️)").show();
+            BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Бета — только для поддержавших (значок ✈️)")).show();
             return;
         }
-        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Активирую бета-канал…").show();
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Активирую бета-канал…")).show();
         org.telegram.messenger.DevGramBeta.activate(currentAccount, (ok, error) -> {
             if (ok) {
                 org.telegram.messenger.DevGramConfig.setUpdateChannel(1);
                 if (listView != null && listView.adapter != null) listView.adapter.update(true);
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Бета-канал включён").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Бета-канал включён")).show();
             } else {
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось активировать бету").show();
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось активировать бету")).show();
             }
         });
     }
@@ -322,16 +329,26 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
     private String getUpdateIntervalText() {
         long interval = prefs().getLong("updateForkCheckInterval", 30 * 60 * 1000);
         if (interval == 0) {
-            return LocaleController.getString(R.string.Disable);
+            return DevGramLocale.getString(R.string.Disable);
         } else if (interval < 60 * 1000) {
-            return LocaleController.formatPluralString("Seconds", (int) (interval / 1000));
+            return formatIntervalCount("Seconds", (int) (interval / 1000));
         } else if (interval < 60 * 60 * 1000) {
-            return LocaleController.formatPluralString("Minutes", (int) (interval / (60 * 1000)));
+            return formatIntervalCount("Minutes", (int) (interval / (60 * 1000)));
         } else if (interval < 24 * 60 * 60 * 1000) {
-            return LocaleController.formatPluralString("Hours", (int) (interval / (60 * 60 * 1000)));
+            return formatIntervalCount("Hours", (int) (interval / (60 * 60 * 1000)));
         } else {
-            return LocaleController.formatPluralString("Days", (int) (interval / (24 * 60 * 60 * 1000)));
+            return formatIntervalCount("Days", (int) (interval / (24 * 60 * 60 * 1000)));
         }
+    }
+
+    private static String formatIntervalCount(String unit, int count) {
+        if (DevGramLocale.isRussian()) {
+            return LocaleController.formatPluralString(unit, count);
+        }
+        // The supported units are Seconds, Minutes, Hours and Days.
+        String word = unit.toLowerCase(java.util.Locale.ENGLISH);
+        if (count == 1) word = word.substring(0, word.length() - 1);
+        return count + " " + word;
     }
 
     private void showUpdateIntervalDialog() {
@@ -349,15 +366,15 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
             7 * 24 * 60 * 60 * 1000L
         };
         final String[] options = new String[intervals.length];
-        options[0] = LocaleController.getString(R.string.Disable);
+        options[0] = DevGramLocale.getString(R.string.Disable);
         for (int i = 1; i < intervals.length; i++) {
             long interval = intervals[i];
             if (interval < 60 * 60 * 1000L) {
-                options[i] = LocaleController.formatPluralString("Minutes", (int) (interval / (60 * 1000L)));
+                options[i] = formatIntervalCount("Minutes", (int) (interval / (60 * 1000L)));
             } else if (interval < 24 * 60 * 60 * 1000L) {
-                options[i] = LocaleController.formatPluralString("Hours", (int) (interval / (60 * 60 * 1000L)));
+                options[i] = formatIntervalCount("Hours", (int) (interval / (60 * 60 * 1000L)));
             } else {
-                options[i] = LocaleController.formatPluralString("Days", (int) (interval / (24 * 60 * 60 * 1000L)));
+                options[i] = formatIntervalCount("Days", (int) (interval / (24 * 60 * 60 * 1000L)));
             }
         }
 
@@ -370,7 +387,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
             }
         }
 
-        showRadioDialog(LocaleController.getString(R.string.UpdateCheckInterval), options, selectedIndex, index -> {
+        showRadioDialog(DevGramLocale.getString(R.string.UpdateCheckInterval), options, selectedIndex, index -> {
             SharedPreferences.Editor editor = prefs().edit();
             editor.putLong("updateForkCheckInterval", intervals[index]);
             editor.commit();
@@ -406,7 +423,7 @@ public class DevGramSettingsActivity extends DevGramSettingsFragment {
         }
 
         builder.setView(linearLayout);
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         builder.show();
     }
 }

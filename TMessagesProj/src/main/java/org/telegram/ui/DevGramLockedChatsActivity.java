@@ -14,11 +14,11 @@ import android.widget.TextView;
 
 import androidx.biometric.BiometricManager;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DevGramLockedChats;
 import org.telegram.messenger.DialogObject;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
@@ -80,7 +80,7 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(LocaleController.getString(R.string.DevGramLockedChats));
+        actionBar.setTitle(DevGramLocale.getString(R.string.DevGramLockedChats));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -120,73 +120,73 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
 
         // — Замок настроек мода: 4-значный код на вход в панель настроек DevGram
         //   (перенесён из скрытой Fork-панели; хранилище — DevGramSettingsLock/ForkSettingsLock).
-        items.add(UItem.asGraySection("Настройки мода"));
+        items.add(UItem.asGraySection(DevGramLocale.text("Настройки мода")));
         items.add(UItem.asButton(ID_MOD_SETTINGS_LOCK, R.drawable.outline_header_lock_24,
-                "Замок настроек мода", DevGramSettingsLock.label()));
-        items.add(UItem.asShadow("Спрашивает 4-значный код при входе в настройки DevGram. Защищает только меню мода."));
+                DevGramLocale.text("Замок настроек мода"), DevGramSettingsLock.label()));
+        items.add(UItem.asShadow(DevGramLocale.text("Спрашивает 4-значный код при входе в настройки DevGram. Защищает только меню мода.")));
 
         // — Скрытые аккаунты (перенос из скрытой Fork-панели)
-        items.add(UItem.asGraySection(LocaleController.getString(R.string.HiddenAccounts)));
+        items.add(UItem.asGraySection(DevGramLocale.getString(R.string.HiddenAccounts)));
         items.add(UItem.asButton(ID_HIDDEN_ACCOUNTS, R.drawable.msg_secret,
-                LocaleController.getString(R.string.HiddenAccounts)));
-        items.add(UItem.asShadow("Прячет выбранные аккаунты за отдельным 4-значным кодом. "
-                + "Открыть скрытый аккаунт можно вводом его кода на экране код-пароля или в поиске (скрытный режим)."));
+                DevGramLocale.getString(R.string.HiddenAccounts)));
+        items.add(UItem.asShadow(DevGramLocale.text("Прячет выбранные аккаунты за отдельным 4-значным кодом. ")
+                + DevGramLocale.text("Открыть скрытый аккаунт можно вводом его кода на экране код-пароля или в поиске (скрытный режим).")));
 
         // — Приватность (перенос из скрытой Fork-панели)
-        items.add(UItem.asGraySection("Приватность"));
-        items.add(UItem.asCheck(ID_BLOCK_SCREENSHOTS, LocaleController.getString(R.string.ForceBlockScreenshots))
+        items.add(UItem.asGraySection(DevGramLocale.text("Приватность")));
+        items.add(UItem.asCheck(ID_BLOCK_SCREENSHOTS, DevGramLocale.getString(R.string.ForceBlockScreenshots))
                 .setChecked(gPref("forceBlockScreenshots", false)));
-        items.add(UItem.asCheck(ID_HIDE_SENSITIVE, LocaleController.getString(R.string.HideSensitiveData))
+        items.add(UItem.asCheck(ID_HIDE_SENSITIVE, DevGramLocale.getString(R.string.HideSensitiveData))
                 .setChecked(gPref("hideSensitiveData", false)));
         if (gPref("hideSensitiveData", false)) {
-            items.add(UItem.asCheck(ID_HIDE_SENS_PHONE, LocaleController.getString(R.string.HideSensitivePhone))
+            items.add(UItem.asCheck(ID_HIDE_SENS_PHONE, DevGramLocale.getString(R.string.HideSensitivePhone))
                     .setChecked(gPref("hideSensitivePhone", true)));
-            items.add(UItem.asCheck(ID_HIDE_SENS_USERNAME, LocaleController.getString(R.string.HideSensitiveUsername))
+            items.add(UItem.asCheck(ID_HIDE_SENS_USERNAME, DevGramLocale.getString(R.string.HideSensitiveUsername))
                     .setChecked(gPref("hideSensitiveUsername", true)));
-            items.add(UItem.asCheck(ID_HIDE_SENS_BIO, LocaleController.getString(R.string.HideSensitiveBio))
+            items.add(UItem.asCheck(ID_HIDE_SENS_BIO, DevGramLocale.getString(R.string.HideSensitiveBio))
                     .setChecked(gPref("hideSensitiveBio", true)));
-            items.add(UItem.asCheck(ID_HIDE_SENS_ID, LocaleController.getString(R.string.HideSensitiveId))
+            items.add(UItem.asCheck(ID_HIDE_SENS_ID, DevGramLocale.getString(R.string.HideSensitiveId))
                     .setChecked(gPref("hideSensitiveId", true)));
         }
-        items.add(UItem.asShadow(LocaleController.getString(R.string.ForceBlockScreenshotsInfo)));
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.ForceBlockScreenshotsInfo)));
 
-        items.add(UItem.asGraySection(LocaleController.getString(R.string.DevGramLockedChatsPasscode)));
+        items.add(UItem.asGraySection(DevGramLocale.getString(R.string.DevGramLockedChatsPasscode)));
         items.add(UItem.asButton(ID_SET_PASSCODE, R.drawable.outline_header_lock_24, hasPass
-                ? LocaleController.getString(R.string.DevGramLockedChatsChangePasscode)
-                : LocaleController.getString(R.string.DevGramLockedChatsSetPasscode)));
+                ? DevGramLocale.getString(R.string.DevGramLockedChatsChangePasscode)
+                : DevGramLocale.getString(R.string.DevGramLockedChatsSetPasscode)));
         if (hasPass) {
-            items.add(UItem.asButton(ID_REMOVE_PASSCODE, R.drawable.msg_delete, LocaleController.getString(R.string.DevGramLockedChatsRemovePasscode)).red());
+            items.add(UItem.asButton(ID_REMOVE_PASSCODE, R.drawable.msg_delete, DevGramLocale.getString(R.string.DevGramLockedChatsRemovePasscode)).red());
         }
         if (biometricAvailable()) {
-            items.add(UItem.asCheck(ID_BIOMETRIC, LocaleController.getString(R.string.DevGramLockedChatsBiometric))
+            items.add(UItem.asCheck(ID_BIOMETRIC, DevGramLocale.getString(R.string.DevGramLockedChatsBiometric))
                     .setChecked(DevGramLockedChats.biometricEnabled()));
         }
-        items.add(UItem.asCheck(ID_HIDE_NOTIFY, LocaleController.getString(R.string.DevGramLockedChatsHideNotify))
+        items.add(UItem.asCheck(ID_HIDE_NOTIFY, DevGramLocale.getString(R.string.DevGramLockedChatsHideNotify))
                 .setChecked(DevGramLockedChats.hideNotifications()));
-        items.add(UItem.asButton(ID_TTL, LocaleController.getString(R.string.DevGramLockedChatsTtl), ttlTitle()));
-        items.add(UItem.asShadow(LocaleController.getString(R.string.DevGramLockedChatsHideNotifyInfo)));
+        items.add(UItem.asButton(ID_TTL, DevGramLocale.getString(R.string.DevGramLockedChatsTtl), ttlTitle()));
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.DevGramLockedChatsHideNotifyInfo)));
 
         // — Отпечаток на открытие / удаление
-        items.add(UItem.asGraySection(LocaleController.getString(R.string.DevGramLockedChatsBioSection)));
-        items.add(UItem.asCheck(ID_BIO_ARCHIVE, LocaleController.getString(R.string.DevGramLockedChatsBioArchive))
+        items.add(UItem.asGraySection(DevGramLocale.getString(R.string.DevGramLockedChatsBioSection)));
+        items.add(UItem.asCheck(ID_BIO_ARCHIVE, DevGramLocale.getString(R.string.DevGramLockedChatsBioArchive))
                 .setChecked(DevGramLockedChats.bioArchive()));
-        items.add(UItem.asCheck(ID_BIO_SAVED, LocaleController.getString(R.string.DevGramLockedChatsBioSaved))
+        items.add(UItem.asCheck(ID_BIO_SAVED, DevGramLocale.getString(R.string.DevGramLockedChatsBioSaved))
                 .setChecked(DevGramLockedChats.bioSaved()));
-        items.add(UItem.asCheck(ID_BIO_SECRET, LocaleController.getString(R.string.DevGramLockedChatsBioSecret))
+        items.add(UItem.asCheck(ID_BIO_SECRET, DevGramLocale.getString(R.string.DevGramLockedChatsBioSecret))
                 .setChecked(DevGramLockedChats.bioSecret()));
-        items.add(UItem.asCheck(ID_BIO_DELETE, LocaleController.getString(R.string.DevGramLockedChatsBioDelete))
+        items.add(UItem.asCheck(ID_BIO_DELETE, DevGramLocale.getString(R.string.DevGramLockedChatsBioDelete))
                 .setChecked(DevGramLockedChats.bioBeforeDelete()));
-        items.add(UItem.asShadow(LocaleController.getString(R.string.DevGramLockedChatsBioInfo)));
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.DevGramLockedChatsBioInfo)));
 
         chatIds = DevGramLockedChats.getAll(currentAccount);
-        String sectionTitle = LocaleController.getString(R.string.DevGramLockedChatsList)
+        String sectionTitle = DevGramLocale.getString(R.string.DevGramLockedChatsList)
                 + (chatIds.isEmpty() ? "" : "  •  " + chatIds.size());
         items.add(UItem.asGraySection(sectionTitle));
-        items.add(UItem.asCheck(ID_REVEAL, LocaleController.getString(R.string.DevGramLockedChatsReveal))
+        items.add(UItem.asCheck(ID_REVEAL, DevGramLocale.getString(R.string.DevGramLockedChatsReveal))
                 .setChecked(DevGramLockedChats.isRevealed()));
 
         if (chatIds.isEmpty()) {
-            items.add(UItem.asShadow(LocaleController.getString(R.string.DevGramLockedChatsEmpty)));
+            items.add(UItem.asShadow(DevGramLocale.getString(R.string.DevGramLockedChatsEmpty)));
         } else {
             for (int i = 0; i < chatIds.size(); i++) {
                 long did = chatIds.get(i);
@@ -194,13 +194,13 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
                 if (obj != null) {
                     UItem it = UItem.asProfileCell(obj);
                     it.id = ID_CHAT_BASE + i;
-                    it.subtext = "🔒 " + LocaleController.getString(R.string.DevGramLockedChatsHidden);
+                    it.subtext = "🔒 " + DevGramLocale.getString(R.string.DevGramLockedChatsHidden);
                     items.add(it);
                 } else {
                     items.add(UItem.asButton(ID_CHAT_BASE + i, dialogTitle(did)));
                 }
             }
-            items.add(UItem.asShadow(LocaleController.getString(R.string.DevGramLockedChatsInfo)));
+            items.add(UItem.asShadow(DevGramLocale.getString(R.string.DevGramLockedChatsInfo)));
         }
     }
 
@@ -236,7 +236,7 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
         ll.addView(circle, LayoutHelper.createLinear(72, 72, Gravity.CENTER_HORIZONTAL, 0, 4, 0, 0));
 
         TextView title = new TextView(ctx);
-        title.setText(LocaleController.getString(R.string.DevGramLockedChats));
+        title.setText(DevGramLocale.getString(R.string.DevGramLockedChats));
         title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.bold());
@@ -244,7 +244,7 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
         ll.addView(title, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 12, 0, 0));
 
         TextView subtitle = new TextView(ctx);
-        subtitle.setText(LocaleController.getString(R.string.DevGramLockedChatsInfo));
+        subtitle.setText(DevGramLocale.getString(R.string.DevGramLockedChatsInfo));
         subtitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         subtitle.setGravity(Gravity.CENTER);
@@ -257,12 +257,12 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
     private String dialogTitle(long did) {
         try {
             if (DialogObject.isEncryptedDialog(did)) {
-                return "🔒 Секретный чат";
+                return DevGramLocale.text("🔒 Секретный чат");
             }
             if (DialogObject.isUserDialog(did)) {
                 TLRPC.User u = getMessagesController().getUser(did);
                 if (u != null) {
-                    if (UserObject.isUserSelf(u)) return LocaleController.getString(R.string.SavedMessages);
+                    if (UserObject.isUserSelf(u)) return DevGramLocale.getString(R.string.SavedMessages);
                     return ContactsController.formatName(u.first_name, u.last_name);
                 }
             } else {
@@ -304,17 +304,17 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
                 DevGramLockedChats.setPasscode(pin);
                 listView.adapter.update(true);
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                        LocaleController.getString(R.string.DevGramLockedChatsPasscodeSaved)).show();
+                        DevGramLocale.getString(R.string.DevGramLockedChatsPasscodeSaved)).show();
             });
         } else if (id == ID_REMOVE_PASSCODE) {
             AlertDialog.Builder b = new AlertDialog.Builder(getContext());
-            b.setTitle(LocaleController.getString(R.string.DevGramLockedChatsRemovePasscode));
-            b.setMessage(LocaleController.getString(R.string.DevGramLockedChatsInfo));
-            b.setPositiveButton(LocaleController.getString(R.string.OK), (d, w) -> {
+            b.setTitle(DevGramLocale.getString(R.string.DevGramLockedChatsRemovePasscode));
+            b.setMessage(DevGramLocale.getString(R.string.DevGramLockedChatsInfo));
+            b.setPositiveButton(DevGramLocale.getString(R.string.OK), (d, w) -> {
                 DevGramLockedChats.setPasscode(null);
                 listView.adapter.update(true);
             });
-            b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
             showDialog(b.create());
         } else if (id == ID_BIOMETRIC) {
             DevGramLockedChats.setBiometricEnabled(!DevGramLockedChats.biometricEnabled());
@@ -355,11 +355,11 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
 
     private String ttlTitleFor(int v) {
         switch (v) {
-            case DevGramLockedChats.TTL_1_MIN: return LocaleController.getString(R.string.DevGramLockedChatsTtl1Min);
-            case DevGramLockedChats.TTL_5_MIN: return LocaleController.getString(R.string.DevGramLockedChatsTtl5Min);
-            case DevGramLockedChats.TTL_15_MIN: return LocaleController.getString(R.string.DevGramLockedChatsTtl15Min);
-            case DevGramLockedChats.TTL_UNTIL_RESTART: return LocaleController.getString(R.string.DevGramLockedChatsTtlUntilRestart);
-            default: return LocaleController.getString(R.string.DevGramLockedChatsTtlOnBackground);
+            case DevGramLockedChats.TTL_1_MIN: return DevGramLocale.getString(R.string.DevGramLockedChatsTtl1Min);
+            case DevGramLockedChats.TTL_5_MIN: return DevGramLocale.getString(R.string.DevGramLockedChatsTtl5Min);
+            case DevGramLockedChats.TTL_15_MIN: return DevGramLocale.getString(R.string.DevGramLockedChatsTtl15Min);
+            case DevGramLockedChats.TTL_UNTIL_RESTART: return DevGramLocale.getString(R.string.DevGramLockedChatsTtlUntilRestart);
+            default: return DevGramLocale.getString(R.string.DevGramLockedChatsTtlOnBackground);
         }
     }
 
@@ -372,27 +372,27 @@ public class DevGramLockedChatsActivity extends DevGramSettingsFragment {
         CharSequence[] labels = new CharSequence[vals.length];
         for (int i = 0; i < vals.length; i++) labels[i] = ttlTitleFor(vals[i]);
         AlertDialog.Builder b = new AlertDialog.Builder(getContext());
-        b.setTitle(LocaleController.getString(R.string.DevGramLockedChatsTtl));
+        b.setTitle(DevGramLocale.getString(R.string.DevGramLockedChatsTtl));
         b.setItems(labels, (dialog, which) -> {
             DevGramLockedChats.setTtl(vals[which]);
             listView.adapter.update(true);
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
     }
 
     // Красивое контекст-меню по тапу на скрытый чат (современный ItemOptions с иконками).
     private void showChatActions(long did, View anchor) {
         ItemOptions.makeOptions(this, anchor)
-                .add(R.drawable.msg_openprofile, LocaleController.getString(R.string.Open),
+                .add(R.drawable.msg_openprofile, DevGramLocale.getString(R.string.Open),
                         () -> openChat(did))
-                .add(R.drawable.devgram_deleted_eye, LocaleController.getString(R.string.DevGramLockedChatsShow),
+                .add(R.drawable.devgram_deleted_eye, DevGramLocale.getString(R.string.DevGramLockedChatsShow),
                         () -> {
                             DevGramLockedChats.setLocked(currentAccount, did, false);
                             listView.adapter.update(true);
                             getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload);
                             BulletinFactory.of(this).createSimpleBulletin(R.raw.ic_unmute,
-                                    LocaleController.getString(R.string.DevGramLockedChatsShown)).show();
+                                    DevGramLocale.getString(R.string.DevGramLockedChatsShown)).show();
                         })
                 .setGravity(Gravity.RIGHT)
                 .show();

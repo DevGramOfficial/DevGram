@@ -1,5 +1,6 @@
 package org.telegram.ui.pillstack.pills;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.BillingController;
 import org.telegram.messenger.FileLog;
 
@@ -58,25 +59,25 @@ public final class PillStackCurrencies {
     }
 
     public static CharSequence getTargetCurrencyLabel(String code) {
-        if (code == null || "AUTO".equalsIgnoreCase(code)) return "Авто";
+        if (code == null || "AUTO".equalsIgnoreCase(code)) return DevGramLocale.text("Авто");
         return getCurrencyLabelWithCode(code);
     }
 
     public static CharSequence getTargetCurrencySubtext(String code) {
-        if (code == null || "AUTO".equalsIgnoreCase(code)) return "Авто";
+        if (code == null || "AUTO".equalsIgnoreCase(code)) return DevGramLocale.text("Авто");
         return getCurrencyName(code);
     }
 
     public static String getCurrencyName(String code) {
         String n = normalize(code);
         Info i = CURRENCIES.get(n);
-        return i == null ? n : i.name;
+        return i == null ? n : DevGramLocale.text(i.name);
     }
 
     public static String getCurrencyLabelWithCode(String code) {
         String n = normalize(code);
         Info i = CURRENCIES.get(n);
-        return i == null ? n : i.name + " — " + n;
+        return i == null ? n : DevGramLocale.text(i.name) + " — " + n;
     }
 
     public static String[] getTargetCurrencies(String excludeBase) {

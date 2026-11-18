@@ -9,9 +9,9 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stars;
@@ -44,7 +44,7 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Значки для поддержавших");
+        actionBar.setTitle(DevGramLocale.text("Значки"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -70,22 +70,22 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asButton(ID_ADD, R.drawable.msg_add, "Добавить значок"));
-        items.add(UItem.asShadow("Поддержавшие увидят эти значки в разделе «Поддержавшим» и смогут выбрать любой. Выданный командой значок остаётся у них первым вариантом."));
+        items.add(UItem.asButton(ID_ADD, R.drawable.msg_add, DevGramLocale.text("Добавить значок")));
+        items.add(UItem.asShadow(DevGramLocale.text("Поддержавшие увидят эти значки в разделе «Поддержавшим» и смогут выбрать любой. Выданный командой значок остаётся у них первым вариантом.")));
         if (options == null) {
-            items.add(UItem.asShadow("Загружаю…"));
+            items.add(UItem.asShadow(DevGramLocale.text("Загружаю…")));
             return;
         }
         if (options.isEmpty()) {
-            items.add(UItem.asShadow("Список пока пуст."));
+            items.add(UItem.asShadow(DevGramLocale.text("Список пока пуст.")));
             return;
         }
-        items.add(UItem.asHeader("На выбор (" + options.size() + ")"));
+        items.add(UItem.asHeader(DevGramLocale.text("На выбор (") + options.size() + ")"));
         for (int i = 0; i < options.size(); i++) {
             DevGramBadges.Option o = options.get(i);
             items.add(UItem.asCustom(ID_ROW_BASE + i, new OptionRow(getContext(), o)));
         }
-        items.add(UItem.asShadow("Нажмите на значок, чтобы убрать его из списка."));
+        items.add(UItem.asShadow(DevGramLocale.text("Нажмите на значок, чтобы убрать его из списка.")));
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
@@ -125,7 +125,7 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
         Context context = getParentActivity();
         if (context == null) return;
         EditTextBoldCursor input = new EditTextBoldCursor(context);
-        input.setHint("Название (необязательно)");
+        input.setHint(DevGramLocale.text("Название (необязательно)"));
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
@@ -136,29 +136,29 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
         FrameLayout wrap = new FrameLayout(context);
         wrap.addView(input, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP, 20, 4, 20, 0));
         AlertDialog.Builder b = new AlertDialog.Builder(context, resourceProvider);
-        b.setTitle("Новый значок");
+        b.setTitle(DevGramLocale.text("Новый значок"));
         b.setView(wrap);
-        b.setPositiveButton("Добавить", (d, w) -> DevGramBadges.putOption(emojiId, input.getText().toString().trim(), (ok, error) -> {
+        b.setPositiveButton(DevGramLocale.text("Добавить"), (d, w) -> DevGramBadges.putOption(emojiId, input.getText().toString().trim(), (ok, error) -> {
             if (ok) {
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Значок добавлен").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Значок добавлен")).show();
                 reload();
             } else {
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось добавить").show();
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось добавить")).show();
             }
         }));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
     }
 
     private void confirmRemove(DevGramBadges.Option o) {
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
-        b.setTitle("Убрать значок?");
-        b.setMessage("У тех, кто его уже выбрал, он останется, но выбрать его снова будет нельзя.");
-        b.setPositiveButton("Убрать", (d, w) -> DevGramBadges.removeOption(o.emojiId, (ok, error) -> {
+        b.setTitle(DevGramLocale.text("Убрать значок?"));
+        b.setMessage(DevGramLocale.text("У тех, кто его уже выбрал, он останется, но выбрать его снова будет нельзя."));
+        b.setPositiveButton(DevGramLocale.text("Убрать"), (d, w) -> DevGramBadges.removeOption(o.emojiId, (ok, error) -> {
             if (ok) reload();
-            else BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось убрать").show();
+            else BulletinFactory.of(this).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось убрать")).show();
         }));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         AlertDialog dialog = b.create();
         showDialog(dialog);
         TextView button = (TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
@@ -188,7 +188,7 @@ public class DevGramBadgeOptionsActivity extends org.telegram.ui.ActionBar.BaseF
             LinearLayout texts = new LinearLayout(context);
             texts.setOrientation(VERTICAL);
             TextView title = new TextView(context);
-            title.setText(o.title.isEmpty() ? "Без названия" : o.title);
+            title.setText(o.title.isEmpty() ? DevGramLocale.text("Без названия") : o.title);
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
             title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
             texts.addView(title);

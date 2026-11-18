@@ -117,12 +117,12 @@ public final class DevGramSensitiveRequests {
     }
 
     public static String getCategory(TLObject object) {
-        return CATEGORIES.get(object.getClass().getSimpleName());
+        return DevGramLocale.text(CATEGORIES.get(object.getClass().getSimpleName()));
     }
 
     public static String getTitle(TLObject object) {
         String title = TITLES.get(object.getClass().getSimpleName());
-        return title != null ? title : object.getClass().getSimpleName();
+        return title != null ? DevGramLocale.text(title) : object.getClass().getSimpleName();
     }
 
     /** Показать окно подтверждения; ответ приходит на UI-потоке, закрытие окна — это отказ. */
@@ -226,45 +226,45 @@ public final class DevGramSensitiveRequests {
         java.util.ArrayList<CharSequence[]> rows = new java.util.ArrayList<>();
         org.telegram.tgnet.TLRPC.User self = UserConfig.getInstance(account).getCurrentUser();
         if (self != null) {
-            rows.add(new CharSequence[]{"Аккаунт", peerName(account, self.id)});
+            rows.add(new CharSequence[]{DevGramLocale.text("Аккаунт"), peerName(account, self.id)});
         }
         try {
             if (req instanceof org.telegram.tgnet.tl.TL_stars.transferStarGift) {
                 org.telegram.tgnet.tl.TL_stars.transferStarGift r = (org.telegram.tgnet.tl.TL_stars.transferStarGift) req;
-                rows.add(new CharSequence[]{"Получатель", peerName(account, DialogObject.getPeerDialogId(r.to_id))});
+                rows.add(new CharSequence[]{DevGramLocale.text("Получатель"), peerName(account, DialogObject.getPeerDialogId(r.to_id))});
                 String g = savedGift(r.stargift);
-                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+                if (g != null) rows.add(new CharSequence[]{DevGramLocale.text("Подарок"), g});
             } else if (req instanceof org.telegram.tgnet.tl.TL_stars.updateStarGiftPrice) {
                 org.telegram.tgnet.tl.TL_stars.updateStarGiftPrice r = (org.telegram.tgnet.tl.TL_stars.updateStarGiftPrice) req;
                 String g = savedGift(r.stargift);
-                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
-                if (r.resell_amount != null) rows.add(new CharSequence[]{"Цена", stars(r.resell_amount.amount)});
+                if (g != null) rows.add(new CharSequence[]{DevGramLocale.text("Подарок"), g});
+                if (r.resell_amount != null) rows.add(new CharSequence[]{DevGramLocale.text("Цена"), stars(r.resell_amount.amount)});
             } else if (req instanceof org.telegram.tgnet.tl.TL_stars.convertStarGift) {
                 String g = savedGift(((org.telegram.tgnet.tl.TL_stars.convertStarGift) req).stargift);
-                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+                if (g != null) rows.add(new CharSequence[]{DevGramLocale.text("Подарок"), g});
             } else if (req instanceof org.telegram.tgnet.tl.TL_stars.upgradeStarGift) {
                 String g = savedGift(((org.telegram.tgnet.tl.TL_stars.upgradeStarGift) req).stargift);
-                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+                if (g != null) rows.add(new CharSequence[]{DevGramLocale.text("Подарок"), g});
             } else if (req instanceof org.telegram.tgnet.tl.TL_stars.withdrawStarGift) {
                 String g = savedGift(((org.telegram.tgnet.tl.TL_stars.withdrawStarGift) req).stargift);
-                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+                if (g != null) rows.add(new CharSequence[]{DevGramLocale.text("Подарок"), g});
             } else if (req instanceof org.telegram.tgnet.tl.TL_stars.deleteStarGift) {
                 String g = savedGift(((org.telegram.tgnet.tl.TL_stars.deleteStarGift) req).stargift);
-                if (g != null) rows.add(new CharSequence[]{"Подарок", g});
+                if (g != null) rows.add(new CharSequence[]{DevGramLocale.text("Подарок"), g});
             } else if (req instanceof org.telegram.tgnet.tl.TL_payments.TL_sendStarGiftOffer) {
                 org.telegram.tgnet.tl.TL_payments.TL_sendStarGiftOffer r = (org.telegram.tgnet.tl.TL_payments.TL_sendStarGiftOffer) req;
-                rows.add(new CharSequence[]{"Получатель", peerName(account, DialogObject.getPeerDialogId(r.peer))});
-                if (r.price != null) rows.add(new CharSequence[]{"Сумма", stars(r.price.amount)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Получатель"), peerName(account, DialogObject.getPeerDialogId(r.peer))});
+                if (r.price != null) rows.add(new CharSequence[]{DevGramLocale.text("Сумма"), stars(r.price.amount)});
             } else if (req instanceof org.telegram.tgnet.TLRPC.TL_messages_sendPaidReaction) {
                 org.telegram.tgnet.TLRPC.TL_messages_sendPaidReaction r = (org.telegram.tgnet.TLRPC.TL_messages_sendPaidReaction) req;
-                rows.add(new CharSequence[]{"Чат", peerName(account, DialogObject.getPeerDialogId(r.peer))});
-                rows.add(new CharSequence[]{"Сумма", stars(r.count)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Чат"), peerName(account, DialogObject.getPeerDialogId(r.peer))});
+                rows.add(new CharSequence[]{DevGramLocale.text("Сумма"), stars(r.count)});
             } else if (req instanceof org.telegram.tgnet.tl.TL_stars.TL_payments_sendStarsForm || req instanceof org.telegram.tgnet.TLRPC.TL_payments_sendPaymentForm) {
                 long formId = req instanceof org.telegram.tgnet.tl.TL_stars.TL_payments_sendStarsForm
                     ? ((org.telegram.tgnet.tl.TL_stars.TL_payments_sendStarsForm) req).form_id
                     : ((org.telegram.tgnet.TLRPC.TL_payments_sendPaymentForm) req).form_id;
                 Payment p = payment(account, formId);
-                String debit = "Не удалось определить сумму. Это не значит, что операция бесплатная.";
+                String debit = DevGramLocale.text("Не удалось определить сумму. Это не значит, что операция бесплатная.");
                 if (p != null && "XTR".equals(p.currency)) {
                     debit = stars(p.amount);
                 } else if (p != null && "TON".equals(p.currency)) {
@@ -272,29 +272,33 @@ public final class DevGramSensitiveRequests {
                 } else if (p != null) {
                     debit = BillingController.getInstance().formatCurrency(p.amount, p.currency);
                 }
-                rows.add(new CharSequence[]{"Будет списано", debit});
+                rows.add(new CharSequence[]{DevGramLocale.text("Будет списано"), debit});
             } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_editCreator) {
                 org.telegram.tgnet.TLRPC.TL_channels_editCreator r = (org.telegram.tgnet.TLRPC.TL_channels_editCreator) req;
-                rows.add(new CharSequence[]{"Чат", peerName(account, -r.channel.channel_id)});
-                rows.add(new CharSequence[]{"Новый владелец", peerName(account, r.user_id.user_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Чат"), peerName(account, -r.channel.channel_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Новый владелец"), peerName(account, r.user_id.user_id)});
             } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_editAdmin) {
                 org.telegram.tgnet.TLRPC.TL_channels_editAdmin r = (org.telegram.tgnet.TLRPC.TL_channels_editAdmin) req;
-                rows.add(new CharSequence[]{"Чат", peerName(account, -r.channel.channel_id)});
-                rows.add(new CharSequence[]{"Пользователь", peerName(account, r.user_id.user_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Чат"), peerName(account, -r.channel.channel_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Пользователь"), peerName(account, r.user_id.user_id)});
+            } else if (req instanceof org.telegram.tgnet.TLRPC.TL_messages_editChatAdmin) {
+                org.telegram.tgnet.TLRPC.TL_messages_editChatAdmin r = (org.telegram.tgnet.TLRPC.TL_messages_editChatAdmin) req;
+                rows.add(new CharSequence[]{DevGramLocale.text("Чат"), peerName(account, -r.chat_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Пользователь"), peerName(account, r.user_id.user_id)});
             } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_deleteChannel) {
-                rows.add(new CharSequence[]{"Чат", peerName(account, -((org.telegram.tgnet.TLRPC.TL_channels_deleteChannel) req).channel.channel_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Чат"), peerName(account, -((org.telegram.tgnet.TLRPC.TL_channels_deleteChannel) req).channel.channel_id)});
             } else if (req instanceof org.telegram.tgnet.TLRPC.TL_channels_updateUsername) {
                 org.telegram.tgnet.TLRPC.TL_channels_updateUsername r = (org.telegram.tgnet.TLRPC.TL_channels_updateUsername) req;
-                rows.add(new CharSequence[]{"Чат", peerName(account, -r.channel.channel_id)});
-                rows.add(new CharSequence[]{"Новая ссылка", "@" + r.username});
+                rows.add(new CharSequence[]{DevGramLocale.text("Чат"), peerName(account, -r.channel.channel_id)});
+                rows.add(new CharSequence[]{DevGramLocale.text("Новая ссылка"), "@" + r.username});
             } else if (req instanceof org.telegram.tgnet.tl.TL_wallet.sendTransfer) {
                 org.telegram.tgnet.tl.TL_wallet.sendTransfer r = (org.telegram.tgnet.tl.TL_wallet.sendTransfer) req;
-                if (r.user_id != null) rows.add(new CharSequence[]{"Получатель", peerName(account, r.user_id.user_id)});
+                if (r.user_id != null) rows.add(new CharSequence[]{DevGramLocale.text("Получатель"), peerName(account, r.user_id.user_id)});
             }
         } catch (Exception e) {
             FileLog.e(e);
         }
-        rows.add(new CharSequence[]{"Запрос", req.getClass().getSimpleName()});
+        rows.add(new CharSequence[]{DevGramLocale.text("Запрос"), req.getClass().getSimpleName()});
         return rows;
     }
 }

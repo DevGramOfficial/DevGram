@@ -108,6 +108,7 @@ public class TextMessageEnterTransition implements MessageEnterTransitionContain
     private AnimationNotificationsLocker notificationsLocker = new AnimationNotificationsLocker();
     MessageObject.TextLayoutBlock textLayoutBlock;
     Drawable fromMessageDrawable;
+    private final org.telegram.ui.Components.DevGramMessageFrame.Cache devgramBubbleShaders = new org.telegram.ui.Components.DevGramMessageFrame.Cache();
     ChatActivityEnterView enterView;
     private AnimatedEmojiSpan.EmojiGroupedSpans animatedEmojiStack;
 
@@ -500,12 +501,13 @@ public class TextMessageEnterTransition implements MessageEnterTransitionContain
 
 
         if (drawable != null) {
+            int dgStyle = messageView.getDevGramBubbleStyle();
             messageView.setBackgroundTopY(container.getTop() - listView.getTop());
             Drawable shadowDrawable = drawable.getShadowDrawable();
 
             if (alphaProgress != 1f && fromMessageDrawable != null) {
                 fromMessageDrawable.setBounds((int) drawableX, (int) drawableTop, drawableRight, (int) drawableBottom);
-                fromMessageDrawable.draw(canvas);
+                org.telegram.ui.Components.DevGramMessageFrame.drawReferenceBubble(canvas, fromMessageDrawable, devgramBubbleShaders, dgStyle);
             }
 
             if (shadowDrawable != null) {
@@ -518,16 +520,14 @@ public class TextMessageEnterTransition implements MessageEnterTransitionContain
             drawable.setAlpha((int) (255 * alphaProgress));
             drawable.setBounds((int) drawableX, (int) drawableTop, drawableRight, (int) drawableBottom);
             drawable.setDrawFullBubble(true);
-            drawable.draw(canvas);
-            // DevGram: сообщение поддержавшего «вылетает» уже в цвете своего стиля (иначе на миг
-            // виден обычный пузырь темы с текстом цвета стиля — в тёмной теме он почти чёрный)
-            long dgSender = currentMessageObject.getFromChatId();
-            int dgStyle = dgSender > 0 ? org.telegram.messenger.DevGramBadges.borderOf(dgSender) : 0;
+            org.telegram.ui.Components.DevGramMessageFrame.drawReferenceBubble(canvas, drawable, devgramBubbleShaders, dgStyle);
             if (dgStyle != 0) {
-                android.graphics.Rect bb = drawable.getBounds();
-                android.graphics.Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(dgStyle, bb.left, bb.top, bb.right, bb.bottom, alphaProgress);
-                if (fill != null) drawable.draw(canvas, fill);
-                org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, drawable, dgStyle, alphaProgress);
+                if (!org.telegram.ui.Components.DevGramMessageFrame.reference(dgStyle)) {
+                    android.graphics.Rect bb = drawable.getBounds();
+                    android.graphics.Paint fill = org.telegram.ui.Components.DevGramMessageFrame.fillPaint(devgramBubbleShaders, dgStyle, bb.left, bb.top, bb.right, bb.bottom, alphaProgress);
+                    if (fill != null) drawable.draw(canvas, fill);
+                }
+                org.telegram.ui.Components.DevGramMessageFrame.drawBorder(canvas, drawable, devgramBubbleShaders, dgStyle, alphaProgress);
             }
             drawable.setDrawFullBubble(false);
             drawable.setAlpha(255);

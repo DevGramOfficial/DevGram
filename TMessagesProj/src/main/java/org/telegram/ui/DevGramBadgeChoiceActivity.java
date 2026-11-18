@@ -3,6 +3,7 @@ package org.telegram.ui;
 import android.content.Context;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -28,7 +29,7 @@ public class DevGramBadgeChoiceActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Значок у ника");
+        actionBar.setTitle(DevGramLocale.text("Значок у ника"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -51,15 +52,15 @@ public class DevGramBadgeChoiceActivity extends DevGramSettingsFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(preview));
-        items.add(UItem.asShadow("Значок рядом с ником видят все пользователи DevGram."));
-        items.add(UItem.asHeader("Значок"));
+        items.add(UItem.asShadow(DevGramLocale.text("Значок рядом с ником видят все пользователи DevGram.")));
+        items.add(UItem.asHeader(DevGramLocale.text("Значок")));
         if (options == null) {
-            items.add(UItem.asShadow("Загружаю значки…"));
+            items.add(UItem.asShadow(DevGramLocale.text("Загружаю значки…")));
         } else if (options.isEmpty()) {
-            items.add(UItem.asShadow("Скоро здесь появятся значки на выбор."));
+            items.add(UItem.asShadow(DevGramLocale.text("Скоро здесь появятся значки на выбор.")));
         } else {
             items.add(UItem.asCustom(picker));
-            items.add(UItem.asShadow("Первый — значок, выданный командой. К нему можно вернуться в любой момент."));
+            items.add(UItem.asShadow(DevGramLocale.text("Первый — значок, выданный командой. К нему можно вернуться в любой момент.")));
         }
     }
 
@@ -77,6 +78,7 @@ public class DevGramBadgeChoiceActivity extends DevGramSettingsFragment {
     }
 
     private void choose(long emojiId) {
+        if (!DevGramAppearanceAccess.check(this, "badge.choice")) return;
         if (saving) return;
         saving = true;
         picker.setSelected(emojiId);
@@ -85,9 +87,9 @@ public class DevGramBadgeChoiceActivity extends DevGramSettingsFragment {
             saving = false;
             refreshPicker();
             if (ok) {
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Значок обновлён").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Значок обновлён")).show();
             } else {
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сменить значок").show();
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось сменить значок")).show();
             }
         });
     }

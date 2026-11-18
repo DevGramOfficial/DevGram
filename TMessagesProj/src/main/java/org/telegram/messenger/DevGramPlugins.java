@@ -322,14 +322,14 @@ public class DevGramPlugins {
     public static String wsProxyLastError() {
         try {
             if (!Python.isStarted()) {
-                return "python не запущен";
+                return DevGramLocale.text("python не запущен");
             }
             try (PyObject module = Python.getInstance().getModule("dgws");
                  PyObject result = module.callAttr("last_error")) {
                 return result == null ? "" : result.toString();
             }
         } catch (Throwable e) {
-            return "мост: " + e;
+            return DevGramLocale.text("мост: ") + e;
         }
     }
 
@@ -413,7 +413,7 @@ public class DevGramPlugins {
             if (flag("dev_mode", false) && !isSafeMode()) {
                 setDevServerEnabled(true);
             }
-            FileLog.d("[DevGramPlugins] загружено плагинов: " + n + " из " + dir.getAbsolutePath());
+            FileLog.d(DevGramLocale.text("[DevGramPlugins] загружено плагинов: ") + n + DevGramLocale.text(" из ") + dir.getAbsolutePath());
         } catch (Throwable e) {
             FileLog.e(e);
             // Chaquopy/файловая система могут быть ещё не готовы после аварийного запуска.
@@ -511,7 +511,7 @@ public class DevGramPlugins {
             callPythonVoid("set_enabled", id, enabled);
             refreshWantsUpdates();
             refreshRequestHooks();
-            logLine((enabled ? "включён плагин: " : "выключен плагин: ") + id);
+            logLine((enabled ? DevGramLocale.text("включён плагин: ") : DevGramLocale.text("выключен плагин: ")) + id);
         } catch (Throwable ignore) {
         }
     }
@@ -1565,7 +1565,7 @@ public class DevGramPlugins {
                 e.printStackTrace(new java.io.PrintWriter(sw));
                 prefs().edit()
                         .putBoolean("crashed", true)
-                        .putString("last_crash", "DevGram — приложение упало:\n\n" + sw)
+                        .putString("last_crash", DevGramLocale.text("DevGram — приложение упало:\n\n") + sw)
                         .putLong("last_crash_time", System.currentTimeMillis())
                         .putString("last_crash_version", BuildVars.BUILD_VERSION_STRING)
                         .commit(); // процесс сейчас завершится: асинхронный apply может не успеть
@@ -1656,25 +1656,25 @@ public class DevGramPlugins {
     // Собрать ПОЛНЫЙ отчёт: устройство, версия, Java-стек (если был) + дамп logcat (нативный бэктрейс/ANR/логи Pine).
     private static String collectCrashReport(boolean includeJavaTrace) {
         StringBuilder sb = new StringBuilder();
-        sb.append("===== DevGram: отчёт о сбое =====\n");
+        sb.append(DevGramLocale.text("===== DevGram: отчёт о сбое =====\n"));
         try {
-            sb.append("время:      ").append(new java.util.Date().toString()).append('\n');
-            sb.append("устройство: ").append(android.os.Build.MANUFACTURER).append(' ').append(android.os.Build.MODEL).append('\n');
+            sb.append(DevGramLocale.text("время:      ")).append(new java.util.Date().toString()).append('\n');
+            sb.append(DevGramLocale.text("устройство: ")).append(android.os.Build.MANUFACTURER).append(' ').append(android.os.Build.MODEL).append('\n');
             sb.append("Android:    ").append(android.os.Build.VERSION.RELEASE).append(" (API ").append(android.os.Build.VERSION.SDK_INT).append(")\n");
             try {
                 Context c = ApplicationLoader.applicationContext;
                 android.content.pm.PackageInfo pi = c.getPackageManager().getPackageInfo(c.getPackageName(), 0);
-                sb.append("версия:     ").append(pi.versionName).append(" (").append(pi.versionCode).append(")\n");
+                sb.append(DevGramLocale.text("версия:     ")).append(pi.versionName).append(" (").append(pi.versionCode).append(")\n");
             } catch (Throwable ignore) {
             }
-            sb.append("хуки Pine:  ").append(hooksReady ? "инициализированы" : "нет").append('\n');
-            sb.append("плагины:\n");
+            sb.append(DevGramLocale.text("хуки Pine:  ")).append(hooksReady ? DevGramLocale.text("инициализированы") : DevGramLocale.text("нет")).append('\n');
+            sb.append(DevGramLocale.text("плагины:\n"));
             try {
                 for (String s : listPlugins()) {
                     String[] f = s.split("", -1);
                     if (f.length > 4) {
                         sb.append("   • ").append(f[1]).append(" v").append(f[2])
-                                .append(" [").append("1".equals(f[4]) ? "вкл" : "выкл").append("]\n");
+                                .append(" [").append("1".equals(f[4]) ? DevGramLocale.text("вкл") : DevGramLocale.text("выкл")).append("]\n");
                     }
                 }
             } catch (Throwable ignore) {
@@ -1690,14 +1690,14 @@ public class DevGramPlugins {
                     .remove("last_crash_version").apply();
         }
         if (javaTrace != null && !javaTrace.isEmpty()) {
-            sb.append("\n===== необработанное исключение (Java) =====\n").append(javaTrace).append('\n');
+            sb.append(DevGramLocale.text("\n===== необработанное исключение (Java) =====\n")).append(javaTrace).append('\n');
         } else {
             // нативный сбой/ANR: причину и tombstone отдаёт система (ApplicationExitInfo)
             String exit = DevGramExitReport.describeLatestFailure(prefs().getLong("boot_started_at", 0L));
-            sb.append('\n').append(exit.isEmpty() ? "(Java-исключения не зафиксировано, система причину не сохранила)\n" : exit);
+            sb.append('\n').append(exit.isEmpty() ? DevGramLocale.text("(Java-исключения не зафиксировано, система причину не сохранила)\n") : exit);
         }
         prefs().edit().remove("last_crash").apply();
-        sb.append("\n===== logcat (последние строки процесса) =====\n").append(readLogcat());
+        sb.append(DevGramLocale.text("\n===== logcat (последние строки процесса) =====\n")).append(readLogcat());
         return sb.toString();
     }
 
@@ -1706,11 +1706,11 @@ public class DevGramPlugins {
         StringBuilder all = new StringBuilder();
         // Обычный буфер (main/system) работает всегда — дампим его первым, чтобы отчёт
         // гарантированно собрался, даже если буфер crash недоступен/виснет.
-        all.append("===== буфер main+system (последние строки) =====\n");
+        all.append(DevGramLocale.text("===== буфер main+system (последние строки) =====\n"));
         dumpLogcat(all, new String[]{"logcat", "-d", "-v", "time", "-t", "700"}, 80000);
         // Буфер crash приложению недоступен (нет READ_LOGS, на Samsung чтение виснет) —
         // нативный backtrace берётся из tombstone через DevGramExitReport.
-        return all.length() == 0 ? "(logcat пуст или недоступен)" : all.toString();
+        return all.length() == 0 ? DevGramLocale.text("(logcat пуст или недоступен)") : all.toString();
     }
 
     private static void dumpLogcat(StringBuilder all, String[] cmd, int limit) {
@@ -1741,14 +1741,14 @@ public class DevGramPlugins {
                 }
                 all.append(line).append('\n');
                 if (all.length() - start > limit) {
-                    all.append("… (обрезано)\n");
+                    all.append(DevGramLocale.text("… (обрезано)\n"));
                     break;
                 }
             }
             r.close();
             killer.interrupt();
         } catch (Throwable e) {
-            all.append("logcat недоступен: ").append(e).append('\n');
+            all.append(DevGramLocale.text("logcat недоступен: ")).append(e).append('\n');
         } finally {
             if (p != null) {
                 try {
@@ -1793,9 +1793,9 @@ public class DevGramPlugins {
                 return;
             }
             org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
-            b.setTitle("Безопасный режим включён");
-            b.setMessage("Плагины сейчас отключены. Обычно режим включается автоматически после сбоя, чтобы приложение точно запустилось.\n\nНайдите и отключите проблемный плагин, затем выключите безопасный режим.");
-            b.setPositiveButton("Выключить режим", (d, w) -> {
+            b.setTitle(DevGramLocale.text("Безопасный режим включён"));
+            b.setMessage(DevGramLocale.text("Плагины сейчас отключены. Обычно режим включается автоматически после сбоя, чтобы приложение точно запустилось.\n\nНайдите и отключите проблемный плагин, затем выключите безопасный режим."));
+            b.setPositiveButton(DevGramLocale.text("Выключить режим"), (d, w) -> {
                 setFlag("safe_mode", false);
                 int n = reload();
                 if (flag("dev_mode", false)) {
@@ -1806,12 +1806,12 @@ public class DevGramPlugins {
                     if (f2 != null) {
                         org.telegram.ui.Components.BulletinFactory.of(f2)
                                 .createSimpleBulletin(R.raw.contact_check,
-                                        "Безопасный режим выключен. Загружено плагинов: " + n).show();
+                                        DevGramLocale.text("Безопасный режим выключен. Загружено плагинов: ") + n).show();
                     }
                 } catch (Throwable ignore) {
                 }
             });
-            b.setNegativeButton("Оставить", null);
+            b.setNegativeButton(DevGramLocale.text("Оставить"), null);
             b.show();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -1836,10 +1836,10 @@ public class DevGramPlugins {
             android.widget.ScrollView sv = new android.widget.ScrollView(a);
             sv.addView(tv);
             org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(a);
-            b.setTitle("Отчёт о сбое");
+            b.setTitle(DevGramLocale.text("Отчёт о сбое"));
             b.setView(sv);
             b.setPositiveButton("OK", null);
-            b.setNeutralButton("Копировать", (d, w) -> {
+            b.setNeutralButton(DevGramLocale.text("Копировать"), (d, w) -> {
                 try {
                     copyToClipboard(report);
                 } catch (Throwable ignore) {
@@ -1861,7 +1861,7 @@ public class DevGramPlugins {
             }
             String logs = pluginLogs();
             if (logs == null || logs.trim().isEmpty()) {
-                logs = "Логи пусты. Здесь появятся события загрузки и включения плагинов, а также ошибки хуков.";
+                logs = DevGramLocale.text("Логи пусты. Здесь появятся события загрузки и включения плагинов, а также ошибки хуков.");
             }
             final String shown = logs;
             android.widget.TextView tv = new android.widget.TextView(a);
@@ -1880,17 +1880,17 @@ public class DevGramPlugins {
                 stats = callPythonString("log_stats");
             } catch (Throwable ignore) {
             }
-            b.setTitle(stats == null || stats.isEmpty() ? "Логи плагинов" : "Логи плагинов · " + stats);
+            b.setTitle(stats == null || stats.isEmpty() ? DevGramLocale.text("Логи плагинов") : DevGramLocale.text("Логи плагинов · ") + stats);
             b.setView(sv);
             sv.post(() -> sv.fullScroll(android.view.View.FOCUS_DOWN));
-            b.setPositiveButton("Закрыть", null);
-            b.setNeutralButton("Копировать", (d, w) -> {
+            b.setPositiveButton(DevGramLocale.text("Закрыть"), null);
+            b.setNeutralButton(DevGramLocale.text("Копировать"), (d, w) -> {
                 try {
                     copyToClipboard(shown);
                 } catch (Throwable ignore) {
                 }
             });
-            b.setNegativeButton("Очистить", (d, w) -> clearPluginLogs());
+            b.setNegativeButton(DevGramLocale.text("Очистить"), (d, w) -> clearPluginLogs());
             b.show();
         } catch (Throwable e) {
             FileLog.e(e);
@@ -1907,7 +1907,7 @@ public class DevGramPlugins {
             }
             java.io.File f = new java.io.File(dir, "devgram_crash.txt");
             if (!f.exists()) {
-                alert("Отчёт о сбое", "Сохранённых отчётов нет — приложение не падало.");
+                alert(DevGramLocale.text("Отчёт о сбое"), DevGramLocale.text("Сохранённых отчётов нет — приложение не падало."));
                 return;
             }
             java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader(f));
@@ -2019,7 +2019,7 @@ public class DevGramPlugins {
         try {
             File file = new File(pluginsDir(), fileName);
             if (file.isFile() && !file.delete()) {
-                FileLog.e("[DevGramPlugins] не удалось удалить зависший плагин: " + fileName);
+                FileLog.e(DevGramLocale.text("[DevGramPlugins] не удалось удалить зависший плагин: ") + fileName);
             }
             prefs().edit().remove("file_" + pluginId).apply();
         } catch (Throwable e) {
@@ -2931,7 +2931,7 @@ public class DevGramPlugins {
                     set.add(it.next().toLowerCase());
                 }
                 verifiedHashes = set;
-                FileLog.d("[DevGramPlugins] проверенных плагинов в реестре: " + set.size());
+                FileLog.d(DevGramLocale.text("[DevGramPlugins] проверенных плагинов в реестре: ") + set.size());
             } catch (Throwable e) {
                 FileLog.e(e);
             }
@@ -3032,7 +3032,7 @@ public class DevGramPlugins {
                             if (o == null) continue;
                             Review r = new Review();
                             r.userId = o.optLong("userId");
-                            r.name = o.optString("name", "Пользователь");
+                            r.name = o.optString("name", DevGramLocale.text("Пользователь"));
                             r.text = o.optString("text", "");
                             r.rating = o.optInt("rating", 0);
                             r.date = o.optLong("date", 0);
@@ -3052,7 +3052,7 @@ public class DevGramPlugins {
 
     public static void saveReview(String pluginId, int rating, String text, BoolCallback cb) {
         long userId = myId();
-        String name = "Пользователь";
+        String name = DevGramLocale.text("Пользователь");
         TLRPC.User user = MessagesController.getInstance(UserConfig.selectedAccount).getUser(userId);
         if (user != null) name = UserObject.getUserName(user);
         try {
@@ -3364,10 +3364,10 @@ public class DevGramPlugins {
     }
     public static boolean resolvePluginReport(PluginReport report, boolean hidePlugin, String reason) {
         String token=DevGramBadges.getAdminToken(); if(token==null||report==null)return false;
-        final String why=reason==null?"":reason.trim();NET_QUEUE.execute(()->{ if(hidePlugin) { try { org.json.JSONObject o=new org.json.JSONObject(); o.put("hidden",true);o.put("reason",why);o.put("date",System.currentTimeMillis()); httpVerified("PUT",RTDB+"/plugins_hidden/"+safeKey(report.pluginId)+".json?auth="+token,o.toString()); httpVerified("PATCH",RTDB+"/plugins_catalog/"+safeKey(report.pluginId)+".json?auth="+token,"{\"visible\":false}"); }catch(Throwable e){FileLog.e(e);} } notifyPluginUser(report.reporterId,hidePlugin?"plugin_report_accepted":"plugin_report_rejected",hidePlugin?"Жалоба подтверждена":"Жалоба отклонена",why,report.pluginId,token);httpVerified("DELETE",RTDB+"/plugin_reports/"+report.key+".json?auth="+token,null); }); return true;
+        final String why=reason==null?"":reason.trim();NET_QUEUE.execute(()->{ if(hidePlugin) { try { org.json.JSONObject o=new org.json.JSONObject(); o.put("hidden",true);o.put("reason",why);o.put("date",System.currentTimeMillis()); httpVerified("PUT",RTDB+"/plugins_hidden/"+safeKey(report.pluginId)+".json?auth="+token,o.toString()); httpVerified("PATCH",RTDB+"/plugins_catalog/"+safeKey(report.pluginId)+".json?auth="+token,"{\"visible\":false}"); }catch(Throwable e){FileLog.e(e);} } notifyPluginUser(report.reporterId,hidePlugin?"plugin_report_accepted":"plugin_report_rejected",hidePlugin?DevGramLocale.text("Жалоба подтверждена"):DevGramLocale.text("Жалоба отклонена"),why,report.pluginId,token);httpVerified("DELETE",RTDB+"/plugin_reports/"+report.key+".json?auth="+token,null); }); return true;
     }
-    public static boolean resolvePluginReport(PluginReport report,boolean hidePlugin){return resolvePluginReport(report,hidePlugin,hidePlugin?"Нарушение подтверждено":"Нарушение не подтверждено");}
-    public static boolean resolvePluginReport(PluginReport report,int action,String reason){String token=DevGramBadges.getAdminToken();if(token==null||report==null)return false;final String why=reason==null?"":reason.trim();NET_QUEUE.execute(()->{if(action>0){try{org.json.JSONObject o=new org.json.JSONObject();o.put("hidden",true);o.put("reason",why);o.put("date",System.currentTimeMillis());o.put("blocked",action==2);httpVerified("PUT",RTDB+"/plugins_hidden/"+safeKey(report.pluginId)+".json?auth="+token,o.toString());String raw=readNode(RTDB+"/plugins_catalog/"+safeKey(report.pluginId)+".json");httpVerified("PATCH",RTDB+"/plugins_catalog/"+safeKey(report.pluginId)+".json?auth="+token,"{\"visible\":false}");if(action==2&&raw!=null&&!raw.isEmpty()&&!"null".equals(raw)){String source=new org.json.JSONObject(raw).optString("source","");String hash=sha256(source);if(!hash.isEmpty())httpVerified("PUT",RTDB+"/plugins_blocked/"+hash+".json?auth="+token,"\"blocked\"");}}catch(Throwable e){FileLog.e(e);}}notifyPluginUser(report.reporterId,action>0?"plugin_report_accepted":"plugin_report_rejected",action>0?"Жалоба подтверждена":"Жалоба отклонена",why,report.pluginId,token);httpVerified("DELETE",RTDB+"/plugin_reports/"+report.key+".json?auth="+token,null);});return true;}
+    public static boolean resolvePluginReport(PluginReport report,boolean hidePlugin){return resolvePluginReport(report,hidePlugin,hidePlugin?DevGramLocale.text("Нарушение подтверждено"):DevGramLocale.text("Нарушение не подтверждено"));}
+    public static boolean resolvePluginReport(PluginReport report,int action,String reason){String token=DevGramBadges.getAdminToken();if(token==null||report==null)return false;final String why=reason==null?"":reason.trim();NET_QUEUE.execute(()->{if(action>0){try{org.json.JSONObject o=new org.json.JSONObject();o.put("hidden",true);o.put("reason",why);o.put("date",System.currentTimeMillis());o.put("blocked",action==2);httpVerified("PUT",RTDB+"/plugins_hidden/"+safeKey(report.pluginId)+".json?auth="+token,o.toString());String raw=readNode(RTDB+"/plugins_catalog/"+safeKey(report.pluginId)+".json");httpVerified("PATCH",RTDB+"/plugins_catalog/"+safeKey(report.pluginId)+".json?auth="+token,"{\"visible\":false}");if(action==2&&raw!=null&&!raw.isEmpty()&&!"null".equals(raw)){String source=new org.json.JSONObject(raw).optString("source","");String hash=sha256(source);if(!hash.isEmpty())httpVerified("PUT",RTDB+"/plugins_blocked/"+hash+".json?auth="+token,"\"blocked\"");}}catch(Throwable e){FileLog.e(e);}}notifyPluginUser(report.reporterId,action>0?"plugin_report_accepted":"plugin_report_rejected",action>0?DevGramLocale.text("Жалоба подтверждена"):DevGramLocale.text("Жалоба отклонена"),why,report.pluginId,token);httpVerified("DELETE",RTDB+"/plugin_reports/"+report.key+".json?auth="+token,null);});return true;}
 
     public static boolean resolveReviewReport(ReviewReport report, boolean deleteReview, String reason) {
         String token = DevGramBadges.getAdminToken(); if (token == null || report == null) return false;
@@ -3376,12 +3376,12 @@ public class DevGramPlugins {
                 httpVerified("DELETE", RTDB + "/plugin_reviews/" + safeKey(report.pluginId) + "/" + report.reviewUserId + ".json?auth=" + token, null);
                 refreshReviewStats(report.pluginId);
             }
-            notifyPluginUser(report.reporterId,deleteReview?"review_report_accepted":"review_report_rejected",deleteReview?"Отзыв удалён по жалобе":"Жалоба на отзыв отклонена",why,report.pluginId,token);
+            notifyPluginUser(report.reporterId,deleteReview?"review_report_accepted":"review_report_rejected",deleteReview?DevGramLocale.text("Отзыв удалён по жалобе"):DevGramLocale.text("Жалоба на отзыв отклонена"),why,report.pluginId,token);
             httpVerified("DELETE", RTDB + "/plugin_review_reports/" + report.key + ".json?auth=" + token, null);
         });
         return true;
     }
-    public static boolean resolveReviewReport(ReviewReport report,boolean deleteReview){return resolveReviewReport(report,deleteReview,deleteReview?"Нарушение подтверждено":"Нарушение не подтверждено");}
+    public static boolean resolveReviewReport(ReviewReport report,boolean deleteReview){return resolveReviewReport(report,deleteReview,deleteReview?DevGramLocale.text("Нарушение подтверждено"):DevGramLocale.text("Нарушение не подтверждено"));}
 
     private static String readHttp(java.io.InputStream in) throws Exception {
         java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
@@ -3392,7 +3392,7 @@ public class DevGramPlugins {
         return sb.toString().trim();
     }
     static String readPublicHttp(java.io.InputStream in) throws Exception { return readHttp(in); }
-    private static void notifyPluginUser(long userId,String type,String title,String reason,String pluginId,String token){if(userId<=0||token==null)return;try{org.json.JSONObject o=new org.json.JSONObject();o.put("type",type);o.put("title",title);o.put("message",(pluginId==null||pluginId.isEmpty()?"":"Плагин: "+pluginId+"\n")+"Причина: "+(reason==null||reason.isEmpty()?"не указана":reason));o.put("pluginId",pluginId==null?"":pluginId);o.put("reason",reason==null?"":reason);o.put("date",System.currentTimeMillis());String key=System.currentTimeMillis()+"_"+Math.abs((type+pluginId+userId).hashCode());httpVerified("PUT",RTDB+"/plugin_user_notifications/"+userId+"/"+key+".json?auth="+token,o.toString());}catch(Throwable e){FileLog.e(e);}}
+    private static void notifyPluginUser(long userId,String type,String title,String reason,String pluginId,String token){if(userId<=0||token==null)return;try{org.json.JSONObject o=new org.json.JSONObject();o.put("type",type);o.put("title",title);o.put("message",(pluginId==null||pluginId.isEmpty()?"":DevGramLocale.text("Плагин: ")+pluginId+"\n")+DevGramLocale.text("Причина: ")+(reason==null||reason.isEmpty()?DevGramLocale.text("не указана"):reason));o.put("pluginId",pluginId==null?"":pluginId);o.put("reason",reason==null?"":reason);o.put("date",System.currentTimeMillis());String key=System.currentTimeMillis()+"_"+Math.abs((type+pluginId+userId).hashCode());httpVerified("PUT",RTDB+"/plugin_user_notifications/"+userId+"/"+key+".json?auth="+token,o.toString());}catch(Throwable e){FileLog.e(e);}}
 
     // Забрать опубликованный каталог.
     public static void fetchCatalog(final CatalogCallback cb) {
@@ -3713,23 +3713,23 @@ public class DevGramPlugins {
     }
 
     public static String validateCatalogEntry(CatalogEntry e) {
-        if (e == null) return "Пустая заявка";
-        if (e.id == null || !e.id.matches("[a-zA-Z0-9_.\\-]{2,64}")) return "ID: 2–64 символа, только буквы, цифры, _ . и -";
-        if (e.name == null || e.name.trim().length() < 2) return "Укажите название плагина";
-        if (e.version == null || e.version.trim().isEmpty()) return "Укажите версию плагина";
-        if (e.author == null || e.author.trim().isEmpty()) return "Укажите автора плагина";
+        if (e == null) return DevGramLocale.text("Пустая заявка");
+        if (e.id == null || !e.id.matches("[a-zA-Z0-9_.\\-]{2,64}")) return DevGramLocale.text("ID: 2–64 символа, только буквы, цифры, _ . и -");
+        if (e.name == null || e.name.trim().length() < 2) return DevGramLocale.text("Укажите название плагина");
+        if (e.version == null || e.version.trim().isEmpty()) return DevGramLocale.text("Укажите версию плагина");
+        if (e.author == null || e.author.trim().isEmpty()) return DevGramLocale.text("Укажите автора плагина");
         if (e.isPackage) {
             // .dgplugin-пакет: исходника нет, бинарь хостится в архиве.
             // DevGram: лимит размера пакета снят (нужны большие нативные плагины, напр. VPN-ядро).
-            if (e.packageSize <= 0) return "Пустой пакет";
+            if (e.packageSize <= 0) return DevGramLocale.text("Пустой пакет");
             return "";
         }
-        if (e.source == null || e.source.trim().isEmpty()) return "Исходник плагина пуст";
+        if (e.source == null || e.source.trim().isEmpty()) return DevGramLocale.text("Исходник плагина пуст");
         // DevGram: лимит размера исходника плагина снят.
-        if (parseMeta(e.source).isEmpty()) return "Не удалось разобрать метаданные или синтаксис плагина";
+        if (parseMeta(e.source).isEmpty()) return DevGramLocale.text("Не удалось разобрать метаданные или синтаксис плагина");
         String lower = e.source.toLowerCase(java.util.Locale.US);
         if (lower.contains("import subprocess") || lower.contains("from subprocess") || lower.contains("os.system(")) {
-            return "Запрещён запуск системных команд (subprocess/os.system)";
+            return DevGramLocale.text("Запрещён запуск системных команд (subprocess/os.system)");
         }
         return "";
     }
@@ -3835,7 +3835,7 @@ public class DevGramPlugins {
                 }
                 httpVerified("DELETE", RTDB + "/plugins_pending/" + key + ".json?auth=" + token, null);
                 httpVerified("DELETE", RTDB + "/plugins_rejected/" + key + ".json?auth=" + token, null);
-                appendPluginHistory(e.id, "approved", e.version, myId(), "Модератор", token);
+                appendPluginHistory(e.id, "approved", e.version, myId(), DevGramLocale.text("Модератор"), token);
             });
             return true;
         } catch (Throwable ex) {
@@ -3850,7 +3850,7 @@ public class DevGramPlugins {
         String raw = readNode(RTDB + "/plugin_backups/" + safeKey(pluginId) + "/" + safeKey(backupKey) + ".json");
         if (raw == null || raw.isEmpty() || "null".equals(raw)) return false;
         final String key = safeKey(pluginId);
-        NET_QUEUE.execute(() -> { httpVerified("PUT", RTDB + "/plugins_catalog/" + key + ".json?auth=" + token, raw); appendPluginHistory(pluginId, "rollback", backupKey, myId(), "Модератор", token); });
+        NET_QUEUE.execute(() -> { httpVerified("PUT", RTDB + "/plugins_catalog/" + key + ".json?auth=" + token, raw); appendPluginHistory(pluginId, "rollback", backupKey, myId(), DevGramLocale.text("Модератор"), token); });
         return true;
     }
 
@@ -3886,8 +3886,8 @@ public class DevGramPlugins {
             if (hash != null) {
                 httpVerified("PUT", RTDB + "/plugins_blocked/" + hash + ".json?auth=" + token, "\"blocked\"");
             }
-            appendPluginHistory(e.id, block ? "rejected_blocked" : "rejected", reason, myId(), "Модератор", token);
-            notifyPluginUser(e.submitterId,"publication_rejected","Публикация отклонена",reason,e.id,token);
+            appendPluginHistory(e.id, block ? "rejected_blocked" : "rejected", reason, myId(), DevGramLocale.text("Модератор"), token);
+            notifyPluginUser(e.submitterId,"publication_rejected",DevGramLocale.text("Публикация отклонена"),reason,e.id,token);
         });
         return true;
     }
@@ -3904,10 +3904,10 @@ public class DevGramPlugins {
             return false;
         }
         final String safe = safeKey(pluginId);
-        NET_QUEUE.execute(() -> {httpVerified("DELETE", RTDB + "/plugins_catalog/" + safe + ".json?auth=" + token, null);notifyPluginUser(entry.submitterId,"plugin_deleted","Плагин удалён из каталога",reason,entry.id,token);appendPluginHistory(entry.id,"deleted",reason,myId(),"Модератор",token);});
+        NET_QUEUE.execute(() -> {httpVerified("DELETE", RTDB + "/plugins_catalog/" + safe + ".json?auth=" + token, null);notifyPluginUser(entry.submitterId,"plugin_deleted",DevGramLocale.text("Плагин удалён из каталога"),reason,entry.id,token);appendPluginHistory(entry.id,"deleted",reason,myId(),DevGramLocale.text("Модератор"),token);});
         return true;
     }
-    public static boolean catalogDelete(String pluginId){CatalogEntry e=new CatalogEntry();e.id=pluginId;return catalogDelete(e,"Удалено модератором");}
+    public static boolean catalogDelete(String pluginId){CatalogEntry e=new CatalogEntry();e.id=pluginId;return catalogDelete(e,DevGramLocale.text("Удалено модератором"));}
 
     // Удалить плагин из каталога командой + НАВСЕГДА заблокировать его файл (по хешу исходника),
     // чтобы больше нельзя было опубликовать. source — исходник удаляемого плагина.
@@ -3929,11 +3929,11 @@ public class DevGramPlugins {
             if (hash != null) {
                 httpVerified("PUT", RTDB + "/plugins_blocked/" + hash + ".json?auth=" + token, "\"blocked\"");
             }
-            notifyPluginUser(entry.submitterId,"plugin_deleted_blocked","Плагин удалён и заблокирован",reason,entry.id,token);appendPluginHistory(entry.id,"deleted_blocked",reason,myId(),"Модератор",token);
+            notifyPluginUser(entry.submitterId,"plugin_deleted_blocked",DevGramLocale.text("Плагин удалён и заблокирован"),reason,entry.id,token);appendPluginHistory(entry.id,"deleted_blocked",reason,myId(),DevGramLocale.text("Модератор"),token);
         });
         return true;
     }
-    public static boolean catalogDeleteAndBlock(String pluginId,String source){CatalogEntry e=new CatalogEntry();e.id=pluginId;e.source=source;return catalogDeleteAndBlock(e,"Удалено и заблокировано модератором");}
+    public static boolean catalogDeleteAndBlock(String pluginId,String source){CatalogEntry e=new CatalogEntry();e.id=pluginId;e.source=source;return catalogDeleteAndBlock(e,DevGramLocale.text("Удалено и заблокировано модератором"));}
 
     // ---- модераторы каталога (/moderators/{uid} = {"email":..,"tg":<telegram_id>}) ----
     // Модератор привязан к Telegram-ID: кнопка модерации показывается только владельцу этого ID
@@ -4042,7 +4042,7 @@ public class DevGramPlugins {
     public static void addModerator(String email, String password, long tgId, DevGramBadges.Callback cb) {
         String token = DevGramBadges.getAdminToken();
         if (token == null) {
-            cb.onResult(false, "нужен вход главного админа");
+            cb.onResult(false, DevGramLocale.text("нужен вход главного админа"));
             return;
         }
         DevGramBadges.signUpModerator(email, password, (uid, err) -> {
@@ -4064,7 +4064,7 @@ public class DevGramPlugins {
                 }
                 if (!saved) {
                     AndroidUtilities.runOnUIThread(() -> cb.onResult(false,
-                            "аккаунт создан, но право модератора не сохранилось. Войдите главным администратором и повторите"));
+                            DevGramLocale.text("аккаунт создан, но право модератора не сохранилось. Войдите главным администратором и повторите")));
                     return;
                 }
                 java.util.Set<String> setU = new java.util.HashSet<>(moderatorUids);
@@ -4128,17 +4128,17 @@ public class DevGramPlugins {
     public static void removeModerator(String uid, DevGramBadges.Callback cb) {
         String token = DevGramBadges.getAdminToken();
         if (token == null || uid == null || uid.isEmpty()) {
-            if (cb != null) cb.onResult(false, "нужен вход главного администратора");
+            if (cb != null) cb.onResult(false, DevGramLocale.text("нужен вход главного администратора"));
             return;
         }
         NET_QUEUE.execute(() -> {
             boolean removed = httpVerified("DELETE", RTDB + "/moderators/" + uid + ".json?auth=" + token, null);
             if (!removed) {
-                if (cb != null) AndroidUtilities.runOnUIThread(() -> cb.onResult(false, "Firebase не удалил право модератора"));
+                if (cb != null) AndroidUtilities.runOnUIThread(() -> cb.onResult(false, DevGramLocale.text("Firebase не удалил право модератора")));
                 return;
             }
             fetchModerators(list -> {
-                if (cb != null) cb.onResult(list != null, list != null ? null : "не удалось обновить список модераторов");
+                if (cb != null) cb.onResult(list != null, list != null ? null : DevGramLocale.text("не удалось обновить список модераторов"));
             });
         });
     }
@@ -4608,7 +4608,7 @@ public class DevGramPlugins {
             return callPythonString("validate_package", sourcePath);
         } catch (Throwable e) {
             FileLog.e(e);
-            return "Не удалось проверить пакет";
+            return DevGramLocale.text("Не удалось проверить пакет");
         }
     }
 

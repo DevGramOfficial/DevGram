@@ -1,3 +1,16 @@
+// Kotlin 2.4 metadata requires R8 9.1.29 or later; override the version embedded in AGP.
+pluginManagement {
+    buildscript {
+        repositories {
+            google()
+            mavenCentral()
+        }
+        dependencies {
+            classpath 'com.android.tools:r8:9.1.57'
+        }
+    }
+}
+
 include ':TMessagesProj'
 include ':TMessagesProj_App'
 include ':jlatexmath'

@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.R;
@@ -49,7 +50,7 @@ public class DevGramDeletedPreviewCell extends LinearLayout {
     private void buildMessage() {
         int now = (int) (System.currentTimeMillis() / 1000);
         TLRPC.TL_message m = new TLRPC.TL_message();
-        m.message = "Это сообщение удалили, но оно осталось у вас 👻";
+        m.message = DevGramLocale.text("Это сообщение удалили, но оно осталось у вас 👻");
         m.date = now - 3540;
         m.dialog_id = 1L;
         m.id = 1;

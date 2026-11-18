@@ -10,6 +10,7 @@ import android.view.Gravity;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.LocaleController;
@@ -78,16 +79,16 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
         final String curCity = org.telegram.ui.Stories.recorder.Weather.getManualCity();
         final boolean hasCity = !android.text.TextUtils.isEmpty(curCity);
         ItemOptions options = ItemOptions.makeOptions(fragment, this)
-                .add(R.drawable.msg_retry, "Обновить", () -> onUpdateData(true))
-                .add(R.drawable.msg_map, hasCity ? "Город: " + curCity : "Выбрать город", () -> showCitySearch(fragment));
+                .add(R.drawable.msg_retry, DevGramLocale.text("Обновить"), () -> onUpdateData(true))
+                .add(R.drawable.msg_map, hasCity ? DevGramLocale.text("Город: ") + curCity : DevGramLocale.text("Выбрать город"), () -> showCitySearch(fragment));
         if (hasCity) {
-            options.add(R.drawable.msg_location, "Обратно по геолокации", () -> {
+            options.add(R.drawable.msg_location, DevGramLocale.text("Обратно по геолокации"), () -> {
                 PillStackConfig.resetWeatherLocationPromptAttempted();
                 org.telegram.ui.Stories.recorder.Weather.clearManualCity();
                 onUpdateData(true);
             });
         }
-        options.add(R.drawable.msg_settings, "Настройки", () -> fragment.presentFragment(new PillStackPreferencesActivity()))
+        options.add(R.drawable.msg_settings, DevGramLocale.text("Настройки"), () -> fragment.presentFragment(new PillStackPreferencesActivity()))
                 .setDrawScrim(false)
                 .setDimAlpha(0)
                 .show();
@@ -139,7 +140,7 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
                     BaseFragment f = LaunchActivity.getSafeLastFragment();
                     if (f != null) {
                         org.telegram.ui.Components.BulletinFactory.of(f).createSimpleBulletin(R.raw.info,
-                                "Погода выключена. Включить снова можно в настройках Pill Stack").show();
+                                DevGramLocale.text("Погода выключена. Включить снова можно в настройках Pill Stack")).show();
                     }
                 }
             });
@@ -188,7 +189,7 @@ public class WeatherPill extends BasePill implements NotificationCenter.Notifica
         if (animated) animateSizeChange();
         iconView.setImageResource(R.drawable.msg_retry);
         iconView.setVisibility(VISIBLE);
-        textView.setText("Повторить", animated);
+        textView.setText(DevGramLocale.text("Повторить"), animated);
         showingWeather = false;
     }
 

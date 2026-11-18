@@ -59,7 +59,7 @@ public class ProxyRotationController implements NotificationCenter.NotificationC
     private void switchToAvailable() {
         isCurrentlyChecking = false;
 
-        if (!SharedConfig.proxyRotationEnabled) {
+        if (!SharedConfig.proxyRotationEnabled || DevGramProxyNetwork.shouldDisable()) {
             return;
         }
 

@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
+import java.util.HashSet;
 
 @SuppressLint("ViewConstructor")
 public class FragmentSearchField extends FrameLayout implements FactorAnimator.Target, Theme.Colorable, NotificationCenter.NotificationCenterDelegate {
@@ -283,13 +284,14 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
 
     // DevGram: «Секции: радиус» — скругление строки поиска берётся из слайдера (0..30, дефолт 20)
     private int dgSectionRadius() {
+        if (DevGramClassicDesign.enabled()) return 0;
         int r = org.telegram.messenger.MessagesController.getGlobalMainSettings().getInt("dg_sectionRadius", 20);
         return dp(Math.max(0, Math.min(30, r)));
     }
 
     public void setupBlurredBackground(BlurredBackgroundDrawable drawable) {
-        drawable.setRadius(dgSectionRadius());
-        drawable.setPadding(dp(4));
+        drawable.setRadius(DevGramClassicDesign.enabled() ? 0 : dgSectionRadius());
+        drawable.setPadding(dp(DevGramClassicDesign.enabled() ? 0 : 4));
         blurredBackgroundDrawable = drawable;
     }
 
@@ -387,6 +389,13 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
         }
 
         invalidate();
+    }
+    @Override
+    public void addColorKeys(HashSet<Integer> colors) {
+        colors.add(Theme.key_windowBackgroundWhite);
+        colors.add(Theme.key_windowBackgroundWhiteBlackText);
+        colors.add(Theme.key_listSelector);
+        colors.add(Theme.key_groupcreate_cursor);
     }
 
     private int getThemedColor(int key) {

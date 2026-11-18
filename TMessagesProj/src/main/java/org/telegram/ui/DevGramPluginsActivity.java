@@ -14,9 +14,9 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPlugins;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -43,7 +43,7 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Плагины");
+        actionBar.setTitle(DevGramLocale.text("Плагины"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -73,7 +73,7 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
             org.telegram.ui.Components.CubicBezierInterpolator.EASE_OUT_QUINT, 380, true);
 
     private void createCatalogButton(Context context, FrameLayout parent) {
-        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder("C Каталог");
+        android.text.SpannableStringBuilder text = new android.text.SpannableStringBuilder(DevGramLocale.text("C Каталог"));
         text.setSpan(new org.telegram.ui.Components.ColoredImageSpan(R.drawable.settings_business), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
         org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor source = new org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor();
@@ -144,9 +144,9 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
             rows.add(s.split("\u001f", -1));
         }
 
-        items.add(UItem.asHeader("Плагины (" + rows.size() + ")"));
+        items.add(UItem.asHeader(DevGramLocale.text("Плагины (") + rows.size() + ")"));
         if (rows.isEmpty()) {
-            items.add(UItem.asShadow("Плагинов нет. Найдите их в каталоге."));
+            items.add(UItem.asShadow(DevGramLocale.text("Плагинов нет. Найдите их в каталоге.")));
         } else {
             for (String[] p : rows) {
                 items.add(UItem.asCustom(createPluginCard(getContext(), p)));
@@ -267,14 +267,14 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
         // Настройки плагина — иконка-шестерёнка (только если у плагина есть настройки)
         if (DevGramPlugins.hasSettings(id)) {
             ImageView setBtn = iconButton(context, R.drawable.outline_profile_settings,
-                    Theme.getColor(Theme.key_windowBackgroundWhiteBlueText), "Настройки плагина");
+                    Theme.getColor(Theme.key_windowBackgroundWhiteBlueText), DevGramLocale.text("Настройки плагина"));
             setBtn.setOnClickListener(v -> presentFragment(new DevGramPluginSettingsActivity(id, pname)));
             actions.addView(setBtn, LayoutHelper.createLinear(38, 38));
         }
 
         // Поделиться — открыть меню пересылки и отправить файл плагина
         ImageView shareBtn = iconButton(context, R.drawable.filled_share,
-                Theme.getColor(Theme.key_windowBackgroundWhiteBlueText), "Поделиться плагином");
+                Theme.getColor(Theme.key_windowBackgroundWhiteBlueText), DevGramLocale.text("Поделиться плагином"));
         shareBtn.setOnClickListener(v -> sharePlugin(filename, pname));
         actions.addView(shareBtn, LayoutHelper.createLinear(38, 38, 0f, Gravity.CENTER_VERTICAL, 4, 0, 0, 0));
 
@@ -282,22 +282,22 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
         actions.addView(spacer, LayoutHelper.createLinear(0, 1, 1f));
 
         TextView del = new TextView(context);
-        del.setText("Удалить");
+        del.setText(DevGramLocale.text("Удалить"));
         del.setTextColor(Theme.getColor(Theme.key_text_RedRegular));
         del.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         del.setTypeface(AndroidUtilities.bold());
         del.setPadding(AndroidUtilities.dp(8), AndroidUtilities.dp(8), AndroidUtilities.dp(4), AndroidUtilities.dp(4));
         del.setOnClickListener(v -> {
             AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-            b.setTitle("Удалить плагин");
-            b.setMessage("Удалить «" + pname + "»?");
-            b.setPositiveButton("Удалить", (d2, w) -> {
+            b.setTitle(DevGramLocale.text("Удалить плагин"));
+            b.setMessage(DevGramLocale.text("Удалить «") + pname + DevGramLocale.text("»?"));
+            b.setPositiveButton(DevGramLocale.text("Удалить"), (d2, w) -> {
                 DevGramPlugins.delete(id, filename);
                 if (listView != null && listView.adapter != null) {
                     listView.adapter.update(true);
                 }
             });
-            b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
             showDialog(b.create());
         });
         actions.addView(del, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
@@ -340,7 +340,7 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
         java.io.File file = new java.io.File(DevGramPlugins.pluginsDir(), filename);
         if (!file.exists()) {
             org.telegram.ui.Components.BulletinFactory.of(this)
-                    .createErrorBulletin("Файл плагина не найден").show();
+                    .createErrorBulletin(DevGramLocale.text("Файл плагина не найден")).show();
             return;
         }
         android.os.Bundle args = new android.os.Bundle();
@@ -380,10 +380,10 @@ public class DevGramPluginsActivity extends DevGramSettingsFragment {
                 }
                 fragment.finishFragment();
                 org.telegram.ui.Components.BulletinFactory.of(DevGramPluginsActivity.this).createSimpleBulletin(R.raw.forward,
-                        dids.size() == 1 ? "Плагин «" + pname + "» отправлен" : "Плагин «" + pname + "» отправлен в " + dids.size() + " чата").show();
+                        dids.size() == 1 ? DevGramLocale.text("Плагин «") + pname + DevGramLocale.text("» отправлен") : DevGramLocale.text("Плагин «") + pname + DevGramLocale.text("» отправлен в ") + dids.size() + DevGramLocale.text(" чата")).show();
             } catch (Throwable e) {
                 org.telegram.messenger.FileLog.e(e);
-                org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin("Не удалось отправить плагин").show();
+                org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(DevGramLocale.text("Не удалось отправить плагин")).show();
             }
             return true;
         });

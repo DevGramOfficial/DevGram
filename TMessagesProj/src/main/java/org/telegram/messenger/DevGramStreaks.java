@@ -261,7 +261,7 @@ public class DevGramStreaks {
     // GET облачного состояния -> синхронизируем кэш (в т.ч. УДАЛЯЕМ серии, которых больше нет
     // в облаке) -> проверка потерянных огоньков.
     private static void doSync() {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             long myId = UserConfig.getInstance(UserConfig.selectedAccount).getClientUserId();
             if (myId == 0) {
                 return;
@@ -343,7 +343,7 @@ public class DevGramStreaks {
     // Дозалить локальное состояние серии в облако (self-heal, когда push из onMessage не долетел
     // или локальное новее). Fire-and-forget в фоне.
     private static void repushCloud(long myId, String dialogKey, String state) {
-        Utilities.globalQueue.postRunnable(() ->
+        DevGramNetworkQueue.postRunnable(() ->
                 httpSend("PUT", withAuth(RTDB_BASE + "/streaks/" + myId + "/" + dialogKey + ".json"), "\"" + state + "\""));
     }
 
@@ -373,7 +373,7 @@ public class DevGramStreaks {
         }
         long myId = UserConfig.getInstance(account).getClientUserId();
         if (myId != 0) {
-            Utilities.globalQueue.postRunnable(() ->
+            DevGramNetworkQueue.postRunnable(() ->
                     httpSend("DELETE", withAuth(RTDB_BASE + "/streaks/" + myId + "/" + dialogId + ".json"), null));
         }
     }
@@ -458,7 +458,7 @@ public class DevGramStreaks {
         p.edit().putString(key(dialogId), newState).apply();
         // пишем в облако (под своим id)
         long myId = UserConfig.getInstance(accountId).getClientUserId();
-        Utilities.globalQueue.postRunnable(() ->
+        DevGramNetworkQueue.postRunnable(() ->
                 httpSend("PUT", withAuth(RTDB_BASE + "/streaks/" + myId + "/" + dialogId + ".json"), "\"" + newState + "\""));
         if (streakChanged) {
             AndroidUtilities.runOnUIThread(() ->
@@ -631,7 +631,7 @@ public class DevGramStreaks {
             String text = "Твой огонёк с " + name + " (" + streak + " 🔥) потерян из-за неактивности."
                     + (canRestore ? "" : " Восстановления закончились.");
             NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, channelId)
-                    .setSmallIcon(R.drawable.notification)
+                    .setSmallIcon(org.telegram.messenger.devgram.icons.IconManager.INSTANCE.notificationIcon())
                     .setContentTitle("Огонёк потерян 🔥")
                     .setContentText(text)
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
@@ -673,7 +673,7 @@ public class DevGramStreaks {
             String newState = t + ",0,0," + streak + "," + t + "," + (used + 1);
             p.edit().putString(key(dialogId), newState).apply();
             long myId = UserConfig.getInstance(account).getClientUserId();
-            Utilities.globalQueue.postRunnable(() ->
+            DevGramNetworkQueue.postRunnable(() ->
                     httpSend("PUT", withAuth(RTDB_BASE + "/streaks/" + myId + "/" + dialogId + ".json"), "\"" + newState + "\""));
             AndroidUtilities.runOnUIThread(() ->
                     NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.updateInterfaces, MessagesController.UPDATE_MASK_NAME));
@@ -760,7 +760,7 @@ public class DevGramStreaks {
             }
             String text = "Серия с " + name + " (" + streak + " 🔥) прервётся через ~" + hoursLeft + " ч. Напиши, чтобы не потерять!";
             NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, channelId)
-                    .setSmallIcon(R.drawable.notification)
+                    .setSmallIcon(org.telegram.messenger.devgram.icons.IconManager.INSTANCE.notificationIcon())
                     .setContentTitle("Не дай серии прерваться 🔥")
                     .setContentText(text)
                     .setStyle(new NotificationCompat.BigTextStyle().bigText(text))

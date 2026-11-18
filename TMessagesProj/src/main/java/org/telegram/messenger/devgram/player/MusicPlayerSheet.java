@@ -271,6 +271,7 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
         MessageObject playingMessageObject = MediaController.getInstance().getPlayingMessageObject();
         int i = playingMessageObject != null ? playingMessageObject.currentAccount : UserConfig.selectedAccount;
         this.currentAccount = i;
+        PlayerConfig.setStudioAccount(i);
         this.TAG = DownloadController.getInstance(i).generateObserverTag();
         this.actions = new PlayerActions(i, launchActivity, this);
         this.savedMusicList = MediaController.getInstance().currentSavedMusicList;
@@ -700,7 +701,15 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
         return true;
     }
     public /* synthetic */ void lambda_new_11(View view) {
-        selectMode(this.mode == 1 ? 0 : 1);
+        if (!PlayerConfig.studioFlag("lyrics", "music.lyrics", true)) {
+            BaseFragment fragment = LaunchActivity.getSafeLastFragment();
+            if (fragment != null) {
+                if (!org.telegram.ui.DevGramAppearanceAccess.check(fragment, "music.lyrics")) return;
+                org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(org.telegram.messenger.DevGramLocale.text("Текст песни отключён в студии профиля")).show();
+            }
+            return;
+        }
+        BaseFragment host=LaunchActivity.getSafeLastFragment();if(host!=null){dismiss();org.telegram.ui.Components.DevGramLyricsSheet.showNative(host);}else selectMode(this.mode == 1 ? 0 : 1);
     }
     public /* synthetic */ void lambda_new_12(View view) {
         selectMode(this.mode == 2 ? 0 : 2);
@@ -1469,6 +1478,7 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
             return;
         }
         this.mode = i;
+        if (this.playerLayout != null) updateRhythm();
         if (i2 == 2 && i != 2) {
             this.queueView.clearSearch();
         }
@@ -2254,6 +2264,7 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
     public void updateRhythm() {
         boolean z = false;
         boolean z2 = (!PlayerConfig.getPlayerRhythmBackground() || AndroidUtilities.isTablet() || isDismissed()) ? false : true;
+        if(this.mode==1)z2=PlayerConfig.getProfileLyricsMotion()&&!AndroidUtilities.isTablet()&&!isDismissed();
         boolean z3 = z2 && isShowing() && this.playerLayout.getWindowVisibility() == 0 && LiteMode.isEnabled(32);
         boolean z4 = z3 && !MediaController.getInstance().isMessagePaused();
         RhythmTap.setEnabled(z3);
@@ -2267,8 +2278,16 @@ public class MusicPlayerSheet extends BottomSheet implements NotificationCenter.
         this.playerLayout.invalidate();
     }
 
+    public static void applyStudioPolicy() {
+        if (instance == null || instance.isDismissed()) return;
+        instance.updateCoverColors(true);
+        if (instance.mode == 1 && !PlayerConfig.studioFlag("lyrics", "music.lyrics", true)) instance.selectMode(0);
+        instance.updateRhythm();
+    }
+
     @Override
     public void dismiss() {
+        PlayerConfig.setStudioAccount(-1);
         super.dismiss();
         NotificationCenter.ObserversGroup observersGroup = this.observers;
         if (observersGroup != null) {

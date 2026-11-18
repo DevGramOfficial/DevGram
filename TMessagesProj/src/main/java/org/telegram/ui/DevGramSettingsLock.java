@@ -20,8 +20,8 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.forkgram.ForkSettingsLock;
@@ -38,7 +38,7 @@ public class DevGramSettingsLock {
 
     // Подпись строки-кнопки: «Вкл»/«Выкл».
     public static String label() {
-        return LocaleController.getString(ForkSettingsLock.hasCode() ? R.string.PasswordOn : R.string.PasswordOff);
+        return DevGramLocale.getString(ForkSettingsLock.hasCode() ? R.string.PasswordOn : R.string.PasswordOff);
     }
 
     // Управление кодом из меню: нет кода -> установить; есть -> подтвердить текущий, затем сменить/снять.
@@ -74,10 +74,10 @@ public class DevGramSettingsLock {
         CodeFieldContainer container = createCodeContainer(context, onCompleted);
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle("DevGram");
-        builder.setMessage(LocaleController.getString(R.string.ForkSettingsLockUnlockInfo));
+        builder.setMessage(DevGramLocale.getString(R.string.ForkSettingsLockUnlockInfo));
         builder.setView(wrapCodeContainer(context, container));
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        builder.setPositiveButton(LocaleController.getString(R.string.Continue), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
+        builder.setPositiveButton(DevGramLocale.getString(R.string.Continue), null);
 
         AlertDialog dialog = builder.create();
         dialogRef[0] = dialog;
@@ -119,11 +119,11 @@ public class DevGramSettingsLock {
 
         CodeFieldContainer container = createCodeContainer(context, onCompleted);
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(LocaleController.getString(R.string.ForkSettingsLock));
-        builder.setMessage(LocaleController.getString(R.string.ForkSettingsLockConfirmCurrentCodeInfo));
+        builder.setTitle(DevGramLocale.getString(R.string.ForkSettingsLock));
+        builder.setMessage(DevGramLocale.getString(R.string.ForkSettingsLockConfirmCurrentCodeInfo));
         builder.setView(wrapCodeContainer(context, container));
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        builder.setPositiveButton(LocaleController.getString(R.string.Continue), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
+        builder.setPositiveButton(DevGramLocale.getString(R.string.Continue), null);
 
         AlertDialog dialog = builder.create();
         dialogRef[0] = dialog;
@@ -143,11 +143,11 @@ public class DevGramSettingsLock {
             return;
         }
         CharSequence[] actions = new CharSequence[] {
-            LocaleController.getString(R.string.ForkSettingsLockChangeCode),
-            LocaleController.getString(R.string.ForkSettingsLockRemoveCode)
+            DevGramLocale.getString(R.string.ForkSettingsLockChangeCode),
+            DevGramLocale.getString(R.string.ForkSettingsLockRemoveCode)
         };
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(LocaleController.getString(R.string.ForkSettingsLock));
+        builder.setTitle(DevGramLocale.getString(R.string.ForkSettingsLock));
         builder.setItems(actions, (dialog, which) -> {
             if (which == 0) {
                 showSetCodeDialog(fragment, true, onChanged);
@@ -174,12 +174,12 @@ public class DevGramSettingsLock {
             if (firstCode[0] == null) {
                 firstCode[0] = code;
                 clearCodeContainer(container);
-                dialogRef[0].setMessage(LocaleController.getString(R.string.ForkSettingsLockConfirmCodeInfo));
+                dialogRef[0].setMessage(DevGramLocale.getString(R.string.ForkSettingsLockConfirmCodeInfo));
                 return;
             }
             if (!TextUtils.equals(firstCode[0], code)) {
                 firstCode[0] = null;
-                dialogRef[0].setMessage(LocaleController.getString(R.string.ForkSettingsLockCodesDoNotMatch));
+                dialogRef[0].setMessage(DevGramLocale.getString(R.string.ForkSettingsLockCodesDoNotMatch));
                 showCodeError(container);
                 return;
             }
@@ -193,11 +193,11 @@ public class DevGramSettingsLock {
 
         CodeFieldContainer container = createCodeContainer(context, onCompleted);
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(LocaleController.getString(replacing ? R.string.ForkSettingsLockChangeCode : R.string.ForkSettingsLockSetCode));
-        builder.setMessage(LocaleController.getString(R.string.ForkSettingsLockInfo));
+        builder.setTitle(DevGramLocale.getString(replacing ? R.string.ForkSettingsLockChangeCode : R.string.ForkSettingsLockSetCode));
+        builder.setMessage(DevGramLocale.getString(R.string.ForkSettingsLockInfo));
         builder.setView(wrapCodeContainer(context, container));
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        builder.setPositiveButton(LocaleController.getString(R.string.Save), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
+        builder.setPositiveButton(DevGramLocale.getString(R.string.Save), null);
 
         AlertDialog dialog = builder.create();
         dialogRef[0] = dialog;
@@ -217,10 +217,10 @@ public class DevGramSettingsLock {
             return;
         }
         AlertDialog dialog = new AlertDialog.Builder(context)
-            .setTitle(LocaleController.getString(R.string.ForkSettingsLockRemoveCode))
-            .setMessage(LocaleController.getString(R.string.ForkSettingsLockRemoveCodeConfirm))
-            .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
-            .setPositiveButton(LocaleController.getString(R.string.Remove), (d, which) -> {
+            .setTitle(DevGramLocale.getString(R.string.ForkSettingsLockRemoveCode))
+            .setMessage(DevGramLocale.getString(R.string.ForkSettingsLockRemoveCodeConfirm))
+            .setNegativeButton(DevGramLocale.getString(R.string.Cancel), null)
+            .setPositiveButton(DevGramLocale.getString(R.string.Remove), (d, which) -> {
                 ForkSettingsLock.removeCode();
                 if (onChanged != null) {
                     onChanged.run();

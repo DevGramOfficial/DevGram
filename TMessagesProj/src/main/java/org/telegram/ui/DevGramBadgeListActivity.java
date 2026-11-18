@@ -13,11 +13,11 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DevGramBadges;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLObject;
@@ -43,7 +43,9 @@ import java.util.Locale;
 public class DevGramBadgeListActivity extends BaseFragment implements org.telegram.messenger.NotificationCenter.NotificationCenterDelegate {
 
     static final int ROLE_TEAM = 1, ROLE_SUPPORTER = 2, ROLE_CHANNEL = 3, ROLE_PLUGIN = 4;
-    private static final String[] FILTER_TITLES = {"Все", "Команда", "Поддержавшие", "Каналы", "🧩 Разработчики"};
+    private static String[] getFilterTitles() {
+        return new String[]{DevGramLocale.text("Все"), DevGramLocale.text("Команда"), DevGramLocale.text("Поддержавшие"), DevGramLocale.text("Каналы"), DevGramLocale.text("🧩 Разработчики")};
+    }
     private static final int ID_ROW_BASE = 1000;
 
     private UniversalRecyclerView listView;
@@ -64,10 +66,10 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
 
     static String roleLabel(int role) {
         switch (role) {
-            case ROLE_TEAM: return "Команда";
-            case ROLE_SUPPORTER: return "Поддержавший";
-            case ROLE_CHANNEL: return "Канал";
-            case ROLE_PLUGIN: return "Разработчик плагинов";
+            case ROLE_TEAM: return DevGramLocale.text("Команда");
+            case ROLE_SUPPORTER: return DevGramLocale.text("Поддержавший");
+            case ROLE_CHANNEL: return DevGramLocale.text("Канал");
+            case ROLE_PLUGIN: return DevGramLocale.text("Разработчик плагинов");
             default: return "";
         }
     }
@@ -98,7 +100,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
         DevGramBadges.syncFromCloud();
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Выданные значки");
+        actionBar.setTitle(DevGramLocale.text("Выданные значки"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -118,7 +120,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
         searchIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         searchWrap.addView(searchIcon, LayoutHelper.createFrame(20, 20, Gravity.CENTER_VERTICAL | Gravity.LEFT, 14, 0, 0, 0));
         EditTextBoldCursor search = new EditTextBoldCursor(context);
-        search.setHint("Имя, @юзернейм или ID");
+        search.setHint(DevGramLocale.text("Имя, @юзернейм или ID"));
         search.setSingleLine(true);
         search.setBackground(null);
         search.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
@@ -170,7 +172,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
 
     private void rebuildChips() {
         if (chipsRow == null) return;
-        int[] counts = new int[FILTER_TITLES.length];
+        int[] counts = new int[getFilterTitles().length];
         for (long id : DevGramBadges.listGranted()) {
             counts[0]++;
             int role = roleOf(id, DevGramBadges.badgeOf(id));
@@ -178,10 +180,10 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
         }
         chipsRow.removeAllViews();
         int accent = Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider);
-        for (int i = 0; i < FILTER_TITLES.length; i++) {
+        for (int i = 0; i < getFilterTitles().length; i++) {
             final int index = i;
             TextView chip = new TextView(getContext());
-            chip.setText(FILTER_TITLES[i] + "  " + counts[i]);
+            chip.setText(getFilterTitles()[i] + "  " + counts[i]);
             chip.setGravity(Gravity.CENTER);
             chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             chip.setPadding(AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14), 0);
@@ -211,7 +213,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
             shown.add(id);
         }
         if (shown.isEmpty()) {
-            items.add(UItem.asShadow(DevGramBadges.listGranted().isEmpty() ? "Выданных значков пока нет." : "Ничего не найдено."));
+            items.add(UItem.asShadow(DevGramBadges.listGranted().isEmpty() ? DevGramLocale.text("Выданных значков пока нет.") : DevGramLocale.text("Ничего не найдено.")));
             return;
         }
         for (int i = 0; i < shown.size(); i++) {
@@ -220,7 +222,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
             if (row == null) rows.put(id, row = new BadgeRow(getContext(), id));
             items.add(UItem.asCustom(ID_ROW_BASE + i, row));
         }
-        items.add(UItem.asShadow("Нажмите на строку, чтобы изменить, открыть или снять значок."));
+        items.add(UItem.asShadow(DevGramLocale.text("Нажмите на строку, чтобы изменить, открыть или снять значок.")));
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
@@ -233,11 +235,11 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
         ArrayList<CharSequence> titles = new ArrayList<>();
         ArrayList<Integer> icons = new ArrayList<>();
         ArrayList<Runnable> actions = new ArrayList<>();
-        titles.add("Изменить значок");
+        titles.add(DevGramLocale.text("Изменить значок"));
         icons.add(R.drawable.msg_edit);
         actions.add(() -> presentFragment(new DevGramBadgeGrantActivity(dialogId)));
         if (peer != null) {
-            titles.add(dialogId > 0 ? "Открыть профиль" : "Открыть канал");
+            titles.add(dialogId > 0 ? DevGramLocale.text("Открыть профиль") : DevGramLocale.text("Открыть канал"));
             icons.add(R.drawable.msg_openprofile);
             actions.add(() -> {
                 Bundle args = new Bundle();
@@ -246,13 +248,13 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
                 presentFragment(new ProfileActivity(args));
             });
         }
-        titles.add("Скопировать ID");
+        titles.add(DevGramLocale.text("Скопировать ID"));
         icons.add(R.drawable.msg_copy);
         actions.add(() -> {
             AndroidUtilities.addToClipboard(String.valueOf(Math.abs(dialogId)));
-            BulletinFactory.of(this).createCopyBulletin("ID скопирован").show();
+            BulletinFactory.of(this).createCopyBulletin(DevGramLocale.text("ID скопирован")).show();
         });
-        titles.add("Снять значок");
+        titles.add(DevGramLocale.text("Снять значок"));
         icons.add(R.drawable.msg_delete);
         actions.add(() -> confirmRevoke(dialogId));
         int[] iconArr = new int[icons.size()];
@@ -269,15 +271,15 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
     private void confirmRevoke(long dialogId) {
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
         String name = nameFor(dialogId);
-        b.setTitle("Снять значок?");
-        b.setMessage("Значок пропадёт у " + (name.isEmpty() ? "ID " + Math.abs(dialogId) : name) + " у всех пользователей DevGram.");
-        b.setPositiveButton("Снять", (d, w) -> DevGramBadgesActivity.ensureAdminSignedIn(this, () -> {
+        b.setTitle(DevGramLocale.text("Снять значок?"));
+        b.setMessage(DevGramLocale.text("Значок пропадёт у ") + (name.isEmpty() ? "ID " + Math.abs(dialogId) : name) + DevGramLocale.text(" у всех пользователей DevGram."));
+        b.setPositiveButton(DevGramLocale.text("Снять"), (d, w) -> DevGramBadgesActivity.ensureAdminSignedIn(this, () -> {
             DevGramBadges.revoke(dialogId);
             rows.remove(dialogId);
             update();
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Значок снят").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Значок снят")).show();
         }));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         AlertDialog dialog = b.create();
         showDialog(dialog);
         TextView button = (TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
@@ -337,7 +339,7 @@ public class DevGramBadgeListActivity extends BaseFragment implements org.telegr
                 nameRow.addView(emoji, LayoutHelper.createLinear(20, 20, 0, 0, 6, 0));
             }
             TextView title = new TextView(context);
-            title.setText(name.isEmpty() ? (dialogId > 0 ? "Пользователь" : "Чат") : name);
+            title.setText(name.isEmpty() ? (dialogId > 0 ? DevGramLocale.text("Пользователь") : DevGramLocale.text("Чат")) : name);
             title.setSingleLine(true);
             title.setEllipsize(android.text.TextUtils.TruncateAt.END);
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);

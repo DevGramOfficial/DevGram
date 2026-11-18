@@ -31,6 +31,7 @@ public class DevGramGlassMenu {
 
     // Снять и размыть контент. Вернёт null, если вью ещё не измерена.
     public static Bitmap snapshot(View root) {
+        if (DevGramClassicDesign.enabled()) return null;
         if (snapshotInProgress || root == null || root.getWidth() <= 0 || root.getHeight() <= 0) {
             return null;
         }

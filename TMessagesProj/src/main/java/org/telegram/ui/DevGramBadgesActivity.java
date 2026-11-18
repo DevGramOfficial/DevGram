@@ -17,10 +17,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.DevGramPackages;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -44,6 +44,7 @@ public class DevGramBadgesActivity extends BaseFragment {
     private static final int ID_ACCOUNT = 3;
     private static final int ID_SIGN_IN = 4;
     private static final int ID_SIGN_OUT = 5;
+    private static final int ID_SUPPORT_REQUESTS = 6;
 
     private static final Pattern USERNAME = Pattern.compile("^(?:https?://)?(?:t\\.me/|telegram\\.me/|@)?([A-Za-z][A-Za-z0-9_]{3,31})(?:[/?].*)?$");
 
@@ -58,7 +59,7 @@ public class DevGramBadgesActivity extends BaseFragment {
         DevGramBadges.syncFromCloud();
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Значки DevGram");
+        actionBar.setTitle(DevGramLocale.text("Значки DevGram"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -87,7 +88,7 @@ public class DevGramBadgesActivity extends BaseFragment {
         card.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
 
         TextView title = new TextView(context);
-        title.setText("Выдать значок");
+        title.setText(DevGramLocale.text("Выдать значок"));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17);
         title.setTypeface(AndroidUtilities.bold());
         title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
@@ -95,7 +96,7 @@ public class DevGramBadgesActivity extends BaseFragment {
 
         LinearLayout inputRow = new LinearLayout(context);
         inputRow.setGravity(Gravity.CENTER_VERTICAL);
-        recipientInput = makeInput(this, context, "ID, @юзернейм или ссылка", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        recipientInput = makeInput(this, context, DevGramLocale.text("ID, @юзернейм или ссылка"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         recipientInput.setSingleLine(true);
         recipientInput.setImeOptions(EditorInfo.IME_ACTION_GO);
         recipientInput.setOnEditorActionListener((v, actionId, event) -> {
@@ -108,7 +109,7 @@ public class DevGramBadgesActivity extends BaseFragment {
         inputRow.addView(recipientInput, LayoutHelper.createLinear(0, 48, 1f));
 
         nextButton = new TextView(context);
-        nextButton.setText("Далее");
+        nextButton.setText(DevGramLocale.text("Далее"));
         nextButton.setGravity(Gravity.CENTER);
         nextButton.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         nextButton.setTypeface(AndroidUtilities.bold());
@@ -121,7 +122,7 @@ public class DevGramBadgesActivity extends BaseFragment {
         card.addView(inputRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 0, 0));
 
         TextView fromChats = new TextView(context);
-        fromChats.setText("Выбрать из чатов");
+        fromChats.setText(DevGramLocale.text("Выбрать из чатов"));
         fromChats.setGravity(Gravity.CENTER);
         fromChats.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         fromChats.setTypeface(AndroidUtilities.bold());
@@ -141,28 +142,31 @@ public class DevGramBadgesActivity extends BaseFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(grantCard));
-        items.add(UItem.asShadow("Можно ввести ID пользователя, ID канала (в том числе -100…), @юзернейм или ссылку t.me/…"));
+        items.add(UItem.asShadow(DevGramLocale.text("Можно ввести ID пользователя, ID канала (в том числе -100…), @юзернейм или ссылку t.me/…")));
 
-        items.add(UItem.asHeader("Управление"));
+        items.add(UItem.asHeader(DevGramLocale.text("Управление")));
         int count = DevGramBadges.listGranted().size();
-        items.add(UItem.asButton(ID_LIST, R.drawable.msg_list, "Выданные значки", count > 0 ? String.valueOf(count) : ""));
-        items.add(UItem.asButton(ID_OPTIONS, R.drawable.msg_input_like, "Значки для поддержавших"));
-        items.add(UItem.asShadow("Поддержавшие выбирают себе значок из этого списка в разделе «Поддержавшим»."));
+        items.add(UItem.asButton(ID_LIST, R.drawable.msg_list, DevGramLocale.text("Выданные значки"), count > 0 ? String.valueOf(count) : ""));
+        items.add(UItem.asButton(ID_OPTIONS, R.drawable.msg_input_like, DevGramLocale.text("Значки для поддержавших")));
+        items.add(UItem.asButton(ID_SUPPORT_REQUESTS, R.drawable.msg_list, DevGramLocale.text("Заявки на значки")));
+        items.add(UItem.asShadow(DevGramLocale.text("Поддержавшие выбирают себе значок из этого списка в разделе «Поддержавшим».")));
 
-        items.add(UItem.asHeader("Аккаунт команды"));
+        items.add(UItem.asHeader(DevGramLocale.text("Аккаунт команды")));
         if (DevGramBadges.isSignedIn()) {
             String email = DevGramBadges.getAdminEmail();
-            items.add(UItem.asButton(ID_ACCOUNT, R.drawable.msg_admins, "Вы вошли", email == null ? "" : email));
-            items.add(UItem.asButton(ID_SIGN_OUT, R.drawable.msg_leave, "Выйти").red());
-            items.add(UItem.asShadow("Сессия сохраняется после перезапуска — входить заново не нужно."));
+            items.add(UItem.asButton(ID_ACCOUNT, R.drawable.msg_admins, DevGramLocale.text("Вы вошли"), email == null ? "" : email));
+            items.add(UItem.asButton(ID_SIGN_OUT, R.drawable.msg_leave, DevGramLocale.text("Выйти")).red());
+            items.add(UItem.asShadow(DevGramLocale.text("Сессия сохраняется после перезапуска — входить заново не нужно.")));
         } else {
-            items.add(UItem.asButton(ID_SIGN_IN, R.drawable.msg_admins, "Войти"));
-            items.add(UItem.asShadow("Вход нужен, чтобы выдавать и снимать значки."));
+            items.add(UItem.asButton(ID_SIGN_IN, R.drawable.msg_admins, DevGramLocale.text("Войти")));
+            items.add(UItem.asShadow(DevGramLocale.text("Вход нужен, чтобы выдавать и снимать значки.")));
         }
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == ID_LIST) {
+        if (item.id == ID_SUPPORT_REQUESTS) {
+            org.telegram.messenger.browser.Browser.openUrl(getParentActivity(), DevGramSupportSheet.SUPPORT_URL + "/admin");
+        } else if (item.id == ID_LIST) {
             presentFragment(new DevGramBadgeListActivity());
         } else if (item.id == ID_OPTIONS) {
             ensureAdminSignedIn(this, () -> presentFragment(new DevGramBadgeOptionsActivity()));
@@ -170,13 +174,13 @@ public class DevGramBadgesActivity extends BaseFragment {
             ensureAdminSignedIn(this, this::update);
         } else if (item.id == ID_SIGN_OUT) {
             AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
-            b.setTitle("Выйти из аккаунта команды?");
-            b.setMessage("Чтобы снова выдавать значки, понадобится войти по почте и паролю.");
-            b.setPositiveButton("Выйти", (d, w) -> {
+            b.setTitle(DevGramLocale.text("Выйти из аккаунта команды?"));
+            b.setMessage(DevGramLocale.text("Чтобы снова выдавать значки, понадобится войти по почте и паролю."));
+            b.setPositiveButton(DevGramLocale.text("Выйти"), (d, w) -> {
                 DevGramBadges.signOut();
                 update();
             });
-            b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+            b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
             AlertDialog dialog = b.create();
             showDialog(dialog);
             TextView button = (TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
@@ -194,7 +198,7 @@ public class DevGramBadgesActivity extends BaseFragment {
             @Override
             public View createView(Context context) {
                 View view = super.createView(context);
-                actionBar.setTitle("Кому выдать значок");
+                actionBar.setTitle(DevGramLocale.text("Кому выдать значок"));
                 return view;
             }
         };
@@ -234,7 +238,7 @@ public class DevGramBadgesActivity extends BaseFragment {
                 openGrant(-chat.id);
             } else {
                 shake();
-                Toast.makeText(getParentActivity(), "Не нашёл @" + m.group(1), Toast.LENGTH_SHORT).show();
+                Toast.makeText(getParentActivity(), DevGramLocale.text("Не нашёл @") + m.group(1), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -248,7 +252,7 @@ public class DevGramBadgesActivity extends BaseFragment {
     private void setResolving(boolean value) {
         resolving = value;
         if (nextButton != null) {
-            nextButton.setText(value ? "…" : "Далее");
+            nextButton.setText(value ? "…" : DevGramLocale.text("Далее"));
             nextButton.setEnabled(!value);
         }
     }
@@ -271,8 +275,8 @@ public class DevGramBadgesActivity extends BaseFragment {
         }
         Context context = fragment.getParentActivity();
         if (context == null) return;
-        EditTextBoldCursor emailEt = makeInput(fragment, context, "Почта команды", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
-        EditTextBoldCursor passEt = makeInput(fragment, context, "Пароль", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor emailEt = makeInput(fragment, context, DevGramLocale.text("Почта команды"), InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor passEt = makeInput(fragment, context, DevGramLocale.text("Пароль"), InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
         passEt.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
 
         LinearLayout box = new LinearLayout(context);
@@ -282,9 +286,9 @@ public class DevGramBadgesActivity extends BaseFragment {
         box.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
 
         AlertDialog.Builder b = new AlertDialog.Builder(context, fragment.getResourceProvider());
-        b.setTitle("Вход команды DevGram");
+        b.setTitle(DevGramLocale.text("Вход команды DevGram"));
         b.setView(box);
-        b.setPositiveButton("Войти", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Войти"), (d, w) -> {
             String email = emailEt.getText().toString().trim();
             String pass = passEt.getText().toString();
             if (email.isEmpty() || pass.isEmpty()) return;
@@ -292,11 +296,11 @@ public class DevGramBadgesActivity extends BaseFragment {
                 if (ok) {
                     onReady.run();
                 } else if (fragment.getParentActivity() != null) {
-                    Toast.makeText(fragment.getParentActivity(), "Не удалось войти: " + err, Toast.LENGTH_LONG).show();
+                    Toast.makeText(fragment.getParentActivity(), DevGramLocale.text("Не удалось войти: ") + err, Toast.LENGTH_LONG).show();
                 }
             });
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         fragment.showDialog(b.create());
         emailEt.requestFocus();
         AndroidUtilities.showKeyboard(emailEt);

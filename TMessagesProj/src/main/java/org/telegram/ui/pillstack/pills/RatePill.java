@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
@@ -93,7 +94,7 @@ public abstract class RatePill extends BasePill implements NotificationCenter.No
 
     @Override
     public void onPillClicked() {
-        if (iconView.getVisibility() == VISIBLE && textView.getText() != null && TextUtils.equals(textView.getText(), "Повторить")) {
+        if (iconView.getVisibility() == VISIBLE && textView.getText() != null && TextUtils.equals(textView.getText(), DevGramLocale.text("Повторить"))) {
             onUpdateData(true);
         } else {
             onPillLongClicked();
@@ -129,7 +130,7 @@ public abstract class RatePill extends BasePill implements NotificationCenter.No
         if (fragment == null) return false;
         final ItemOptions options = ItemOptions.makeOptions(fragment, this, true);
         final ItemOptions swipeback = options.makeSwipeback()
-                .add(R.drawable.ic_ab_back, "Назад", options::closeSwipeback)
+                .add(R.drawable.ic_ab_back, DevGramLocale.text("Назад"), options::closeSwipeback)
                 .addGap();
         final String selection = getTargetSelection();
         for (final String cur : getTargetCurrencies()) {
@@ -141,14 +142,14 @@ public abstract class RatePill extends BasePill implements NotificationCenter.No
             });
         }
         ActionBarMenuSubItem sub = new ActionBarMenuSubItem(options.getContext(), false, false, resourcesProvider);
-        sub.setTextAndIcon("Целевая валюта", R.drawable.msg_language);
+        sub.setTextAndIcon(DevGramLocale.text("Целевая валюта"), R.drawable.msg_language);
         sub.setSubtext(PillStackCurrencies.getTargetCurrencySubtext(getTargetSelection()));
         sub.setItemHeight(56);
         sub.setOnClickListener(v -> options.openSwipeback(swipeback));
         options.add(sub); // add(ActionBarMenuSubItem) возвращает void — дальше чейним по options
         options.addGap()
-                .add(R.drawable.msg_retry, "Обновить", () -> onUpdateData(true))
-                .add(R.drawable.msg_settings, "Настройки", () -> fragment.presentFragment(new PillStackPreferencesActivity()))
+                .add(R.drawable.msg_retry, DevGramLocale.text("Обновить"), () -> onUpdateData(true))
+                .add(R.drawable.msg_settings, DevGramLocale.text("Настройки"), () -> fragment.presentFragment(new PillStackPreferencesActivity()))
                 .setSwipebackGravity(!LocaleController.isRTL, false)
                 .setDrawScrim(false)
                 .setGravity(LocaleController.isRTL ? 3 : 5)
@@ -213,7 +214,7 @@ public abstract class RatePill extends BasePill implements NotificationCenter.No
         if (animated) animateSizeChange();
         iconView.setImageResource(R.drawable.msg_retry);
         iconView.setVisibility(VISIBLE);
-        textView.setText("Повторить", animated);
+        textView.setText(DevGramLocale.text("Повторить"), animated);
         textView.setVisibility(VISIBLE);
     }
 

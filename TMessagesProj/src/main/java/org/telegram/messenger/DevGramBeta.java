@@ -41,7 +41,7 @@ public final class DevGramBeta {
      */
     public static void activate(final int account, final Callback callback) {
         if (!hasAccess(account)) {
-            AndroidUtilities.runOnUIThread(() -> callback.onResult(false, "Нужен значок поддержавшего"));
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(false, DevGramLocale.text("Нужен значок поддержавшего")));
             return;
         }
         authenticate(account, callback);
@@ -56,10 +56,10 @@ public final class DevGramBeta {
         // «Вход через Telegram» (без переписки с ботом) — только с согласия пользователя
         askConsent(account, agreed -> {
             if (!agreed) {
-                callback.onResult(false, "Подтверждение отменено");
+                callback.onResult(false, DevGramLocale.text("Подтверждение отменено"));
                 return;
             }
-            loginViaTelegram(account, ok -> callback.onResult(ok, ok ? null : "Не удалось подтвердить аккаунт"));
+            loginViaTelegram(account, ok -> callback.onResult(ok, ok ? null : DevGramLocale.text("Не удалось подтвердить аккаунт")));
         });
     }
 
@@ -80,18 +80,18 @@ public final class DevGramBeta {
             }
             final boolean[] answered = {false};
             org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(fragment.getParentActivity(), fragment.getResourceProvider());
-            b.setTitle("Подтверждение аккаунта");
+            b.setTitle(DevGramLocale.text("Подтверждение аккаунта"));
             b.setMessage(AndroidUtilities.replaceTags(
-                    "Чтобы сохранить ваш значок, обводку сообщений и доступ к бете на сервере DevGram, нужно подтвердить, что это именно ваш аккаунт.\n\n"
-                    + "**Как это работает:** так же, как «Войти через Telegram» на сайтах. Telegram сам передаст серверу DevGram ваш ID, имя, юзернейм и фото профиля, подписанные Telegram, — подделать их нельзя.\n\n"
-                    + "**Что получаем мы:** только эти данные, чтобы выдать вам личный ключ доступа. Номер телефона, переписки и контакты не передаются.\n\n"
-                    + "**Что получаете вы:** выбор значка и обводки сообщений, которые увидят все пользователи DevGram, и бета-версии — без переписки с ботом."));
-            b.setPositiveButton("Согласиться", (d, w) -> {
+                    DevGramLocale.text("Чтобы сохранить ваш значок, обводку сообщений и доступ к бете на сервере DevGram, нужно подтвердить, что это именно ваш аккаунт.\n\n")
+                    + DevGramLocale.text("**Как это работает:** так же, как «Войти через Telegram» на сайтах. Telegram сам передаст серверу DevGram ваш ID, имя, юзернейм и фото профиля, подписанные Telegram, — подделать их нельзя.\n\n")
+                    + DevGramLocale.text("**Что получаем мы:** только эти данные, чтобы выдать вам личный ключ доступа. Номер телефона, переписки и контакты не передаются.\n\n")
+                    + DevGramLocale.text("**Что получаете вы:** выбор значка и обводки сообщений, которые увидят все пользователи DevGram, и бета-версии — без переписки с ботом.")));
+            b.setPositiveButton(DevGramLocale.text("Согласиться"), (d, w) -> {
                 answered[0] = true;
                 prefs.edit().putBoolean(key, true).apply();
                 done.run(true);
             });
-            b.setNegativeButton("Отказаться", (d, w) -> {
+            b.setNegativeButton(DevGramLocale.text("Отказаться"), (d, w) -> {
                 answered[0] = true;
                 done.run(false);
             });
@@ -142,7 +142,7 @@ public final class DevGramBeta {
                     }
                 }
                 if (buttonId < 0) {
-                    FileLog.e("DevGramBeta: нет кнопки входа " + (error != null ? error.text : ""));
+                    FileLog.e(DevGramLocale.text("DevGramBeta: нет кнопки входа ") + (error != null ? error.text : ""));
                     AndroidUtilities.runOnUIThread(() -> done.run(false));
                     return;
                 }
@@ -180,7 +180,7 @@ public final class DevGramBeta {
     }
 
     private static void fetchToken(final int account, final String signedUrl, final Utilities.Callback<Boolean> done) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             boolean ok = false;
             try {
                 android.net.Uri uri = android.net.Uri.parse(signedUrl);
@@ -241,9 +241,9 @@ public final class DevGramBeta {
             }
             final long uid = UserConfig.getInstance(account).getClientUserId();
             final String token = DevGramConfig.getBetaToken(uid);
-            Utilities.globalQueue.postRunnable(() -> {
+            DevGramNetworkQueue.postRunnable(() -> {
                 String link = null;
-                String err = "Не удалось получить ссылку";
+                String err = DevGramLocale.text("Не удалось получить ссылку");
                 try {
                     java.net.HttpURLConnection conn = (java.net.HttpURLConnection) new java.net.URL("https://" + AUTH_HOST
                             + "/api/beta/invite?uid=" + uid + "&token=" + java.net.URLEncoder.encode(token, "UTF-8")).openConnection();
@@ -260,9 +260,9 @@ public final class DevGramBeta {
                     }
                     conn.disconnect();
                     if (code == 403) {
-                        err = "Нет доступа к бете";
+                        err = DevGramLocale.text("Нет доступа к бете");
                     } else if (code == 503) {
-                        err = "Канал беты ещё не готов";
+                        err = DevGramLocale.text("Канал беты ещё не готов");
                     } else if (code == 200) {
                         org.json.JSONObject r = new org.json.JSONObject(sb.toString());
                         String l = r.optString("link", "");

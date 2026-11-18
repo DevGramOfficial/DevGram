@@ -79,6 +79,17 @@ import me.vkryl.core.BitwiseUtils;
 
 public class MessagesStorage extends BaseController {
 
+    public void updateMessageWidgetData(long dialogId, int messageId, String publicData, long publicDataHash, String chatData) {
+    }
+    public void moveWidgetState(long dialogId, int oldId, int newId) { }
+    public void putWidgetHeight(long dialogId, int messageId, int width, int height, int anchorBottom, int keepWidths) { }
+    public Object[] getWidgetState(long dialogId, int messageId) {
+        return new Object[]{null, new java.util.ArrayList<int[]>()};
+    }
+    public void putWidgetStorage(long dialogId, int messageId, String value) { }
+
+    public void clearWidgetHeights() { }
+
     private DispatchQueue storageQueue;
     private SQLiteDatabase database;
     private File cacheFile;
@@ -1760,6 +1771,9 @@ public class MessagesStorage extends BaseController {
                     if ((flags & TopicsController.TOPIC_FLAG_ICON) != 0) {
                         topicToUpdate.icon_emoji_id = fromTopic.icon_emoji_id;
                         topicToUpdate.flags |= 1;
+                        if (fromTopic.icon_color != 0) {
+                            topicToUpdate.icon_color = fromTopic.icon_color;
+                        }
                     }
                     if ((flags & TopicsController.TOPIC_FLAG_PIN) != 0) {
                         topicToUpdate.pinned = fromTopic.pinned;

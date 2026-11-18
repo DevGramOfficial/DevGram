@@ -7,9 +7,9 @@ import android.view.Gravity;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ContactsController;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
@@ -50,7 +50,7 @@ public class DevGramCallConfirm {
         titleRow.addView(avatar, LayoutHelper.createLinear(40, 40, Gravity.CENTER_VERTICAL, 0, 0, 12, 0));
 
         TextView title = new TextView(context);
-        title.setText(videoCall ? "Видеозвонок" : "Звонок");
+        title.setText(videoCall ? DevGramLocale.text("Видеозвонок") : DevGramLocale.text("Звонок"));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.bold());
@@ -59,17 +59,17 @@ public class DevGramCallConfirm {
         content.addView(titleRow, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
 
         TextView message = new TextView(context);
-        message.setText("Позвонить " + name + "?");
+        message.setText(DevGramLocale.text("Позвонить ") + name + "?");
         message.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         message.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         content.addView(message, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         AlertDialog.Builder b = new AlertDialog.Builder(context);
         b.setView(content);
-        b.setPositiveButton(LocaleController.getString(R.string.Call), (d, w) -> {
+        b.setPositiveButton(DevGramLocale.getString(R.string.Call), (d, w) -> {
             if (onConfirm != null) onConfirm.run();
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         b.show();
     }
 }

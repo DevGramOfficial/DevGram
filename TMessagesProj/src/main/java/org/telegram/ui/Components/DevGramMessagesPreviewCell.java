@@ -9,6 +9,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.ui.ActionBar.Theme;
@@ -46,11 +47,11 @@ public class DevGramMessagesPreviewCell extends View {
         // входящее (слева)
         float inW = AndroidUtilities.dp(210);
         drawBubble(canvas, false, m, AndroidUtilities.dp(16), m + inW, AndroidUtilities.dp(66),
-                "Привет! Это превью", "12:41");
+                DevGramLocale.text("Привет! Это превью"), "12:41");
         // исходящее (справа)
         float outW = AndroidUtilities.dp(190);
         drawBubble(canvas, true, w - m - outW, AndroidUtilities.dp(84), w - m, AndroidUtilities.dp(134),
-                "Настройки видны сразу", "12:42");
+                DevGramLocale.text("Настройки видны сразу"), "12:42");
     }
 
     private void drawBubble(Canvas canvas, boolean out, float l, float t, float r, float b,
@@ -85,7 +86,7 @@ public class DevGramMessagesPreviewCell extends View {
 
         // «изменено» + время в правом нижнем углу пузыря
         time.setColor(Theme.getColor(out ? Theme.key_chat_outTimeText : Theme.key_chat_inTimeText));
-        String status = (DevGramConfig.replaceEditedWithIcon ? "✎ " : "изменено ") + tm;
+        String status = (DevGramConfig.replaceEditedWithIcon ? "✎ " : DevGramLocale.text("изменено ")) + tm;
         float statusW = time.measureText(status);
         canvas.drawText(status, r - pad - statusW, b - AndroidUtilities.dp(9), time);
 

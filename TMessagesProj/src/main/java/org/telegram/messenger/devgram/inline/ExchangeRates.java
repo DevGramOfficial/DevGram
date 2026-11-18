@@ -70,7 +70,7 @@ public abstract class ExchangeRates {
                             return;
                         }
                         ExchangeRates.remoteInFlight = true;
-                        Utilities.globalQueue.postRunnable(() -> {
+                        org.telegram.messenger.DevGramNetworkQueue.postRunnable(() -> {
                             java.net.HttpURLConnection connection = null;
                             try {
                                 connection = (java.net.HttpURLConnection) new java.net.URL("https://api.coinbase.com/v2/exchange-rates?currency=USD").openConnection();

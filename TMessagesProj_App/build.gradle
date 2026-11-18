@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.telegram.build-app-plugin'
 apply plugin: 'com.google.gms.google-services'
 apply from: '../utils.gradle'
+apply from: '../tools/beta-upload.gradle'
 
 repositories {
     mavenCentral()
@@ -81,7 +82,9 @@ android {
     }
 
     def fdroid = Utils['isFdroid']()
-    def appSuffix = fdroid ? "" : ".beta"
+    // DevGram release package is the canonical ID; keep the same ID for
+    // locally built non-F-Droid variants so updates do not acquire `.beta`.
+    def appSuffix = ""
     def flavorsConfig = fdroid ? "release" : "debug"
     if (fdroid) {
         defaultConfig.applicationId = "org.forkgram.messenger"
@@ -165,7 +168,6 @@ android {
             debuggable false
             jniDebuggable false
             signingConfig signingConfigs.release
-            applicationIdSuffix appSuffix
             minifyEnabled true
             shrinkResources true
             multiDexEnabled true
@@ -328,8 +330,9 @@ android {
 
         externalNativeBuild {
             cmake {
-                version '3.10.2'
-                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-21' // , '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+                version '3.22.1'
+                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-23' // , '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+                targets 'tmessages.49', 'twidget'
             }
         }
     }

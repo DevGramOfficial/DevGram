@@ -86,19 +86,19 @@ public final class DevGramGeminiNano {
 
     public static String statusText() {
         int current = getStatus();
-        if (checking || current == STATUS_UNKNOWN) return "Проверка доступности…";
+        if (checking || current == STATUS_UNKNOWN) return DevGramLocale.text("Проверка доступности…");
         if (current == STATUS_AVAILABLE) {
             String name = baseModelName == null || baseModelName.isEmpty() ? modelLabel() : baseModelName;
-            return name + " · на устройстве";
+            return name + DevGramLocale.text(" · на устройстве");
         }
-        if (current == STATUS_DOWNLOADABLE) return modelLabel() + " · требуется загрузка";
+        if (current == STATUS_DOWNLOADABLE) return modelLabel() + DevGramLocale.text(" · требуется загрузка");
         if (current == STATUS_DOWNLOADING) {
             int percent = getDownloadPercent();
-            return percent >= 0 ? "Загрузка · " + percent + "%" : "Модель загружается…";
+            return percent >= 0 ? DevGramLocale.text("Загрузка · ") + percent + "%" : DevGramLocale.text("Модель загружается…");
         }
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.O
-                ? "Требуется Android 8.0 или новее"
-                : "Не поддерживается этим устройством";
+                ? DevGramLocale.text("Требуется Android 8.0 или новее")
+                : DevGramLocale.text("Не поддерживается этим устройством");
     }
 
     public static String modelLabel() {
@@ -164,7 +164,7 @@ public final class DevGramGeminiNano {
 
     public static void download(DownloadListener listener) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            listener.onFailed(new IllegalStateException("Gemini Nano недоступен на этом устройстве"));
+            listener.onFailed(new IllegalStateException(DevGramLocale.text("Gemini Nano недоступен на этом устройстве")));
             return;
         }
         status = STATUS_DOWNLOADING;
@@ -219,18 +219,21 @@ public final class DevGramGeminiNano {
         }, "DevGramNanoDownload").start();
     }
 
-    public static void generate(JSONArray conversation, boolean stream, String systemOverride,
-            DevGramAiClient.StreamCallback callback) {
+    public static void generate(JSONArray conversation,boolean stream,String systemOverride,DevGramAiClient.StreamCallback callback){generate(conversation,stream,systemOverride,callback,null);}
+    static void generate(JSONArray conversation, boolean stream, String systemOverride,
+            DevGramAiClient.StreamCallback callback,DevGramAiClient.ToolRequest cancellation) {
         new Thread(() -> {
+            if(cancellation!=null)cancellation.bind(Thread.currentThread());
             GenerativeModel model = null;
             try {
+                if(cancellation!=null)cancellation.check();
                 model = createModel();
                 GenerativeModelFutures futures = GenerativeModelFutures.from(model);
                 Integer checked = futures.checkStatus().get(10, TimeUnit.SECONDS);
                 status = checked == null ? STATUS_UNAVAILABLE : checked;
-                if (status == STATUS_DOWNLOADABLE) throw new IllegalStateException("Сначала загрузите модель Gemini Nano");
-                if (status == STATUS_DOWNLOADING) throw new IllegalStateException("Модель Gemini Nano ещё загружается");
-                if (status != STATUS_AVAILABLE) throw new IllegalStateException("Gemini Nano недоступен на этом устройстве");
+                if (status == STATUS_DOWNLOADABLE) throw new IllegalStateException(DevGramLocale.text("Сначала загрузите модель Gemini Nano"));
+                if (status == STATUS_DOWNLOADING) throw new IllegalStateException(DevGramLocale.text("Модель Gemini Nano ещё загружается"));
+                if (status != STATUS_AVAILABLE) throw new IllegalStateException(DevGramLocale.text("Gemini Nano недоступен на этом устройстве"));
 
                 readCapabilities(futures, true);
                 String system = systemOverride != null
@@ -251,21 +254,22 @@ public final class DevGramGeminiNano {
                         public void onNewText(String text) {
                             if (text == null || text.isEmpty()) return;
                             streamed.append(text);
-                            AndroidUtilities.runOnUIThread(() -> callback.onDelta(text));
+                            AndroidUtilities.runOnUIThread(() -> {if(cancellation==null||!cancellation.cancelled())callback.onDelta(text);});
                         }
                     });
                 } else {
                     generation = futures.generateContent(request.build());
                 }
+                if(cancellation!=null)cancellation.bind(generation);
                 GenerateContentResponse response = generation.get(120, TimeUnit.SECONDS);
                 String answer = firstText(response);
                 if (answer.isEmpty()) answer = streamed.toString().trim();
-                if (answer.isEmpty()) throw new IllegalStateException("Модель не вернула ответ");
+                if (answer.isEmpty()) throw new IllegalStateException(DevGramLocale.text("Модель не вернула ответ"));
                 String finalAnswer = answer;
-                AndroidUtilities.runOnUIThread(() -> callback.onDone(finalAnswer, null));
+                AndroidUtilities.runOnUIThread(() -> {if(cancellation==null||!cancellation.cancelled())callback.onDone(finalAnswer,null);});
             } catch (Throwable error) {
-                FileLog.e("Gemini Nano generation failed", error);
-                AndroidUtilities.runOnUIThread(() -> callback.onDone(null, unwrap(error)));
+                if(cancellation==null||!cancellation.cancelled())FileLog.e("Gemini Nano generation failed", error);
+                AndroidUtilities.runOnUIThread(() -> {if(cancellation==null||!cancellation.cancelled())callback.onDone(null,unwrap(error));});
             } finally {
                 if (model != null) {
                     try { model.close(); } catch (Throwable ignore) {}

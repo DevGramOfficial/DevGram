@@ -19,11 +19,13 @@ public class CaptchaController {
 
     public static class Request {
         public int currentAccount;
+        public int generation;
         public String action;
         public String key_id;
 
-        public Request(int currentAccount, String action, String key_id) {
+        public Request(int currentAccount, int generation, String action, String key_id) {
             this.currentAccount = currentAccount;
+            this.generation = generation;
             this.action = action;
             this.key_id = key_id;
         }
@@ -43,13 +45,13 @@ public class CaptchaController {
                 requestTokens[i++] = requestTokenI;
             }
             ConnectionsManager.getInstance(currentAccount)
-                .native_receivedCaptchaResult(currentAccount, requestTokens, token);
+                .native_receivedCaptchaResult(currentAccount, requestTokens.length > 0 ? requestTokens[0] : 0, generation, token);
         }
     }
 
     public static HashMap<Integer, Request> currentRequests;
 
-    public static void request(int currentAccount, int requestToken, String action, String key_id) {
+    public static void request(int currentAccount, int requestToken, int generation, String action, String key_id) {
         if (currentRequests == null) {
             currentRequests = new HashMap<>();
         }
@@ -59,7 +61,7 @@ public class CaptchaController {
             r.requestTokens.add(requestToken);
             return;
         }
-        r = new Request(currentAccount, action, key_id);
+        r = new Request(currentAccount, generation, action, key_id);
         r.requestTokens.add(requestToken);
         final Request finalRequest = r;
 

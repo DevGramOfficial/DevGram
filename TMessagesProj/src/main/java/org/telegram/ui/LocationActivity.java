@@ -112,6 +112,10 @@ import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
 import org.telegram.ui.ActionBar.ActionBarPopupWindow;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
+import org.telegram.ui.ActionBar.MenuOverlayHost;
+import org.telegram.ui.ActionBar.SimpleActionBarMenu;
+import org.telegram.ui.ActionBar.SimpleActionBarMenuOverlay;
+import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
 import org.telegram.ui.Adapters.LocationActivityAdapter;
@@ -139,6 +143,7 @@ import org.telegram.ui.Components.ScaleStateListAnimator;
 import org.telegram.ui.Components.SharedMediaLayout;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.UndoView;
+import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.ui.Stories.recorder.HintView2;
 
 import java.nio.ByteBuffer;
@@ -819,6 +824,17 @@ public class LocationActivity extends BaseFragment implements NotificationCenter
         });
 
         mapViewClip.addView(getAttributionOverlay(context), LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.BOTTOM, LocaleController.isRTL ? 0 : 4, 0, LocaleController.isRTL ? 4 : 0, 20));
+        // the header has no background over the map: the title on a glass pill of the buttons' height
+        final SimpleTextView titleView = simpleActionBar != null ? simpleActionBar.getTitleTextView() : null;
+        if (titleView != null) {
+            titleView.setBackground(getBaseSimpleGlass().factory.create(titleView)
+                .setColorProvider(BlurredBackgroundProviderImpl.simpleActionBar(getResourceProvider()))
+                .setRadius(dp(40 / 2f)));
+            final Paint.FontMetricsInt metrics = titleView.getTextPaint().getFontMetricsInt();
+            final int vertical = Math.max(0, (dp(40) - (metrics.descent - metrics.ascent)) / 2);
+            titleView.setPadding(dp(18), vertical, dp(18), vertical);
+        }
+
         locationButton = new ImageView(context);
         drawable = Theme.createSimpleSelectorCircleDrawable(dp(40), getThemedColor(Theme.key_location_actionBackground), getThemedColor(Theme.key_location_actionPressedBackground));
         ScaleStateListAnimator.apply(locationButton);

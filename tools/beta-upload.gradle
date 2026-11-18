@@ -1,0 +1,24 @@
+// Machine-local opt-in. Other developers and CI keep their existing build behavior.
+def localBuildProperties = new Properties()
+def localBuildPropertiesFile = rootProject.file('local.properties')
+if (localBuildPropertiesFile.exists()) {
+    localBuildPropertiesFile.withInputStream { localBuildProperties.load(it) }
+}
+def betaUploadConfig = project.findProperty('DEVGRAM_BETA_UPLOAD_CONFIG') ?:
+        System.getenv('DEVGRAM_BETA_UPLOAD_CONFIG') ?:
+        localBuildProperties.getProperty('DEVGRAM_BETA_UPLOAD_CONFIG')
+
+if (betaUploadConfig) {
+    tasks.matching { it.name == 'assembleAfatRelease' }.configureEach {
+        // An assemble action never runs if packaging or one of its dependencies failed.
+        // No finalizer: a failed build must not replace the bot's previous candidate.
+        doLast {
+            exec {
+                workingDir rootProject.projectDir
+                commandLine 'python3', rootProject.file('tools/stage_beta_apk.py').absolutePath,
+                        '--config', rootProject.file(betaUploadConfig).absolutePath,
+                        '--apk', layout.buildDirectory.file('outputs/apk/afat/release/app.apk').get().asFile.absolutePath
+            }
+        }
+    }
+}

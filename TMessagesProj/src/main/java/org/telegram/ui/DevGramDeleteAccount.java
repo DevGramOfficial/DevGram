@@ -5,8 +5,8 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.widget.FrameLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SRPHelper;
@@ -48,7 +48,7 @@ public class DevGramDeleteAccount {
         col.addView(icon, org.telegram.ui.Components.LayoutHelper.createLinear(52, 52, android.view.Gravity.CENTER_HORIZONTAL, 0, 4, 0, 12));
 
         android.widget.TextView title = new android.widget.TextView(context);
-        title.setText("Удалить аккаунт");
+        title.setText(DevGramLocale.text("Удалить аккаунт"));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
         title.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.bold());
@@ -56,8 +56,8 @@ public class DevGramDeleteAccount {
         col.addView(title, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 8));
 
         android.widget.TextView warn = new android.widget.TextView(context);
-        warn.setText("Аккаунт будет удалён НАВСЕГДА со всех устройств: чаты, контакты, а также каналы "
-                + "и группы, созданные вами. Восстановить его будет невозможно.");
+        warn.setText(DevGramLocale.text("Аккаунт будет удалён НАВСЕГДА со всех устройств: чаты, контакты, а также каналы ")
+                + DevGramLocale.text("и группы, созданные вами. Восстановить его будет невозможно."));
         warn.setTextColor(Theme.getColor(Theme.key_text_RedRegular, rp));
         warn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
         warn.setGravity(android.view.Gravity.CENTER);
@@ -70,7 +70,7 @@ public class DevGramDeleteAccount {
         final org.telegram.ui.ActionBar.BottomSheet sheet = builder.create();
 
         android.widget.TextView del = new android.widget.TextView(context);
-        del.setText("Удалить навсегда");
+        del.setText(DevGramLocale.text("Удалить навсегда"));
         del.setGravity(android.view.Gravity.CENTER);
         del.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
         del.setTypeface(AndroidUtilities.bold());
@@ -85,7 +85,7 @@ public class DevGramDeleteAccount {
         col.addView(del, org.telegram.ui.Components.LayoutHelper.createLinear(-1, -2, 0, 0, 0, 6));
 
         android.widget.TextView cancel = new android.widget.TextView(context);
-        cancel.setText(LocaleController.getString(R.string.Cancel));
+        cancel.setText(DevGramLocale.getString(R.string.Cancel));
         cancel.setGravity(android.view.Gravity.CENTER);
         cancel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 15);
         cancel.setTypeface(AndroidUtilities.bold());
@@ -98,7 +98,9 @@ public class DevGramDeleteAccount {
         sheet.show();
     }
 
-    private static final String CONFIRM_WORD = "УДАЛИТЬ";
+    private static String getConfirmWord() {
+        return DevGramLocale.text("УДАЛИТЬ");
+    }
     private static final int CONFIRM_DELAY_SEC = 5;
 
     // Второй шаг: вписать слово УДАЛИТЬ; кнопка неактивна первые 5 секунд (защита от случайного нажатия)
@@ -111,7 +113,7 @@ public class DevGramDeleteAccount {
         final EditTextBoldCursor edit = new EditTextBoldCursor(context);
         edit.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18);
         edit.setTextColor(Theme.getColor(Theme.key_dialogTextBlack, rp));
-        edit.setHintText(CONFIRM_WORD);
+        edit.setHintText(getConfirmWord());
         edit.setHintColor(Theme.getColor(Theme.key_dialogTextHint, rp));
         edit.setBackgroundColor(0);
         edit.setSingleLine(true);
@@ -124,11 +126,11 @@ public class DevGramDeleteAccount {
         wrap.addView(edit, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
 
         AlertDialog.Builder b = new AlertDialog.Builder(context, rp);
-        b.setTitle("Точно удалить аккаунт?");
-        b.setMessage("Это нельзя отменить. Чтобы подтвердить, впишите слово " + CONFIRM_WORD + ".");
+        b.setTitle(DevGramLocale.text("Точно удалить аккаунт?"));
+        b.setMessage(DevGramLocale.text("Это нельзя отменить. Чтобы подтвердить, впишите слово ") + getConfirmWord() + ".");
         b.setView(wrap);
-        b.setPositiveButton("Удалить", (d, w) -> checkPasswordAndDelete(fragment));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setPositiveButton(DevGramLocale.text("Удалить"), (d, w) -> checkPasswordAndDelete(fragment));
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         AlertDialog dialog = b.create();
         fragment.showDialog(dialog);
         final android.widget.TextView button = (android.widget.TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);
@@ -138,11 +140,11 @@ public class DevGramDeleteAccount {
         button.setTextColor(Theme.getColor(Theme.key_text_RedBold, rp));
         final int[] left = {CONFIRM_DELAY_SEC};
         final Runnable refresh = () -> {
-            boolean typed = edit.getText() != null && CONFIRM_WORD.equalsIgnoreCase(edit.getText().toString().trim());
+            boolean typed = edit.getText() != null && getConfirmWord().equalsIgnoreCase(edit.getText().toString().trim());
             boolean ready = left[0] <= 0 && typed;
             button.setEnabled(ready);
             button.setAlpha(ready ? 1f : 0.4f);
-            button.setText(left[0] > 0 ? "Удалить (" + left[0] + ")" : "Удалить");
+            button.setText(left[0] > 0 ? DevGramLocale.text("Удалить (") + left[0] + ")" : DevGramLocale.text("Удалить"));
         };
         refresh.run();
         edit.addTextChangedListener(new android.text.TextWatcher() {
@@ -173,7 +175,7 @@ public class DevGramDeleteAccount {
         ConnectionsManager.getInstance(account).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
             progress.dismiss();
             if (error != null || !(response instanceof TL_account.Password)) {
-                showError(fragment, error != null ? error.text : "Не удалось получить состояние пароля");
+                showError(fragment, error != null ? error.text : DevGramLocale.text("Не удалось получить состояние пароля"));
                 return;
             }
             TL_account.Password pw = (TL_account.Password) response;
@@ -193,7 +195,7 @@ public class DevGramDeleteAccount {
         final EditTextBoldCursor edit = new EditTextBoldCursor(context);
         edit.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 18);
         edit.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        edit.setHintText("Облачный пароль (2FA)");
+        edit.setHintText(DevGramLocale.text("Облачный пароль (2FA)"));
         edit.setHintColor(Theme.getColor(Theme.key_dialogTextHint));
         edit.setBackgroundColor(0);
         edit.setSingleLine(true);
@@ -207,18 +209,18 @@ public class DevGramDeleteAccount {
         wrap.addView(edit, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
 
         AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Подтвердите паролем");
-        b.setMessage("У аккаунта включена двухэтапная проверка. Введите облачный пароль, чтобы удалить аккаунт.");
+        b.setTitle(DevGramLocale.text("Подтвердите паролем"));
+        b.setMessage(DevGramLocale.text("У аккаунта включена двухэтапная проверка. Введите облачный пароль, чтобы удалить аккаунт."));
         b.setView(wrap);
-        b.setPositiveButton("Удалить", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Удалить"), (d, w) -> {
             String password = edit.getText() != null ? edit.getText().toString() : "";
             if (password.isEmpty()) {
-                showError(fragment, "Введите пароль");
+                showError(fragment, DevGramLocale.text("Введите пароль"));
                 return;
             }
             computeSrpAndDelete(fragment, pw, password);
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         AlertDialog dialog = b.create();
         fragment.showDialog(dialog);
         edit.requestFocus();
@@ -245,7 +247,7 @@ public class DevGramDeleteAccount {
             AndroidUtilities.runOnUIThread(() -> {
                 progress.dismiss();
                 if (finalSrp == null) {
-                    showError(fragment, "Не удалось обработать пароль");
+                    showError(fragment, DevGramLocale.text("Не удалось обработать пароль"));
                     return;
                 }
                 sendDelete(fragment, finalSrp);
@@ -269,9 +271,9 @@ public class DevGramDeleteAccount {
             progress.dismiss();
             if (error != null) {
                 if ("PASSWORD_HASH_INVALID".equals(error.text)) {
-                    showError(fragment, "Неверный облачный пароль");
+                    showError(fragment, DevGramLocale.text("Неверный облачный пароль"));
                 } else if (error.text != null && error.text.startsWith("FLOOD_WAIT")) {
-                    showError(fragment, "Слишком часто. Попробуйте позже.");
+                    showError(fragment, DevGramLocale.text("Слишком часто. Попробуйте позже."));
                 } else {
                     showError(fragment, error.text);
                 }
@@ -287,6 +289,6 @@ public class DevGramDeleteAccount {
             return;
         }
         BulletinFactory.of(fragment).createErrorBulletin(
-                text != null && !text.isEmpty() ? text : "Ошибка удаления аккаунта").show();
+                text != null && !text.isEmpty() ? text : DevGramLocale.text("Ошибка удаления аккаунта")).show();
     }
 }

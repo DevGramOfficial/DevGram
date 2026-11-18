@@ -31,6 +31,15 @@ public class NotificationsService extends Service {
     private static volatile boolean stopWhenForeground;
 
     private Notification notification;
+    private final Runnable iconPackChanged = () -> {
+        if (notification == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        notification = null;
+        try {
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(NOTIFICATION_ID, getNotification());
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    };
 
     public static void onForegroundStartRequested() {
         stopWhenForeground = false;
@@ -52,6 +61,7 @@ public class NotificationsService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        org.telegram.messenger.devgram.icons.IconManager.INSTANCE.addListener(iconPackChanged);
         moveToForeground();
         ApplicationLoader.postInitApplication();
     }
@@ -68,6 +78,7 @@ public class NotificationsService extends Service {
     }
 
     public void onDestroy() {
+        org.telegram.messenger.devgram.icons.IconManager.INSTANCE.removeListener(iconPackChanged);
         super.onDestroy();
         foregroundStartPending = false;
         stopWhenForeground = false;
@@ -110,7 +121,7 @@ public class NotificationsService extends Service {
                     .setPriority(NotificationCompat.PRIORITY_MIN)
                     .setCategory(NotificationCompat.CATEGORY_SERVICE)
                     .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-                    .setSmallIcon(R.drawable.notification)
+                    .setSmallIcon(org.telegram.messenger.devgram.icons.IconManager.INSTANCE.notificationIcon())
                     .setContentTitle("DevGram").build();
         }
         return notification;

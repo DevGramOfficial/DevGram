@@ -8,6 +8,7 @@
 
 package org.telegram.ui.Cells;
 
+import org.telegram.messenger.FileLog;
 import static org.telegram.messenger.AndroidUtilities.dp;
 import static org.telegram.messenger.LocaleController.getString;
 
@@ -52,6 +53,7 @@ import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_account;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ActionBar.ThemeBind;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.AvatarDrawable;
@@ -72,6 +74,7 @@ import org.telegram.ui.Stories.StoriesUtilities;
 import org.telegram.ui.community.CommunityUtils;
 
 import java.util.Locale;
+import java.util.HashSet;
 
 public class ProfileSearchCell extends BaseCell implements NotificationCenter.NotificationCenterDelegate, Theme.Colorable {
 
@@ -103,6 +106,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
     private int nameLeft;
     private int nameTop;
     private StaticLayout nameLayout;
+    private final org.telegram.ui.Components.DevGramClanTagDecoration devgramClan=new org.telegram.ui.Components.DevGramClanTagDecoration(this,()->{if(getMeasuredWidth()>0){buildLayout();invalidate();}});
     private boolean drawNameLock;
     private int nameLockLeft;
     private int nameLockTop;
@@ -176,7 +180,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
         statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(20));
         statusDrawable.setCallback(this);
 
-        devgramBadgeEmoji = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(this, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно
+        devgramBadgeEmoji = new org.telegram.ui.Components.DevGramBadgeEmojiDrawable(this, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD, () -> Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider)); // DevGram: значок крутится постоянно
         devgramBadgeEmoji.setCallback(this);
     }
 
@@ -340,6 +344,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
 
     @Override
     protected void onDetachedFromWindow() {
+        devgramClan.detach();
         super.onDetachedFromWindow();
         avatarImage.onDetachedFromWindow();
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
@@ -355,11 +360,12 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
 
     @Override
     protected void onAttachedToWindow() {
+        devgramClan.attach();
         super.onAttachedToWindow();
         avatarImage.onAttachedToWindow();
-        NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.emojiLoaded);
+        NotificationCenter.getGlobalInstance().addWeakObserver(this, NotificationCenter.emojiLoaded);
         if (showPremiumBlocked) {
-            NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.userIsPremiumBlockedUpadted);
+            NotificationCenter.getGlobalInstance().addWeakObserver(this, NotificationCenter.userIsPremiumBlockedUpadted);
         }
         statusDrawable.attach();
         botVerificationDrawable.attach();
@@ -433,7 +439,15 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
         sublabelOffsetY = y;
     }
 
+    private float devgramClanTagLeft(){
+        boolean rtl=LocaleController.isRTL;
+        float edge=nameLeft+(rtl?nameLayout.getLineLeft(0):nameLayout.getLineRight(0));
+        if(!statusDrawable.isEmpty())edge=rtl?Math.min(edge,statusDrawable.getBounds().left):Math.max(edge,statusDrawable.getBounds().right);
+        return rtl?edge-devgramClan.width():edge+dp(3);
+    }
+
     public void buildLayout() {
+        devgramClan.bind(currentAccount,org.telegram.messenger.DevGramClanDirectory.peer(user!=null?user:chat));
         CharSequence nameString = null;
         TextPaint currentNamePaint;
 
@@ -663,6 +677,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
             }
         }
 
+        int clanWidth=devgramClan.width();nameWidth-=clanWidth;if(LocaleController.isRTL)nameLeft+=clanWidth;
         if (nameWidth < 0) {
             nameWidth = 0;
         }
@@ -972,6 +987,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
 
     @Override
     protected void onDraw(Canvas canvas) {
+        devgramClan.clearHit();
         if (user == null && chat == null && encryptedChat == null && contact == null) {
             return;
         }
@@ -1037,6 +1053,8 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
             }
             setDrawableBounds(statusDrawable, x, nameTop + (nameLayout.getHeight() - statusDrawable.getIntrinsicHeight()) / 2f);
             statusDrawable.draw(canvas);
+            float clanX=devgramClanTagLeft();
+            devgramClan.draw(canvas,clanX,nameTop+nameLayout.getHeight()/2f,nameLayout.getPaint().getColor(),1f,getWidth()-dp(14));
         }
 
         if (ad != null && adText != null && adBackgroundPaint != null) {
@@ -1212,6 +1230,7 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        if(devgramClan.touch(event))return true;
         if (openBot && onOpenButtonClick != null && user != null) {
             final boolean hit = openButtonRect.contains(event.getX(), event.getY());
             if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
@@ -1256,8 +1275,28 @@ public class ProfileSearchCell extends BaseCell implements NotificationCenter.No
 
     @Override
     public void updateColors() {
+        if (colorsGeneration != ThemeBind.generation()) {
+            colorsGeneration = ThemeBind.generation();
+            try {
+                update(0);
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+            return;
+        }
         if (nameLayout != null && getMeasuredWidth() > 0) {
             buildLayout();
         }
+    }
+
+    private int colorsGeneration = ThemeBind.generation();
+    @Override
+    public void addColorKeys(HashSet<Integer> colors) {
+        colors.add(Theme.key_chats_verifiedBackground);
+        colors.add(Theme.key_windowBackgroundWhiteGrayText);
+        colors.add(Theme.key_chats_secretName);
+        colors.add(Theme.key_chats_name);
+        colors.add(Theme.key_windowBackgroundWhiteGrayText3);
+        colors.add(Theme.key_windowBackgroundWhiteBlueText3);
     }
 }

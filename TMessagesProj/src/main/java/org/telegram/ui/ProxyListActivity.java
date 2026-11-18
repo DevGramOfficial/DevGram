@@ -41,6 +41,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DownloadController;
+import org.telegram.messenger.DevGramLocale;
+import org.telegram.messenger.DevGramProxyNetwork;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
@@ -94,6 +96,8 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
     @Keep
     private int useProxyRow;
     private int useProxyShadowRow;
+    private int proxyDisableRow;
+    private int proxyDisableShadowRow;
     private int connectionsHeaderRow;
     private int proxyStartRow;
     private int proxyEndRow;
@@ -394,7 +398,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.TOP | Gravity.LEFT));
         listView.setAdapter(listAdapter);
         listView.setOnItemClickListener((view, position) -> {
-            if (position == webSocketRow) {
+            if (position == proxyDisableRow) {
+                showProxyDisableDialog();
+                return;
+            } else if (position == webSocketRow) {
                 SharedPreferences preferences = MessagesController.getGlobalMainSettings();
                 boolean value = !preferences.getBoolean("webSocketTransport", false);
                 preferences.edit().putBoolean("webSocketTransport", value).commit();
@@ -605,6 +612,50 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         return super.onBackPressed(invoked);
     }
 
+    private String[] proxyDisableLabels() {
+        return new String[]{"VPN", DevGramLocale.text("Мобильная сеть"), "Wi-Fi"};
+    }
+
+    private String proxyDisableValue() {
+        int mask = DevGramProxyNetwork.conditions();
+        if (mask == 0) return DevGramLocale.text("Никогда");
+        if (mask == 7) return DevGramLocale.text("Всегда");
+        ArrayList<String> labels = new ArrayList<>();
+        String[] options = proxyDisableLabels();
+        for (int i = 0; i < options.length; i++) if ((mask & (1 << i)) != 0) labels.add(options[i]);
+        return TextUtils.join(", ", labels);
+    }
+
+    private void showProxyDisableDialog() {
+        if (getParentActivity() == null) return;
+        int[] mask = {DevGramProxyNetwork.conditions()};
+        android.widget.LinearLayout content = new android.widget.LinearLayout(getParentActivity());
+        content.setOrientation(android.widget.LinearLayout.VERTICAL);
+        String[] labels = proxyDisableLabels();
+        for (int i = 0; i < labels.length; i++) {
+            final int bit = 1 << i;
+            org.telegram.ui.Cells.TextCheckBoxCell cell = new org.telegram.ui.Cells.TextCheckBoxCell(getParentActivity(), true, false);
+            cell.setTextAndCheck(labels[i], (mask[0] & bit) != 0, false);
+            cell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+            cell.setOnClickListener(v -> { mask[0] ^= bit; cell.setChecked((mask[0] & bit) != 0); });
+            content.addView(cell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50));
+        }
+        TextView info = new TextView(getParentActivity());
+        info.setText(DevGramLocale.text("Прокси отключается на время выбранного подключения и включается обратно после его отключения. Настройка действует и на встроенный прокси DevGram."));
+        info.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        info.setTextColor(Theme.getColor(Theme.key_dialogTextGray, getResourceProvider()));
+        info.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(8), AndroidUtilities.dp(24), AndroidUtilities.dp(16));
+        content.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        showDialog(new AlertDialog.Builder(getParentActivity(), getResourceProvider())
+                .setTitle(DevGramLocale.text("Отключать прокси"))
+                .setView(content)
+                .setPositiveButton(getString(R.string.Save), (dialog, which) -> {
+                    DevGramProxyNetwork.setConditions(mask[0]);
+                    if (listAdapter != null) listAdapter.notifyItemChanged(proxyDisableRow);
+                })
+                .setNegativeButton(getString(R.string.Cancel), null).create());
+    }
+
     private void showWebSocketDomainDialog() {
         SharedPreferences preferences = MessagesController.getGlobalMainSettings();
         org.telegram.messenger.forkgram.ForkDialogs.createFieldAlert(getParentActivity(), getString(R.string.WebSocketDomain), preferences.getString("webSocketDomain", ""), (result) -> {
@@ -651,6 +702,8 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         } else {
             useProxyShadowRow = -1;
         }
+        proxyDisableRow = rowCount++;
+        proxyDisableShadowRow = rowCount++;
         connectionsHeaderRow = rowCount++;
 
         if (notify) {
@@ -755,6 +808,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
 
             updateRows(false);
         } else if (id == NotificationCenter.proxySettingsChanged) {
+            useProxySettings = MessagesController.getGlobalMainSettings().getBoolean("proxy_enabled", false) && !SharedConfig.proxyList.isEmpty();
             updateRows(true);
         } else if (id == NotificationCenter.didUpdateConnectionState) {
             int state = ConnectionsManager.getInstance(account).getConnectionState();
@@ -876,7 +930,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 case VIEW_TYPE_TEXT_SETTING: {
                     TextSettingsCell textCell = (TextSettingsCell) holder.itemView;
                     textCell.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
-                    if (position == webSocketDomainRow) {
+                    textCell.setBetterLayout(position == proxyDisableRow);
+                    if (position == proxyDisableRow) {
+                        textCell.setTextAndValue(DevGramLocale.text("Отключать прокси"), proxyDisableValue(), false);
+                    } else if (position == webSocketDomainRow) {
                         String domain = MessagesController.getGlobalMainSettings().getString("webSocketDomain", "");
                         textCell.setTextAndValue(getString(R.string.WebSocketDomain), domain.isEmpty() ? getString(R.string.WebSocketDomainAuto) : domain, false);
                     } else if (position == proxyAddRow) {
@@ -982,7 +1039,7 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
         @Override
         public boolean isEnabled(RecyclerView.ViewHolder holder) {
             int position = holder.getAdapterPosition();
-            return position == webSocketRow || position == webSocketDomainRow || position == useProxyRow || position == rotationRow || position == proxyAddRow || position == deleteAllRow || position >= proxyStartRow && position < proxyEndRow;
+            return position == proxyDisableRow || position == webSocketRow || position == webSocketDomainRow || position == useProxyRow || position == rotationRow || position == proxyAddRow || position == deleteAllRow || position >= proxyStartRow && position < proxyEndRow;
         }
 
         @Override
@@ -1026,6 +1083,10 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
             // Random stable ids, could be anything non-repeating
             if (position == webSocketRow) {
                 return -20;
+            } else if (position == proxyDisableRow) {
+                return -23;
+            } else if (position == proxyDisableShadowRow) {
+                return -24;
             } else if (position == webSocketDomainRow) {
                 return -21;
             } else if (position == webSocketInfoRow) {
@@ -1063,9 +1124,9 @@ public class ProxyListActivity extends BaseFragment implements NotificationCente
                 return VIEW_TYPE_TEXT_SETTING;
             } else if (position == webSocketInfoRow) {
                 return VIEW_TYPE_INFO;
-            } else if (position == useProxyShadowRow || position == proxyShadowRow) {
+            } else if (position == useProxyShadowRow || position == proxyShadowRow || position == proxyDisableShadowRow) {
                 return VIEW_TYPE_SHADOW;
-            } else if (position == proxyAddRow || position == deleteAllRow) {
+            } else if (position == proxyAddRow || position == deleteAllRow || position == proxyDisableRow) {
                 return VIEW_TYPE_TEXT_SETTING;
             } else if (position == useProxyRow || position == rotationRow) {
                 return VIEW_TYPE_TEXT_CHECK;

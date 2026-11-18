@@ -10,6 +10,7 @@ import android.text.TextPaint;
 import android.view.MotionEvent;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.Theme;
@@ -103,7 +104,7 @@ public class DevGramColorTierRow extends View {
 
         // — HEX-подпись под превью —
         hexPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2, rp));
-        String label = currentColor == 0 ? "Авто" : String.format("#%06X", currentColor & 0xFFFFFF);
+        String label = currentColor == 0 ? DevGramLocale.text("Авто") : String.format("#%06X", currentColor & 0xFFFFFF);
         float tw = hexPaint.measureText(label);
         canvas.drawText(label, previewCx - tw / 2f, h - AndroidUtilities.dp(6), hexPaint);
 

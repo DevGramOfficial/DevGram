@@ -24,10 +24,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.DevGramPlugins;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -82,7 +82,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
 
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Каталог плагинов");
+        actionBar.setTitle(DevGramLocale.text("Плагины"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -102,10 +102,10 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         // Firebase-сессии, поэтому список /moderators нельзя прочитать до первого входа.
         // Реальная проверка роли выполняется после входа в openModeration() и на правилах RTDB.
         moderationItem = actionBar.createMenu().addItem(1, R.drawable.msg_shareout);
-        moderationItem.setContentDescription("Модерация плагинов");
+        moderationItem.setContentDescription(DevGramLocale.text("Модерация плагинов"));
         moderationItem.setVisibility(View.VISIBLE);
         org.telegram.ui.ActionBar.ActionBarMenuItem more = actionBar.createMenu().addItem(3, R.drawable.ic_ab_other);
-        more.addSubItem(2, R.drawable.msg_info, "Мои заявки");
+        more.addSubItem(2, R.drawable.msg_info, DevGramLocale.text("Мои заявки"));
 
         LinearLayout container = new LinearLayout(context);
         container.setOrientation(LinearLayout.VERTICAL);
@@ -121,7 +121,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         searchIcon.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         searchWrap.addView(searchIcon, LayoutHelper.createFrame(20, 20, Gravity.CENTER_VERTICAL | Gravity.LEFT, 14, 0, 0, 0));
         searchField = new EditText(context);
-        searchField.setHint("Название, автор или описание");
+        searchField.setHint(DevGramLocale.text("Название, автор или описание"));
         searchField.setSingleLine(true);
         searchField.setBackground(null);
         searchField.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
@@ -155,7 +155,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         LinearLayout heading = new LinearLayout(context);
         heading.setOrientation(LinearLayout.VERTICAL);
         TextView categoryTitle = new TextView(context);
-        categoryTitle.setText("Подборка плагинов");
+        categoryTitle.setText(DevGramLocale.text("Подборка плагинов"));
         categoryTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         categoryTitle.setTypeface(AndroidUtilities.bold());
         categoryTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
@@ -269,7 +269,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             boolean on = activeFilter.equals(f);
             TextView chip = new TextView(context);
             int count = countForFilter(f);
-            String label = name.isEmpty() ? "Все" : FILTER_INSTALLED.equals(name) ? "Установленные" : name;
+            String label = name.isEmpty() ? DevGramLocale.text("Все") : FILTER_INSTALLED.equals(name) ? DevGramLocale.text("Установленные") : name;
             chip.setText((on ? "✓  " : "") + label + "  " + count);
             chip.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             chip.setTypeface(on ? AndroidUtilities.bold() : Typeface.DEFAULT);
@@ -289,7 +289,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         }
         if (team) {
             TextView add = new TextView(context);
-            add.setText("＋  Категория");
+            add.setText(DevGramLocale.text("＋  Категория"));
             add.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             add.setTypeface(AndroidUtilities.bold());
             add.setGravity(Gravity.CENTER);
@@ -301,7 +301,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             chipRow.addView(add, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 8, 0));
         }
         if (catalogSummary != null) {
-            catalogSummary.setText(shown.size() + " из " + all.size());
+            catalogSummary.setText(shown.size() + DevGramLocale.text(" из ") + all.size());
         }
     }
 
@@ -399,7 +399,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         else if (sortMode == 2) shown.sort((a, b) -> Integer.compare(b.reviews, a.reviews));
         else shown.sort((a, b) -> Long.compare(b.updatedAt, a.updatedAt));
         if (adapter != null) adapter.notifyDataSetChanged();
-        if (catalogSummary != null) catalogSummary.setText(shown.size() + " из " + all.size());
+        if (catalogSummary != null) catalogSummary.setText(shown.size() + DevGramLocale.text(" из ") + all.size());
         if (sortButton != null) sortButton.setText(sortTitle());
         if (progressView != null) {
             progressView.setVisibility(loading ? View.VISIBLE : View.GONE);
@@ -409,11 +409,11 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 emptyView.setVisibility(View.GONE);
             } else if (shown.isEmpty()) {
                 boolean filtered = !query.isEmpty() || !activeFilter.isEmpty();
-                emptyTitle.setText(all.isEmpty() ? "Каталог пока пуст" : "Ничего не найдено");
+                emptyTitle.setText(all.isEmpty() ? DevGramLocale.text("Каталог пока пуст") : DevGramLocale.text("Ничего не найдено"));
                 emptySubtitle.setText(all.isEmpty()
-                        ? "Новые плагины появятся здесь после проверки командой DevGram."
-                        : "Попробуйте изменить запрос или выбрать другую категорию.");
-                emptyAction.setText(filtered ? "Сбросить фильтры" : "Обновить");
+                        ? DevGramLocale.text("Новые плагины появятся здесь после проверки командой DevGram.")
+                        : DevGramLocale.text("Попробуйте изменить запрос или выбрать другую категорию."));
+                emptyAction.setText(filtered ? DevGramLocale.text("Сбросить фильтры") : DevGramLocale.text("Обновить"));
                 emptyView.setVisibility(View.VISIBLE);
             } else {
                 emptyView.setVisibility(View.GONE);
@@ -422,12 +422,12 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
     }
 
     private String sortTitle() {
-        return sortMode == 1 ? "★ Рейтинг" : sortMode == 2 ? "Отзывы" : "Сначала новые";
+        return sortMode == 1 ? DevGramLocale.text("★ Рейтинг") : sortMode == 2 ? DevGramLocale.text("Отзывы") : DevGramLocale.text("Сначала новые");
     }
 
     private void showSortMenu() {
-        String[] choices = {"Сначала новые", "По рейтингу", "По количеству отзывов"};
-        DevGramPluginUi.showChoices(this, "Сортировка", "Выберите порядок карточек в каталоге.",
+        String[] choices = {DevGramLocale.text("Сначала новые"), DevGramLocale.text("По рейтингу"), DevGramLocale.text("По количеству отзывов")};
+        DevGramPluginUi.showChoices(this, DevGramLocale.text("Сортировка"), DevGramLocale.text("Выберите порядок карточек в каталоге."),
                 choices, new int[]{R.drawable.msg_recent, R.drawable.msg_fave, R.drawable.msg_discussion},
                 choices.length, which -> {
                     sortMode = which;
@@ -472,7 +472,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         title.setTypeface(AndroidUtilities.bold());
         titleCol.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         TextView author = new TextView(context);
-        author.setText(TextUtils.isEmpty(e.author) ? "Автор не указан" : e.author);
+        author.setText(TextUtils.isEmpty(e.author) ? DevGramLocale.text("Автор не указан") : e.author);
         author.setSingleLine(true);
         author.setEllipsize(TextUtils.TruncateAt.END);
         author.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
@@ -501,12 +501,12 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
         if (!e.filter.isEmpty()) badges.addView(pill(context, e.filter, false),
                 LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
-        if (DevGramPlugins.isInstalled(e.id)) badges.addView(pill(context, "✓ Установлен", true));
+        if (DevGramPlugins.isInstalled(e.id)) badges.addView(pill(context, DevGramLocale.text("✓ Установлен"), true));
         if (badges.getChildCount() > 0) card.addView(badges,
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 0));
 
         TextView desc = new TextView(context);
-        desc.setText(TextUtils.isEmpty(e.desc) ? "Описание плагина не указано." : e.desc);
+        desc.setText(TextUtils.isEmpty(e.desc) ? DevGramLocale.text("Описание плагина не указано.") : e.desc);
         desc.setTextColor(Theme.getColor(TextUtils.isEmpty(e.desc)
                 ? Theme.key_windowBackgroundWhiteGrayText2 : Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         desc.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -529,7 +529,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             bottom.addView(ch, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, Gravity.CENTER_VERTICAL, 0, 0, 8, 0));
         } else {
             TextView details = new TextView(context);
-            details.setText("Подробнее");
+            details.setText(DevGramLocale.text("Подробнее"));
             details.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             details.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
             bottom.addView(details, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
@@ -538,7 +538,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         boolean installed = DevGramPlugins.isInstalled(e.id);
         boolean busy = installing.contains(e.id);
         TextView btn = new TextView(context);
-        btn.setText(busy ? "Загрузка…" : installed ? "Обновить" : "Установить");
+        btn.setText(busy ? DevGramLocale.text("Загрузка…") : installed ? DevGramLocale.text("Обновить") : DevGramLocale.text("Установить"));
         btn.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider));
         btn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         btn.setTypeface(AndroidUtilities.bold());
@@ -589,7 +589,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 installing.remove(e.id);
                 if (adapter != null) adapter.notifyDataSetChanged();
                 BulletinFactory.of(this).createErrorBulletin(status.success
-                        ? "Установка этого плагина заблокирована" : status.reason).show();
+                        ? DevGramLocale.text("Установка этого плагина заблокирована") : status.reason).show();
                 return;
             }
             installAllowed(e);
@@ -602,41 +602,41 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             if (e.packageMsg == 0) {
                 installing.remove(e.id);
                 if (adapter != null) adapter.notifyDataSetChanged();
-                BulletinFactory.of(this).createErrorBulletin("Пакет ещё не размещён в архиве").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Пакет ещё не размещён в архиве")).show();
                 return;
             }
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "Скачиваю пакет «" + e.name + "»…").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, DevGramLocale.text("Скачиваю пакет «") + e.name + DevGramLocale.text("»…")).show();
             org.telegram.messenger.DevGramPackages.installCatalogPackage(e, ok -> {
                     installing.remove(e.id);
                     if (adapter != null) adapter.notifyDataSetChanged();
                     BulletinFactory.of(this).createSimpleBulletin(ok ? R.raw.contact_check : R.raw.error,
-                            ok ? "Плагин установлен: " + e.name : "Не удалось установить пакет").show();
+                            ok ? DevGramLocale.text("Плагин установлен: ") + e.name : DevGramLocale.text("Не удалось установить пакет")).show();
             });
             return;
         }
         if (e.source == null || e.source.isEmpty()) {
             installing.remove(e.id);
             if (adapter != null) adapter.notifyDataSetChanged();
-            BulletinFactory.of(this).createErrorBulletin("У плагина нет исходника в каталоге").show();
+            BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("У плагина нет исходника в каталоге")).show();
             return;
         }
         DevGramPlugins.trustFromChannel(e.source);
         boolean ok = DevGramPlugins.install(e.source, e.id, true);
         installing.remove(e.id);
         BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                ok ? "Плагин установлен: " + e.name : "Не удалось установить").show();
+                ok ? DevGramLocale.text("Плагин установлен: ") + e.name : DevGramLocale.text("Не удалось установить")).show();
         if (adapter != null) adapter.notifyDataSetChanged();
     }
 
     private void confirmDelete(DevGramPlugins.CatalogEntry e) {
-        String[] actions = {"Удалить с возможностью публикации", "Удалить и заблокировать файл"};
-        DevGramPluginUi.showChoices(this, "Удалить «" + e.name + "»",
-                "При блокировке этот же файл нельзя будет опубликовать повторно.", actions,
+        String[] actions = {DevGramLocale.text("Удалить с возможностью публикации"), DevGramLocale.text("Удалить и заблокировать файл")};
+        DevGramPluginUi.showChoices(this, DevGramLocale.text("Удалить «") + e.name + DevGramLocale.text("»"),
+                DevGramLocale.text("При блокировке этот же файл нельзя будет опубликовать повторно."), actions,
                 new int[]{R.drawable.msg_delete, R.drawable.msg_block}, 0,
                 which -> DevGramPluginUi.showTextInput(this,
-                        which == 1 ? "Удалить и заблокировать" : "Удалить из каталога",
-                        "Причина сохранится в истории плагина.", "Укажите причину удаления",
-                        "", which == 1 ? "Удалить и заблокировать" : "Удалить плагин", true,
+                        which == 1 ? DevGramLocale.text("Удалить и заблокировать") : DevGramLocale.text("Удалить из каталога"),
+                        DevGramLocale.text("Причина сохранится в истории плагина."), DevGramLocale.text("Укажите причину удаления"),
+                        "", which == 1 ? DevGramLocale.text("Удалить и заблокировать") : DevGramLocale.text("Удалить плагин"), true,
                         reason -> performCatalogDelete(e, reason, which == 1)));
     }
 
@@ -645,20 +645,20 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             boolean ok = block ? DevGramPlugins.catalogDeleteAndBlock(entry, reason)
                     : DevGramPlugins.catalogDelete(entry, reason);
             if (!ok) {
-                BulletinFactory.of(this).createErrorBulletin("Не удалось удалить плагин").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось удалить плагин")).show();
                 return;
             }
             all.remove(entry);
             applyFilter();
             BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                    block ? "Удалено и заблокировано" : "Удалено из каталога").show();
+                    block ? DevGramLocale.text("Удалено и заблокировано") : DevGramLocale.text("Удалено из каталога")).show();
         });
     }
 
     private void addFilterDialog() {
-        DevGramPluginUi.showTextInput(this, "Новая категория",
-                "Категория появится в строке фильтров каталога.", "Название категории",
-                "", "Добавить категорию", false, name -> {
+        DevGramPluginUi.showTextInput(this, DevGramLocale.text("Новая категория"),
+                DevGramLocale.text("Категория появится в строке фильтров каталога."), DevGramLocale.text("Название категории"),
+                "", DevGramLocale.text("Добавить категорию"), false, name -> {
             ensureAdmin(() -> {
                 ArrayList<String> updated = new ArrayList<>(filters);
                 if (!updated.contains(name)) updated.add(name);
@@ -667,9 +667,9 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                         filters.clear();
                         filters.addAll(updated);
                         rebuildChips();
-                        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Фильтр добавлен").show();
+                        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Фильтр добавлен")).show();
                     } else {
-                        BulletinFactory.of(this).createErrorBulletin("Не удалось сохранить фильтр в каталоге").show();
+                        BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось сохранить фильтр в каталоге")).show();
                     }
                 });
             });
@@ -677,9 +677,9 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
     }
 
     private void confirmRemoveFilter(String name) {
-        DevGramPluginUi.showChoices(this, "Удалить категорию?",
-                "Плагины останутся в каталоге, исчезнет только категория «" + name + "».",
-                new String[]{"Удалить категорию"}, new int[]{R.drawable.msg_delete}, 0,
+        DevGramPluginUi.showChoices(this, DevGramLocale.text("Удалить категорию?"),
+                DevGramLocale.text("Плагины останутся в каталоге, исчезнет только категория «") + name + DevGramLocale.text("»."),
+                new String[]{DevGramLocale.text("Удалить категорию")}, new int[]{R.drawable.msg_delete}, 0,
                 ignored -> ensureAdmin(() -> {
             ArrayList<String> updated = new ArrayList<>(filters);
             updated.remove(name);
@@ -690,9 +690,9 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                     if (activeFilter.equals(name)) activeFilter = "";
                     rebuildChips();
                     applyFilter();
-                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Категория удалена").show();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Категория удалена")).show();
                 } else {
-                    BulletinFactory.of(this).createErrorBulletin("Не удалось удалить категорию").show();
+                    BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось удалить категорию")).show();
                 }
             });
         }));
@@ -705,21 +705,21 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         ArrayList<Integer> ids = new ArrayList<>();
         ArrayList<Integer> icons = new ArrayList<>();
         if (index > 0) {
-            actions.add("Переместить левее");
+            actions.add(DevGramLocale.text("Переместить левее"));
             ids.add(-1);
             icons.add(R.drawable.msg_arrow_back);
         }
         if (index < filters.size() - 1) {
-            actions.add("Переместить правее");
+            actions.add(DevGramLocale.text("Переместить правее"));
             ids.add(1);
             icons.add(R.drawable.msg_arrow_forward);
         }
-        actions.add("Удалить категорию");
+        actions.add(DevGramLocale.text("Удалить категорию"));
         ids.add(0);
         icons.add(R.drawable.msg_delete);
         int[] iconArray = new int[icons.size()];
         for (int i = 0; i < icons.size(); i++) iconArray[i] = icons.get(i);
-        DevGramPluginUi.showChoices(this, name, "Управление категорией каталога",
+        DevGramPluginUi.showChoices(this, name, DevGramLocale.text("Управление категорией каталога"),
                 actions.toArray(new String[0]), iconArray, actions.size() - 1, which -> {
             int action = ids.get(which);
             if (action == 0) {
@@ -741,9 +741,9 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
                 filters.clear();
                 filters.addAll(reordered);
                 rebuildChips();
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Порядок категорий сохранён").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Порядок категорий сохранён")).show();
             } else {
-                BulletinFactory.of(this).createErrorBulletin("Не удалось изменить порядок категорий").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось изменить порядок категорий")).show();
             }
         }));
     }
@@ -761,7 +761,7 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
             if (DevGramPlugins.isModerator()) {
                 presentFragment(new DevGramModerationActivity());
             } else {
-                BulletinFactory.of(this).createErrorBulletin("Нет доступа к модерации").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Нет доступа к модерации")).show();
             }
         }));
     }
@@ -774,8 +774,8 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         }
         Context context = getParentActivity();
         if (context == null) return;
-        EditTextBoldCursor emailEt = makeInput(context, "Email команды", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
-        EditTextBoldCursor passEt = makeInput(context, "Пароль", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor emailEt = makeInput(context, DevGramLocale.text("Email команды"), InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor passEt = makeInput(context, DevGramLocale.text("Пароль"), InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
         passEt.setTransformationMethod(PasswordTransformationMethod.getInstance());
         LinearLayout box = new LinearLayout(context);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -783,18 +783,18 @@ public class DevGramPluginCatalogActivity extends BaseFragment {
         box.addView(emailEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44));
         box.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
         AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Вход команды DevGram");
+        b.setTitle(DevGramLocale.text("Вход команды DevGram"));
         b.setView(box);
-        b.setPositiveButton("Войти", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Войти"), (d, w) -> {
             String email = emailEt.getText().toString().trim();
             String pass = passEt.getText().toString();
             if (email.isEmpty() || pass.isEmpty()) return;
             DevGramBadges.signIn(email, pass, (ok, err) -> {
                 if (ok) onReady.run();
-                else Toast.makeText(getParentActivity(), "Не удалось войти: " + err, Toast.LENGTH_LONG).show();
+                else Toast.makeText(getParentActivity(), DevGramLocale.text("Не удалось войти: ") + err, Toast.LENGTH_LONG).show();
             });
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
         emailEt.requestFocus();
         AndroidUtilities.showKeyboard(emailEt);

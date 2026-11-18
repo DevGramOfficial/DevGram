@@ -60,6 +60,17 @@ import java.util.Set;
 
 @SuppressLint("ViewConstructor")
 public class ProfileActionsView extends View {
+    public int devgramShape;
+    public org.json.JSONObject devgramHeaderConfig;
+    private void devgramTransformContent(Canvas canvas,float x,float y){
+        if(devgramHeaderConfig==null)return;
+        if(devgramHeaderConfig.optInt("vertical_actions")==1)canvas.rotate(90,x,y);
+        float sx=devgramHeaderConfig.optInt("actions_content_scale_x",100)/100f,sy=devgramHeaderConfig.optInt("actions_content_scale_y",100)/100f;
+        if(devgramHeaderConfig.optInt("actions_plain_content")==1){float px=1,py=1;View view=this;for(int i=0;view!=null&&i<6;i++){px*=view.getScaleX();py*=view.getScaleY();view=view.getParent() instanceof View?(View)view.getParent():null;}if(Math.abs(px)>.001f)sx/=px;if(Math.abs(py)>.001f)sy/=py;}
+        canvas.scale(sx,sy,x,y);
+    }
+    public DevGramProfileSurfaces devgramSurfaces;
+    public boolean devgramCustomSurface;
 
     private static final FloatPropertyCompat<Action> PRESS_PROGRESS = new FloatPropertyCompat<Action>("pressProgress") {
         @Override
@@ -129,6 +140,10 @@ public class ProfileActionsView extends View {
     public static final int KEY_EDIT_INFO = 16;
     public static final int KEY_SETTINGS = 17;
     public static final int KEY_MORE = 18; // DevGram: «...» в ряду (iOS-профиль)
+    public static final int KEY_PROFILE_LIKE = 19;
+    private int profileLikes=-1;
+    private boolean profileLiked,profileLikeBusy;
+    private final ColorFilter profileLikeColor=new PorterDuffColorFilter(0xffed668d,PorterDuff.Mode.SRC_IN);
 
     private boolean isApplying;
     private boolean isNotificationsEnabled;
@@ -286,7 +301,7 @@ public class ProfileActionsView extends View {
         final boolean dgIos = (org.telegram.messenger.DevGramConfig.iosProfile && !material3);
         float width = getItemWidth();
         float left = xpadding;
-        float r = getRoundRadius();
+        float r = devgramShape == 0 ? getRoundRadius() : dp(devgramShape == 1 ? 28 : devgramShape == 2 ? 12 : 40);
         if (dgIos && activeCount > 0) {
             width = height;
             r = height / 2f;
@@ -358,8 +373,8 @@ public class ProfileActionsView extends View {
                         paint.setShadowLayer(0, 0, 0, 0);
                     }
 
-                    canvas.drawRoundRect(AndroidUtilities.rectTmp, r, r, paint);
-                    if (radialGradient != null) {
+                    if(devgramCustomSurface&&devgramSurfaces!=null)devgramSurfaces.drawButtons(canvas,this,AndroidUtilities.rectTmp,r,action.getAlpha()*alphaFraction1,action);else canvas.drawRoundRect(AndroidUtilities.rectTmp, r, r, paint);
+                    if (radialGradient != null&&!devgramCustomSurface) {
                         int wasAlpha2 = shaderPaint.getAlpha();
                         shaderPaint.setAlpha((int) (action.getAlpha() * alphaFraction1 * wasAlpha2));
                         matrix.setTranslate(AndroidUtilities.rectTmp.left, AndroidUtilities.rectTmp.top);
@@ -420,13 +435,13 @@ public class ProfileActionsView extends View {
                 Action action = actions.get(i);
                 if (action.isDeleted) continue;
                 final float alpha = action.getAlpha() * alphaFraction1;
-                final float r = action.containerRadius;
+                final float r = devgramShape == 0 ? action.containerRadius : dp(devgramShape == 1 ? 28 : devgramShape == 2 ? 12 : 40);
                 canvas.save();
                 canvas.concat(action.layoutMatrix);
                 containerPaint.setColor(containerColor);
                 containerPaint.setAlpha((int) (Color.alpha(containerColor) * alpha * (gradient ? 0.1f : 1f)));
-                canvas.drawRoundRect(action.container, r, r, containerPaint);
-                if (gradient) {
+                if(devgramCustomSurface&&devgramSurfaces!=null)devgramSurfaces.drawButtons(canvas,this,action.container,r,alpha,action);else canvas.drawRoundRect(action.container, r, r, containerPaint);
+                if (gradient&&!devgramCustomSurface) {
                     int wasAlpha = shaderPaint.getAlpha();
                     shaderPaint.setAlpha((int) (alpha * wasAlpha));
                     matrix.setTranslate(action.container.left, action.container.top);
@@ -458,6 +473,7 @@ public class ProfileActionsView extends View {
             final float alpha = action.getAlpha();
             canvas.save();
             canvas.concat(action.layoutMatrix);
+            devgramTransformContent(canvas,action.container.centerX(),action.container.centerY());
             updateBounds(action);
             if (labelAlpha > 0f) {
                 action.fitLabel(labelWidth);
@@ -470,7 +486,7 @@ public class ProfileActionsView extends View {
             }
             drawActionIcons(canvas, action, alphaFraction2 * alpha, filledProgress);
             canvas.restore();
-            drawLoading(canvas, action, alphaFraction2 * alpha, iconColor);
+            int contentSave=canvas.save();devgramTransformContent(canvas,action.rect.centerX(),action.rect.centerY());drawLoading(canvas, action, alphaFraction2 * alpha, iconColor);canvas.restoreToCount(contentSave);
         }
     }
 
@@ -492,6 +508,8 @@ public class ProfileActionsView extends View {
     }
 
     private void drawActionIcons(Canvas canvas, Action action, float alpha, float useFilledWhiteIcon) {
+        ColorFilter savedFilter=lastColorFilter;
+        if(action.key==KEY_PROFILE_LIKE&&profileLiked)lastColorFilter=profileLikeColor;
         if (action.iconTranslationY != 0) {
             canvas.translate(0, action.iconTranslationY);
         }
@@ -499,6 +517,7 @@ public class ProfileActionsView extends View {
             canvas.scale(action.iconScale, action.iconScale, action.bounds.centerX(), action.bounds.centerY());
         }
         if (isAnimatingCallAction && action.key == KEY_CALL) {
+            lastColorFilter=savedFilter;
             return;
         }
         final float outlineAlpha = (1f - useFilledWhiteIcon) * alpha;
@@ -514,12 +533,13 @@ public class ProfileActionsView extends View {
             drawActionDrawable(canvas, action.drawableOutline, outlineAlpha);
             drawActionDrawable(canvas, action.drawableFilled, filledAlpha);
         }
+        lastColorFilter=savedFilter;
     }
 
     private final Path clipPathTmp = new Path();
 
     private void drawRenderNode(Canvas canvas) {
-        if (renderNode == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !renderNode.hasDisplayList() || !canvas.isHardwareAccelerated()) {
+        if (devgramCustomSurface || renderNode == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || !renderNode.hasDisplayList() || !canvas.isHardwareAccelerated()) {
             return;
         }
 
@@ -603,6 +623,11 @@ public class ProfileActionsView extends View {
     private ColorFilter lastColorFilter;
 
     private void drawAction(Canvas canvas, Action action, float fraction, float alpha) {
+        if(action==null||action.isDeleted)return;
+        int save=canvas.save();devgramTransformContent(canvas,action.rect.centerX(),action.rect.centerY());
+        try{drawActionBody(canvas,action,fraction,alpha);}finally{canvas.restoreToCount(save);}
+    }
+    private void drawActionBody(Canvas canvas, Action action, float fraction, float alpha) {
         if (action == null || action.isDeleted) {
             return;
         }
@@ -749,7 +774,7 @@ public class ProfileActionsView extends View {
                         hit.isLoading = true;
                         invalidate();
                     }
-                    if (hit.supportsAnimate != 0) {
+                    if (hit.supportsAnimate != 0 && org.telegram.messenger.devgram.icons.IconManager.INSTANCE.isBasePackOnly("base.default")) {
                         hit.updateDrawable(true, hit.supportsAnimate);
                     }
                     hit.startTime = System.currentTimeMillis();
@@ -838,6 +863,20 @@ public class ProfileActionsView extends View {
         actions.add(action);
     }
 
+    public void setProfileLikes(boolean visible,int count,boolean liked,boolean busy){
+        boolean changed=profileLikes!=count||profileLiked!=liked||profileLikeBusy!=busy;
+        profileLikes=count;profileLiked=liked;profileLikeBusy=busy;
+        set(KEY_PROFILE_LIKE,visible);
+        Action action=find(KEY_PROFILE_LIKE);
+        if(action!=null&&changed)updateProfileLike(action);
+        invalidate();
+    }
+    private void updateProfileLike(Action action){
+        action.setText(org.telegram.messenger.DevGramLocale.text("Лайки")+(profileLikes<0?"":" · "+profileLikes));
+        int icon=profileLiked?R.drawable.media_like_active:R.drawable.media_like;
+        action.updateDrawable(0,icon,icon);action.supportsLoading=false;action.isLoading=profileLikeBusy;
+    }
+
     public void startAnimatedActions() {
         if (mode == MODE_MY_PROFILE) {
             int c = actions.size();
@@ -895,6 +934,14 @@ public class ProfileActionsView extends View {
     private void applyVisibleActions() {
         if (isApplying) return;
         if (mode == MODE_MY_PROFILE) {
+            Action like = find(KEY_PROFILE_LIKE);
+            if (allAvailableActions.contains(KEY_PROFILE_LIKE) && like == null) {
+                int position = actions.size();
+                for (int i = 0; i < actions.size(); i++) if (actions.get(i).key == KEY_SETTINGS) { position = i + 1; break; }
+                actions.add(position, getOrCreate(KEY_PROFILE_LIKE));
+            } else if (!allAvailableActions.contains(KEY_PROFILE_LIKE)) {
+                actions.removeIf(action -> action.key == KEY_PROFILE_LIKE);
+            }
             if (org.telegram.messenger.DevGramConfig.iosProfile && find(KEY_MORE) == null) {
                 actions.add(getOrCreate(KEY_MORE)); // «...» последней в ряду
             }
@@ -963,6 +1010,7 @@ public class ProfileActionsView extends View {
                 break;
         }
 
+        if(mode==MODE_USER||mode==MODE_BOT)insertIfAvailable(out,KEY_PROFILE_LIKE);
         if (org.telegram.messenger.DevGramConfig.iosProfile && find(out, KEY_MORE) == null) {
             out.add(getOrCreate(KEY_MORE)); // «...» последней в ряду (iOS-профиль)
         }
@@ -1028,6 +1076,8 @@ public class ProfileActionsView extends View {
         }
 
         switch (key) {
+            case KEY_PROFILE_LIKE:
+                newAction=new Action();updateProfileLike(newAction);break;
             case KEY_MESSAGE:
                 newAction = new Action(ActionButton.MESSAGE);
                 break;
@@ -1572,6 +1622,7 @@ public class ProfileActionsView extends View {
                         info.setClassName(android.widget.Button.class.getName());
 
                         info.setText(action.text.getText());
+                        if(action.key==KEY_PROFILE_LIKE){info.setSelected(profileLiked);info.setContentDescription(org.telegram.messenger.DevGramLocale.text(profileLiked?"Убрать лайк профилю":"Нравится профиль")+(profileLikes<0?"":": "+profileLikes));}
 
                         Rect parentBounds = new Rect(
                                 (int) action.rect.left,

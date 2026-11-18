@@ -87,11 +87,11 @@ public final class DevGramLockedChatsGate {
                         }
                     });
             BiometricPrompt.PromptInfo.Builder b = new BiometricPrompt.PromptInfo.Builder()
-                    .setTitle(LocaleController.getString(R.string.DevGramLockedChats))
-                    .setSubtitle(LocaleController.getString(R.string.DevGramLockedChatsUnlockHint))
+                    .setTitle(org.telegram.messenger.DevGramLocale.getString(R.string.DevGramLockedChats))
+                    .setSubtitle(org.telegram.messenger.DevGramLocale.getString(R.string.DevGramLockedChatsUnlockHint))
                     .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK);
             if (DevGramLockedChats.hasPasscode()) {
-                b.setNegativeButtonText(LocaleController.getString(R.string.DevGramLockedChatsUsePasscode));
+                b.setNegativeButtonText(org.telegram.messenger.DevGramLocale.getString(R.string.DevGramLockedChatsUsePasscode));
             } else {
                 b.setNegativeButtonText(LocaleController.getString(R.string.Cancel));
             }

@@ -100,11 +100,25 @@ import java.util.Objects;
 
 @SuppressWarnings("JavaReflectionMemberAccess")
 public class RecyclerListView extends RecyclerView implements IBlur3Capture {
+
+    public interface SectionContentAboveTop {
+        boolean hasSectionContentAboveTop();
+    }
+
+    public enum SectionsDrawingMode {
+        FULL_BACKGROUND,
+        SECTION_COLOR_BACKGROUND,
+        OPTIMIZED_BACKGROUND,
+        DRAW_VERTICES
+    }
     public final static int SECTIONS_TYPE_SIMPLE = 0,
             SECTIONS_TYPE_STICKY_HEADERS = 1,
             SECTIONS_TYPE_DATE = 2,
             SECTIONS_TYPE_FAST_SCROLL_ONLY = 3;
     private boolean drawSelection = true;
+    private boolean sectionsDrawBackground;
+    private boolean legacySections = true;
+    private int selectorDrawableColor;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
@@ -1698,6 +1712,7 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     }
 
     public void setSelectorDrawableColor(int color) {
+        selectorDrawableColor = color;
         if (selectorDrawable != null) {
             selectorDrawable.setCallback(null);
         }
@@ -1717,6 +1732,26 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
         if (selectorDrawable != null) {
             selectorDrawable.setCallback(this);
         }
+    }
+
+    public int getSelectorDrawableColor() {
+        return selectorDrawableColor;
+    }
+
+    public void setSectionsDrawBackground(boolean value) {
+        sectionsDrawBackground = value;
+    }
+
+    public boolean getSectionsDrawBackground() {
+        return sectionsDrawBackground;
+    }
+
+    public void setLegacySections(boolean value) {
+        legacySections = value;
+    }
+
+    public void setSections(Utilities.CallbackReturn<View, Boolean> isSectionView, int padding, int roundRadius, boolean topPadding) {
+        setSections(isSectionView, padding, roundRadius, (canvas, rect, radius, top, bottom) -> {}, topPadding);
     }
 
     public Drawable getSelectorDrawable() {
@@ -3299,6 +3334,22 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     private float[] sectionRadiusTop, sectionRadiusBottom;
     public boolean applyPaddingToSections = false;
 
+    public int getSectionsBackgroundColorForDecoration() {
+        return getThemedColor(Theme.key_windowBackgroundWhite);
+    }
+
+    public int getSectionColorForDecoration() {
+        return getSectionsBackgroundColorForDecoration();
+    }
+
+    public float getSectionsOverscanTop() {
+        return sectionRadius;
+    }
+
+    public static boolean hasSectionContentAboveTop(View view) {
+        return view instanceof SectionContentAboveTop && ((SectionContentAboveTop) view).hasSectionContentAboveTop();
+    }
+
     public static final int TAG_NOT_SECTION = -33024;
 
     public void disableSections() {
@@ -3323,7 +3374,7 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     public void setSections(int padding, float roundRadius, boolean topPadding) {
         setSections(
             view -> !(view instanceof TextInfoPrivacyCell || view instanceof ShadowSectionCell || view instanceof FiltersSetupActivity.HintInnerCell || view instanceof GraySectionCell || view instanceof CollapseTextCell)
-                    && !(MessagesController.getGlobalMainSettings().getBoolean("dg_separateHeaders", true) && view instanceof HeaderCell)
+                    && !(!DevGramClassicDesign.enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_separateHeaders", true) && view instanceof HeaderCell)
                     && !Objects.equals(view.getTag(), TAG_NOT_SECTION),
             padding,
             roundRadius,
@@ -3373,6 +3424,7 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
         boolean topPadding
     ) {
         setSelectorDrawableColor(getThemedColor(Theme.key_settings_listSelector));
+        if (DevGramClassicDesign.enabled()) { padding = 0; roundRadius = 0; }
         this.isViewTypeSection = isViewTypeSection;
         this.sectionRadius = roundRadius;
         this.sectionRadiusTop = new float[] {
@@ -3948,4 +4000,8 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
             return new float[]{drawFrom, drawTo, topRadius, bottomRadius, alpha};
         }
     }
+    public org.telegram.ui.Components.blur3.capture.IBlur3Capture createBlurCapture(ViewGroup parent) {
+        return new org.telegram.ui.Components.blur3.ViewGroupPartRenderer(this, parent, this::drawChild);
+    }
+
 }

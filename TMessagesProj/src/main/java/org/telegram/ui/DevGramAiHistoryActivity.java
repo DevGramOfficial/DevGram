@@ -6,6 +6,7 @@ import android.view.View;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
@@ -45,7 +46,7 @@ public class DevGramAiHistoryActivity extends DevGramSettingsFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("История ИИ-чата");
+        actionBar.setTitle(DevGramLocale.text("История ИИ-чата"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
@@ -75,18 +76,18 @@ public class DevGramAiHistoryActivity extends DevGramSettingsFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         boolean save = MessagesController.getGlobalMainSettings().getBoolean("dg_aiSaveHistory", true);
-        items.add(UItem.asCheck(ID_SAVE, "Сохранять историю").setChecked(save));
-        items.add(UItem.asShadow("История хранится только на устройстве и позволяет модели учитывать предыдущие сообщения."));
+        items.add(UItem.asCheck(ID_SAVE, DevGramLocale.text("Сохранять историю")).setChecked(save));
+        items.add(UItem.asShadow(DevGramLocale.text("История хранится только на устройстве и позволяет модели учитывать предыдущие сообщения.")));
 
         if (entries.isEmpty()) return;
 
-        items.add(UItem.asHeader("Сообщения: " + entries.size()));
+        items.add(UItem.asHeader(DevGramLocale.text("Сообщения: ") + entries.size()));
         for (Entry entry : entries) {
             items.add(DevGramAiHistoryMessageCell.Factory.asHistoryCell(
                     entry.id, entry.message, entry.content, entry.expanded));
         }
         items.add(UItem.asShadow(null));
-        items.add(UItem.asButton(ID_CLEAR, R.drawable.msg_delete, "Очистить историю").red());
+        items.add(UItem.asButton(ID_CLEAR, R.drawable.msg_delete, DevGramLocale.text("Очистить историю")).red());
         items.add(UItem.asShadow(null));
     }
 
@@ -99,14 +100,14 @@ public class DevGramAiHistoryActivity extends DevGramSettingsFragment {
             if (getParentActivity() == null) return;
             org.telegram.ui.ActionBar.AlertDialog.Builder builder =
                     new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity());
-            builder.setTitle("Очистить историю?");
-            builder.setMessage("Все сохранённые запросы и ответы ИИ будут удалены с устройства.");
-            builder.setNegativeButton("Отмена", null);
-            builder.setPositiveButton("Очистить", (dialog, which) -> {
+            builder.setTitle(DevGramLocale.text("Очистить историю?"));
+            builder.setMessage(DevGramLocale.text("Все сохранённые запросы и ответы ИИ будут удалены с устройства."));
+            builder.setNegativeButton(DevGramLocale.text("Отмена"), null);
+            builder.setPositiveButton(DevGramLocale.text("Очистить"), (dialog, which) -> {
                 MessagesController.getGlobalMainSettings().edit().remove("dg_aiHistory").apply();
                 entries.clear();
                 listView.adapter.update(true);
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.info, "История очищена").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.info, DevGramLocale.text("История очищена")).show();
             });
             showDialog(builder.create());
         } else {
@@ -122,12 +123,12 @@ public class DevGramAiHistoryActivity extends DevGramSettingsFragment {
         Entry entry = findEntry(item.id);
         if (entry == null) return false;
         ItemOptions options = ItemOptions.makeOptions(this, view);
-        options.add(R.drawable.msg_copy, "Копировать", () -> {
+        options.add(R.drawable.msg_copy, DevGramLocale.text("Копировать"), () -> {
             if (AndroidUtilities.addToClipboard(entry.content)) {
-                BulletinFactory.of(this).createCopyBulletin("Текст скопирован").show();
+                BulletinFactory.of(this).createCopyBulletin(DevGramLocale.text("Текст скопирован")).show();
             }
         });
-        options.add(R.drawable.msg_delete, "Удалить", true, () -> deleteTurn(entry.id));
+        options.add(R.drawable.msg_delete, DevGramLocale.text("Удалить"), true, () -> deleteTurn(entry.id));
         options.setScrimViewBackground(listView.getClipBackground(view));
         options.show();
         return true;

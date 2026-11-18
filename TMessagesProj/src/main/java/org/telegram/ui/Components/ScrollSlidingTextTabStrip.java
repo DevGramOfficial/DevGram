@@ -51,6 +51,7 @@ import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Stories.recorder.HintView2;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class ScrollSlidingTextTabStrip extends HorizontalScrollView implements Theme.Colorable {
 
@@ -648,8 +649,19 @@ public class ScrollSlidingTextTabStrip extends HorizontalScrollView implements T
         updateColors();
     }
 
+    private int devgramProfileTabFill(int key, int fallback) {
+        if (resourcesProvider instanceof DevGramProfilePalette.Provider
+                && ((DevGramProfilePalette.Provider) resourcesProvider).hasColorOverride(key)) {
+            return processColor(Theme.getColor(key, resourcesProvider));
+        }
+        return fallback;
+    }
+
     @Override
     public void updateColors() {
+        int fallback = Theme.multAlpha(processColor(Theme.getColor(activeTextColorKey, resourcesProvider)), .15f);
+        int pressColor = devgramProfileTabFill(selectorColorKey, fallback);
+        int selectedColor = devgramProfileTabFill(tabLineColorKey, fallback);
         int count = tabsContainer.getChildCount();
         for (int a = 0; a < count; a++) {
             TextView tab = (TextView) tabsContainer.getChildAt(a);
@@ -657,14 +669,25 @@ public class ScrollSlidingTextTabStrip extends HorizontalScrollView implements T
 //            tab.setBackground(Theme.createSelectorDrawable(Theme.multAlpha(processColor(Theme.getColor(activeTextColorKey, resourcesProvider)), .15f), 3));
             tab.setBackground(
                 new InsetDrawable(
-                    Theme.createSelectorDrawable(Theme.multAlpha(processColor(Theme.getColor(activeTextColorKey, resourcesProvider)), .15f), Theme.RIPPLE_MASK_ROUNDRECT_6DP, dp(14)),
+                    Theme.createSelectorDrawable(pressColor, Theme.RIPPLE_MASK_ROUNDRECT_6DP, dp(14)),
                     dp(4), dp(4), dp(4), dp(4)
                 )
             );
         }
 //        selectorDrawable.setColor(processColor(Theme.getColor(tabLineColorKey, resourcesProvider)));
-        selectorDrawable.setColor(Theme.multAlpha(processColor(Theme.getColor(activeTextColorKey, resourcesProvider)), .15f));
+        selectorDrawable.setColor(selectedColor);
+        if (backgroundDrawable != null) {
+            // glass background is drawn manually (not the view background), so the theme dispatcher does not reach it
+            backgroundDrawable.updateColors();
+        }
         invalidate();
+    }
+    @Override
+    public void addColorKeys(HashSet<Integer> colors) {
+        colors.add(activeTextColorKey);
+        colors.add(unactiveTextColorKey);
+        colors.add(tabLineColorKey);
+        colors.add(selectorColorKey);
     }
 
     public int getCurrentTabId() {
@@ -827,20 +850,25 @@ public class ScrollSlidingTextTabStrip extends HorizontalScrollView implements T
             return;
         }
         final int currentScrollX = getScrollX();
-        final int left = child.getLeft();
-        final int width = child.getMeasuredWidth();
-        if (left - dp(50) < currentScrollX) {
-            if (smooth) {
-                smoothScrollTo(left - dp(50), 0);
-            } else {
-                scrollTo(left - dp(50), 0);
-            }
-        } else if (left + width + dp(21) > currentScrollX + getWidth()) {
-            if (smooth) {
-                smoothScrollTo(left + width, 0);
-            } else {
-                scrollTo(left + width, 0);
-            }
+        // keep the neighbouring tabs visible too, so the next ones can be reached by tapping
+        final View prevChild = tabsContainer.getChildAt(position - 1);
+        final View nextChild = tabsContainer.getChildAt(position + 1);
+        final int left = tabsContainer.getLeft() + (prevChild != null ? prevChild.getLeft() : child.getLeft());
+        final int right = tabsContainer.getLeft() + (nextChild != null ? nextChild.getRight() : child.getRight());
+        final int visibleLeft = currentScrollX + getPaddingLeft() + dp(7);
+        final int visibleRight = currentScrollX + getWidth() - getPaddingRight() - dp(7);
+        final int scrollX;
+        if (left < visibleLeft) {
+            scrollX = currentScrollX + left - visibleLeft;
+        } else if (right > visibleRight) {
+            scrollX = currentScrollX + right - visibleRight;
+        } else {
+            return;
+        }
+        if (smooth) {
+            smoothScrollTo(scrollX, 0);
+        } else {
+            scrollTo(scrollX, 0);
         }
     }
 

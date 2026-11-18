@@ -133,6 +133,16 @@ public abstract class LyricsRepository {
         callback.onResult(lyrics, i);
     }
 
+    private static final java.util.concurrent.ExecutorService SOURCE_IO=java.util.concurrent.Executors.newSingleThreadExecutor(r->{Thread thread=new Thread(r,"devgram-lyric-sources");thread.setDaemon(true);return thread;});
+    public static void fetchSource(TrackQuery query,String source,Callback callback){
+        if(source==null||source.isEmpty()){fetch(query,(lyrics,status)->{if(lyrics!=null)callback.onResult(lyrics,status);else fetchSource(query,"netease",callback);});return;}
+        SOURCE_IO.execute(()->{Lyrics found=null;int status=1;try{switch(source){case "lrclib":found=requestLrclib(query);break;case "lrcmux":found=requestLrcmux(query);break;case "netease":found=requestNetease(query);break;default:throw new IllegalArgumentException();}}catch(Exception error){status=2;}Lyrics result=found;int state=result==null?status:0;AndroidUtilities.runOnUIThread(()->callback.onResult(result,state));});
+    }
+    private static Lyrics requestNetease(TrackQuery query)throws Exception{
+        String value=get(HttpUrl.get("https://music.163.com/api/search/get").newBuilder().addQueryParameter("type","1").addQueryParameter("limit","8").addQueryParameter("s",query.title()+" "+(query.artist()==null?"":query.artist())).build());if(value==null)return null;JSONObject root=new JSONObject(value).optJSONObject("result");JSONArray songs=root==null?null:root.optJSONArray("songs");JSONObject best=null;int score=Integer.MIN_VALUE;for(int i=0;songs!=null&&i<Math.min(8,songs.length());i++){JSONObject song=songs.optJSONObject(i);if(song==null)continue;int rank=TrackQuery.normalize(song.optString("name")).equals(TrackQuery.normalize(query.title()))?100:0;JSONArray artists=song.optJSONArray("artists");for(int k=0;artists!=null&&k<artists.length();k++)if(TrackQuery.normalize(artists.getJSONObject(k).optString("name")).equals(TrackQuery.normalize(query.artist())))rank+=30;if(query.duration()>0)rank-=Math.min(100,Math.abs(song.optInt("duration")/1000-query.duration()));if(rank>score){score=rank;best=song;}}if(best==null||score<60)return null;
+        String raw=get(HttpUrl.get("https://music.163.com/api/song/lyric").newBuilder().addQueryParameter("lv","1").addQueryParameter("kv","1").addQueryParameter("tv","-1").addQueryParameter("id",Long.toString(best.optLong("id"))).build());JSONObject lyric=raw==null?null:new JSONObject(raw).optJSONObject("lrc");return lyric==null?null:Lyrics.parse(lyric.optString("lyric"),1,"NetEase");
+    }
+
     private static Lyrics requestLrclib(TrackQuery trackQuery) throws Exception {
         Lyrics lyricsFromLrclib;
         if (!TextUtils.isEmpty(trackQuery.artist())) {

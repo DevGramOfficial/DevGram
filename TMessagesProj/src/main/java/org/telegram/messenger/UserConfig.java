@@ -112,6 +112,15 @@ public class UserConfig extends BaseController {
         return count;
     }
 
+    public static java.util.ArrayList<Long> getLoggedInAccountIds() {
+        java.util.ArrayList<Long> ids = new java.util.ArrayList<>();
+        for (int a = 0; a < MAX_ACCOUNT_COUNT; a++) {
+            UserConfig config = getInstance(a);
+            if (config.isClientActivated()) ids.add(config.getClientUserId());
+        }
+        return ids;
+    }
+
     public static int getVisibleAccountsCount() {
         return HiddenAccountHelper.getVisibleAccountsCount();
     }

@@ -35,16 +35,35 @@ public final class DevGramAiClient {
         generate(prompt, false, callback);
     }
 
-    /** Isolated text-tool request which doesn't inherit the user's chat role or history. */
-    public static void generateTool(String prompt, String systemPrompt, Callback callback) {
-        JSONArray messages = new JSONArray();
-        try {
-            messages.put(new JSONObject().put("role", "user").put("content", prompt));
-        } catch (Throwable ignore) {}
-        request(messages, false, new StreamCallback() {
-            @Override public void onDelta(String delta) {}
-            @Override public void onDone(String full, Throwable error) { callback.done(full, error); }
-        }, systemPrompt == null ? "" : systemPrompt);
+    /** One tool request owns its socket/future. Stopping it never affects AI Chat. */
+    public static final class ToolRequest {
+        private volatile boolean cancelled;
+        private volatile Thread worker;
+        private volatile HttpURLConnection connection;
+        private volatile java.util.concurrent.Future<?> future;
+        public boolean cancelled(){return cancelled;}
+        public void cancel(){cancelled=true;java.util.concurrent.Future<?> task=future;if(task!=null)task.cancel(true);Thread thread=worker;if(thread!=null)thread.interrupt();HttpURLConnection socket=connection;if(socket!=null)new Thread(socket::disconnect,"DevGramAIToolStop").start();}
+        void bind(Thread thread){worker=thread;if(cancelled)thread.interrupt();}
+        void bind(HttpURLConnection socket){connection=socket;if(cancelled){socket.disconnect();throw new java.util.concurrent.CancellationException();}}
+        void bind(java.util.concurrent.Future<?> task){future=task;if(cancelled)task.cancel(true);}
+        void check(){if(cancelled||Thread.currentThread().isInterrupted())throw new java.util.concurrent.CancellationException();}
+    }
+    /** Isolated request with its own bounded tool conversation, never AI Chat's role/history. */
+    public static void generateTool(String prompt,String systemPrompt,Callback callback){generateTool(new JSONArray(),prompt,systemPrompt,callback);}
+    public static ToolRequest generateTool(JSONArray history,String prompt,String systemPrompt,Callback callback){
+        ToolRequest token=new ToolRequest();JSONArray messages=new JSONArray();
+        try{if(history!=null)for(int i=0;i<Math.min(10,history.length());i++){JSONObject message=history.optJSONObject(i);if(message!=null&&("user".equals(message.optString("role"))||"assistant".equals(message.optString("role"))))messages.put(copyMessage(message));}messages.put(new JSONObject().put("role","user").put("content",prompt));}catch(Exception ignored){}
+        request(messages,false,new StreamCallback(){public void onDelta(String delta){}public void onDone(String full,Throwable error){if(!token.cancelled())callback.done(full,error);}},systemPrompt==null?"":systemPrompt,token);return token;
+    }
+
+    /** Actual audio input for an audio-capable OpenAI-compatible model. No text-only fallback. */
+    public static ToolRequest generateAudioTool(byte[] audio,String format,String prompt,String system,Callback callback){
+        ToolRequest token=new ToolRequest();
+        if(audio==null||audio.length==0||audio.length>12*1024*1024||!("wav".equals(format)||"mp3".equals(format))||DevGramGeminiNano.isSelected()){
+            AndroidUtilities.runOnUIThread(()->callback.done(null,new IllegalArgumentException("audio_model_required")));return token;
+        }
+        try{long free=Runtime.getRuntime().maxMemory()-(Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory());if(free<audio.length*6L+8*1024*1024L)throw new IllegalStateException("audio_memory");JSONArray parts=new JSONArray().put(new JSONObject().put("type","text").put("text",prompt)).put(new JSONObject().put("type","input_audio").put("input_audio",new JSONObject().put("format",format).put("data",android.util.Base64.encodeToString(audio,android.util.Base64.NO_WRAP))));JSONArray messages=new JSONArray().put(new JSONObject().put("role","user").put("content",parts));request(messages,false,new StreamCallback(){public void onDelta(String delta){}public void onDone(String result,Throwable error){if(!token.cancelled())callback.done(result,error);}},system,token);}catch(Exception | OutOfMemoryError error){AndroidUtilities.runOnUIThread(()->callback.done(null,error));}
+        return token;
     }
 
     /**
@@ -167,7 +186,7 @@ public final class DevGramAiClient {
             Throwable error = null;
             HttpURLConnection connection = null;
             try {
-                if (key == null || key.trim().isEmpty()) throw new IllegalStateException("Не указан API-ключ");
+                if (key == null || key.trim().isEmpty()) throw new IllegalStateException(DevGramLocale.text("Не указан API-ключ"));
                 connection = (HttpURLConnection) new URL(endpoint).openConnection();
                 connection.setConnectTimeout(20000);
                 connection.setReadTimeout(60000);
@@ -237,22 +256,25 @@ public final class DevGramAiClient {
         request(conversation, stream, callback, null);
     }
 
-    private static void request(JSONArray conversation, boolean stream, StreamCallback callback, String systemOverride) {
+    private static void request(JSONArray conversation,boolean stream,StreamCallback callback,String systemOverride){request(conversation,stream,callback,systemOverride,null);}
+    private static void request(JSONArray conversation, boolean stream, StreamCallback callback, String systemOverride,ToolRequest cancellation) {
         if (DevGramGeminiNano.isSelected()) {
-            DevGramGeminiNano.generate(conversation, stream, systemOverride, callback);
+            DevGramGeminiNano.generate(conversation, stream, systemOverride, callback,cancellation);
             return;
         }
         new Thread(() -> {
+            if(cancellation!=null)cancellation.bind(Thread.currentThread());
             String result = null;
             Throwable error = null;
             HttpURLConnection connection = null;
             StringBuilder full = new StringBuilder();
             try {
+                if(cancellation!=null)cancellation.check();
                 SharedPreferences prefs = MessagesController.getGlobalMainSettings();
                 String endpoint = prefs.getString("dg_aiEndpoint", "https://api.openai.com/v1/chat/completions");
                 String model = prefs.getString("dg_aiModel", "gpt-4o-mini");
                 String key = prefs.getString("dg_aiKey", "");
-                if (key.trim().isEmpty()) throw new IllegalStateException("Сначала укажите API-ключ");
+                if (key.trim().isEmpty()) throw new IllegalStateException(DevGramLocale.text("Сначала укажите API-ключ"));
 
                 JSONObject body = new JSONObject();
                 body.put("model", model);
@@ -287,7 +309,9 @@ public final class DevGramAiClient {
                 // Сервис может не понимать часть параметров (уровень рассуждений, temperature, max_tokens):
                 // тогда убираем упомянутый в ошибке параметр и повторяем запрос
                 for (int attempt = 0; ; attempt++) {
+                    if(cancellation!=null)cancellation.check();
                     connection = (HttpURLConnection) new URL(endpoint).openConnection();
+                    if(cancellation!=null)cancellation.bind(connection);
                     connection.setConnectTimeout(20000);
                     connection.setReadTimeout(120000);
                     connection.setRequestMethod("POST");
@@ -322,6 +346,7 @@ public final class DevGramAiClient {
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                         String line;
                         while ((line = reader.readLine()) != null) {
+                            if(cancellation!=null)cancellation.check();
                             raw.append(line).append('\n');
                             if (!line.startsWith("data:")) continue;
                             String data = line.substring(5).trim();
@@ -334,7 +359,7 @@ public final class DevGramAiClient {
                                 if (!piece.isEmpty()) {
                                     full.append(piece);
                                     final String p = piece;
-                                    AndroidUtilities.runOnUIThread(() -> callback.onDelta(p));
+                                    AndroidUtilities.runOnUIThread(() -> {if(cancellation==null||!cancellation.cancelled())callback.onDelta(p);});
                                 }
                             } catch (Throwable ignore) {}
                         }
@@ -346,7 +371,7 @@ public final class DevGramAiClient {
                                     .getJSONObject(0).getJSONObject("message").getString("content");
                             full.append(content);
                             final String c = content;
-                            AndroidUtilities.runOnUIThread(() -> callback.onDelta(c));
+                            AndroidUtilities.runOnUIThread(() -> {if(cancellation==null||!cancellation.cancelled())callback.onDelta(c);});
                         } catch (Throwable ignore) {}
                     }
                     result = full.toString();
@@ -354,7 +379,7 @@ public final class DevGramAiClient {
                     StringBuilder response = new StringBuilder();
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
                         String line;
-                        while ((line = reader.readLine()) != null) response.append(line);
+                        while ((line = reader.readLine()) != null){if(cancellation!=null)cancellation.check();response.append(line);if(response.length()>1048576)throw new java.io.IOException("ai_response_limit");}
                     }
                     result = new JSONObject(response.toString()).getJSONArray("choices")
                             .getJSONObject(0).getJSONObject("message").getString("content");
@@ -366,7 +391,7 @@ public final class DevGramAiClient {
             }
             final String finalResult = result;
             final Throwable finalError = error;
-            AndroidUtilities.runOnUIThread(() -> callback.onDone(finalResult, finalError));
+            AndroidUtilities.runOnUIThread(() -> {if(cancellation==null||!cancellation.cancelled())callback.onDone(finalResult, finalError);});
         }, "DevGramAI").start();
     }
 }

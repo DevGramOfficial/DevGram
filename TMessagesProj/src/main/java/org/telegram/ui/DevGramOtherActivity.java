@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.R;
@@ -56,7 +57,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Другое");
+        actionBar.setTitle(DevGramLocale.text("Другое"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -86,7 +87,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
         Context ctx = getContext();
 
         // Поддержка — реквизиты; серая подпись снизу кликабельна и открывает лист «Поддержать DevGram».
-        items.add(UItem.asHeader("Поддержка"));
+        items.add(UItem.asHeader(DevGramLocale.text("Поддержка")));
         boolean dark = resourceProvider != null ? resourceProvider.isDark() : Theme.isCurrentThemeDark();
         // Реквизиты берутся с сервера (api.devgram.space), владелец меняет их через бота.
         org.telegram.messenger.DevGramRequisites.Data req = org.telegram.messenger.DevGramRequisites.load();
@@ -103,35 +104,35 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
         items.add(UItem.asShadow(supportCaption()));
 
         // Сбор данных
-        items.add(UItem.asHeader("Сбор данных"));
-        items.add(UItem.asCheck(ID_CRASHLYTICS, "Отчёты о сбоях").setChecked(DevGramConfig.crashlyticsEnabled));
-        items.add(UItem.asCheck(ID_ANALYTICS, "Аналитика").setChecked(DevGramConfig.analyticsEnabled));
+        items.add(UItem.asHeader(DevGramLocale.text("Сбор данных")));
+        items.add(UItem.asCheck(ID_CRASHLYTICS, DevGramLocale.text("Отчёты о сбоях")).setChecked(DevGramConfig.crashlyticsEnabled));
+        items.add(UItem.asCheck(ID_ANALYTICS, DevGramLocale.text("Аналитика")).setChecked(DevGramConfig.analyticsEnabled));
         if (DevGramConfig.crashlyticsEnabled) {
-            items.add(UItem.asButton(ID_CRASH_TEST, R.drawable.msg_report, org.telegram.messenger.DevGramNewBadge.mark("Проверить отчёт о сбое", org.telegram.messenger.DevGramNewBadge.CRASH_TEST)));
+            items.add(UItem.asButton(ID_CRASH_TEST, R.drawable.msg_report, org.telegram.messenger.DevGramNewBadge.mark(DevGramLocale.text("Проверить отчёт о сбое"), org.telegram.messenger.DevGramNewBadge.CRASH_TEST)));
         }
-        items.add(UItem.asShadow("Анонимные данные (версия, модель устройства, факт запуска, стек-трейсы "
-                + "сбоев) отправляются в базу DevGram, чтобы мы видели статистику и чинили ошибки. Без "
-                + "Google-SDK и без привязки к аккаунту. Отчёты о сбоях включены по умолчанию, аналитика "
-                + "— выключена. Любой тумблер можно отключить."));
+        items.add(UItem.asShadow(DevGramLocale.text("Анонимные данные (версия, модель устройства, факт запуска, стек-трейсы ")
+                + DevGramLocale.text("сбоев) отправляются в базу DevGram, чтобы мы видели статистику и чинили ошибки. Без ")
+                + DevGramLocale.text("Google-SDK и без привязки к аккаунту. Отчёты о сбоях включены по умолчанию, аналитика ")
+                + DevGramLocale.text("— выключена. Любой тумблер можно отключить.")));
 
         // Настройки мода
-        items.add(UItem.asHeader("Настройки"));
-        items.add(UItem.asButton(ID_EXPORT, R.drawable.msg_share, "Экспортировать настройки"));
-        items.add(UItem.asButton(ID_IMPORT, R.drawable.msg_download, "Импортировать настройки"));
-        items.add(UItem.asButton(ID_RESET, R.drawable.msg_reset, "Сбросить настройки"));
-        items.add(UItem.asShadow("Экспорт отправит файл .devgram выбранному чату. Импорт покажет отличия и "
-                + "предложит применить."));
-        items.add(UItem.asButton(ID_CLEANUP_ACCOUNT, R.drawable.msg_clearcache, "Очистить аккаунт").red());
-        items.add(UItem.asButton(ID_DELETE_ACCOUNT, R.drawable.msg_delete, "Удалить аккаунт").red());
-        items.add(UItem.asShadow("«Очистить аккаунт» удаляет контакты, чаты и группы, но сам аккаунт "
-                + "Telegram остаётся — им можно пользоваться дальше."));
+        items.add(UItem.asHeader(DevGramLocale.text("Настройки")));
+        items.add(UItem.asButton(ID_EXPORT, R.drawable.msg_share, DevGramLocale.text("Экспортировать настройки")));
+        items.add(UItem.asButton(ID_IMPORT, R.drawable.msg_download, DevGramLocale.text("Импортировать настройки")));
+        items.add(UItem.asButton(ID_RESET, R.drawable.msg_reset, DevGramLocale.text("Сбросить настройки")));
+        items.add(UItem.asShadow(DevGramLocale.text("Экспорт отправит файл .devgram выбранному чату. Импорт покажет отличия и ")
+                + DevGramLocale.text("предложит применить.")));
+        items.add(UItem.asButton(ID_CLEANUP_ACCOUNT, R.drawable.msg_clearcache, DevGramLocale.text("Очистить аккаунт")).red());
+        items.add(UItem.asButton(ID_DELETE_ACCOUNT, R.drawable.msg_delete, DevGramLocale.text("Удалить аккаунт")).red());
+        items.add(UItem.asShadow(DevGramLocale.text("«Очистить аккаунт» удаляет контакты, чаты и группы, но сам аккаунт ")
+                + DevGramLocale.text("Telegram остаётся — им можно пользоваться дальше.")));
     }
 
     // Серая подпись под реквизитами: часть «Поддержите разработку» кликабельна (цвет как у всего
     // текста подписи, без выделения), открывает лист «Поддержать DevGram».
     private CharSequence supportCaption() {
-        String full = "Поддержи DevGram донатом и забери эксклюзивный значок в профиль.";
-        String link = "Поддержи DevGram донатом";
+        String full = DevGramLocale.text("Поддержи DevGram донатом и забери эксклюзивный значок в профиль.");
+        String link = DevGramLocale.text("Поддержи DevGram донатом");
         android.text.SpannableString sp = new android.text.SpannableString(full);
         sp.setSpan(new android.text.style.ClickableSpan() {
             @Override
@@ -217,7 +218,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
                 context.getSystemService(Context.CLIPBOARD_SERVICE);
         if (clipboard != null) {
             clipboard.setPrimaryClip(android.content.ClipData.newPlainText(bank, card));
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.copy, "Номер карты скопирован").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.copy, DevGramLocale.text("Номер карты скопирован")).show();
         }
     }
 
@@ -231,7 +232,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
     private void exportSettings() {
         java.io.File f = DevGramSettingsIO.writeExportFile();
         if (f == null) {
-            BulletinFactory.of(this).createErrorBulletin("Не удалось подготовить файл").show();
+            BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось подготовить файл")).show();
             return;
         }
         Bundle args = new Bundle();
@@ -267,9 +268,9 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.setType("*/*");
             i.addCategory(Intent.CATEGORY_OPENABLE);
-            startActivityForResult(Intent.createChooser(i, "Выбери файл " + DevGramSettingsIO.EXT), REQ_IMPORT);
+            startActivityForResult(Intent.createChooser(i, DevGramLocale.text("Выбери файл ") + DevGramSettingsIO.EXT), REQ_IMPORT);
         } catch (Throwable e) {
-            BulletinFactory.of(this).createErrorBulletin("Не удалось открыть выбор файла").show();
+            BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось открыть выбор файла")).show();
         }
     }
 
@@ -278,7 +279,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
         if (requestCode == REQ_IMPORT && resultCode == Activity.RESULT_OK && data != null && data.getData() != null) {
             String content = DevGramSettingsIO.readUri(getContext(), data.getData());
             if (content == null) {
-                BulletinFactory.of(this).createErrorBulletin("Не удалось прочитать файл").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не удалось прочитать файл")).show();
                 return;
             }
             DevGramSettingsIO.handleImport(this, content, this::refreshList);
@@ -290,14 +291,14 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
             return;
         }
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Сбросить настройки");
-        b.setMessage("Все настройки DevGram вернутся к значениям по умолчанию. Продолжить?");
-        b.setPositiveButton("Сбросить", (d, w) -> {
+        b.setTitle(DevGramLocale.text("Сбросить настройки"));
+        b.setMessage(DevGramLocale.text("Все настройки DevGram вернутся к значениям по умолчанию. Продолжить?"));
+        b.setPositiveButton(DevGramLocale.text("Сбросить"), (d, w) -> {
             DevGramConfig.resetToDefaults();
             refreshList();
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Настройки сброшены").show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Настройки сброшены")).show();
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         AlertDialog dlg = b.create();
         showDialog(dlg);
         TextView btn = (TextView) dlg.getButton(AlertDialog.BUTTON_POSITIVE);
@@ -335,15 +336,15 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
     private void showCrashTestDialog() {
         if (getParentActivity() == null) return;
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-        builder.setTitle("Проверить отчёт о сбое");
-        builder.setMessage("Приложение сразу закроется. Откройте его снова — отчёт отправится автоматически.");
+        builder.setTitle(DevGramLocale.text("Проверить отчёт о сбое"));
+        builder.setMessage(DevGramLocale.text("Приложение сразу закроется. Откройте его снова — отчёт отправится автоматически."));
         builder.setItems(new CharSequence[]{
-                "Java-исключение",
-                "Нативный сбой (SIGSEGV)",
-                "Зависание (ANR) — потом коснитесь экрана"
+                DevGramLocale.text("Java-исключение"),
+                DevGramLocale.text("Нативный сбой (SIGSEGV)"),
+                DevGramLocale.text("Зависание (ANR) — потом коснитесь экрана")
         }, (dialog, which) -> AndroidUtilities.runOnUIThread(() -> {
             if (which == 0) {
-                throw new RuntimeException("DevGram: проверка отчёта о сбое");
+                throw new RuntimeException(DevGramLocale.text("DevGram: проверка отчёта о сбое"));
             } else if (which == 1) {
                 android.os.Process.sendSignal(android.os.Process.myPid(), 11);
             } else {
@@ -353,7 +354,7 @@ public class DevGramOtherActivity extends DevGramSettingsFragment {
                 }
             }
         }, 300));
-        builder.setNegativeButton("Отмена", null);
+        builder.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(builder.create());
     }
 }

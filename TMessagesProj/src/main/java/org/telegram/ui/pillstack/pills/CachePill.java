@@ -15,6 +15,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ImageLoader;
 import org.telegram.messenger.NotificationCenter;
@@ -145,10 +146,10 @@ public class CachePill extends BasePill implements NotificationCenter.Notificati
         final BaseFragment fragment = LaunchActivity.getSafeLastFragment();
         if (fragment == null) return false;
         ItemOptions.makeOptions(fragment, this)
-                .add(R.drawable.msg2_data, "Использование памяти", this::openCacheSettings)
+                .add(R.drawable.msg2_data, DevGramLocale.text("Использование памяти"), this::openCacheSettings)
                 .addGap()
-                .add(R.drawable.msg_retry, "Обновить", () -> onUpdateData(true))
-                .add(R.drawable.msg_settings, "Настройки", () -> fragment.presentFragment(new PillStackPreferencesActivity()))
+                .add(R.drawable.msg_retry, DevGramLocale.text("Обновить"), () -> onUpdateData(true))
+                .add(R.drawable.msg_settings, DevGramLocale.text("Настройки"), () -> fragment.presentFragment(new PillStackPreferencesActivity()))
                 .setDrawScrim(false)
                 .setDimAlpha(0)
                 .show();

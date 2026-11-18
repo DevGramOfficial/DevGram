@@ -122,7 +122,7 @@ public final class DevGramAnimGuard {
                     + "поток:      " + Thread.currentThread().getName() + "\n\n"
                     + "Signal: anim-null-target\n"
                     + trace;
-            Utilities.globalQueue.postRunnable(() -> DevGramTelemetry.uploadReport(report));
+            DevGramNetworkQueue.postRunnable(() -> DevGramTelemetry.uploadReport(report));
         } catch (Throwable ignore) {
         }
     }

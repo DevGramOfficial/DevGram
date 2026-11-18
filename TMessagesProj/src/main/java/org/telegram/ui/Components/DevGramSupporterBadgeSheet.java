@@ -23,6 +23,7 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.LocaleController;
@@ -82,34 +83,34 @@ public final class DevGramSupporterBadgeSheet {
             header = new PlaneHeaderView(getContext(), resourcesProvider, badge.number);
             views.add(header);
 
-            title = own ? "Спасибо за поддержку!" : name + " поддерживает DevGram";
+            title = own ? DevGramLocale.text("Спасибо за поддержку!") : name + DevGramLocale.text(" поддерживает DevGram");
             TextView titleView = text(getContext(), title, 20, true,
                     Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
             titleView.setGravity(Gravity.CENTER);
             titleView.setPadding(AndroidUtilities.dp(22), 0, AndroidUtilities.dp(22), 0);
             views.add(titleView);
 
-            String number = badge.number > 0 ? formatNumber(badge.number) : "уникальный значок";
+            String number = badge.number > 0 ? formatNumber(badge.number) : DevGramLocale.text("уникальный значок");
             TextView subtitleView = text(getContext(), own
-                            ? "Ваш самолётик " + number + " виден рядом с именем."
-                            : "Номерной самолётик виден всем пользователям DevGram.",
+                            ? DevGramLocale.text("Ваш самолётик ") + number + DevGramLocale.text(" виден рядом с именем.")
+                            : DevGramLocale.text("Номерной самолётик виден всем пользователям DevGram."),
                     14, false, Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
             subtitleView.setGravity(Gravity.CENTER);
             subtitleView.setPadding(AndroidUtilities.dp(22), AndroidUtilities.dp(6),
                     AndroidUtilities.dp(22), AndroidUtilities.dp(14));
             views.add(subtitleView);
 
-            views.add(feature(R.drawable.devgram_ic_badge, "Номерной значок",
+            views.add(feature(R.drawable.devgram_ic_badge, DevGramLocale.text("Номерной значок"),
                     badge.number > 0
-                            ? "Уникальный номер " + number + " сохраняется за владельцем значка."
-                            : "Уникальный самолётик рядом с именем.", null));
-            views.add(feature(R.drawable.msg_customize, "Оформление профиля",
-                    "Свой значок, цвет имени, фон и обводка сообщений.", own ? () -> {
+                            ? DevGramLocale.text("Уникальный номер ") + number + DevGramLocale.text(" сохраняется за владельцем значка.")
+                            : DevGramLocale.text("Уникальный самолётик рядом с именем."), null));
+            views.add(feature(R.drawable.msg_customize, DevGramLocale.text("Оформление профиля"),
+                    DevGramLocale.text("Свой значок, цвет имени, фон и обводка сообщений."), own ? () -> {
                         dismiss();
                         fragment.presentFragment(new DevGramSupporterActivity());
                     } : null));
-            views.add(feature(R.drawable.msg_settings, "Ранние сборки",
-                    "Новые возможности раньше остальных пользователей.", own ? () -> {
+            views.add(feature(R.drawable.msg_settings, DevGramLocale.text("Ранние сборки"),
+                    DevGramLocale.text("Новые возможности раньше остальных пользователей."), own ? () -> {
                         dismiss();
                         DevGramSupporterActivity.openBetaChannel(fragment);
                     } : null));
@@ -122,7 +123,7 @@ public final class DevGramSupporterBadgeSheet {
 
             ButtonWithCounterView primary = new ButtonWithCounterView(getContext(), true, resourcesProvider);
             primary.setRound();
-            primary.setText(own ? "Настройки для поддержавших" : "Как получить значок", false);
+            primary.setText(own ? DevGramLocale.text("Настройки для поддержавших") : DevGramLocale.text("Как получить значок"), false);
             primary.setOnClickListener(v -> {
                 dismiss();
                 if (own) {
@@ -137,7 +138,7 @@ public final class DevGramSupporterBadgeSheet {
             if (own) {
                 ButtonWithCounterView transfer = new ButtonWithCounterView(getContext(), true, resourcesProvider).setNeutral();
                 transfer.setRound();
-                transfer.setText("Передать другому аккаунту", false);
+                transfer.setText(DevGramLocale.text("Передать другому аккаунту"), false);
                 transfer.setTextColor(Theme.getColor(
                         Theme.key_featuredStickers_buttonText, resourcesProvider));
                 transfer.setOnClickListener(v -> showTransfer(fragment, this, v));
@@ -214,7 +215,7 @@ public final class DevGramSupporterBadgeSheet {
         if (count > 0) {
             options.addGap();
         }
-        options.add(R.drawable.msg_link2, "Другой аккаунт", "Перенести по одноразовой ссылке", () -> {
+        options.add(R.drawable.msg_link2, DevGramLocale.text("Другой аккаунт"), DevGramLocale.text("Перенести по одноразовой ссылке"), () -> {
             sheet.dismiss();
             openTransferBot(fragment);
         });
@@ -233,12 +234,12 @@ public final class DevGramSupporterBadgeSheet {
         DevGramBadges.Badge badge = DevGramBadges.badgeOf(UserConfig.getInstance(source).getClientUserId());
         String number = badge != null && badge.number > 0 ? formatNumber(badge.number) : "";
         AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getParentActivity(), fragment.getResourceProvider());
-        builder.setTitle("Передача значка");
-        builder.setMessage(AndroidUtilities.replaceTags("Передать значок **" + number + "** аккаунту **"
-                + targetName + "**? Этот аккаунт его потеряет, а следующая передача будет доступна через 30 дней."));
-        builder.setPositiveButton("Передать", (dialog, which) ->
+        builder.setTitle(DevGramLocale.text("Передача значка"));
+        builder.setMessage(AndroidUtilities.replaceTags(DevGramLocale.text("Передать значок **") + number + DevGramLocale.text("** аккаунту **")
+                + targetName + DevGramLocale.text("**? Этот аккаунт его потеряет, а следующая передача будет доступна через 30 дней.")));
+        builder.setPositiveButton(DevGramLocale.text("Передать"), (dialog, which) ->
                 transfer(fragment, source, target, targetName));
-        builder.setNegativeButton("Отмена", null);
+        builder.setNegativeButton(DevGramLocale.text("Отмена"), null);
         AlertDialog dialog = builder.create();
         fragment.showDialog(dialog);
         View positive = dialog.getButton(-1);
@@ -250,17 +251,17 @@ public final class DevGramSupporterBadgeSheet {
 
     private static void transfer(BaseFragment fragment, int source, int target, String targetName) {
         BulletinFactory.of(fragment).createSimpleBulletin(R.raw.contact_check,
-                "Подтверждаю аккаунты…").show();
+                DevGramLocale.text("Подтверждаю аккаунты…")).show();
         DevGramBadges.transfer(source, target, (ok, error) -> {
             if (fragment.isFinished) {
                 return;
             }
             if (ok) {
                 BulletinFactory.of(fragment).createSimpleBulletin(R.raw.contact_check,
-                        "Значок передан аккаунту «" + targetName + "»").show();
+                        DevGramLocale.text("Значок передан аккаунту «") + targetName + DevGramLocale.text("»")).show();
             } else {
                 BulletinFactory.of(fragment).createSimpleBulletin(R.raw.error,
-                        TextUtils.isEmpty(error) ? "Не удалось передать значок" : error).show();
+                        TextUtils.isEmpty(error) ? DevGramLocale.text("Не удалось передать значок") : error).show();
             }
         });
     }
@@ -377,7 +378,7 @@ public final class DevGramSupporterBadgeSheet {
             addView(plane, LayoutHelper.createFrame(132, 132, Gravity.CENTER, 0, -8, 0, 0));
 
             if (number > 0) {
-                TextView pill = text(context, "Значок " + formatNumber(number), 13, true,
+                TextView pill = text(context, DevGramLocale.text("Значок ") + formatNumber(number), 13, true,
                         Theme.key_featuredStickers_buttonText, resourcesProvider);
                 pill.setGravity(Gravity.CENTER);
                 pill.setTextColor(resolveContrastColor(blend(color1, color2)));

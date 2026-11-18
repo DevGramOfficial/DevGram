@@ -273,20 +273,19 @@ public class BitmapsCache {
                                 e.printStackTrace();
                             }
                         }
-                        if (bitmap[i] != null) {
-                            try {
-                                bitmap[i].recycle();
-                            } catch (Exception e) {
-
-                            }
-                        }
                     }
+                    // The shared pool owns these buffers; another animation may reuse them.
                     randomAccessFile.close();
-                    source.releaseForGenerateCache();
                     return;
                 }
 
-                if (source.getNextFrame(bitmap[index]) != 1) {
+                int frameResult = source.getNextFrame(bitmap[index]);
+                if (frameResult == -1) {
+                    // render failed: abort without marking the cache as complete
+                    closed.set(true);
+                    continue;
+                }
+                if (frameResult != 1) {
                     break;
                 }
                 countDownLatch[index] = new CountDownLatch(1);
@@ -296,18 +295,21 @@ public class BitmapsCache {
                 int finalFramePosition = framePosition;
                 RandomAccessFile finalRandomAccessFile1 = randomAccessFile;
                 bitmapCompressExecutor.execute(() -> {
-                    if (cancelled.get() || closed.get()) {
-                        return;
-                    }
-
-                    Bitmap.CompressFormat format = Bitmap.CompressFormat.WEBP;
-                    if (Build.VERSION.SDK_INT <= 28) {
-                        format = Bitmap.CompressFormat.PNG;
-                    }
-                    bitmap[finalIndex].compress(format, compressQuality, byteArrayOutputStream[finalIndex]);
-                    int size = byteArrayOutputStream[finalIndex].count;
-
                     try {
+                        if (cancelled.get() || closed.get()) {
+                            return;
+                        }
+
+                        Bitmap.CompressFormat format = Bitmap.CompressFormat.WEBP;
+                        if (Build.VERSION.SDK_INT <= 28) {
+                            format = Bitmap.CompressFormat.PNG;
+                        }
+                        if (!bitmap[finalIndex].compress(format, compressQuality, byteArrayOutputStream[finalIndex])) {
+                            closed.set(true);
+                            return;
+                        }
+                        int size = byteArrayOutputStream[finalIndex].count;
+
                         synchronized (mutex) {
                             FrameOffset frameOffset = new FrameOffset(finalFramePosition);
                             frameOffset.frameOffset = (int) finalRandomAccessFile1.length();
@@ -318,17 +320,13 @@ public class BitmapsCache {
                             frameOffset.frameSize = size;
                             byteArrayOutputStream[finalIndex].reset();
                         }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        try {
-                            finalRandomAccessFile1.close();
-                        } catch (Exception e2) {
-                        } finally {
-                            closed.set(true);
-                        }
+                    } catch (Exception e) {
+                        FileLog.e(e, false);
+                        closed.set(true);
+                    } finally {
+                        // Aborted jobs still have to unblock the generation queue.
+                        countDownLatch[finalIndex].countDown();
                     }
-
-                    countDownLatch[finalIndex].countDown();
                 });
 
                 index++;
@@ -346,6 +344,11 @@ public class BitmapsCache {
                         e.printStackTrace();
                     }
                 }
+            }
+
+            if (cancelled.get() || closed.get()) {
+                randomAccessFile.close();
+                return;
             }
 
             int arrayOffset = (int) randomAccessFile.length();
@@ -639,7 +642,7 @@ public class BitmapsCache {
             }
             lastSize = size;
             for (int i = 0; i < N; i++) {
-                if (recreateBitmaps || bitmap[i] == null) {
+                if (recreateBitmaps || bitmap[i] == null || bitmap[i].isRecycled()) {
                     if (bitmap[i] != null) {
                         Bitmap bitmapToRecycle = bitmap[i];
                         Utilities.globalQueue.postRunnable(() -> {
@@ -654,6 +657,8 @@ public class BitmapsCache {
                 }
                 if (byteArrayOutputStream[i] == null) {
                     byteArrayOutputStream[i] = new ImmutableByteArrayOutputStream(w * h * 2);
+                } else {
+                    byteArrayOutputStream[i].reset();
                 }
             }
         }

@@ -15,6 +15,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.DevGramBeta;
@@ -47,6 +48,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private static final int ID_PROFILE_BG = 6;
     private static final int ID_NICK = 7;
     private static final int ID_ICONS = 8;
+    private static final int ID_PROFILE_STYLE = 9;
     private boolean welcomeShown;
 
     private UniversalRecyclerView listView;
@@ -65,7 +67,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Поддержавшим");
+        actionBar.setTitle(DevGramLocale.text("Поддержавшим"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -84,33 +86,38 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(heroView));
 
-        items.add(UItem.asHeader("Оформление"));
+        if (org.telegram.messenger.DevGramProfileCustomization.enabled()) {
+        items.add(UItem.asHeader(DevGramLocale.text("Оформление")));
+        items.add(UItem.asButton(ID_PROFILE_STYLE, R.drawable.msg_colors, DevGramLocale.text("Оформление профиля")));
         long uid = getUserConfig().getClientUserId();
         DevGramBadges.Badge badge = DevGramBadges.badgeOf(uid);
         boolean customBadge = badge != null && badge.emojiId != badge.originalEmojiId;
-        items.add(UItem.asButton(ID_BADGE, R.drawable.msg_premium_badge, "Значок у ника", customBadge ? "Свой" : "Выданный"));
+        items.add(UItem.asButton(ID_BADGE, R.drawable.msg_premium_badge, DevGramLocale.text("Значок у ника"), customBadge ? DevGramLocale.text("Свой") : DevGramLocale.text("Выданный")));
         int frame = DevGramBadges.borderOf(uid);
         org.telegram.ui.Components.DevGramMessageFrame.Style st = org.telegram.ui.Components.DevGramMessageFrame.get(frame);
-        items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, "Обводка сообщений", st != null ? st.title : "Нет"));
-        items.add(UItem.asButton(ID_NICK, R.drawable.msg_colors, "Цвет ника", nickTitle(uid)));
-        items.add(UItem.asButton(ID_PROFILE_BG, R.drawable.msg_photos, "Фон профиля", DevGramProfileBgActivity.statusText(currentAccount)));
-        items.add(UItem.asButton(ID_ICONS, R.drawable.msg_customize, "Иконки приложения", "16 эксклюзивных"));
-        items.add(UItem.asShadow("Значок, обводку и фон профиля видят все пользователи DevGram."));
+        items.add(UItem.asButton(ID_FRAME, R.drawable.msg_photo_settings, DevGramLocale.text("Обводка сообщений"), st != null ? DevGramLocale.text(st.title) : DevGramLocale.text("Нет")));
+        items.add(UItem.asButton(ID_NICK, R.drawable.msg_colors, DevGramLocale.text("Цвет ника"), nickTitle(uid)));
+        items.add(UItem.asButton(ID_PROFILE_BG, R.drawable.msg_photos, DevGramLocale.text("Фон профиля"), DevGramProfileBgActivity.statusText(currentAccount)));
+        items.add(UItem.asShadow(DevGramLocale.text("Значок, обводку и фон профиля видят все пользователи DevGram.")));
+        }
+        items.add(UItem.asButton(ID_ICONS, R.drawable.msg_customize, DevGramLocale.text("Иконки приложения"), DevGramLocale.text("16 эксклюзивных")));
 
-        items.add(UItem.asHeader("Ваши возможности"));
-        items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, "Прокси DevGram", "Защищённое подключение")
+        items.add(UItem.asHeader(DevGramLocale.text("Ваши возможности")));
+        items.add(UItem.asIconButtonCheck(ID_PROXY, R.drawable.drawer_proxy_on, DevGramLocale.text("Прокси DevGram"), DevGramLocale.text("Защищённое подключение"))
                 .setChecked(DevGramProxy.isEnabled()));
         if (DevGramBeta.hasAccess(currentAccount)) {
-            items.add(UItem.asButton(ID_UPDATE_CHANNEL, R.drawable.msg_channel, "Канал обновлений",
-                    DevGramConfig.updateChannel == 1 ? "Бета" : "Основной"));
-            items.add(UItem.asButton(ID_BETA_CHANNEL, R.drawable.msg_groups, "Закрытый канал беты",
-                    DevGramBeta.isBetaChannelMember(currentAccount) ? "Открыть" : "Вступить"));
+            items.add(UItem.asButton(ID_UPDATE_CHANNEL, R.drawable.msg_channel, DevGramLocale.text("Канал обновлений"),
+                    DevGramConfig.updateChannel == 1 ? DevGramLocale.text("Бета") : DevGramLocale.text("Основной")));
+            items.add(UItem.asButton(ID_BETA_CHANNEL, R.drawable.msg_groups, DevGramLocale.text("Закрытый канал беты"),
+                    DevGramBeta.isBetaChannelMember(currentAccount) ? DevGramLocale.text("Открыть") : DevGramLocale.text("Вступить")));
         }
-        items.add(UItem.asShadow("Бета-канал получает новые версии раньше всех. Новые возможности для поддержавших будут появляться в этом разделе."));
+        items.add(UItem.asShadow(DevGramLocale.text("Бета-канал получает новые версии раньше всех. Новые возможности для поддержавших будут появляться в этом разделе.")));
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == ID_PROXY) {
+        if (item.id == ID_PROFILE_STYLE) {
+            presentFragment(new DevGramProfileStyleActivity());
+        } else if (item.id == ID_PROXY) {
             boolean enable = !DevGramProxy.isEnabled();
             DevGramProxy.setEnabled(enable);
             DevGramConfig.setVpnEnabled(enable);
@@ -134,11 +141,11 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
 
     private static String nickTitle(long uid) {
         int[] c = DevGramBadges.nickColorsOf(uid);
-        if (c == null) return "Обычный";
+        if (c == null) return DevGramLocale.text("Обычный");
         for (org.telegram.ui.Components.DevGramNickColor.Preset p : org.telegram.ui.Components.DevGramNickColor.PRESETS) {
-            if (java.util.Arrays.equals(p.colors, c)) return p.title;
+            if (java.util.Arrays.equals(p.colors, c)) return DevGramLocale.text(p.title);
         }
-        return "Свой";
+        return DevGramLocale.text("Свой");
     }
 
     // Первый заход: благодарность и приглашение в закрытый канал беты (один раз на аккаунт)
@@ -149,15 +156,15 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
         if (prefs.getBoolean(key, false) || welcomeShown || getParentActivity() == null) return;
         org.telegram.ui.ActionBar.AlertDialog.Builder b = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity(), resourceProvider);
         b.setTopAnimation(R.raw.email_setup_heart, 72, false, Theme.getColor(Theme.key_dialogTopBackground, resourceProvider));
-        b.setTitle("Спасибо за поддержку!");
-        b.setMessage("Вы помогаете DevGram развиваться — спасибо ❤️\n\nВ благодарность вам открыт закрытый канал беты: "
-                + "новые версии и новости там появляются раньше всех.\n\n"
-                + "Ссылка персональная и сработает один раз — только для вас. Вступить можно и позже, кнопкой в этом разделе.");
-        b.setPositiveButton("Присоединиться", (d, w) -> {
+        b.setTitle(DevGramLocale.text("Спасибо за поддержку!"));
+        b.setMessage(DevGramLocale.text("Вы помогаете DevGram развиваться — спасибо ❤️\n\nВ благодарность вам открыт закрытый канал беты: ")
+                + DevGramLocale.text("новые версии и новости там появляются раньше всех.\n\n")
+                + DevGramLocale.text("Ссылка персональная и сработает один раз — только для вас. Вступить можно и позже, кнопкой в этом разделе."));
+        b.setPositiveButton(DevGramLocale.text("Присоединиться"), (d, w) -> {
             prefs.edit().putBoolean(key, true).apply();
             openBetaChannel(this);
         });
-        b.setNegativeButton("Отказаться", (d, w) -> prefs.edit().putBoolean(key, true).apply());
+        b.setNegativeButton(DevGramLocale.text("Отказаться"), (d, w) -> prefs.edit().putBoolean(key, true).apply());
         // пока идёт анимация открытия экрана, showDialog отказывает — тогда покажем в следующий раз
         welcomeShown = showDialog(b.create()) != null;
     }
@@ -174,15 +181,15 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             fragment.presentFragment(new ChatActivity(args));
             return;
         }
-        BulletinFactory.of(fragment).createSimpleBulletin(R.raw.contact_check, "Получаю персональную ссылку…").show();
+        BulletinFactory.of(fragment).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Получаю персональную ссылку…")).show();
         DevGramBeta.requestInvite(account, (link, error) -> {
             if (link == null) {
-                if ("Канал беты ещё не готов".equals(error)) {
+                if (DevGramLocale.text("Канал беты ещё не готов").equals(error)) {
                     // канал ещё не подключён — приглашение покажем снова, когда появится
                     fragment.getMessagesController().getGlobalMainSettings().edit()
                             .remove("devgramBetaInvite_" + fragment.getUserConfig().getClientUserId()).apply();
                 }
-                BulletinFactory.of(fragment).createErrorBulletin(error != null ? error : "Не удалось получить ссылку").show();
+                BulletinFactory.of(fragment).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось получить ссылку")).show();
                 return;
             }
             if (fragment.getParentActivity() != null) {
@@ -213,14 +220,14 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             if (listView != null && listView.adapter != null) listView.adapter.update(true);
             return;
         }
-        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Активирую бета-канал…").show();
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Активирую бета-канал…")).show();
         DevGramBeta.activate(currentAccount, (ok, error) -> {
             if (ok) {
                 DevGramConfig.setUpdateChannel(1);
                 if (listView != null && listView.adapter != null) listView.adapter.update(true);
-                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Бета-канал включён").show();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Бета-канал включён")).show();
             } else {
-                BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось активировать бету").show();
+                BulletinFactory.of(this).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось активировать бету")).show();
             }
         });
     }
@@ -260,7 +267,7 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             texts.setGravity(Gravity.CENTER_HORIZONTAL);
 
             TextView title = new TextView(context);
-            title.setText("Спасибо за поддержку!");
+            title.setText(DevGramLocale.text("Спасибо за поддержку!"));
             title.setTextColor(0xffffffff);
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
             title.setTypeface(AndroidUtilities.bold());
@@ -270,8 +277,8 @@ public class DevGramSupporterActivity extends DevGramSettingsFragment {
             TLRPC.User me = getUserConfig().getCurrentUser();
             String name = me != null ? UserObject.getFirstName(me) : null;
             TextView subtitle = new TextView(context);
-            subtitle.setText((TextUtils.isEmpty(name) ? "Вы" : name + ", вы")
-                    + " помогаете DevGram развиваться. Ниже — возможности, которые открыты только поддержавшим проект.");
+            subtitle.setText((TextUtils.isEmpty(name) ? DevGramLocale.text("Вы") : name + DevGramLocale.text(", вы"))
+                    + DevGramLocale.text(" помогаете DevGram развиваться. Ниже — возможности, которые открыты только поддержавшим проект."));
             subtitle.setTextColor(0xe6ffffff);
             subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             subtitle.setGravity(Gravity.CENTER);

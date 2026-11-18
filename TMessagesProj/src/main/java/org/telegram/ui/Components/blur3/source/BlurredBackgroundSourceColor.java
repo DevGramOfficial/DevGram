@@ -4,12 +4,11 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
-import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawableSource;
 
 public class BlurredBackgroundSourceColor implements BlurredBackgroundSource {
     @Override
     public BlurredBackgroundDrawable createDrawable() {
-        return new BlurredBackgroundDrawableSource(this);
+        return new BlurredBackgroundDrawable(this);
     }
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -27,3 +26,4 @@ public class BlurredBackgroundSourceColor implements BlurredBackgroundSource {
         canvas.drawRect(left, top, right, bottom, paint);
     }
 }
+

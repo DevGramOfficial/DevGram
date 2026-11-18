@@ -17,9 +17,9 @@ import android.widget.FrameLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
@@ -64,12 +64,15 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
     private final int[] custom = {0xFF00B4D8, 0xFFB04BF2};
     private int editing;        // 0 — начало, 1 — конец градиента
     private boolean saving;
+    private final DevGramStudioActivity.Draft draft;
+    public DevGramNickColorActivity(){this(null);}
+    public DevGramNickColorActivity(DevGramStudioActivity.Draft draft){this.draft=draft;}
 
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Цвет ника");
+        actionBar.setTitle(DevGramLocale.text("Цвет ника"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -77,6 +80,10 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
             }
         });
         saved = DevGramBadges.nickColorsOf(getUserConfig().getClientUserId());
+        if(draft!=null && draft.document.has("nickColor")) {
+            int first=draft.document.optInt("nickColor"),second=draft.document.optInt("nickColor2");
+            saved=first==0?null:second==0?new int[]{0xff000000|first}:new int[]{0xff000000|first,0xff000000|second};
+        }
         shown = saved;
         if (saved != null && presetIndex(saved) < 0) {
             customMode = true;
@@ -87,7 +94,7 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
         preview = new PreviewView(context);
         grid = new GridView(context);
         swatches = new SwatchesView(context);
-        picker = new DevGramColorPickerView(context);
+        picker = new DevGramColorPickerView(context,resourceProvider);
         picker.setColor(custom[0]);
         picker.setListener(color -> {
             custom[editing] = color;
@@ -116,17 +123,17 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(preview));
-        items.add(UItem.asShadow("Так ваше имя видят все пользователи DevGram: в чатах, списке чатов, профиле и шапке чата."));
-        items.add(UItem.asHeader("Цвет"));
+        items.add(UItem.asShadow(DevGramLocale.text("Так ваше имя видят все пользователи DevGram: в чатах, списке чатов, профиле и шапке чата.")));
+        items.add(UItem.asHeader(DevGramLocale.text("Цвет")));
         items.add(UItem.asCustom(grid));
         if (customMode) {
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader("Свой цвет"));
-            items.add(UItem.asCheck(ID_GRADIENT, "Градиент").setChecked(customGradient));
+            items.add(UItem.asHeader(DevGramLocale.text("Свой цвет")));
+            items.add(UItem.asCheck(ID_GRADIENT, DevGramLocale.text("Градиент")).setChecked(customGradient));
             if (customGradient) items.add(UItem.asCustom(swatches));
             items.add(UItem.asCustom(picker));
-            items.add(UItem.asButton(ID_HEX, R.drawable.msg_palette, "Ввести HEX-код"));
-            items.add(UItem.asButton(ID_SAVE, R.drawable.msg_select, "Сохранить свой цвет").accent());
+            items.add(UItem.asButton(ID_HEX, R.drawable.msg_palette, DevGramLocale.text("Ввести HEX-код")));
+            items.add(UItem.asButton(ID_SAVE, R.drawable.msg_select, DevGramLocale.text("Сохранить свой цвет")).accent());
         }
         items.add(UItem.asShadow(null));
     }
@@ -179,13 +186,13 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
         container.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
         container.addView(et, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         AlertDialog.Builder b = new AlertDialog.Builder(context, resourceProvider);
-        b.setTitle("HEX-код цвета");
-        b.setMessage(customGradient ? "Два кода через пробел — начало и конец градиента. Один код покрасит выбранный кружок." : "Например, #FF5722");
+        b.setTitle(DevGramLocale.text("HEX-код цвета"));
+        b.setMessage(customGradient ? DevGramLocale.text("Два кода через пробел — начало и конец градиента. Один код покрасит выбранный кружок.") : DevGramLocale.text("Например, #FF5722"));
         b.setView(container);
-        b.setPositiveButton(LocaleController.getString(R.string.Done), (d, w) -> {
+        b.setPositiveButton(DevGramLocale.getString(R.string.Done), (d, w) -> {
             ArrayList<Integer> colors = parseHex(et.getText().toString());
             if (colors.isEmpty()) {
-                BulletinFactory.of(this).createErrorBulletin("Не похоже на HEX-код").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Не похоже на HEX-код")).show();
                 return;
             }
             if (customGradient && colors.size() > 1) {
@@ -200,7 +207,7 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
             swatches.invalidate();
             grid.invalidate();
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
         et.requestFocus();
         AndroidUtilities.showKeyboard(et);
@@ -228,10 +235,10 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
     private void showUnsavedAlert() {
         if (getParentActivity() == null) return;
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
-        b.setTitle("Сохранить цвет?");
-        b.setMessage("Свой цвет ника подобран, но ещё не сохранён.");
-        b.setPositiveButton("Сохранить", (d, w) -> save(customColors(), true));
-        b.setNegativeButton("Не сохранять", (d, w) -> finishFragment());
+        b.setTitle(DevGramLocale.text("Сохранить цвет?"));
+        b.setMessage(DevGramLocale.text("Свой цвет ника подобран, но ещё не сохранён."));
+        b.setPositiveButton(DevGramLocale.text("Сохранить"), (d, w) -> save(customColors(), true));
+        b.setNegativeButton(DevGramLocale.text("Не сохранять"), (d, w) -> finishFragment());
         showDialog(b.create());
     }
 
@@ -251,7 +258,9 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
     }
 
     private void save(int[] colors, boolean closeAfter) {
+        if (!DevGramAppearanceAccess.check(this, "profile.nick")) return;
         if (saving) return;
+        if(draft!=null){try{draft.document.put("nickColor",colors==null||colors.length==0?0:colors[0]&0xffffff);draft.document.put("nickColor2",colors!=null&&colors.length>1?colors[1]&0xffffff:0);draft.dirty=true;saved=shown=colors;preview.invalidate();grid.invalidate();if(draft.onChanged!=null)draft.onChanged.run();if(closeAfter)finishFragment();}catch(Exception ignored){}return;}
         saving = true;
         final int[] previous = saved;
         shown = colors;
@@ -270,10 +279,10 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
                         finishFragment();
                         return;
                     }
-                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, colors == null ? "Обычный цвет ника" : "Цвет ника сохранён").show();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, colors == null ? DevGramLocale.text("Обычный цвет ника") : DevGramLocale.text("Цвет ника сохранён")).show();
                 } else {
                     shown = previous;
-                    BulletinFactory.of(this).createErrorBulletin(error != null ? error : "Не удалось сохранить").show();
+                    BulletinFactory.of(this).createErrorBulletin(error != null ? error : DevGramLocale.text("Не удалось сохранить")).show();
                 }
                 preview.invalidate();
                 grid.invalidate();
@@ -366,9 +375,9 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
             canvas.restore();
             text.setColor(Theme.getColor(Theme.key_chat_messageTextIn, resourceProvider));
             text.setTextSize(AndroidUtilities.dp(14));
-            canvas.drawText("Ответ на сообщение", quote.left + AndroidUtilities.dp(10), quote.top + AndroidUtilities.dp(36), text);
+            canvas.drawText(DevGramLocale.text("Ответ на сообщение"), quote.left + AndroidUtilities.dp(10), quote.top + AndroidUtilities.dp(36), text);
             text.setTextSize(AndroidUtilities.dp(15));
-            canvas.drawText("Как вам мой новый цвет? ✨", left + AndroidUtilities.dp(12), top + AndroidUtilities.dp(102), text);
+            canvas.drawText(DevGramLocale.text("Как вам мой новый цвет? ✨"), left + AndroidUtilities.dp(12), top + AndroidUtilities.dp(102), text);
         }
     }
 
@@ -548,7 +557,7 @@ public class DevGramNickColorActivity extends DevGramSettingsFragment {
                     ring.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
                     canvas.drawCircle(cx, cy, AndroidUtilities.dp(20), ring);
                 }
-                canvas.drawText(i == 0 ? "Начало" : "Конец", cx + AndroidUtilities.dp(30), cy + AndroidUtilities.dp(5), label);
+                canvas.drawText(i == 0 ? DevGramLocale.text("Начало") : DevGramLocale.text("Конец"), cx + AndroidUtilities.dp(30), cy + AndroidUtilities.dp(5), label);
             }
         }
 

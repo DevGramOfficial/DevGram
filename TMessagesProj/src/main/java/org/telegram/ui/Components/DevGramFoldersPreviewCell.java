@@ -8,6 +8,7 @@ import android.graphics.RectF;
 import android.text.TextPaint;
 import android.view.View;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.LocaleController;
@@ -25,7 +26,9 @@ public class DevGramFoldersPreviewCell extends View {
     private final TextPaint countText = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
 
-    private static final String[] TABS = {"Все чаты", "Работа", "Личное"};
+    private static String[] getTabs() {
+        return new String[]{DevGramLocale.text("Все чаты"), DevGramLocale.text("Работа"), DevGramLocale.text("Личное")};
+    }
     private static final int[] COUNTS = {34, 17, 3};
 
     public DevGramFoldersPreviewCell(Context context) {
@@ -57,9 +60,9 @@ public class DevGramFoldersPreviewCell extends View {
         boolean rtl = LocaleController.isRTL;
         float x = rtl ? getMeasuredWidth() - AndroidUtilities.dp(16) : AndroidUtilities.dp(16);
 
-        for (int i = 0; i < TABS.length; i++) {
+        for (int i = 0; i < getTabs().length; i++) {
             boolean sel = i == 0;
-            String label = TABS[i];
+            String label = getTabs()[i];
             float iconW = (style == 1 || style == 2) ? AndroidUtilities.dp(16) : 0;
             float textW = (style == 2) ? 0 : text.measureText(label);
             float iconGap = (style == 1 && textW > 0) ? AndroidUtilities.dp(6) : 0;

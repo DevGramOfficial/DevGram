@@ -8,6 +8,7 @@ import android.view.Gravity;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramGhostSettings;
 import org.telegram.messenger.LocaleController;
@@ -67,7 +68,7 @@ public class LastSeenPill extends BasePill implements NotificationCenter.Notific
     @Override public void onUpdateData(boolean forceRefresh) {
         int account = UserConfig.selectedAccount;
         String value;
-        if (DevGramGhostSettings.isActive(account)) value = "Призрак";
+        if (DevGramGhostSettings.isActive(account)) value = DevGramLocale.text("Призрак");
         else value = LocaleController.formatUserStatus(account, MessagesController.getInstance(account).getUser(UserConfig.getInstance(account).getClientUserId()));
         text.setText(value, forceRefresh); markDataUpdated();
     }

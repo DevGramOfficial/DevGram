@@ -10,6 +10,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
@@ -46,7 +47,7 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Система плагинов");
+        actionBar.setTitle(DevGramLocale.text("Система плагинов"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -63,31 +64,31 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asHeader("Настройки"));
-        items.add(UItem.asCheck(ID_SAFE_MODE, "Безопасный режим").setChecked(DevGramPlugins.isSafeMode()));
-        items.add(UItem.asShadow("Все плагины неактивны — так можно найти и отключить проблемный плагин."));
-        items.add(UItem.asCheck(ID_COMPACT, "Компактный вид").setChecked(DevGramPlugins.flag("compact_view", false)));
-        items.add(UItem.asShadow("Скрывает описание в карточках — список короче."));
-        items.add(UItem.asCheck(ID_DEV_MODE, "Режим разработчика").setChecked(DevGramPlugins.flag("dev_mode", false)));
-        items.add(UItem.asShadow("Показывает имя файла плагина в списке."));
-        items.add(UItem.asCheck(ID_STATIC_ANALYSIS, "Статический анализ").setChecked(DevGramPlugins.flag("static_analysis", true)));
-        items.add(UItem.asShadow("Проверять код плагина перед установкой и показывать, что он умеет."));
+        items.add(UItem.asHeader(DevGramLocale.text("Настройки")));
+        items.add(UItem.asCheck(ID_SAFE_MODE, DevGramLocale.text("Безопасный режим")).setChecked(DevGramPlugins.isSafeMode()));
+        items.add(UItem.asShadow(DevGramLocale.text("Все плагины неактивны — так можно найти и отключить проблемный плагин.")));
+        items.add(UItem.asCheck(ID_COMPACT, DevGramLocale.text("Компактный вид")).setChecked(DevGramPlugins.flag("compact_view", false)));
+        items.add(UItem.asShadow(DevGramLocale.text("Скрывает описание в карточках — список короче.")));
+        items.add(UItem.asCheck(ID_DEV_MODE, DevGramLocale.text("Режим разработчика")).setChecked(DevGramPlugins.flag("dev_mode", false)));
+        items.add(UItem.asShadow(DevGramLocale.text("Показывает имя файла плагина в списке.")));
+        items.add(UItem.asCheck(ID_STATIC_ANALYSIS, DevGramLocale.text("Статический анализ")).setChecked(DevGramPlugins.flag("static_analysis", true)));
+        items.add(UItem.asShadow(DevGramLocale.text("Проверять код плагина перед установкой и показывать, что он умеет.")));
 
         items.add(UItem.asHeader("Python"));
-        items.add(UItem.asShadow("Встроенный Python: v" + DevGramPlugins.pythonVersion() + " (в составе приложения)."));
-        items.add(UItem.asButton(ID_RELOAD, R.drawable.msg_reset, "Перезагрузить плагины"));
-        items.add(UItem.asShadow("Перечитывает папку с плагинами без перезапуска приложения."));
-        items.add(UItem.asButton(ID_DEV_TOKEN, R.drawable.msg_info, "Токен dev server", "Нужен утилите загрузки .dgplugin"));
+        items.add(UItem.asShadow(DevGramLocale.text("Встроенный Python: v") + DevGramPlugins.pythonVersion() + DevGramLocale.text(" (в составе приложения).")));
+        items.add(UItem.asButton(ID_RELOAD, R.drawable.msg_reset, DevGramLocale.text("Перезагрузить плагины")));
+        items.add(UItem.asShadow(DevGramLocale.text("Перечитывает папку с плагинами без перезапуска приложения.")));
+        items.add(UItem.asButton(ID_DEV_TOKEN, R.drawable.msg_info, DevGramLocale.text("Токен dev server"), DevGramLocale.text("Нужен утилите загрузки .dgplugin")));
 
-        items.add(UItem.asHeader("Диагностика"));
-        items.add(UItem.asButton(ID_LOGS, R.drawable.msg_info, "Логи плагинов"));
-        items.add(UItem.asShadow("Общий журнал: загрузка и включение плагинов, ошибки хуков."));
-        items.add(UItem.asButton(ID_CRASH, R.drawable.msg_info, "Показать отчёт о сбое"));
-        items.add(UItem.asShadow("Полный лог последнего падения (устройство, стек, logcat). Сохранён в файле devgram_crash.txt."));
+        items.add(UItem.asHeader(DevGramLocale.text("Диагностика")));
+        items.add(UItem.asButton(ID_LOGS, R.drawable.msg_info, DevGramLocale.text("Логи плагинов")));
+        items.add(UItem.asShadow(DevGramLocale.text("Общий журнал: загрузка и включение плагинов, ошибки хуков.")));
+        items.add(UItem.asButton(ID_CRASH, R.drawable.msg_info, DevGramLocale.text("Показать отчёт о сбое")));
+        items.add(UItem.asShadow(DevGramLocale.text("Полный лог последнего падения (устройство, стек, logcat). Сохранён в файле devgram_crash.txt.")));
 
-        items.add(UItem.asHeader("Ссылки"));
-        items.add(UItem.asButton(ID_DOCS, R.drawable.msg_info, "Документация"));
-        items.add(UItem.asButton(ID_VERIFIED, R.drawable.devgram_plugins, "Проверенные плагины", "Папка Telegram"));
+        items.add(UItem.asHeader(DevGramLocale.text("Ссылки")));
+        items.add(UItem.asButton(ID_DOCS, R.drawable.msg_info, DevGramLocale.text("Документация")));
+        items.add(UItem.asButton(ID_VERIFIED, R.drawable.devgram_plugins, DevGramLocale.text("Проверенные плагины"), DevGramLocale.text("Папка Telegram")));
         items.add(UItem.asShadow(null));
     }
 
@@ -95,7 +96,7 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
         if (item.id == ID_SAFE_MODE) {
             boolean safeMode = !DevGramPlugins.isSafeMode();
             DevGramPlugins.setFlag("safe_mode", safeMode);
-            DevGramPlugins.logLine(safeMode ? "включён безопасный режим" : "выключен безопасный режим");
+            DevGramPlugins.logLine(safeMode ? DevGramLocale.text("включён безопасный режим") : DevGramLocale.text("выключен безопасный режим"));
             if (safeMode) {
                 DevGramPlugins.setDevServerEnabled(false);
                 DevGramPlugins.enterSafeMode();
@@ -106,7 +107,7 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
                 }
                 BulletinFactory.of(this).createSimpleBulletin(
                         R.raw.contact_check,
-                        "Безопасный режим выключен. Загружено плагинов: " + n
+                        DevGramLocale.text("Безопасный режим выключен. Загружено плагинов: ") + n
                 ).show();
             }
         } else if (item.id == ID_STATIC_ANALYSIS) {
@@ -116,7 +117,7 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
         } else if (item.id == ID_DEV_MODE) {
             boolean enabled = !DevGramPlugins.flag("dev_mode", false);
             DevGramPlugins.setFlag("dev_mode", enabled);
-            DevGramPlugins.logLine(enabled ? "включён режим разработчика" : "выключен режим разработчика");
+            DevGramPlugins.logLine(enabled ? DevGramLocale.text("включён режим разработчика") : DevGramLocale.text("выключен режим разработчика"));
             if (enabled) {
                 DevGramPlugins.setDevServerEnabled(true);
             } else {
@@ -127,7 +128,7 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
             return;
         } else if (item.id == ID_RELOAD) {
             int n = DevGramPlugins.reload();
-            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Перезагружено плагинов: " + n).show();
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Перезагружено плагинов: ") + n).show();
             return;
         } else if (item.id == ID_LOGS) {
             DevGramPlugins.showPluginLogs();
@@ -150,29 +151,29 @@ public class DevGramPluginSystemActivity extends DevGramSettingsFragment {
     }
 
     private void showDevServerTokenDialog() {
-        String connectionInfo = "Порт: " + DevGramPlugins.DEV_SERVER_PORT
-                + "\nТокен: " + DevGramPlugins.devServerToken();
+        String connectionInfo = DevGramLocale.text("Порт: ") + DevGramPlugins.DEV_SERVER_PORT
+                + DevGramLocale.text("\nТокен: ") + DevGramPlugins.devServerToken();
         new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
-                .setTitle("Токен dev server")
-                .setMessage(connectionInfo + "\n\nНе передавайте токен другим приложениям.")
-                .setNeutralButton("Сбросить", (dialog, which) -> confirmDevServerTokenReset())
-                .setNegativeButton("Скопировать", (dialog, which) -> {
+                .setTitle(DevGramLocale.text("Токен dev server"))
+                .setMessage(connectionInfo + DevGramLocale.text("\n\nНе передавайте токен другим приложениям."))
+                .setNeutralButton(DevGramLocale.text("Сбросить"), (dialog, which) -> confirmDevServerTokenReset())
+                .setNegativeButton(DevGramLocale.text("Скопировать"), (dialog, which) -> {
                     org.telegram.messenger.AndroidUtilities.addToClipboard(connectionInfo);
-                    BulletinFactory.of(this).createCopyBulletin("Порт и токен скопированы").show();
+                    BulletinFactory.of(this).createCopyBulletin(DevGramLocale.text("Порт и токен скопированы")).show();
                 })
-                .setPositiveButton("Готово", null)
+                .setPositiveButton(DevGramLocale.text("Готово"), null)
                 .show();
     }
 
     private void confirmDevServerTokenReset() {
         new org.telegram.ui.ActionBar.AlertDialog.Builder(getContext())
-                .setTitle("Сбросить токен?")
-                .setMessage("Старый токен сразу перестанет работать. Dev server перезапустится с новым токеном.")
-                .setNegativeButton("Отмена", null)
-                .setPositiveButton("Сбросить", (dialog, which) -> {
+                .setTitle(DevGramLocale.text("Сбросить токен?"))
+                .setMessage(DevGramLocale.text("Старый токен сразу перестанет работать. Dev server перезапустится с новым токеном."))
+                .setNegativeButton(DevGramLocale.text("Отмена"), null)
+                .setPositiveButton(DevGramLocale.text("Сбросить"), (dialog, which) -> {
                     DevGramPlugins.resetDevServerToken();
                     org.telegram.messenger.AndroidUtilities.runOnUIThread(() -> {
-                        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, "Создан новый токен").show();
+                        BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Создан новый токен")).show();
                         showDevServerTokenDialog();
                     }, 160);
                 })

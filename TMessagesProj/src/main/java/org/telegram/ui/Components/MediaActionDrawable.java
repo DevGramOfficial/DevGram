@@ -16,8 +16,12 @@ import android.text.TextPaint;
 import android.view.animation.DecelerateInterpolator;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ApplicationLoader;
+import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.MessageDrawable;
 import org.telegram.ui.ActionBar.Theme;
+
+import java.util.Locale;
 
 public class MediaActionDrawable extends Drawable {
 
@@ -37,6 +41,38 @@ public class MediaActionDrawable extends Drawable {
     public static final int ICON_CANCEL_PERCENT = 13;
     public static final int ICON_CANCEL_FILL = 14;
     public static final int ICON_UPDATE = 15;
+    public static final int ICON_PLUGIN = 16;
+    public static final int ICON_ICON_PACK = 17;
+
+    public static int fileIconForName(String name) {
+        if (name != null) {
+            final String lower = name.toLowerCase(Locale.ROOT);
+            if (lower.endsWith(".dgicons")) return ICON_ICON_PACK;
+            if (lower.endsWith(".plugin") || lower.endsWith(".dgplugin")) {
+                return ICON_PLUGIN;
+            }
+        }
+        return ICON_FILE;
+    }
+
+    public static boolean isFileIcon(int icon) {
+        return icon == ICON_FILE || icon == ICON_PLUGIN || icon == ICON_ICON_PACK;
+    }
+
+    private Drawable pluginFileIcon;
+    private Drawable iconPackFileIcon;
+    private Drawable getIconPackFileIcon() {
+        if (iconPackFileIcon == null) iconPackFileIcon = ApplicationLoader.applicationContext.getResources().getDrawable(R.drawable.devgram_icon_pack_file).mutate();
+        return iconPackFileIcon;
+    }
+
+    private Drawable getPluginFileIcon() {
+        if (pluginFileIcon == null) {
+            pluginFileIcon = ApplicationLoader.applicationContext.getResources()
+                    .getDrawable(R.drawable.filled_profile_settings).mutate();
+        }
+        return pluginFileIcon;
+    }
 
     private TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     public Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -470,7 +506,7 @@ public class MediaActionDrawable extends Drawable {
                     alpha = 0;
                 }
                 rotation = 0;
-            } else if (nextIcon == ICON_UPDATE || nextIcon == ICON_PLAY || nextIcon == ICON_PAUSE || nextIcon == ICON_FILE || nextIcon == ICON_GIF || nextIcon == ICON_SECRETCHECK || nextIcon == ICON_FIRE || nextIcon == ICON_CHECK) {
+            } else if (nextIcon == ICON_UPDATE || nextIcon == ICON_PLAY || nextIcon == ICON_PAUSE || isFileIcon(nextIcon) || nextIcon == ICON_GIF || nextIcon == ICON_SECRETCHECK || nextIcon == ICON_FIRE || nextIcon == ICON_CHECK) {
                 float progress;
                 float backProgress;
                 if (nextIcon == ICON_CHECK) {
@@ -616,6 +652,14 @@ public class MediaActionDrawable extends Drawable {
             nextPath = Theme.chat_filePath;
         } else if (currentIcon == ICON_FILE) {
             previousPath = Theme.chat_filePath;
+        }
+        if (nextIcon == ICON_ICON_PACK) nextDrawable = getIconPackFileIcon();
+        if (currentIcon == ICON_ICON_PACK) previousDrawable = getIconPackFileIcon();
+        if (nextIcon == ICON_PLUGIN) {
+            nextDrawable = getPluginFileIcon();
+        }
+        if (currentIcon == ICON_PLUGIN) {
+            previousDrawable = getPluginFileIcon();
         }
         if (nextIcon == ICON_FIRE) {
             nextDrawable = Theme.chat_flameIcon;

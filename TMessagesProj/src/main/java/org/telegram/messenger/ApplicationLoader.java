@@ -91,6 +91,11 @@ public class ApplicationLoader extends Application {
     private static ILocationServiceProvider locationServiceProvider;
 
     @Override
+    public android.content.res.Resources getResources() {
+        return org.telegram.messenger.devgram.icons.IconManager.resources(super.getResources());
+    }
+
+    @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
     }
@@ -206,6 +211,8 @@ public class ApplicationLoader extends Application {
 
                     }
 
+                    DevGramProxyNetwork.requestCheck();
+
                     boolean isSlow = isConnectionSlow();
                     for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                         if (a != 0 && !UserConfig.getInstance(a).isClientActivated()) {
@@ -230,6 +237,8 @@ public class ApplicationLoader extends Application {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        LiteMode.registerBatteryReceiver();
 
         try {
             PowerManager pm = (PowerManager) ApplicationLoader.applicationContext.getSystemService(Context.POWER_SERVICE);
@@ -275,6 +284,7 @@ public class ApplicationLoader extends Application {
         }
 
         MediaController.getInstance();
+        DevGramProxyNetwork.requestCheck();
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
             if (a != 0 && !UserConfig.getInstance(a).isClientActivated()) {
                 continue;
@@ -284,6 +294,8 @@ public class ApplicationLoader extends Application {
         }
 
         Utilities.globalQueue.postRunnable(ApplicationLoader::cleanupUnusedAccountDirs);
+        AndroidUtilities.runOnUIThread(() -> Utilities.globalQueue.postRunnable(
+                () -> org.telegram.utils.twidget.WidgetSandboxSession.prewarmEngine(applicationContext)), 3000);
     }
 
     private static void cleanupUnusedAccountDirs() {
@@ -340,8 +352,14 @@ public class ApplicationLoader extends Application {
 
         super.onCreate();
 
+        // The widget engine's isolated process has no files, network or accounts: none of the client starts there.
+        if (org.telegram.utils.twidget.WidgetEngineService.isEngineProcess()) {
+            return;
+        }
+
         // AndroidUtilities must be initialized before FileLog
         final String helloWorld = AndroidUtilities.getHelloWorld();
+        org.telegram.messenger.devgram.icons.IconManager.INSTANCE.start(super.getResources());
 
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d(helloWorld);
@@ -607,11 +625,19 @@ public class ApplicationLoader extends Application {
                             @Override
                             public void onAvailable(@NonNull Network network) {
                                 lastKnownNetworkType = -1;
+                                DevGramProxyNetwork.requestCheck();
                             }
 
                             @Override
                             public void onCapabilitiesChanged(@NonNull Network network, @NonNull NetworkCapabilities networkCapabilities) {
                                 lastKnownNetworkType = -1;
+                                DevGramProxyNetwork.requestCheck();
+                            }
+
+                            @Override
+                            public void onLost(@NonNull Network network) {
+                                lastKnownNetworkType = -1;
+                                DevGramProxyNetwork.requestCheck();
                             }
                         };
                         connectivityManager.registerDefaultNetworkCallback(networkCallback);

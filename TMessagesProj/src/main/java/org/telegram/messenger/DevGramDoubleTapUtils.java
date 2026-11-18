@@ -54,15 +54,15 @@ public abstract class DevGramDoubleTapUtils {
 
     public static CharSequence label(int action) {
         switch (action) {
-            case ACTION_REACTIONS: return "Реакции";
-            case ACTION_REPLY: return "Ответить";
-            case ACTION_COPY: return "Копировать";
-            case ACTION_FORWARD: return "Переслать";
-            case ACTION_EDIT: return "Изменить";
-            case ACTION_SAVE: return "Сохранить";
-            case ACTION_DELETE: return "Удалить";
-            case ACTION_TRANSLATE: return "Перевести";
-            default: return "Отключено";
+            case ACTION_REACTIONS: return DevGramLocale.text("Реакции");
+            case ACTION_REPLY: return DevGramLocale.text("Ответить");
+            case ACTION_COPY: return DevGramLocale.text("Копировать");
+            case ACTION_FORWARD: return DevGramLocale.text("Переслать");
+            case ACTION_EDIT: return DevGramLocale.text("Изменить");
+            case ACTION_SAVE: return DevGramLocale.text("Сохранить");
+            case ACTION_DELETE: return DevGramLocale.text("Удалить");
+            case ACTION_TRANSLATE: return DevGramLocale.text("Перевести");
+            default: return DevGramLocale.text("Отключено");
         }
     }
 

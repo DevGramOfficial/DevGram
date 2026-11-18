@@ -14,9 +14,9 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ContactsController;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.NotificationsController;
@@ -45,7 +45,7 @@ public class HiddenAccountsActivity extends UniversalFragment {
 
     @Override
     protected CharSequence getTitle() {
-        return LocaleController.getString(R.string.HiddenAccounts);
+        return DevGramLocale.getString(R.string.HiddenAccounts);
     }
 
     @Override
@@ -59,22 +59,22 @@ public class HiddenAccountsActivity extends UniversalFragment {
         boolean canUseHiddenAccounts = HiddenAccountHelper.canUseHiddenAccounts();
         boolean hasHiddenAccounts = HiddenAccountHelper.hasAnyHiddenAccounts();
 
-        items.add(UItem.asHeader(LocaleController.getString(R.string.HiddenAccountsOptions)));
-        items.add(UItem.asCheck(ID_STEALTH_MODE, LocaleController.getString(R.string.HiddenAccountsStealthMode))
+        items.add(UItem.asHeader(DevGramLocale.getString(R.string.HiddenAccountsOptions)));
+        items.add(UItem.asCheck(ID_STEALTH_MODE, DevGramLocale.getString(R.string.HiddenAccountsStealthMode))
                 .setChecked(HiddenAccountHelper.isStealthModeEnabled())
                 .setEnabled(!hasPasscode));
-        items.add(UItem.asCheck(ID_SETTINGS_ONLY_WHEN_HIDDEN, LocaleController.getString(R.string.HiddenAccountsOnlyShowWhenSignedInAsHiddenAccount))
+        items.add(UItem.asCheck(ID_SETTINGS_ONLY_WHEN_HIDDEN, DevGramLocale.getString(R.string.HiddenAccountsOnlyShowWhenSignedInAsHiddenAccount))
                 .setChecked(HiddenAccountHelper.isSettingsVisibleOnlyWhenSignedInAsHiddenAccount())
                 .setEnabled(hasHiddenAccounts));
         if (hasPasscode) {
-            items.add(UItem.asShadow(LocaleController.getString(R.string.HiddenAccountsPasscodeModeInfo)));
+            items.add(UItem.asShadow(DevGramLocale.getString(R.string.HiddenAccountsPasscodeModeInfo)));
         } else if (HiddenAccountHelper.isStealthModeEnabled()) {
-            items.add(UItem.asShadow(LocaleController.getString(R.string.HiddenAccountsStealthModeInfo)));
+            items.add(UItem.asShadow(DevGramLocale.getString(R.string.HiddenAccountsStealthModeInfo)));
         } else {
-            items.add(UItem.asShadow(LocaleController.getString(R.string.HiddenAccountsNeedsPasscodeOrStealthMode)));
+            items.add(UItem.asShadow(DevGramLocale.getString(R.string.HiddenAccountsNeedsPasscodeOrStealthMode)));
         }
 
-        items.add(UItem.asHeader(LocaleController.getString(R.string.HiddenAccountsAccounts)));
+        items.add(UItem.asHeader(DevGramLocale.getString(R.string.HiddenAccountsAccounts)));
         TextPaint titlePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         titlePaint.setTextSize(AndroidUtilities.dp(16));
         int titleMaxWidth = AndroidUtilities.displaySize.x - AndroidUtilities.dp(160);
@@ -83,11 +83,11 @@ public class HiddenAccountsActivity extends UniversalFragment {
             if (user == null) {
                 continue;
             }
-            String value = LocaleController.getString(HiddenAccountHelper.isAccountHidden(a) ? R.string.HiddenAccountsStateHidden : R.string.HiddenAccountsStateVisible);
+            String value = DevGramLocale.getString(HiddenAccountHelper.isAccountHidden(a) ? R.string.HiddenAccountsStateHidden : R.string.HiddenAccountsStateVisible);
             CharSequence name = TextUtils.ellipsize(UserObject.getUserName(user), titlePaint, titleMaxWidth, TextUtils.TruncateAt.END);
             items.add(UItem.asButton(ACCOUNT_ID_OFFSET + a, R.drawable.msg2_secret, name, value).setEnabled(canUseHiddenAccounts || HiddenAccountHelper.isAccountHidden(a)));
         }
-        items.add(UItem.asShadow(LocaleController.getString(R.string.HiddenAccountsAccountsInfo)));
+        items.add(UItem.asShadow(DevGramLocale.getString(R.string.HiddenAccountsAccountsInfo)));
     }
 
     @Override
@@ -130,11 +130,11 @@ public class HiddenAccountsActivity extends UniversalFragment {
     private void toggleStealthMode() {
         boolean enabled = !HiddenAccountHelper.isStealthModeEnabled();
         if (enabled && !SharedConfig.passcodeHash.isEmpty()) {
-            AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsStealthModeRequiresPasscodeOff));
+            AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsStealthModeRequiresPasscodeOff));
             return;
         }
         if (!enabled && SharedConfig.passcodeHash.isEmpty() && HiddenAccountHelper.hasAnyHiddenAccounts()) {
-            AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsDisableStealthNeedsPasscode));
+            AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsDisableStealthNeedsPasscode));
             return;
         }
         HiddenAccountHelper.setStealthModeEnabled(enabled);
@@ -157,11 +157,11 @@ public class HiddenAccountsActivity extends UniversalFragment {
 
     private void startHideAccountFlow(int account) {
         if (!HiddenAccountHelper.canUseHiddenAccounts()) {
-            AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsNeedsPasscodeOrStealthMode));
+            AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsNeedsPasscodeOrStealthMode));
             return;
         }
         if (!HiddenAccountHelper.canHideAccount(account)) {
-            AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsNeedVisibleAccount));
+            AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsNeedVisibleAccount));
             return;
         }
         showSetUnlockCodeDialog(account, false);
@@ -177,8 +177,8 @@ public class HiddenAccountsActivity extends UniversalFragment {
             return;
         }
         CharSequence[] items = new CharSequence[] {
-                LocaleController.getString(R.string.HiddenAccountsChangeUnlockCode),
-                LocaleController.getString(R.string.HiddenAccountsRemoveHiddenAccount)
+                DevGramLocale.getString(R.string.HiddenAccountsChangeUnlockCode),
+                DevGramLocale.getString(R.string.HiddenAccountsRemoveHiddenAccount)
         };
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
         builder.setTitle(UserObject.getUserName(UserConfig.getInstance(account).getCurrentUser()));
@@ -197,7 +197,7 @@ public class HiddenAccountsActivity extends UniversalFragment {
         if (context == null) {
             return;
         }
-        EditTextBoldCursor codeField = createCodeField(context, LocaleController.getString(R.string.HiddenAccountsCurrentUnlockCode));
+        EditTextBoldCursor codeField = createCodeField(context, DevGramLocale.getString(R.string.HiddenAccountsCurrentUnlockCode));
 
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -205,11 +205,11 @@ public class HiddenAccountsActivity extends UniversalFragment {
         layout.addView(codeField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 36, Gravity.FILL_HORIZONTAL, 0, 8, 0, 0));
 
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(LocaleController.getString(R.string.HiddenAccountsConfirmCurrentUnlockCode));
-        builder.setMessage(LocaleController.getString(R.string.HiddenAccountsConfirmCurrentUnlockCodeInfo));
+        builder.setTitle(DevGramLocale.getString(R.string.HiddenAccountsConfirmCurrentUnlockCode));
+        builder.setMessage(DevGramLocale.getString(R.string.HiddenAccountsConfirmCurrentUnlockCodeInfo));
         builder.setView(layout);
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        builder.setPositiveButton(LocaleController.getString(R.string.Continue), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
+        builder.setPositiveButton(DevGramLocale.getString(R.string.Continue), null);
 
         AlertDialog alertDialog = builder.create();
         alertDialog.setOnShowListener(dialog -> {
@@ -217,7 +217,7 @@ public class HiddenAccountsActivity extends UniversalFragment {
             AndroidUtilities.showKeyboard(codeField);
             alertDialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(v -> {
                 if (!HiddenAccountHelper.verifyUnlockCode(account, codeField.getText().toString())) {
-                    AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsIncorrectCurrentUnlockCode));
+                    AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsIncorrectCurrentUnlockCode));
                     return;
                 }
                 alertDialog.dismiss();
@@ -233,10 +233,10 @@ public class HiddenAccountsActivity extends UniversalFragment {
             return;
         }
         AlertDialog alertDialog = new AlertDialog.Builder(context)
-                .setTitle(LocaleController.getString(R.string.HiddenAccountsRemoveHiddenAccount))
-                .setMessage(LocaleController.getString(R.string.HiddenAccountsRemoveHiddenAccountConfirm))
-                .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
-                .setPositiveButton(LocaleController.getString(R.string.HiddenAccountsShowAccount), (dialog, which) -> {
+                .setTitle(DevGramLocale.getString(R.string.HiddenAccountsRemoveHiddenAccount))
+                .setMessage(DevGramLocale.getString(R.string.HiddenAccountsRemoveHiddenAccountConfirm))
+                .setNegativeButton(DevGramLocale.getString(R.string.Cancel), null)
+                .setPositiveButton(DevGramLocale.getString(R.string.HiddenAccountsShowAccount), (dialog, which) -> {
                     HiddenAccountHelper.removeHiddenAccount(account);
                     if (UserConfig.selectedAccount == account) {
                         HiddenAccountHelper.clearUnlockedHiddenAccount();
@@ -260,8 +260,8 @@ public class HiddenAccountsActivity extends UniversalFragment {
             return;
         }
 
-        EditTextBoldCursor firstField = createCodeField(context, LocaleController.getString(R.string.HiddenAccountsEnterUnlockCode));
-        EditTextBoldCursor secondField = createCodeField(context, LocaleController.getString(R.string.HiddenAccountsConfirmUnlockCode));
+        EditTextBoldCursor firstField = createCodeField(context, DevGramLocale.getString(R.string.HiddenAccountsEnterUnlockCode));
+        EditTextBoldCursor secondField = createCodeField(context, DevGramLocale.getString(R.string.HiddenAccountsConfirmUnlockCode));
 
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -270,11 +270,11 @@ public class HiddenAccountsActivity extends UniversalFragment {
         layout.addView(secondField, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 36, Gravity.FILL_HORIZONTAL, 0, 12, 0, 0));
 
         AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(LocaleController.getString(replacing ? R.string.HiddenAccountsChangeUnlockCode : R.string.HiddenAccountsHideAccount));
-        builder.setMessage(LocaleController.getString(R.string.HiddenAccountsUnlockCodeInfo));
+        builder.setTitle(DevGramLocale.getString(replacing ? R.string.HiddenAccountsChangeUnlockCode : R.string.HiddenAccountsHideAccount));
+        builder.setMessage(DevGramLocale.getString(R.string.HiddenAccountsUnlockCodeInfo));
         builder.setView(layout);
-        builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
-        builder.setPositiveButton(LocaleController.getString(replacing ? R.string.Save : R.string.HiddenAccountsHideAccountAction), null);
+        builder.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
+        builder.setPositiveButton(DevGramLocale.getString(replacing ? R.string.Save : R.string.HiddenAccountsHideAccountAction), null);
 
         AlertDialog alertDialog = builder.create();
         alertDialog.setOnShowListener(dialog -> {
@@ -285,17 +285,17 @@ public class HiddenAccountsActivity extends UniversalFragment {
                 String secondCode = secondField.getText().toString();
                 int validation = HiddenAccountHelper.validateUnlockCode(account, firstCode);
                 if (validation == HiddenAccountHelper.VALIDATE_CODE_INVALID) {
-                    AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsInvalidUnlockCode));
+                    AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsInvalidUnlockCode));
                     return;
                 } else if (validation == HiddenAccountHelper.VALIDATE_CODE_DUPLICATE) {
-                    AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsDuplicateUnlockCode));
+                    AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsDuplicateUnlockCode));
                     return;
                 } else if (validation == HiddenAccountHelper.VALIDATE_CODE_APP_PASSCODE) {
-                    AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsUnlockCodeMatchesAppPasscode));
+                    AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsUnlockCodeMatchesAppPasscode));
                     return;
                 }
                 if (!TextUtils.equals(firstCode, secondCode)) {
-                    AlertsCreator.showSimpleAlert(this, LocaleController.getString(R.string.HiddenAccountsUnlockCodesDoNotMatch));
+                    AlertsCreator.showSimpleAlert(this, DevGramLocale.getString(R.string.HiddenAccountsUnlockCodesDoNotMatch));
                     return;
                 }
                 HiddenAccountHelper.setHiddenAccountCode(account, firstCode);

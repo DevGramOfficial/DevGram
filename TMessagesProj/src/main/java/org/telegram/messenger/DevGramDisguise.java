@@ -133,6 +133,6 @@ public class DevGramDisguise {
             } catch (Exception ignore) {
             }
         }
-        return LocaleController.getString(mask.title);
+        return DevGramLocale.getString(mask.title);
     }
 }

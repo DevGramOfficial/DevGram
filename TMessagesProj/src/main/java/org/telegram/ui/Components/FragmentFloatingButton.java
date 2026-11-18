@@ -68,7 +68,13 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
         addView(progressView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         setAnimatedVisibility(progressView, 0);
 
-        ScaleStateListAnimator.apply(this);
+        if (DevGramClassicDesign.enabled()) {
+            android.animation.StateListAnimator states = new android.animation.StateListAnimator();
+            states.addState(new int[]{android.R.attr.state_pressed}, android.animation.ObjectAnimator.ofFloat(this, View.TRANSLATION_Z, dp(4)).setDuration(200));
+            states.addState(new int[0], android.animation.ObjectAnimator.ofFloat(this, View.TRANSLATION_Z, dp(2)).setDuration(200));
+            setStateListAnimator(states);
+            setTranslationZ(dp(2));
+        } else ScaleStateListAnimator.apply(this);
         if (!isSubButton) {
             setTranslationZ(dpf2(fabElevationDp()));
         }
@@ -135,6 +141,13 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
     }
 
     public void setAnimation(@RawRes int animation, int size) {
+        if (DevGramClassicDesign.enabled() && (animation == org.telegram.messenger.R.raw.devgram_classic_write_contacts_fab_icon
+                || animation == org.telegram.messenger.R.raw.devgram_classic_write_contacts_fab_icon_camera)) {
+            android.graphics.drawable.Drawable override = org.telegram.messenger.devgram.icons.IconManager.INSTANCE.overrideDrawable(
+                    animation == org.telegram.messenger.R.raw.devgram_classic_write_contacts_fab_icon_camera
+                            ? org.telegram.messenger.R.drawable.outline_fab_story_24 : org.telegram.messenger.R.drawable.filled_fab_compose_32);
+            if (override != null) { imageView.setImageDrawable(override); return; }
+        }
         imageView.setAnimation(animation, size, size);
     }
 
@@ -147,6 +160,18 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
     private BlurredBackgroundColorProviderThemed iBlur3ColorProviderTabs;
 
     public void updateColors() {
+        if (DevGramClassicDesign.enabled()) {
+            int size = isSubButton ? DevGramClassicDesign.SUB_FAB_SIZE : DevGramClassicDesign.FAB_SIZE;
+            int radius = org.telegram.messenger.DevGramConfig.squareFab ? (isSubButton ? 12 : 16) : size / 2;
+            int fill = Theme.getColor(isSubButton ? Theme.key_windowBackgroundWhite : Theme.key_chats_actionBackground, resourcesProvider);
+            int pressed = Theme.getColor(isSubButton ? Theme.key_listSelector : Theme.key_chats_actionPressedBackground, resourcesProvider);
+            int icon = Theme.getColor(isSubButton ? Theme.key_windowBackgroundWhiteGrayIcon : Theme.key_chats_actionIcon, resourcesProvider);
+            imageView.setColorFilter(icon, PorterDuff.Mode.SRC_IN);progressView.setProgressColor(icon);
+            setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(radius), fill, pressed));
+            setOutlineProvider(new android.view.ViewOutlineProvider(){@Override public void getOutline(View view,android.graphics.Outline outline){outline.setRoundRect(0,0,view.getWidth(),view.getHeight(),dp(radius));}});
+            setClipToOutline(true);
+            return;
+        }
         if (isSubButton) {
             imageView.setColorFilter(Theme.getColor(Theme.key_actionBarDefaultIcon, resourcesProvider), PorterDuff.Mode.SRC_IN);
             progressView.setProgressColor(Theme.getColor(Theme.key_actionBarDefaultIcon, resourcesProvider));
@@ -191,6 +216,7 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
     public static final int SIZE = 48;
 
     public static int getSizeDp() {
+        if (DevGramClassicDesign.enabled()) return DevGramClassicDesign.FAB_SIZE;
         return DevGramMaterial3.fabEnabled() ? 56 : 48;
     }
 
@@ -207,6 +233,7 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
     }
 
     private static float fabElevationDp() {
+        if (DevGramClassicDesign.enabled()) return 2f;
         return DevGramMaterial3.fabEnabled() ? 6f : .5f;
     }
 
@@ -218,12 +245,16 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
     }
 
     public static FrameLayout.LayoutParams createSubButtonLayoutParams() {
+        if (DevGramClassicDesign.enabled()) return LayoutHelper.createFrame(40,40,
+                (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT)|Gravity.BOTTOM,22,0,22,82);
         return LayoutHelper.createFrame(getSizeDp(), getSizeDp(),
                 (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.BOTTOM,
                 20, 0, 20, subFabBottomMarginDp());
     }
 
     public static FrameLayout.LayoutParams createDefaultLayoutParams() {
+        if (DevGramClassicDesign.enabled()) return LayoutHelper.createFrame(56,56,
+                (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT)|Gravity.BOTTOM,14,0,14,14);
         return LayoutHelper.createFrame(getSizeDp(), getSizeDp(),
                 (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.BOTTOM,
                 20, 0, 20, fabBottomMarginDp());
@@ -259,7 +290,7 @@ public class FragmentFloatingButton extends FrameLayout implements FactorAnimato
 
     @Override
     public void draw(@NonNull Canvas canvas) {
-        if (iBlur3Background != null) {
+        if (iBlur3Background != null && !DevGramClassicDesign.enabled()) {
             iBlur3Background.draw(canvas);
         }
         super.draw(canvas);

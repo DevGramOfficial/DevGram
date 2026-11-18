@@ -498,6 +498,18 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             return this instanceof PhotoEntry && ((PhotoEntry) this).isLivePhoto();
         }
 
+        public boolean isLivePhotoLoaded() {
+            // Motion-photo metadata is parsed synchronously by isLivePhoto().
+            return true;
+        }
+
+        public boolean loadLivePhoto(Runnable callback) {
+            isLivePhoto();
+            if (callback != null) AndroidUtilities.runOnUIThread(callback);
+            // Completion is independent of whether this is a motion photo.
+            return true;
+        }
+
         public long livePhotoVideoOffset;
 
         public ArrayList<TLRPC.MessageEntity> entities;
@@ -1134,8 +1146,8 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     private AudioRecordingSession.Result audioRecorderV2PendingResult;
 
     private Runnable recordStartRunnable;
-    private DispatchQueue recordQueue;
-    private DispatchQueue fileEncodingQueue;
+    private DispatchQueue2 recordQueue;
+    private DispatchQueue2 fileEncodingQueue;
     private Runnable recordRunnable = new Runnable() {
         @Override
         public void run() {
@@ -1430,9 +1442,9 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
     }
 
     public MediaController() {
-        recordQueue = new DispatchQueue("recordQueue");
+        recordQueue = new DispatchQueue2("recordQueue");
         recordQueue.setPriority(Thread.MAX_PRIORITY);
-        fileEncodingQueue = new DispatchQueue("fileEncodingQueue");
+        fileEncodingQueue = new DispatchQueue2("fileEncodingQueue");
         fileEncodingQueue.setPriority(Thread.MAX_PRIORITY);
 
         recordQueue.postRunnable(() -> {
@@ -1519,6 +1531,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         AndroidUtilities.runOnUIThread(() -> {
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                 NotificationCenter.getInstance(a).addObserver(MediaController.this, NotificationCenter.fileLoaded);
+                NotificationCenter.getInstance(a).addObserver(MediaController.this, NotificationCenter.fileLoadFailed);
                 NotificationCenter.getInstance(a).addObserver(MediaController.this, NotificationCenter.httpFileDidLoad);
                 NotificationCenter.getInstance(a).addObserver(MediaController.this, NotificationCenter.didReceiveNewMessages);
                 NotificationCenter.getInstance(a).addObserver(MediaController.this, NotificationCenter.messagesDeleted);
@@ -1938,6 +1951,14 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
                     }
                 }
             }
+        } else if (id == NotificationCenter.fileLoadFailed) {
+            if (playingMessageObject != null && playingMessageObject.currentAccount == account
+                    && (audioPlayer != null || downloadingCurrentMessage)
+                    && playingMessageObject.getDocument() != null
+                    && (Integer) args[1] != 1
+                    && FileLoader.getAttachFileName(playingMessageObject.getDocument()).equals(args[0])) {
+                stopPlayerAfterError();
+            }
         } else if (id == NotificationCenter.messagesDeleted) {
             boolean scheduled = (Boolean) args[2];
             if (scheduled) {
@@ -2090,8 +2111,12 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
     }
 
-    protected boolean isRecordingAudio() {
+    public boolean isRecordingAudio() {
         return recordStartRunnable != null || audioRecorderV2StartRunnable != null || recordingAudio != null;
+    }
+
+    public int getRecordingGuid() {
+        return recordingGuid;
     }
 
     private boolean isNearToSensor(float value) {
@@ -2547,6 +2572,14 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
     public void cleanupPlayer(boolean notify, boolean stopService) {
         cleanupPlayer(notify, stopService, false, false);
+    }
+
+    private void stopPlayerAfterError() {
+        // Do not restore or auto-repeat the failed track during error cleanup.
+        clearMusicPlaylistState();
+        playMusicAgain = false;
+        playerNum++;
+        cleanupPlayer(true, true);
     }
 
     public void cleanupPlayer(boolean notify, boolean stopService, boolean byVoiceEnd, boolean transferPlayerToPhotoViewer) {
@@ -3034,13 +3067,17 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
             }
             if (loadMusic) {
                 if (playlistGlobalSearchParams == null) {
-                    MediaDataController.getInstance(current.currentAccount).loadMusic(current.getDialogId(), minId, maxId);
+                    MediaDataController.getInstance(current.currentAccount).loadMusic(current.getDialogId(), current.getTopicId(), minId, maxId);
                 } else {
                     playlistClassGuid = ConnectionsManager.generateClassGuid();
                 }
             }
         }
         return playMessage(current);
+    }
+
+    public boolean setPlaylist(ArrayList<MessageObject> messageObjects, MessageObject current, long mergeDialogId, boolean loadMusic, Object ignored, long topicId) {
+        return setPlaylist(messageObjects, current, mergeDialogId, loadMusic, (PlaylistGlobalSearchParams) null);
     }
 
     private void sortPlaylist() {
@@ -4134,7 +4171,10 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
 
                     @Override
                     public void onError(VideoPlayer player, Exception e) {
-
+                        FileLog.e(e);
+                        if (tag == playerNum && player == audioPlayer) {
+                            stopPlayerAfterError();
+                        }
                     }
 
                     @Override
@@ -4713,7 +4753,7 @@ public class MediaController implements AudioManager.OnAudioFocusChangeListener,
         }
     }
 
-    private boolean shouldUseAudioRecorderV2(int account) {
+    public static boolean shouldUseAudioRecorderV2(int account) {
         return SharedSettings.audioRecorderV2Enabled.isSet() ?
             SharedSettings.audioRecorderV2Enabled.get() :
             !MessagesController.getInstance(account).config.audioRecorderV2Disabled.get();

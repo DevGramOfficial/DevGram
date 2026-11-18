@@ -35,12 +35,14 @@ import org.telegram.messenger.MediaDataController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
+import org.telegram.messenger.devgram.icons.IconManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedTextView;
 import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.CubicBezierInterpolator;
+import org.telegram.ui.Components.CrossfadeDrawable;
 import org.telegram.ui.Components.DevGramMaterial3;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.Premium.PremiumGradient;
@@ -351,6 +353,11 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         final int colorText = ColorUtils.blendARGB(colorDefault, colorSelectedText, factor);
 
         final PorterDuffColorFilter filter = new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN);
+        if (staticIconDrawable != null) {
+            staticIconOutline.setColorFilter(filter);
+            staticIconFilled.setColorFilter(filter);
+            staticIconDrawable.setProgress(MathUtils.clamp(factor, 0f, 1f));
+        }
         if (backupImageView != null && needUpdateBackupViewColor) {
             backupImageView.setColorFilter(filter);
             backupImageView.invalidate();
@@ -371,6 +378,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     private boolean lastIsSelected;
     private int lastIconAnimationRaw;
     private long lastBotIconId;
+    private CrossfadeDrawable staticIconDrawable;
+    private Drawable staticIconOutline, staticIconFilled;
+    private long staticIconGeneration = -1;
 
     private void checkPlayAnimation(boolean animated) {
         final boolean isSelected = isSelectedAnimator.getValue();
@@ -404,6 +414,24 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         if (tabAnimation == null) {
             return;
         }
+
+        // Server reference: custom/base packs replace the main navigation Lottie icons.
+        if (!IconManager.INSTANCE.isBasePackOnly("base.default") && tabAnimation.iconDrawableOutline != 0) {
+            long generation = IconManager.INSTANCE.revision();
+            if (staticIconDrawable == null || lastIconAnimationRaw != tabAnimation.iconDrawableFilled || staticIconGeneration != generation) {
+                staticIconGeneration = generation;
+                lastIconAnimationRaw = tabAnimation.iconDrawableFilled;
+                staticIconOutline = getContext().getDrawable(tabAnimation.iconDrawableOutline).mutate();
+                staticIconFilled = getContext().getDrawable(tabAnimation.iconDrawableFilled).mutate();
+                staticIconDrawable = new CrossfadeDrawable(staticIconOutline, staticIconFilled);
+                imageView.clearAnimationDrawable();
+                imageView.setImageDrawable(staticIconDrawable);
+            }
+            updateColors();
+            return;
+        }
+        staticIconDrawable = null;
+        staticIconOutline = staticIconFilled = null;
 
         if (tabAnimation.iconStatic != -1) {
             imageView.setImageResource(tabAnimation.iconStatic);
@@ -655,10 +683,10 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
     }
 
     public enum TabAnimation {
-        CONTACTS(R.raw.tab_contacts),
-        CALLS(R.raw.tab_calls),
-        CHATS(R.raw.tab_chats),
-        SETTINGS(R.raw.tab_settings),
+        CONTACTS(R.raw.tab_contacts, R.drawable.tabs_contact_active_24, R.drawable.tabs_contacts_24, -1, -1),
+        CALLS(R.raw.tab_calls, R.drawable.tabs_calls_active_24, R.drawable.tabs_calls_24, -1, -1),
+        CHATS(R.raw.tab_chats, R.drawable.tabs_chats_active_24, R.drawable.tabs_chats_24, -1, -1),
+        SETTINGS(R.raw.tab_settings, R.drawable.filled_profile_settings, R.drawable.outline_profile_settings, -1, -1),
 
         CHECKLIST(R.raw.tab_checklist, R.raw.tab_checklist_reverse),
         COLORS(R.raw.tab_colors, R.raw.tab_colors_reverse),
@@ -670,6 +698,8 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         EMOJI(R.raw.tab_emoji, R.raw.tab_emoji_reverse),
         MODELS(R.raw.tab_models, R.raw.tab_models_reverse),
         MUSIC(R.raw.tab_music, R.raw.tab_music_reverse),
+        STORIES_SAVED(R.raw.tab_gallery, R.raw.tab_gallery_reverse),
+        STORIES_ARCHIVE(R.raw.tab_gallery, R.raw.tab_gallery_reverse),
         POLL(R.raw.tab_poll, R.raw.tab_poll_reverse),
         SYMBOLS(R.raw.tab_symbols, R.raw.tab_symbols_reverse),
         REPLIES(R.raw.tab_reply, R.raw.tab_reply_reverse),
@@ -684,17 +714,25 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         public final @RawRes int iconToFilled;
         public final @RawRes int iconToOutline;
         public final @DrawableRes int iconStatic;
+        public final @DrawableRes int iconDrawableFilled, iconDrawableOutline;
         public final int endFrameMid, endFrameEnd;
 
         TabAnimation(int iconRes, int endFrameMid, int endFrameEnd) {
+            this(iconRes, 0, 0, endFrameMid, endFrameEnd);
+        }
+
+        TabAnimation(int iconRes, int filled, int outline, int endFrameMid, int endFrameEnd) {
             this.iconToFilled = iconRes;
             this.iconToOutline = iconRes;
+            this.iconDrawableFilled = filled;
+            this.iconDrawableOutline = outline;
             this.endFrameMid = endFrameMid;
             this.endFrameEnd = endFrameEnd;
             this.iconStatic = -1;
         }
 
         TabAnimation(TabAnimationType type, int icon) {
+            this.iconDrawableFilled = this.iconDrawableOutline = 0;
             if (type == TabAnimationType.LOTTIE) {
                 this.iconToFilled = icon;
                 this.iconToOutline = icon;
@@ -709,14 +747,11 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         }
 
         TabAnimation(int iconRes) {
-            this.iconToFilled = iconRes;
-            this.iconToOutline = iconRes;
-            this.endFrameMid = -1;
-            this.endFrameEnd = -1;
-            this.iconStatic = -1;
+            this(iconRes, 0, 0, -1, -1);
         }
 
         TabAnimation(int iconToFilled, int iconToOutline) {
+            this.iconDrawableFilled = this.iconDrawableOutline = 0;
             this.iconToFilled = iconToFilled;
             this.iconToOutline = iconToOutline;
             this.endFrameMid = -1;
@@ -730,6 +765,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         tabAnimationBot = null;
         lastIconAnimationRaw = 0;
         lastBotIconId = 0;
+        staticIconDrawable = null;
         imageView.clearAnimationDrawable();
         checkPlayAnimation(false);
     }

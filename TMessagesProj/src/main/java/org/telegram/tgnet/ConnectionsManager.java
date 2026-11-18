@@ -1,5 +1,7 @@
 package org.telegram.tgnet;
 
+import androidx.annotation.Nullable;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
@@ -87,6 +89,8 @@ public class ConnectionsManager extends BaseController {
     public final static int ConnectionTypeDownload2 = ConnectionTypeDownload | (1 << 16);
     // Keep in sync with DOWNLOAD_CONNECTIONS_COUNT in tgnet/Defines.h.
     public final static int DownloadConnectionsCount = 8;
+    // Keep in sync with UPLOAD_CONNECTIONS_COUNT in tgnet/Defines.h.
+    public final static int UploadConnectionsCountPremium = 8;
 
     public final static int FileTypePhoto = 0x01000000;
     public final static int FileTypeVideo = 0x02000000;
@@ -791,7 +795,8 @@ public class ConnectionsManager extends BaseController {
     public void init(int version, int layer, int apiId, String deviceModel, String systemVersion, String appVersion, String langCode, String systemLangCode, String configPath, String logPath, String regId, String cFingerprint, int timezoneOffset, long userId, boolean userPremium, boolean enablePushConnection) {
         final SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
         final ProxySettings proxySettings = ProxySettings.fromSharedPreferences(preferences);
-        if (preferences.getBoolean("proxy_enabled", false) && proxySettings.isValid()) {
+        final boolean disableProxyForNetwork = org.telegram.messenger.DevGramProxyNetwork.shouldDisable();
+        if (!disableProxyForNetwork && preferences.getBoolean("proxy_enabled", false) && proxySettings.isValid()) {
             if (proxySettings.getType() == ProxySettings.Type.WEB) {
                 int localPort = WebProxyTransport.start(proxySettings.getAddress(), proxySettings.getSecret());
                 native_setProxySettings(currentAccount, "127.0.0.1", localPort != 0 ? localPort : 9, "", "",
@@ -800,7 +805,7 @@ public class ConnectionsManager extends BaseController {
                 native_setProxySettings(currentAccount, proxySettings.getAddress(), proxySettings.getPort(),
                         proxySettings.getUser(), proxySettings.getPassword(), proxySettings.getSecret());
             }
-        } else if (preferences.getBoolean("devgram_proxy_on", false)) {
+        } else if (!disableProxyForNetwork && preferences.getBoolean("devgram_proxy_on", false)) {
             // DevGram: скрытый прокси (не виден в стандартном меню) — поднимаем на старте.
             org.telegram.messenger.DevGramProxy.ensureLocalStarted();
             native_setProxySettings(currentAccount, org.telegram.messenger.DevGramProxy.ADDRESS, org.telegram.messenger.DevGramProxy.PORT, "", "", org.telegram.messenger.DevGramProxy.SECRET);
@@ -1139,6 +1144,12 @@ public class ConnectionsManager extends BaseController {
     }
 
     public static void setProxySettings(boolean enabled, ProxySettings settings) {
+        if (!enabled) {
+            org.telegram.messenger.DevGramProxyNetwork.onManualDisable();
+        } else if (org.telegram.messenger.DevGramProxyNetwork.shouldDisable()) {
+            org.telegram.messenger.DevGramProxyNetwork.requestCheck();
+            enabled = false;
+        }
         String address = "";
         int port = 0;
         String username = "";
@@ -1564,7 +1575,7 @@ public class ConnectionsManager extends BaseController {
     public static native void native_discardConnection(int currentAccount, int datacenterId, int connectionType);
     public static native void native_failNotRunningRequest(int currentAccount, int token);
     public static native void native_receivedIntegrityCheckClassic(int currentAccount, int requestToken, String nonce, String token);
-    public static native void native_receivedCaptchaResult(int currentAccount, int[] requestTokens, String token);
+    public static native void native_receivedCaptchaResult(int currentAccount, int requestToken, int generation, String token);
     public static native boolean native_isGoodPrime(byte[] prime, int g);
 
 
@@ -2219,11 +2230,34 @@ public class ConnectionsManager extends BaseController {
     }
 
     @Keep
-    public static void onCaptchaCheck(final int currentAccount, final int requestToken, final String action, final String key_id) {
+    public static void onCaptchaCheck(final int currentAccount, final int requestToken, final int generation, final String action, final String key_id) {
         //CaptchaController.request(currentAccount, requestToken, action, key_id);
     }
 
     public static native byte[] nativeTestGenerateClientHello(String domain);
 
+
+
+    public static class RequestException extends RuntimeException {
+        public final int code;
+        public final String text;
+
+        public RequestException(TLRPC.TL_error error) {
+            super(error != null && error.text != null ? error.text : null);
+            if (error != null) {
+                this.code = error.code;
+                this.text = error.text;
+            } else {
+                this.code = 0;
+                this.text = "NULL";
+            }
+        }
+
+        @Nullable
+        @Override
+        public String getMessage() {
+            return text;
+        }
+    }
 
 }

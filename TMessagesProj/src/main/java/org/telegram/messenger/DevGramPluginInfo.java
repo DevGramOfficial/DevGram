@@ -45,41 +45,41 @@ public final class DevGramPluginInfo {
 
         // ---- опасное ----
         if (has(s, "eval(", "exec(", "compile(", "__import__(")) {
-            list.add(new Capability("⚠️", "Выполняет динамический код",
-                    "eval/exec — может запустить код, которого не видно в самом файле", LEVEL_DANGER));
+            list.add(new Capability("⚠️", DevGramLocale.text("Выполняет динамический код"),
+                    DevGramLocale.text("eval/exec — может запустить код, которого не видно в самом файле"), LEVEL_DANGER));
         }
         if (has(s, "marshal.loads", "zlib.decompress", "b64decode") && has(s, "exec(", "eval(")) {
-            list.add(new Capability("🕶️", "Скрывает часть кода",
-                    "распаковывает и выполняет закодированный фрагмент — содержимое не проверить глазами", LEVEL_DANGER));
+            list.add(new Capability("🕶️", DevGramLocale.text("Скрывает часть кода"),
+                    DevGramLocale.text("распаковывает и выполняет закодированный фрагмент — содержимое не проверить глазами"), LEVEL_DANGER));
         }
         if (has(s, "subprocess", "os.system(", "os.popen(", "pty.spawn")) {
-            list.add(new Capability("💻", "Запускает системные команды", "subprocess / os.system", LEVEL_DANGER));
+            list.add(new Capability("💻", DevGramLocale.text("Запускает системные команды"), "subprocess / os.system", LEVEL_DANGER));
         }
         if (has(s, "send_message(", "send_text(", "sendmessage(", "sendmessageshelper", "send_document(", "send_media(")) {
-            list.add(new Capability("📤", "Отправляет сообщения от вашего имени",
-                    "может писать в чаты без вашего участия", LEVEL_DANGER));
+            list.add(new Capability("📤", DevGramLocale.text("Отправляет сообщения от вашего имени"),
+                    DevGramLocale.text("может писать в чаты без вашего участия"), LEVEL_DANGER));
         }
         if (has(s, "delete_messages(", "deletemessages(", "delete_message(")) {
-            list.add(new Capability("🗑️", "Удаляет сообщения", null, LEVEL_DANGER));
+            list.add(new Capability("🗑️", DevGramLocale.text("Удаляет сообщения"), null, LEVEL_DANGER));
         }
 
         // ---- требует внимания ----
         if (has(s, "on_send_message_hook", "send_message_hook")) {
-            list.add(new Capability("✏️", "Видит и меняет ваши исходящие сообщения",
-                    "перехватывает текст перед отправкой", LEVEL_CAUTION));
+            list.add(new Capability("✏️", DevGramLocale.text("Видит и меняет ваши исходящие сообщения"),
+                    DevGramLocale.text("перехватывает текст перед отправкой"), LEVEL_CAUTION));
         }
         if (has(s, "wants_request_hooks", "pre_request_hook", "post_request_hook", "on_request")) {
-            list.add(new Capability("📡", "Перехватывает запросы к серверу Telegram",
-                    "может читать и подменять данные, которыми клиент обменивается с сервером", LEVEL_CAUTION));
+            list.add(new Capability("📡", DevGramLocale.text("Перехватывает запросы к серверу Telegram"),
+                    DevGramLocale.text("может читать и подменять данные, которыми клиент обменивается с сервером"), LEVEL_CAUTION));
         }
         if (has(s, "on_update_hook", "on_updates_hook", "on_update(", "on_updates(")) {
-            list.add(new Capability("📥", "Читает входящие события",
-                    "новые сообщения, правки, статусы — всё, что приходит от сервера", LEVEL_CAUTION));
+            list.add(new Capability("📥", DevGramLocale.text("Читает входящие события"),
+                    DevGramLocale.text("новые сообщения, правки, статусы — всё, что приходит от сервера"), LEVEL_CAUTION));
         }
         if (has(s, "hook_method", "hook_all_methods", "hook_all_constructors", "hook_constructor",
                 "xposedbridge", "find_class(", "jclass(")) {
-            list.add(new Capability("🪝", "Встраивается в код приложения",
-                    "Java-хуки: меняет поведение экранов и функций DevGram", LEVEL_CAUTION));
+            list.add(new Capability("🪝", DevGramLocale.text("Встраивается в код приложения"),
+                    DevGramLocale.text("Java-хуки: меняет поведение экранов и функций DevGram"), LEVEL_CAUTION));
         }
         if (has(s, "http://", "https://", "requests.", "urllib", "socket.", "httpx", "aiohttp")) {
             LinkedHashSet<String> hosts = new LinkedHashSet<>();
@@ -87,37 +87,37 @@ public final class DevGramPluginInfo {
             while (m.find() && hosts.size() < 6) {
                 hosts.add(m.group(1).toLowerCase(Locale.US));
             }
-            list.add(new Capability("🌐", "Обращается к интернету",
-                    hosts.isEmpty() ? "адреса формируются в коде" : TextUtils.join(", ", hosts), LEVEL_CAUTION));
+            list.add(new Capability("🌐", DevGramLocale.text("Обращается к интернету"),
+                    hosts.isEmpty() ? DevGramLocale.text("адреса формируются в коде") : TextUtils.join(", ", hosts), LEVEL_CAUTION));
         }
         if (has(s, "os.remove(", "os.unlink(", "shutil.rmtree", "os.rmdir(")) {
-            list.add(new Capability("🗂️", "Удаляет файлы", null, LEVEL_CAUTION));
+            list.add(new Capability("🗂️", DevGramLocale.text("Удаляет файлы"), null, LEVEL_CAUTION));
         } else if (has(s, "open(", "pathlib", "os.path", "os.listdir", "shutil.")) {
-            list.add(new Capability("🗂️", "Работает с файлами", "читает или записывает файлы на устройстве", LEVEL_INFO));
+            list.add(new Capability("🗂️", DevGramLocale.text("Работает с файлами"), DevGramLocale.text("читает или записывает файлы на устройстве"), LEVEL_INFO));
         }
         if (has(s, "clipboard", "clipdata", "setprimaryclip")) {
-            list.add(new Capability("📋", "Доступ к буферу обмена", null, LEVEL_CAUTION));
+            list.add(new Capability("📋", DevGramLocale.text("Доступ к буферу обмена"), null, LEVEL_CAUTION));
         }
 
         // ---- обычное ----
         if (has(s, "register_pill")) {
-            list.add(new Capability("💊", "Виджеты в строке поиска", "Pill Stack", LEVEL_INFO));
+            list.add(new Capability("💊", DevGramLocale.text("Виджеты в строке поиска"), "Pill Stack", LEVEL_INFO));
         }
         if (has(s, "add_menu_item", "menu_item", "register_menu")) {
-            list.add(new Capability("📋", "Добавляет пункты меню", null, LEVEL_INFO));
+            list.add(new Capability("📋", DevGramLocale.text("Добавляет пункты меню"), null, LEVEL_INFO));
         }
         if (has(s, "create_settings", "devgram.ui", "plugin_settings")) {
-            list.add(new Capability("⚙️", "Свои настройки", null, LEVEL_INFO));
+            list.add(new Capability("⚙️", DevGramLocale.text("Свои настройки"), null, LEVEL_INFO));
         }
         if (has(s, "bulletin", "alert", "show_toast", "notification")) {
-            list.add(new Capability("🔔", "Показывает уведомления и диалоги", null, LEVEL_INFO));
+            list.add(new Capability("🔔", DevGramLocale.text("Показывает уведомления и диалоги"), null, LEVEL_INFO));
         }
         if (has(s, "threading", "timer(", "run_on_queue", "schedule(")) {
-            list.add(new Capability("⏱️", "Работает в фоне", "потоки и таймеры", LEVEL_INFO));
+            list.add(new Capability("⏱️", DevGramLocale.text("Работает в фоне"), DevGramLocale.text("потоки и таймеры"), LEVEL_INFO));
         }
         String requirements = metaValue(source, "__requirements__");
         if (!TextUtils.isEmpty(requirements)) {
-            list.add(new Capability("📦", "Устанавливает Python-пакеты", requirements, LEVEL_CAUTION));
+            list.add(new Capability("📦", DevGramLocale.text("Устанавливает Python-пакеты"), requirements, LEVEL_CAUTION));
         }
         // сначала опасное, потом внимание, потом обычное
         list.sort((a, b) -> Integer.compare(b.level, a.level));
@@ -145,9 +145,9 @@ public final class DevGramPluginInfo {
     }
 
     public static String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " Б";
-        if (bytes < 1024 * 1024) return String.format(Locale.US, "%.1f КБ", bytes / 1024f);
-        return String.format(Locale.US, "%.1f МБ", bytes / 1048576f);
+        if (bytes < 1024) return bytes + DevGramLocale.text(" Б");
+        if (bytes < 1024 * 1024) return String.format(Locale.US, DevGramLocale.text("%.1f КБ"), bytes / 1024f);
+        return String.format(Locale.US, DevGramLocale.text("%.1f МБ"), bytes / 1048576f);
     }
 
     private static boolean has(String s, String... needles) {

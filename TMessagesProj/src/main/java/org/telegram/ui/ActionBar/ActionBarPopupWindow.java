@@ -167,12 +167,12 @@ public class ActionBarPopupWindow extends PopupWindow {
             }
             if (backgroundDrawable != null) {
                 backgroundDrawable.getPadding(bgPaddings);
-                setBackgroundColor(getThemedColor(Theme.key_actionBarDefaultSubmenuBackground));
+                ThemeBind.backgroundColor(this, Theme.key_actionBarDefaultSubmenuBackground, resourcesProvider);
             }
 
             // DevGram (как exteraGram, GlassMessageMenu): стекло для ВСЕХ меню-попапов сразу —
             // снимок окна → размытие → фон попапа, выровненный по его позиции на экране.
-            if (org.telegram.messenger.DevGramConfig.glassMenu && backgroundDrawable != null && context instanceof android.app.Activity) {
+            if (!org.telegram.ui.Components.DevGramClassicDesign.enabled() && org.telegram.messenger.DevGramConfig.glassMenu && backgroundDrawable != null && context instanceof android.app.Activity) {
                 try {
                     android.view.View root = ((android.app.Activity) context).findViewById(android.R.id.content);
                     android.graphics.Bitmap bmp = org.telegram.ui.Components.DevGramGlassMenu.snapshot(root);
@@ -390,6 +390,8 @@ public class ActionBarPopupWindow extends PopupWindow {
             backgroundDrawable = drawable;
             if (backgroundDrawable != null) {
                 backgroundDrawable.getPadding(bgPaddings);
+            } else {
+                bgPaddings.setEmpty();
             }
         }
 
@@ -1079,7 +1081,7 @@ public class ActionBarPopupWindow extends PopupWindow {
                 windowAnimatorSet.setDuration(dismissAnimationDuration);
             } else {
                 windowAnimatorSet.playTogether(
-                        ObjectAnimator.ofFloat(viewGroup, View.TRANSLATION_Y, dp((content != null && content.shownFromBottom) ? 5 : -5)),
+                        ObjectAnimator.ofFloat(viewGroup, View.TRANSLATION_Y, viewGroup.getTranslationY() + dp((content != null && content.shownFromBottom) ? 5 : -5)),
                         ObjectAnimator.ofFloat(viewGroup, View.ALPHA, 0.0f));
                 windowAnimatorSet.setDuration(dismissAnimationDuration);
             }

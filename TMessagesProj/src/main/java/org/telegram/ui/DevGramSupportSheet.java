@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.R;
@@ -24,7 +25,9 @@ import org.telegram.ui.Components.LayoutHelper;
 public class DevGramSupportSheet {
 
     private static final int USD = 3;                 // сумма пожертвования в долларах
-    public static final String OWNER = "@DevGramOwner";
+    public static final String SUPPORT_BOT = "@officialdevgram_bot";
+    public static final String SUPPORT_URL = "https://devgram.space/support";
+    public static final String BOT_URL = "https://t.me/officialdevgram_bot?start=support";
 
     public static void show(BaseFragment fragment) {
         if (fragment == null) {
@@ -44,7 +47,7 @@ public class DevGramSupportSheet {
         root.addView(heart, LayoutHelper.createLinear(76, 76, Gravity.CENTER_HORIZONTAL, 0, 6, 0, 12));
 
         TextView title = new TextView(context);
-        title.setText("Поддержать DevGram");
+        title.setText(DevGramLocale.text("Поддержать DevGram"));
         title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.bold());
@@ -52,8 +55,8 @@ public class DevGramSupportSheet {
         root.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 6));
 
         TextView subtitle = new TextView(context);
-        subtitle.setText("DevGram делают энтузиасты в свободное время. Любой донат помогает держать проект "
-                + "живым — а тебе за это прилетает эксклюзивный значок в профиль.");
+        subtitle.setText(DevGramLocale.text("DevGram делают энтузиасты в свободное время. Любой донат помогает держать проект ")
+                + DevGramLocale.text("живым — а тебе за это прилетает эксклюзивный значок в профиль."));
         subtitle.setTextColor(Theme.getColor(Theme.key_dialogTextGray3));
         subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         subtitle.setGravity(Gravity.CENTER);
@@ -64,26 +67,25 @@ public class DevGramSupportSheet {
 
         // шаг 1 — сумма (эквивалент подставим после запроса курса); «Другое» кликабельно
         TextView donationBody = new TextView(context);
-        addStep(context, root, R.drawable.devgram_ic_pay, "Перевести донат", donationBody,
+        addStep(context, root, R.drawable.devgram_ic_pay, DevGramLocale.text("Перевести донат"), donationBody,
                 amountText(context, fragment, sheetRef, "…", "…"));
         donationBody.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
         donationBody.setHighlightColor(0);
-        // шаг 2 — @DevGramOwner кликабелен: открывает профиль владельца
+        // Both submission paths use the same authenticated application queue.
         TextView payProofBody = new TextView(context);
-        addStep(context, root, R.drawable.devgram_ic_photo, "Прислать чек", payProofBody,
-                ownerSpannable(context,
-                        "Скинь скриншот перевода в личку " + OWNER + ". Главное, чтобы на нём было видно сумму, "
-                                + "дату и время — так мы подтвердим тебя быстрее."));
+        addStep(context, root, R.drawable.devgram_ic_photo, DevGramLocale.text("Прислать чек"), payProofBody,
+                botSpannable(context, DevGramLocale.text("Войдите через Telegram в форму на сайте или отправьте чек боту ")
+                        + SUPPORT_BOT + DevGramLocale.text(". Выберите получателя: пользователя или канал. На чеке должны быть видны сумма, дата и время.")));
         payProofBody.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
         payProofBody.setHighlightColor(0);
         // шаг 3
         TextView badgeBody = new TextView(context);
-        addStep(context, root, R.drawable.devgram_ic_badge, "Забрать значок", badgeBody,
-                "После проверки перевода мы выдадим тебе уникальный значок — он появится в профиле "
-                        + "и будет виден другим пользователям.");
+        addStep(context, root, R.drawable.devgram_ic_badge, DevGramLocale.text("Забрать значок"), badgeBody,
+                DevGramLocale.text("После проверки перевода мы выдадим тебе уникальный значок — он появится в профиле ")
+                        + DevGramLocale.text("и будет виден другим пользователям."));
 
         TextView close = new TextView(context);
-        close.setText("Закрыть");
+        close.setText(DevGramLocale.text("Подать заявку на сайте"));
         close.setGravity(Gravity.CENTER);
         close.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         close.setTypeface(AndroidUtilities.bold());
@@ -103,7 +105,21 @@ public class DevGramSupportSheet {
         sheetRef[0] = sheet;
 
         root.addView(close, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 4));
-        close.setOnClickListener(v -> sheet.dismiss());
+        close.setOnClickListener(v -> {
+            sheet.dismiss();
+            org.telegram.messenger.browser.Browser.openUrl(context, SUPPORT_URL);
+        });
+        TextView bot = new TextView(context);
+        bot.setText(DevGramLocale.text("Подать заявку через бота"));
+        bot.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
+        bot.setGravity(Gravity.CENTER);
+        bot.setTextColor(Theme.getColor(Theme.key_dialogTextBlue2));
+        bot.setPadding(0, AndroidUtilities.dp(14), 0, AndroidUtilities.dp(14));
+        root.addView(bot, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        bot.setOnClickListener(v -> {
+            sheet.dismiss();
+            org.telegram.messenger.browser.Browser.openUrl(context, BOT_URL);
+        });
 
         sheet.show();
 
@@ -114,7 +130,7 @@ public class DevGramSupportSheet {
     // Текст шага 1: сумма с inline-значком TON (серый, как текст) + кликабельным «Другое».
     private static CharSequence amountText(Context ctx, BaseFragment fragment, BottomSheet[] sheetRef, String ton, String rub) {
         android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder();
-        sb.append("Отправь $").append(String.valueOf(USD)).append(" (≈ ");
+        sb.append(DevGramLocale.text("Отправь $")).append(String.valueOf(USD)).append(" (≈ ");
         int iconStart = sb.length();
         sb.append("◈"); // плейсхолдер под значок TON
         org.telegram.ui.Components.ColoredImageSpan ton_span =
@@ -122,10 +138,10 @@ public class DevGramSupportSheet {
                         org.telegram.ui.Components.ColoredImageSpan.ALIGN_CENTER);
         ton_span.setSize(AndroidUtilities.dp(14)); // тон-значок берёт цвет текста абзаца (серый)
         sb.setSpan(ton_span, iconStart, sb.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        sb.append(" ").append(ton).append(" TON или ").append(rub).append(" ₽) любым удобным способом. ")
-                .append("Банковские карты и Tonkeeper находятся в разделе ");
+        sb.append(" ").append(ton).append(DevGramLocale.text(" TON или ")).append(rub).append(DevGramLocale.text(" ₽) любым удобным способом. "))
+                .append(DevGramLocale.text("Банковские карты и Tonkeeper находятся в разделе "));
         int oStart = sb.length();
-        sb.append("«Другое»");
+        sb.append(DevGramLocale.text("«Другое»"));
         sb.setSpan(new android.text.style.ClickableSpan() {
             @Override
             public void onClick(android.view.View widget) {
@@ -149,9 +165,8 @@ public class DevGramSupportSheet {
         return sb;
     }
 
-    // Сделать @DevGramOwner в тексте кликабельным — открывает профиль владельца.
-    private static CharSequence ownerSpannable(Context context, String text) {
-        int idx = text.indexOf(OWNER);
+    private static CharSequence botSpannable(Context context, String text) {
+        int idx = text.indexOf(SUPPORT_BOT);
         if (idx < 0) {
             return text;
         }
@@ -160,7 +175,7 @@ public class DevGramSupportSheet {
         sp.setSpan(new android.text.style.ClickableSpan() {
             @Override
             public void onClick(android.view.View widget) {
-                org.telegram.messenger.browser.Browser.openUrl(ctx, "https://t.me/" + OWNER.substring(1));
+                org.telegram.messenger.browser.Browser.openUrl(ctx, BOT_URL);
             }
 
             @Override
@@ -170,7 +185,7 @@ public class DevGramSupportSheet {
                 ds.setUnderlineText(true);
                 ds.setTypeface(AndroidUtilities.bold());
             }
-        }, idx, idx + OWNER.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }, idx, idx + SUPPORT_BOT.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         return sp;
     }
 
@@ -206,7 +221,7 @@ public class DevGramSupportSheet {
 
     // Курс: CoinGecko (TON в usd и rub). $USD в TON = USD/ton_usd; $USD в ₽ = USD*ton_rub/ton_usd.
     private static void fetchRates(BaseFragment fragment, BottomSheet[] sheetRef, TextView donationBody) {
-        Utilities.globalQueue.postRunnable(() -> {
+        org.telegram.messenger.DevGramNetworkQueue.postRunnable(() -> {
             String ton = null, rub = null;
             java.net.HttpURLConnection c = null;
             try {

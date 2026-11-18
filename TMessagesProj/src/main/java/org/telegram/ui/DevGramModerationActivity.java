@@ -20,10 +20,10 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.DevGramPlugins;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -61,7 +61,7 @@ public class DevGramModerationActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Модерация");
+        actionBar.setTitle(DevGramLocale.text("Модерация"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -74,7 +74,7 @@ public class DevGramModerationActivity extends BaseFragment {
                     DevGramPlugins.setModNotify(now);
                     BulletinFactory.of(DevGramModerationActivity.this)
                             .createSimpleBulletin(R.raw.contact_check,
-                                    now ? "Уведомления о модерации включены" : "Уведомления о модерации выключены").show();
+                                    now ? DevGramLocale.text("Уведомления о модерации включены") : DevGramLocale.text("Уведомления о модерации выключены")).show();
                 } else if (id == MENU_REPORTS) {
                     ensureAdmin(() -> presentFragment(new DevGramReviewReportsActivity()));
                 } else if (id == MENU_PLUGIN_REPORTS) {
@@ -84,12 +84,12 @@ public class DevGramModerationActivity extends BaseFragment {
         });
         org.telegram.ui.ActionBar.ActionBarMenuItem more =
                 actionBar.createMenu().addItem(MENU_OVERFLOW, R.drawable.ic_ab_other);
-        more.addSubItem(MENU_NOTIFY, R.drawable.msg_mute, "Уведомления о модерации");
-        more.addSubItem(MENU_REPORTS, R.drawable.msg_report, "Жалобы на отзывы");
-        more.addSubItem(MENU_PLUGIN_REPORTS, R.drawable.msg_report, "Жалобы на плагины");
+        more.addSubItem(MENU_NOTIFY, R.drawable.msg_mute, DevGramLocale.text("Уведомления о модерации"));
+        more.addSubItem(MENU_REPORTS, R.drawable.msg_report, DevGramLocale.text("Жалобы на отзывы"));
+        more.addSubItem(MENU_PLUGIN_REPORTS, R.drawable.msg_report, DevGramLocale.text("Жалобы на плагины"));
         // управление модераторами — только главному админу
         if (DevGramBadges.isMainAdmin()) {
-            more.addSubItem(MENU_MODERATORS, R.drawable.msg_groups, "Модераторы");
+            more.addSubItem(MENU_MODERATORS, R.drawable.msg_groups, DevGramLocale.text("Модераторы"));
         }
         DevGramPlugins.loadModNotify();
 
@@ -102,13 +102,13 @@ public class DevGramModerationActivity extends BaseFragment {
         dashboard.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(20),
                 Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
         TextView dashboardTitle = new TextView(context);
-        dashboardTitle.setText("Очередь проверки");
+        dashboardTitle.setText(DevGramLocale.text("Очередь проверки"));
         dashboardTitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
         dashboardTitle.setTypeface(AndroidUtilities.bold());
         dashboardTitle.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         dashboard.addView(dashboardTitle);
         queueSummary = new TextView(context);
-        queueSummary.setText("Загружаем заявки…");
+        queueSummary.setText(DevGramLocale.text("Загружаем заявки…"));
         queueSummary.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         queueSummary.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         dashboard.addView(queueSummary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
@@ -145,10 +145,10 @@ public class DevGramModerationActivity extends BaseFragment {
             pending.clear();
             pending.addAll(list);
             loading = false;
-            actionBar.setTitle("Модерация" + (pending.isEmpty() ? "" : " (" + pending.size() + ")"));
+            actionBar.setTitle(DevGramLocale.text("Модерация") + (pending.isEmpty() ? "" : " (" + pending.size() + ")"));
             if (queueSummary != null) queueSummary.setText(pending.isEmpty()
-                    ? "Все заявки обработаны" : pending.size() + " " + requestWord(pending.size())
-                    + (pending.size() == 1 ? " ждёт решения" : " ждут решения"));
+                    ? DevGramLocale.text("Все заявки обработаны") : pending.size() + " " + requestWord(pending.size())
+                    + (pending.size() == 1 ? DevGramLocale.text(" ждёт решения") : DevGramLocale.text(" ждут решения")));
             if (adapter != null) adapter.notifyDataSetChanged();
             refreshEmpty();
         });
@@ -157,10 +157,10 @@ public class DevGramModerationActivity extends BaseFragment {
     private void refreshEmpty() {
         if (emptyView == null) return;
         if (loading) {
-            emptyView.setText("Загрузка заявок…");
+            emptyView.setText(DevGramLocale.text("Загрузка заявок…"));
             emptyView.setVisibility(View.VISIBLE);
         } else if (pending.isEmpty()) {
-            emptyView.setText("Заявок на модерацию нет");
+            emptyView.setText(DevGramLocale.text("Заявок на модерацию нет"));
             emptyView.setVisibility(View.VISIBLE);
         } else {
             emptyView.setVisibility(View.GONE);
@@ -185,14 +185,14 @@ public class DevGramModerationActivity extends BaseFragment {
         card.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         LinearLayout badges = new LinearLayout(context);
-        badges.addView(statusChip(context, e.update ? "ОБНОВЛЕНИЕ" : "НОВЫЙ", true));
+        badges.addView(statusChip(context, e.update ? DevGramLocale.text("ОБНОВЛЕНИЕ") : DevGramLocale.text("НОВЫЙ"), true));
         if (!e.version.isEmpty()) badges.addView(statusChip(context, "v" + e.version, false), LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
         if (!e.filter.isEmpty()) badges.addView(statusChip(context, e.filter, false), LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 0, 0, 6, 0));
         card.addView(badges, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 7, 0, 2));
 
         TextView meta = new TextView(context);
-        String who = e.submitterName.isEmpty() ? (e.submitterId == 0 ? "Автор не указан" : String.valueOf(e.submitterId)) : e.submitterName;
-        meta.setText("Отправил: " + who + (e.submittedAt > 0 ? "  •  " + android.text.format.DateFormat.format("dd.MM.yyyy HH:mm", e.submittedAt) : ""));
+        String who = e.submitterName.isEmpty() ? (e.submitterId == 0 ? DevGramLocale.text("Автор не указан") : String.valueOf(e.submitterId)) : e.submitterName;
+        meta.setText(DevGramLocale.text("Отправил: ") + who + (e.submittedAt > 0 ? "  •  " + android.text.format.DateFormat.format("dd.MM.yyyy HH:mm", e.submittedAt) : ""));
         meta.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         meta.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         card.addView(meta, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
@@ -222,7 +222,7 @@ public class DevGramModerationActivity extends BaseFragment {
 
         // просмотреть исходник
         TextView view = new TextView(context);
-        view.setText("Посмотреть код плагина");
+        view.setText(DevGramLocale.text("Посмотреть код плагина"));
         view.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
         view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         view.setPadding(0, AndroidUtilities.dp(8), 0, AndroidUtilities.dp(4));
@@ -231,19 +231,19 @@ public class DevGramModerationActivity extends BaseFragment {
 
         if (e.update) {
             TextView compare = new TextView(context);
-            compare.setText("Сравнить с опубликованной версией");
+            compare.setText(DevGramLocale.text("Сравнить с опубликованной версией"));
             compare.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
             compare.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             compare.setPadding(0, AndroidUtilities.dp(5), 0, AndroidUtilities.dp(5));
             compare.setOnClickListener(v -> DevGramPlugins.fetchCatalog(entries -> {
                 for (DevGramPlugins.CatalogEntry old : entries) if (old.id.equals(e.id)) { showDiff(old, e); return; }
-                BulletinFactory.of(this).createErrorBulletin("Опубликованная версия не найдена").show();
+                BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("Опубликованная версия не найдена")).show();
             }));
             card.addView(compare, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT));
         }
 
         TextView history = new TextView(context);
-        history.setText("История публикации");
+        history.setText(DevGramLocale.text("История публикации"));
         history.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourceProvider));
         history.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         history.setPadding(0, AndroidUtilities.dp(5), 0, AndroidUtilities.dp(5));
@@ -254,18 +254,18 @@ public class DevGramModerationActivity extends BaseFragment {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
 
-        TextView approve = pillButton(context, "Одобрить",
+        TextView approve = pillButton(context, DevGramLocale.text("Одобрить"),
                 Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider),
                 Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
         approve.setOnClickListener(v -> ensureAdmin(() -> {
             if (DevGramPlugins.approvePending(e)) {
                 pending.remove(e);
-                afterAction("Одобрено: " + e.name);
+                afterAction(DevGramLocale.text("Одобрено: ") + e.name);
             }
         }));
         row.addView(approve, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f, 0, 0, 8, 0));
 
-        TextView reject = pillButton(context, "Отклонить",
+        TextView reject = pillButton(context, DevGramLocale.text("Отклонить"),
                 Theme.getColor(Theme.key_text_RedRegular, resourceProvider),
                 Theme.multAlpha(Theme.getColor(Theme.key_text_RedRegular, resourceProvider), 0.12f));
         reject.setOnClickListener(v -> confirmReject(e));
@@ -299,32 +299,33 @@ public class DevGramModerationActivity extends BaseFragment {
     }
 
     private void afterAction(String msg) {
-        actionBar.setTitle("Модерация" + (pending.isEmpty() ? "" : " (" + pending.size() + ")"));
+        actionBar.setTitle(DevGramLocale.text("Модерация") + (pending.isEmpty() ? "" : " (" + pending.size() + ")"));
         if (queueSummary != null) queueSummary.setText(pending.isEmpty()
-                ? "Все заявки обработаны" : pending.size() + " " + requestWord(pending.size())
-                + (pending.size() == 1 ? " ждёт решения" : " ждут решения"));
+                ? DevGramLocale.text("Все заявки обработаны") : pending.size() + " " + requestWord(pending.size())
+                + (pending.size() == 1 ? DevGramLocale.text(" ждёт решения") : DevGramLocale.text(" ждут решения")));
         if (adapter != null) adapter.notifyDataSetChanged();
         refreshEmpty();
         BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check, msg).show();
     }
 
     private String requestWord(int count) {
+        if (!DevGramLocale.isRussian()) return count == 1 ? DevGramLocale.text("заявка") : DevGramLocale.text("заявок");
         int n = count % 100, n1 = count % 10;
-        return n > 10 && n < 20 ? "заявок" : n1 == 1 ? "заявка" : n1 >= 2 && n1 <= 4 ? "заявки" : "заявок";
+        return n > 10 && n < 20 ? DevGramLocale.text("заявок") : n1 == 1 ? DevGramLocale.text("заявка") : n1 >= 2 && n1 <= 4 ? DevGramLocale.text("заявки") : DevGramLocale.text("заявок");
     }
 
     private void confirmReject(DevGramPlugins.CatalogEntry e) {
-        DevGramPluginUi.showChoices(this, "Отклонить заявку",
-                "Выберите, сможет ли автор отправить исправленную версию.",
-                new String[]{"Отклонить с возможностью исправить", "Отклонить и заблокировать файл"},
+        DevGramPluginUi.showChoices(this, DevGramLocale.text("Отклонить заявку"),
+                DevGramLocale.text("Выберите, сможет ли автор отправить исправленную версию."),
+                new String[]{DevGramLocale.text("Отклонить с возможностью исправить"), DevGramLocale.text("Отклонить и заблокировать файл")},
                 new int[]{R.drawable.msg_retry, R.drawable.msg_block}, 1, which -> {
                     boolean block = which == 1;
-                    DevGramPluginUi.showTextInput(this, block ? "Отклонить и заблокировать" : "Причина отказа",
-                            "Автор увидит этот текст в своих заявках.", "Что нужно исправить в «" + e.name + "»?",
-                            "", block ? "Заблокировать файл" : "Отклонить заявку", true, reason -> ensureAdmin(() -> {
+                    DevGramPluginUi.showTextInput(this, block ? DevGramLocale.text("Отклонить и заблокировать") : DevGramLocale.text("Причина отказа"),
+                            DevGramLocale.text("Автор увидит этот текст в своих заявках."), DevGramLocale.text("Что нужно исправить в «") + e.name + DevGramLocale.text("»?"),
+                            "", block ? DevGramLocale.text("Заблокировать файл") : DevGramLocale.text("Отклонить заявку"), true, reason -> ensureAdmin(() -> {
                                 if (DevGramPlugins.rejectPending(e, block, reason)) {
                                     pending.remove(e);
-                                    afterAction(block ? "Отклонено и заблокировано" : "Отклонено");
+                                    afterAction(block ? DevGramLocale.text("Отклонено и заблокировано") : DevGramLocale.text("Отклонено"));
                                 }
                             }));
                 });
@@ -332,7 +333,7 @@ public class DevGramModerationActivity extends BaseFragment {
 
     private void showSource(DevGramPlugins.CatalogEntry e) {
         String src = e.source == null ? "" : e.source;
-        showCodeSheet(e.name + " — код", "Исходник заявки. Перед одобрением проверьте опасные разрешения и сетевые вызовы.", src);
+        showCodeSheet(e.name + DevGramLocale.text(" — код"), DevGramLocale.text("Исходник заявки. Перед одобрением проверьте опасные разрешения и сетевые вызовы."), src);
     }
 
     private void showDiff(DevGramPlugins.CatalogEntry oldEntry, DevGramPlugins.CatalogEntry newEntry) {
@@ -347,8 +348,8 @@ public class DevGramModerationActivity extends BaseFragment {
             if (!b.isEmpty()) diff.append("+ ").append(b).append('\n');
             shown++;
         }
-        if (shown == 0) diff.append("Изменений в исходнике нет."); else if (shown >= 120) diff.append("\n…показаны первые 120 изменений");
-        showCodeSheet("Изменения плагина", "Версия " + oldEntry.version + " → " + newEntry.version, diff.toString());
+        if (shown == 0) diff.append(DevGramLocale.text("Изменений в исходнике нет.")); else if (shown >= 120) diff.append(DevGramLocale.text("\n…показаны первые 120 изменений"));
+        showCodeSheet(DevGramLocale.text("Изменения плагина"), DevGramLocale.text("Версия ") + oldEntry.version + " → " + newEntry.version, diff.toString());
     }
 
     private void showCodeSheet(String title, String subtitle, String value) {
@@ -356,7 +357,7 @@ public class DevGramModerationActivity extends BaseFragment {
         if (context == null) return;
         LinearLayout root = DevGramPluginUi.sheetRoot(context, this, title, subtitle);
         TextView code = new TextView(context);
-        code.setText(value.isEmpty() ? "Исходник отсутствует" : value);
+        code.setText(value.isEmpty() ? DevGramLocale.text("Исходник отсутствует") : value);
         code.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         code.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         code.setTypeface(android.graphics.Typeface.MONOSPACE);
@@ -367,13 +368,13 @@ public class DevGramModerationActivity extends BaseFragment {
         ScrollView scroll = new ScrollView(context);
         scroll.addView(code);
         root.addView(scroll, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 360, 0, 0, 0, 12));
-        TextView copy = pillButton(context, "Копировать текст",
+        TextView copy = pillButton(context, DevGramLocale.text("Копировать текст"),
                 Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider),
                 Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
         ScaleStateListAnimator.apply(copy, .025f, 1.2f);
         copy.setOnClickListener(v -> {
             AndroidUtilities.addToClipboard(value);
-            BulletinFactory.of(this).createCopyBulletin("Скопировано").show();
+            BulletinFactory.of(this).createCopyBulletin(DevGramLocale.text("Скопировано")).show();
         });
         root.addView(copy, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50));
         BottomSheet.Builder builder = new BottomSheet.Builder(context);
@@ -399,9 +400,9 @@ public class DevGramModerationActivity extends BaseFragment {
         if (ctx == null) return;
         LinearLayout root = new LinearLayout(ctx); root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(22));
-        TextView heading = new TextView(ctx); heading.setText("Модераторы"); heading.setTextSize(21); heading.setTypeface(AndroidUtilities.bold()); heading.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
+        TextView heading = new TextView(ctx); heading.setText(DevGramLocale.text("Модераторы")); heading.setTextSize(21); heading.setTypeface(AndroidUtilities.bold()); heading.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         root.addView(heading, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 2));
-        TextView caption = new TextView(ctx); caption.setText(mods.size() + " человек имеют доступ к каталогу"); caption.setTextSize(13); caption.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
+        TextView caption = new TextView(ctx); caption.setText(mods.size() + DevGramLocale.text(" человек имеют доступ к каталогу")); caption.setTextSize(13); caption.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         root.addView(caption, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
         final BottomSheet[] sheet = new BottomSheet[1];
         for (DevGramPlugins.Moderator m : mods) {
@@ -409,20 +410,20 @@ public class DevGramModerationActivity extends BaseFragment {
             row.setOnClickListener(v -> confirmRemoveModerator(m, sheet[0]));
             root.addView(row, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 8));
         }
-        TextView add = pillButton(ctx, "＋  Добавить модератора", Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider), Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
+        TextView add = pillButton(ctx, DevGramLocale.text("＋  Добавить модератора"), Theme.getColor(Theme.key_featuredStickers_buttonText, resourceProvider), Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
         add.setOnClickListener(v -> { sheet[0].dismiss(); addModeratorDialog(); }); root.addView(add, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 8, 0, 0));
         BottomSheet.Builder builder = new BottomSheet.Builder(ctx); builder.setApplyBottomPadding(false); builder.setCustomView(root); sheet[0] = builder.create(); sheet[0].show();
     }
 
-    private LinearLayout moderatorRow(Context ctx, DevGramPlugins.Moderator m) { LinearLayout row=new LinearLayout(ctx);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(AndroidUtilities.dp(15),AndroidUtilities.dp(12),AndroidUtilities.dp(15),AndroidUtilities.dp(12));row.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(15),Theme.getColor(Theme.key_windowBackgroundGray,resourceProvider),Theme.getColor(Theme.key_listSelector,resourceProvider)));TextView n=new TextView(ctx);n.setText(m.email==null||m.email.isEmpty()?m.uid:m.email);n.setTextSize(15);n.setTypeface(AndroidUtilities.bold());n.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText,resourceProvider));row.addView(n);TextView s=new TextView(ctx);s.setText((m.tg==0?"Telegram ID не указан":"Telegram ID: "+m.tg)+"  •  нажмите для управления");s.setTextSize(12);s.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider));row.addView(s,LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,3,0,0));return row; }
-    private void confirmRemoveModerator(DevGramPlugins.Moderator m, BottomSheet sheet){new AlertDialog.Builder(getParentActivity()).setTitle("Убрать модератора?").setMessage("Доступ к панели и жалобам будет отозван.").setPositiveButton("Убрать",(d,w)->DevGramPlugins.removeModerator(m.uid,(ok,err)->{BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,ok?"Доступ убран":"Ошибка: "+err).show();if(ok){if(sheet!=null)sheet.dismiss();DevGramPlugins.fetchModerators(list->{if(list!=null)showModerators(list);});}})).setNegativeButton("Отмена",null).show();}
+    private LinearLayout moderatorRow(Context ctx, DevGramPlugins.Moderator m) { LinearLayout row=new LinearLayout(ctx);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(AndroidUtilities.dp(15),AndroidUtilities.dp(12),AndroidUtilities.dp(15),AndroidUtilities.dp(12));row.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(15),Theme.getColor(Theme.key_windowBackgroundGray,resourceProvider),Theme.getColor(Theme.key_listSelector,resourceProvider)));TextView n=new TextView(ctx);n.setText(m.email==null||m.email.isEmpty()?m.uid:m.email);n.setTextSize(15);n.setTypeface(AndroidUtilities.bold());n.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText,resourceProvider));row.addView(n);TextView s=new TextView(ctx);s.setText((m.tg==0?DevGramLocale.text("Telegram ID не указан"):"Telegram ID: "+m.tg)+DevGramLocale.text("  •  нажмите для управления"));s.setTextSize(12);s.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText,resourceProvider));row.addView(s,LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT,LayoutHelper.WRAP_CONTENT,0,3,0,0));return row; }
+    private void confirmRemoveModerator(DevGramPlugins.Moderator m, BottomSheet sheet){new AlertDialog.Builder(getParentActivity()).setTitle(DevGramLocale.text("Убрать модератора?")).setMessage(DevGramLocale.text("Доступ к панели и жалобам будет отозван.")).setPositiveButton(DevGramLocale.text("Убрать"),(d,w)->DevGramPlugins.removeModerator(m.uid,(ok,err)->{BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,ok?DevGramLocale.text("Доступ убран"):DevGramLocale.text("Ошибка: ")+err).show();if(ok){if(sheet!=null)sheet.dismiss();DevGramPlugins.fetchModerators(list->{if(list!=null)showModerators(list);});}})).setNegativeButton(DevGramLocale.text("Отмена"),null).show();}
 
     private void addModeratorDialog() {
         Context ctx = getParentActivity();
-        EditTextBoldCursor emailEt = makeInput(ctx, "Email модератора", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
-        EditTextBoldCursor passEt = makeInput(ctx, "Пароль (мин. 6 символов)", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor emailEt = makeInput(ctx, DevGramLocale.text("Email модератора"), InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor passEt = makeInput(ctx, DevGramLocale.text("Пароль (мин. 6 символов)"), InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
         passEt.setTransformationMethod(PasswordTransformationMethod.getInstance());
-        EditTextBoldCursor tgEt = makeInput(ctx, "Telegram ID модератора", InputType.TYPE_CLASS_NUMBER);
+        EditTextBoldCursor tgEt = makeInput(ctx, DevGramLocale.text("Telegram ID модератора"), InputType.TYPE_CLASS_NUMBER);
         LinearLayout box = new LinearLayout(ctx);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(AndroidUtilities.dp(24), AndroidUtilities.dp(4), AndroidUtilities.dp(24), 0);
@@ -430,34 +431,34 @@ public class DevGramModerationActivity extends BaseFragment {
         box.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
         box.addView(tgEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
         TextView hint = new TextView(ctx);
-        hint.setText("Telegram ID нужен, чтобы кнопка модерации показалась именно этому человеку. ID можно узнать через @getmyid_bot.");
+        hint.setText(DevGramLocale.text("Telegram ID нужен, чтобы кнопка модерации показалась именно этому человеку. ID можно узнать через @getmyid_bot."));
         hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
         hint.setTextColor(Theme.getColor(Theme.key_dialogTextGray3, resourceProvider));
         box.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0f, 8f, 0f, 0f));
         AlertDialog.Builder b = new AlertDialog.Builder(ctx);
-        b.setTitle("Новый модератор");
+        b.setTitle(DevGramLocale.text("Новый модератор"));
         b.setView(box);
-        b.setPositiveButton("Создать", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Создать"), (d, w) -> {
             String email = emailEt.getText().toString().trim();
             String pass = passEt.getText().toString();
             long tg = org.telegram.messenger.Utilities.parseLong(tgEt.getText().toString());
             if (email.isEmpty() || pass.length() < 6) {
-                Toast.makeText(getParentActivity(), "Введите email и пароль от 6 символов", Toast.LENGTH_LONG).show();
+                Toast.makeText(getParentActivity(), DevGramLocale.text("Введите email и пароль от 6 символов"), Toast.LENGTH_LONG).show();
                 return;
             }
             if (tg <= 0) {
-                Toast.makeText(getParentActivity(), "Введите Telegram ID модератора", Toast.LENGTH_LONG).show();
+                Toast.makeText(getParentActivity(), DevGramLocale.text("Введите Telegram ID модератора"), Toast.LENGTH_LONG).show();
                 return;
             }
             DevGramPlugins.addModerator(email, pass, tg, (ok, err) -> {
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.contact_check,
-                        ok ? "Модератор добавлен. Логин: " + email : ("Ошибка: " + err)).show();
+                        ok ? DevGramLocale.text("Модератор добавлен. Логин: ") + email : (DevGramLocale.text("Ошибка: ") + err)).show();
                 if (ok) {
                     DevGramPlugins.fetchModerators(list -> showModerators(list));
                 }
             });
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
         emailEt.requestFocus();
         AndroidUtilities.showKeyboard(emailEt);
@@ -472,7 +473,7 @@ public class DevGramModerationActivity extends BaseFragment {
         Context ctx = getParentActivity();
         if (ctx == null) return;
         EditTextBoldCursor emailEt = makeInput(ctx, "Email", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
-        EditTextBoldCursor passEt = makeInput(ctx, "Пароль", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor passEt = makeInput(ctx, DevGramLocale.text("Пароль"), InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
         passEt.setTransformationMethod(PasswordTransformationMethod.getInstance());
         LinearLayout box = new LinearLayout(ctx);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -480,9 +481,9 @@ public class DevGramModerationActivity extends BaseFragment {
         box.addView(emailEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44));
         box.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
         AlertDialog.Builder b = new AlertDialog.Builder(ctx);
-        b.setTitle("Вход модератора");
+        b.setTitle(DevGramLocale.text("Вход модератора"));
         b.setView(box);
-        b.setPositiveButton("Войти", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Войти"), (d, w) -> {
             String email = emailEt.getText().toString().trim();
             String pass = passEt.getText().toString();
             if (email.isEmpty() || pass.isEmpty()) return;
@@ -490,11 +491,11 @@ public class DevGramModerationActivity extends BaseFragment {
                 if (ok) {
                     DevGramPlugins.fetchModerators(m -> onReady.run());
                 } else {
-                    Toast.makeText(getParentActivity(), "Не удалось войти: " + err, Toast.LENGTH_LONG).show();
+                    Toast.makeText(getParentActivity(), DevGramLocale.text("Не удалось войти: ") + err, Toast.LENGTH_LONG).show();
                 }
             });
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
         emailEt.requestFocus();
         AndroidUtilities.showKeyboard(emailEt);

@@ -7,6 +7,7 @@ import android.widget.FrameLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -39,7 +40,7 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("Роли");
+        actionBar.setTitle(DevGramLocale.text("Роли"));
         ActionBarMenu menu = actionBar.createMenu();
         menu.addItem(MENU_ADD, R.drawable.msg_add);
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
@@ -68,16 +69,16 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
     }
 
     private static String preview(String prompt) {
-        if (prompt == null || prompt.isEmpty()) return "Стандартный ассистент";
+        if (prompt == null || prompt.isEmpty()) return DevGramLocale.text("Стандартный ассистент");
         return prompt.length() > 60 ? prompt.substring(0, 60) + "…" : prompt;
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asTopView("Роли", "Создавайте роли для ваших нужд!", "RestrictedEmoji", "🎭"));
+        items.add(UItem.asTopView(DevGramLocale.text("Роли"), DevGramLocale.text("Создавайте роли для ваших нужд!"), "RestrictedEmoji", "🎭"));
         items.add(UItem.asShadow(null));
 
         final String sel = selectedRole();
-        items.add(UItem.asHeader("Предложения"));
+        items.add(UItem.asHeader(DevGramLocale.text("Предложения")));
         for (int i = 0; i < SUGGESTED.length; i++) {
             items.add(UItem.asRadio2(ID_BASE_SUGGESTED + i, SUGGESTED[i][0], preview(SUGGESTED[i][1]))
                     .setChecked(sel.equals(SUGGESTED[i][0])));
@@ -86,14 +87,14 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
         JSONArray custom = customRoles();
         if (custom.length() > 0) {
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader("Мои роли"));
+            items.add(UItem.asHeader(DevGramLocale.text("Мои роли")));
             for (int i = 0; i < custom.length(); i++) {
                 JSONObject r = custom.optJSONObject(i);
                 if (r == null) continue;
                 items.add(UItem.asRadio2(ID_BASE_CUSTOM + i, r.optString("name"), preview(r.optString("prompt")))
                         .setChecked(sel.equals(r.optString("name"))));
             }
-            items.add(UItem.asShadow("Долгое нажатие — удалить свою роль."));
+            items.add(UItem.asShadow(DevGramLocale.text("Долгое нажатие — удалить свою роль.")));
         }
     }
 
@@ -120,9 +121,9 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
         }
         final String name = r.optString("name");
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Удалить роль?");
+        b.setTitle(DevGramLocale.text("Удалить роль?"));
         b.setMessage(name);
-        b.setPositiveButton("Удалить", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Удалить"), (d, w) -> {
             arr.remove(i);
             MessagesController.getGlobalMainSettings().edit().putString("dg_aiCustomRoles", arr.toString()).apply();
             if (selectedRole().equals(name)) {
@@ -131,7 +132,7 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
             }
             if (listView != null && listView.adapter != null) listView.adapter.update(true);
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
         return true;
     }
@@ -151,13 +152,13 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
         int pad = org.telegram.messenger.AndroidUtilities.dp(20);
         box.setPadding(pad, 0, pad, 0);
         android.widget.EditText name = new android.widget.EditText(getParentActivity());
-        name.setHint("Название");
+        name.setHint(DevGramLocale.text("Название"));
         name.setSingleLine(true);
         name.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         name.setHintTextColor(Theme.getColor(Theme.key_dialogTextHint));
         box.addView(name, new android.widget.LinearLayout.LayoutParams(-1, -2));
         android.widget.EditText prompt = new android.widget.EditText(getParentActivity());
-        prompt.setHint("Промпт");
+        prompt.setHint(DevGramLocale.text("Промпт"));
         prompt.setMinLines(2);
         prompt.setMaxLines(6);
         prompt.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
@@ -165,9 +166,9 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
         box.addView(prompt, new android.widget.LinearLayout.LayoutParams(-1, -2));
 
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity());
-        b.setTitle("Новая роль");
+        b.setTitle(DevGramLocale.text("Новая роль"));
         b.setView(box);
-        b.setPositiveButton("Создать", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Создать"), (d, w) -> {
             String n = name.getText().toString().trim();
             String p = prompt.getText().toString().trim();
             if (n.isEmpty()) return;
@@ -176,7 +177,7 @@ public class DevGramAiRolesActivity extends DevGramSettingsFragment {
             MessagesController.getGlobalMainSettings().edit().putString("dg_aiCustomRoles", arr.toString()).apply();
             selectRole(n, p);
         });
-        b.setNegativeButton("Отмена", null);
+        b.setNegativeButton(DevGramLocale.text("Отмена"), null);
         showDialog(b.create());
     }
 }

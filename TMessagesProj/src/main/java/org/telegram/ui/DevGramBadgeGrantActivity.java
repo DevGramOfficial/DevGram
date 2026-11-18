@@ -17,10 +17,10 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.DevGramBadges;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserObject;
@@ -31,6 +31,7 @@ import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
@@ -44,8 +45,9 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
     private final long dialogId;
     private long selEmojiId = DevGramBadges.EMOJI_TEAM;
-    private String selText = DevGramBadges.READY_TEXTS[0];
+    private String selText = DevGramBadges.getReadyTexts()[0];
     private int selAccess = DevGramBadges.ACCESS_DEVELOPER | DevGramBadges.ACCESS_SUPPORTER;
+    private boolean backgroundWithoutReview;
 
     private TextView emojiRow;
     private TextView textRow;
@@ -53,7 +55,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
     private TextView previewTitle;
     private TextView previewText;
     private final TextView[] emojiOptions = new TextView[DevGramBadges.READY_EMOJI.length + 1];
-    private final TextView[] textOptions = new TextView[DevGramBadges.READY_TEXTS.length + 1];
+    private final TextView[] textOptions = new TextView[DevGramBadges.getReadyTexts().length + 1];
     private final TextView[] accessOptions = new TextView[2];
     private SelectAnimatedEmojiDialog.SelectAnimatedEmojiDialogWindow pickerPopup;
     private BackupImageView nameBadge;
@@ -82,6 +84,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
             selEmojiId = current.emojiId;
             selText = current.text;
             selAccess = current.access;
+            backgroundWithoutReview = current.backgroundWithoutReview;
         }
     }
 
@@ -94,7 +97,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         boolean existing = DevGramBadges.badgeOf(dialogId) != null;
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(existing ? "Изменить значок" : "Новый значок");
+        actionBar.setTitle(existing ? DevGramLocale.text("Изменить значок") : DevGramLocale.text("Новый значок"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -117,13 +120,25 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
         box.addView(createRecipientCard(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        box.addView(header(context, "Предпросмотр"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 4, 18, 4, 8));
+        box.addView(header(context, DevGramLocale.text("Предпросмотр")), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 4, 18, 4, 8));
         box.addView(createPreviewCard(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
-        box.addView(header(context, "Роль"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 4, 18, 4, 8));
+        box.addView(header(context, DevGramLocale.text("Роль")), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 4, 18, 4, 8));
         box.addView(createPresets(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         box.addView(createFineTuning(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 14, 0, 0));
+
+        box.addView(header(context, DevGramLocale.text("Дополнительные права")), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 4, 18, 4, 8));
+        TextCheckCell backgroundCheck = new TextCheckCell(context, resourceProvider);
+        backgroundCheck.setTextAndValueAndCheck(DevGramLocale.text("Фон без проверки"),
+                DevGramLocale.text("Фото, видео и GIF можно публиковать без ручного одобрения. Остальные ограничения сохраняются."),
+                backgroundWithoutReview, true, false);
+        backgroundCheck.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14), Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider)));
+        backgroundCheck.setOnClickListener(v -> {
+            backgroundWithoutReview = !backgroundWithoutReview;
+            backgroundCheck.setChecked(backgroundWithoutReview);
+        });
+        box.addView(backgroundCheck, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         scroll.addView(box, new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         root.addView(scroll, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -134,7 +149,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         footer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resourceProvider));
 
         TextView grantBtn = new TextView(context);
-        grantBtn.setText(existing ? "Сохранить изменения" : "Выдать значок");
+        grantBtn.setText(existing ? DevGramLocale.text("Сохранить изменения") : DevGramLocale.text("Выдать значок"));
         grantBtn.setGravity(Gravity.CENTER);
         grantBtn.setTypeface(AndroidUtilities.bold());
         grantBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -147,7 +162,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
         if (existing) {
             TextView revokeBtn = new TextView(context);
-            revokeBtn.setText("Снять значок");
+            revokeBtn.setText(DevGramLocale.text("Снять значок"));
             revokeBtn.setGravity(Gravity.CENTER);
             revokeBtn.setTypeface(AndroidUtilities.bold());
             revokeBtn.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -166,20 +181,20 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
     private void fillPresets() {
         presets.clear();
-        String[] t = DevGramBadges.READY_TEXTS;
+        String[] t = DevGramBadges.getReadyTexts();
         if (dialogId > 0) {
-            presets.add(new Preset("Поддержавший", "Значок ✈️, функции для поддержавших",
+            presets.add(new Preset(DevGramLocale.text("Поддержавший"), DevGramLocale.text("Значок ✈️, функции для поддержавших"),
                     DevGramBadges.EMOJI_SUPPORTER, t[1], DevGramBadges.ACCESS_SUPPORTER));
-            presets.add(new Preset("Команда проекта", "Значок ✅, все функции и меню разработчика",
+            presets.add(new Preset(DevGramLocale.text("Команда проекта"), DevGramLocale.text("Значок ✅, все функции и меню разработчика"),
                     DevGramBadges.EMOJI_TEAM, t[0], DevGramBadges.ACCESS_DEVELOPER | DevGramBadges.ACCESS_SUPPORTER));
-            presets.add(new Preset("Разработчик плагинов", "Значок 🧩, без доступа к функциям",
+            presets.add(new Preset(DevGramLocale.text("Разработчик плагинов"), DevGramLocale.text("Значок 🧩, без доступа к функциям"),
                     DevGramBadges.EMOJI_PLUGIN_DEV, t[4], 0));
         } else {
-            presets.add(new Preset("Канал (верификация)", "Галочка ✅ у канала",
+            presets.add(new Preset(DevGramLocale.text("Канал (верификация)"), DevGramLocale.text("Галочка ✅ у канала"),
                     DevGramBadges.EMOJI_CHANNEL, t[2], 0));
-            presets.add(new Preset("Официальный ресурс", "Значок ✈️ официальных каналов DevGram",
+            presets.add(new Preset(DevGramLocale.text("Официальный ресурс"), DevGramLocale.text("Значок ✈️ официальных каналов DevGram"),
                     DevGramBadges.EMOJI_OFFICIAL, t[3], 0));
-            presets.add(new Preset("Разработчик плагинов", "Значок 🧩 у канала с плагинами",
+            presets.add(new Preset(DevGramLocale.text("Разработчик плагинов"), DevGramLocale.text("Значок 🧩 у канала с плагинами"),
                     DevGramBadges.EMOJI_PLUGIN_DEV, t[4], 0));
         }
     }
@@ -250,7 +265,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14), AndroidUtilities.dp(14));
         TextView title = new TextView(context);
-        title.setText("Тонкая настройка");
+        title.setText(DevGramLocale.text("Тонкая настройка"));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         title.setTypeface(AndroidUtilities.bold());
         title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
@@ -258,12 +273,12 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
         LinearLayout content = new LinearLayout(context);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.addView(header(context, "Значок"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 8));
+        content.addView(header(context, DevGramLocale.text("Значок")), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 12, 0, 8));
         content.addView(createEmojiChoices(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        content.addView(header(context, "Подпись"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 8));
+        content.addView(header(context, DevGramLocale.text("Подпись")), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 8));
         content.addView(createTextChoices(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         if (dialogId > 0) {
-            content.addView(header(context, "Доступ к функциям"), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 8));
+            content.addView(header(context, DevGramLocale.text("Доступ к функциям")), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 16, 0, 8));
             content.addView(createAccessChoices(context), LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         }
         // клики по чипам внутри не должны сворачивать карточку
@@ -315,7 +330,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
             name = ((TLRPC.Chat) peer).title;
             username = ChatObject.getPublicUsername((TLRPC.Chat) peer);
         } else {
-            name = dialogId > 0 ? "Пользователь" : "Чат или канал";
+            name = dialogId > 0 ? DevGramLocale.text("Пользователь") : DevGramLocale.text("Чат или канал");
         }
 
         BackupImageView avatar = new BackupImageView(context);
@@ -340,7 +355,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         texts.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         TextView sub = new TextView(context);
         sub.setText((username == null || username.isEmpty() ? "" : "@" + username + "  ·  ")
-                + (dialogId > 0 ? "Пользователь" : "Чат") + "  ·  ID " + shownId(dialogId));
+                + (dialogId > 0 ? DevGramLocale.text("Пользователь") : DevGramLocale.text("Чат")) + "  ·  ID " + shownId(dialogId));
         sub.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         sub.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         texts.addView(sub, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 3, 0, 0));
@@ -355,14 +370,14 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         row.setPadding(0, 0, AndroidUtilities.dp(4), 0);
         for (int i = 0; i < DevGramBadges.READY_EMOJI.length; i++) {
             final int index = i;
-            emojiOptions[i] = choice(context, DevGramBadges.READY_EMOJI_LABELS[i]);
+            emojiOptions[i] = choice(context, DevGramBadges.getReadyEmojiLabels()[i]);
             emojiOptions[i].setOnClickListener(v -> {
                 selEmojiId = DevGramBadges.READY_EMOJI[index];
                 refresh();
             });
             row.addView(emojiOptions[i], LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 40, i == 0 ? 0 : 8, 0, 0, 0));
         }
-        emojiRow = choice(context, "＋ Свой эмодзи");
+        emojiRow = choice(context, DevGramLocale.text("＋ Свой эмодзи"));
         emojiRow.setOnClickListener(v -> openEmojiPicker());
         emojiOptions[DevGramBadges.READY_EMOJI.length] = emojiRow;
         row.addView(emojiRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 40, 8, 0, 0, 0));
@@ -375,18 +390,18 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout row = new LinearLayout(context);
         row.setPadding(0, 0, AndroidUtilities.dp(4), 0);
-        for (int i = 0; i < DevGramBadges.READY_TEXTS.length; i++) {
+        for (int i = 0; i < DevGramBadges.getReadyTexts().length; i++) {
             final int index = i;
-            textOptions[i] = choice(context, DevGramBadges.READY_TEXT_LABELS[i]);
+            textOptions[i] = choice(context, DevGramBadges.getReadyTextLabels()[i]);
             textOptions[i].setOnClickListener(v -> {
-                selText = DevGramBadges.READY_TEXTS[index];
+                selText = DevGramBadges.getReadyTexts()[index];
                 refresh();
             });
             row.addView(textOptions[i], LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 40, i == 0 ? 0 : 8, 0, 0, 0));
         }
-        textRow = choice(context, "＋ Своя подпись");
+        textRow = choice(context, DevGramLocale.text("＋ Своя подпись"));
         textRow.setOnClickListener(v -> askCustomText());
-        textOptions[DevGramBadges.READY_TEXTS.length] = textRow;
+        textOptions[DevGramBadges.getReadyTexts().length] = textRow;
         row.addView(textRow, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, 40, 8, 0, 0, 0));
         scroll.addView(row);
         return scroll;
@@ -394,14 +409,14 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
     private View createAccessChoices(Context context) {
         LinearLayout row = new LinearLayout(context);
-        accessOptions[0] = choice(context, "Поддержавший");
+        accessOptions[0] = choice(context, DevGramLocale.text("Поддержавший"));
         accessOptions[0].setOnClickListener(v -> {
             selAccess ^= DevGramBadges.ACCESS_SUPPORTER;
             refresh();
         });
         row.addView(accessOptions[0], LayoutHelper.createLinear(0, 40, 1f));
 
-        accessOptions[1] = choice(context, "Разработчик");
+        accessOptions[1] = choice(context, DevGramLocale.text("Разработчик"));
         accessOptions[1].setOnClickListener(v -> {
             selAccess ^= DevGramBadges.ACCESS_DEVELOPER;
             if ((selAccess & DevGramBadges.ACCESS_DEVELOPER) != 0) {
@@ -462,12 +477,12 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         updateChoice(emojiOptions[DevGramBadges.READY_EMOJI.length], !readyEmoji,
                 selectedBg, normalBg, selectedText, normalText);
         boolean readyText = false;
-        for (int i = 0; i < DevGramBadges.READY_TEXTS.length; i++) {
-            boolean selected = DevGramBadges.READY_TEXTS[i].equals(selText);
+        for (int i = 0; i < DevGramBadges.getReadyTexts().length; i++) {
+            boolean selected = DevGramBadges.getReadyTexts()[i].equals(selText);
             readyText |= selected;
             updateChoice(textOptions[i], selected, selectedBg, normalBg, selectedText, normalText);
         }
-        updateChoice(textOptions[DevGramBadges.READY_TEXTS.length], !readyText,
+        updateChoice(textOptions[DevGramBadges.getReadyTexts().length], !readyText,
                 selectedBg, normalBg, selectedText, normalText);
         updateChoice(accessOptions[0], (selAccess & DevGramBadges.ACCESS_SUPPORTER) != 0,
                 selectedBg, normalBg, selectedText, normalText);
@@ -511,11 +526,11 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         if (dialogId > 0) {
             TLRPC.User user = getMessagesController().getUser(dialogId);
             if (user != null) return UserObject.getUserName(user);
-            return "Пользователь " + shownId(dialogId);
+            return DevGramLocale.text("Пользователь ") + shownId(dialogId);
         }
         TLRPC.Chat chat = getMessagesController().getChat(-dialogId);
         if (chat != null && chat.title != null) return chat.title;
-        return "Чат " + shownId(dialogId);
+        return DevGramLocale.text("Чат ") + shownId(dialogId);
     }
 
     // Тот же пикер кастом-эмодзи, что статусы в чате: даёт document_id.
@@ -551,7 +566,7 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
 
     private void askCustomText() {
         Context context = getParentActivity();
-        EditTextBoldCursor et = makeInput(context, "Текст подписи ({name} = имя)",
+        EditTextBoldCursor et = makeInput(context, DevGramLocale.text("Текст подписи ({name} = имя)"),
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         et.setText(selText);
 
@@ -560,16 +575,16 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
         container.addView(et, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Своя подпись");
+        b.setTitle(DevGramLocale.text("Своя подпись"));
         b.setView(container);
-        b.setPositiveButton(LocaleController.getString(R.string.Done), (d, w) -> {
+        b.setPositiveButton(DevGramLocale.getString(R.string.Done), (d, w) -> {
             String t = et.getText().toString().trim();
             if (!t.isEmpty()) {
                 selText = t;
                 refresh();
             }
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         showDialog(b.create());
         et.requestFocus();
         AndroidUtilities.showKeyboard(et);
@@ -578,24 +593,24 @@ public class DevGramBadgeGrantActivity extends BaseFragment {
     private void onGrant() {
         DevGramBadgesActivity.ensureAdminSignedIn(this, () -> {
             boolean existed = DevGramBadges.badgeOf(dialogId) != null;
-            DevGramBadges.grantBadge(dialogId, selEmojiId, selText, selAccess);
+            DevGramBadges.grantBadge(dialogId, selEmojiId, selText, selAccess, backgroundWithoutReview);
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
-            showDoneBulletin(existed ? "Значок обновлён" : "Значок выдан: " + peerDisplayName());
+            showDoneBulletin(existed ? DevGramLocale.text("Значок обновлён") : DevGramLocale.text("Значок выдан: ") + peerDisplayName());
             finishFragment();
         });
     }
 
     private void confirmRevoke() {
         AlertDialog.Builder b = new AlertDialog.Builder(getParentActivity(), resourceProvider);
-        b.setTitle("Снять значок?");
-        b.setMessage("Значок пропадёт у " + peerDisplayName() + " у всех пользователей DevGram.");
-        b.setPositiveButton("Снять", (d, w) -> DevGramBadgesActivity.ensureAdminSignedIn(this, () -> {
+        b.setTitle(DevGramLocale.text("Снять значок?"));
+        b.setMessage(DevGramLocale.text("Значок пропадёт у ") + peerDisplayName() + DevGramLocale.text(" у всех пользователей DevGram."));
+        b.setPositiveButton(DevGramLocale.text("Снять"), (d, w) -> DevGramBadgesActivity.ensureAdminSignedIn(this, () -> {
             DevGramBadges.revoke(dialogId);
             NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.reloadInterface);
-            showDoneBulletin("Значок снят");
+            showDoneBulletin(DevGramLocale.text("Значок снят"));
             finishFragment();
         }));
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         AlertDialog dialog = b.create();
         showDialog(dialog);
         TextView button = (TextView) dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE);

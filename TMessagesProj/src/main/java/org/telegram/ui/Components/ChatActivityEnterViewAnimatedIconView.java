@@ -1,6 +1,9 @@
 package org.telegram.ui.Components;
 
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.drawable.Drawable;
 
 import androidx.annotation.Nullable;
 
@@ -15,6 +18,13 @@ public class ChatActivityEnterViewAnimatedIconView extends RLottieImageView {
     private State currentState;
     private TransitState animatingState;
     private final int sizeDp;
+    private Drawable packStateDrawable;
+    private Drawable packTargetDrawable;
+    private long packStateRevision = -1;
+
+    private boolean formatMode;
+    private Drawable formatDrawable;
+    private final AnimatedFloat formatProgress = new AnimatedFloat(this, 0, 320, CubicBezierInterpolator.EASE_OUT_QUINT);
 
     private final Map<TransitState, RLottieDrawable> stateMap = new HashMap<TransitState, RLottieDrawable>() {
         @Nullable
@@ -42,6 +52,43 @@ public class ChatActivityEnterViewAnimatedIconView extends RLottieImageView {
     }
 
     public void setState(State state, boolean animate) {
+        org.telegram.messenger.devgram.icons.IconManager icons = org.telegram.messenger.devgram.icons.IconManager.INSTANCE;
+        if (!icons.isBasePackOnly("base.default")) {
+            if (animate && state == currentState && packStateDrawable != null && packStateRevision == icons.revision()) return;
+            // Keep only the last static target: nesting old crossfades retains every previous icon.
+            Drawable previous = packTargetDrawable;
+            if (packStateDrawable != null) packStateDrawable.setCallback(null);
+            Drawable next = getContext().getDrawable(state.resource).mutate();
+            packTargetDrawable = next;
+            clearAnimationDrawable();
+            currentState = state;
+            packStateRevision = icons.revision();
+            animatingState = null;
+            if (animate && previous != null) {
+                CrossfadeDrawable crossfade = new CrossfadeDrawable(previous, next) {
+                    @Override public void setColorFilter(ColorFilter filter) {
+                        super.setColorFilter(filter);
+                        next.setColorFilter(filter);
+                    }
+                };
+                packStateDrawable = crossfade;
+                crossfade.setCallback(this);
+                crossfade.animateToProgress(1f);
+            } else {
+                packStateDrawable = next;
+                packStateDrawable.setCallback(this);
+            }
+            if (state == State.VOICE) setContentDescription(LocaleController.getString(R.string.AccDescrVoiceMessage));
+            else if (state == State.VIDEO) setContentDescription(LocaleController.getString(R.string.AccDescrVideoMessage));
+            invalidate();
+            return;
+        }
+        if (packStateDrawable != null) {
+            packStateDrawable.setCallback(null);
+            packStateDrawable = null;
+            packTargetDrawable = null;
+            currentState = null;
+        }
         if (animate && state == currentState) {
             return;
         }
@@ -84,6 +131,63 @@ public class ChatActivityEnterViewAnimatedIconView extends RLottieImageView {
             case VIDEO:
                 setContentDescription(LocaleController.getString(R.string.AccDescrVideoMessage));
                 break;
+        }
+    }
+
+    public void setFormatMode(boolean format, boolean animated) {
+        if (formatMode == format) {
+            return;
+        }
+        formatMode = format;
+        if (!animated) {
+            formatProgress.set(format, true);
+        }
+        invalidate();
+    }
+
+    public boolean isFormatMode() {
+        return formatMode;
+    }
+
+    @Override
+    protected boolean verifyDrawable(Drawable who) {
+        return who == packStateDrawable || super.verifyDrawable(who);
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        final float p = formatProgress.set(formatMode);
+        final float cx = getWidth() / 2f, cy = getHeight() / 2f;
+        if (p < 1) {
+            final boolean layer = p > 0;
+            if (layer) {
+                canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (0xFF * (1f - p)), Canvas.ALL_SAVE_FLAG);
+            } else {
+                canvas.save();
+            }
+            final float s = 0.4f + 0.6f * (1f - p);
+            canvas.scale(s, s, cx, cy);
+            if (packStateDrawable != null) {
+                int half = AndroidUtilities.dp(sizeDp) / 2;
+                packStateDrawable.setBounds((int) cx - half, (int) cy - half, (int) cx + half, (int) cy + half);
+                packStateDrawable.setColorFilter(getColorFilter());
+                packStateDrawable.draw(canvas);
+            } else super.onDraw(canvas);
+            canvas.restore();
+        }
+        if (p > 0) {
+            if (formatDrawable == null) {
+                formatDrawable = getContext().getResources().getDrawable(R.drawable.msg_edit).mutate();
+            }
+            final int w = formatDrawable.getIntrinsicWidth() / 2, h = formatDrawable.getIntrinsicHeight() / 2;
+            formatDrawable.setBounds((int) cx - w, (int) cy - h, (int) cx + w, (int) cy + h);
+            formatDrawable.setColorFilter(getColorFilter());
+            formatDrawable.setAlpha((int) (0xFF * p));
+            canvas.save();
+            final float s = 0.4f + 0.6f * p;
+            canvas.scale(s, s, cx, cy);
+            formatDrawable.draw(canvas);
+            canvas.restore();
         }
     }
 
@@ -134,11 +238,13 @@ public class ChatActivityEnterViewAnimatedIconView extends RLottieImageView {
     }
 
     public enum State {
-        VOICE,
-        VIDEO,
-        STICKER,
-        KEYBOARD,
-        SMILE,
-        GIF
+        VOICE(R.drawable.input_mic_pressed),
+        VIDEO(R.drawable.input_video_pressed),
+        STICKER(R.drawable.msg_sticker),
+        KEYBOARD(R.drawable.input_keyboard),
+        SMILE(R.drawable.input_smile),
+        GIF(R.drawable.msg_gif);
+        final int resource;
+        State(int resource) { this.resource = resource; }
     }
 }

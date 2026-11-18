@@ -27,9 +27,20 @@ public final class PlayerConfig {
     public static boolean getNewPlayerStyle() { return b("newPlayerStyle", false) && org.telegram.ui.Components.DevGramMaterial3.enabled(); }
     public static void setNewPlayerStyle(boolean v) { b("newPlayerStyle", v, true); }
 
-    public static boolean getPlayerCoverColors() { return b("playerCoverColors", false); }
+    public static boolean getPlayerCoverColors() { return profileMusicAllowed("music.player")&&profileMusicPreference("devgramProfilePlayerCover","playerCover"); }
     public static void setPlayerCoverColors(boolean v) { b("playerCoverColors", v, true); }
 
+    private static int activeStudioAccount = -1;
+    public static void setStudioAccount(int account) { activeStudioAccount = account; }
+    public static boolean studioFlag(String key, String feature, boolean fallback) {
+        long uid = org.telegram.messenger.UserConfig.getInstance(activeStudioAccount < 0 ? org.telegram.messenger.UserConfig.selectedAccount : activeStudioAccount).getClientUserId();
+        return org.telegram.messenger.DevGramProfilePolicy.allowed(uid, feature)
+                && org.telegram.messenger.DevGramProfileDocument.number(uid, key, fallback ? 1 : 0) == 1;
+    }
+
+    private static boolean profileMusicAllowed(String feature){long uid=org.telegram.messenger.UserConfig.getInstance(activeStudioAccount<0?org.telegram.messenger.UserConfig.selectedAccount:activeStudioAccount).getClientUserId();return org.telegram.messenger.DevGramProfilePolicy.allowed(uid,feature);}
+    public static boolean profileMusicPreference(String localKey,String previousField){android.content.SharedPreferences settings=org.telegram.messenger.MessagesController.getGlobalMainSettings();if(settings.contains(localKey))return settings.getBoolean(localKey,true);long uid=org.telegram.messenger.UserConfig.getInstance(activeStudioAccount<0?org.telegram.messenger.UserConfig.selectedAccount:activeStudioAccount).getClientUserId();return org.telegram.messenger.DevGramProfileDocument.number(uid,previousField,1)==1;}
+    public static boolean getProfileLyricsMotion(){return profileMusicAllowed("music.lyrics.animated")&&profileMusicPreference("devgramProfileLyricsMotion","lyricsMotion");}
     public static boolean getPlayerMiniCoverColors() { return b("playerMiniCoverColors", false); }
     public static void setPlayerMiniCoverColors(boolean v) { b("playerMiniCoverColors", v, true); }
 

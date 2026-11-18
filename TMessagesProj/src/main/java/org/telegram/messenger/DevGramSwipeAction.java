@@ -16,7 +16,8 @@ public enum DevGramSwipeAction {
     DELETE(8, R.drawable.msg_delete, "Удалить", 1.09f),
     TRANSLATE(9, R.drawable.msg_translate, "Перевести", 1.09f);
 
-    public static final String DEFAULT_ORDER = "1,2,3,4,5,6,7,8,9";
+    /** Reply is the primary swipe action; reaction remains the second choice. */
+    public static final String DEFAULT_ORDER = "2,1,3,4,5,6,7,8,9";
 
     public final int id;
     public final int iconRes;

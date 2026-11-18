@@ -26,7 +26,7 @@ public class DevGramBadgePickerView extends View {
     private final int account;
     private final Theme.ResourcesProvider resourcesProvider;
     private final ArrayList<Long> ids = new ArrayList<>();       // 0 — выданный значок
-    private final ArrayList<AnimatedEmojiDrawable> drawables = new ArrayList<>();
+    private final ArrayList<AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable> drawables = new ArrayList<>();
     private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private long originalEmojiId;
@@ -48,21 +48,31 @@ public class DevGramBadgePickerView extends View {
     }
 
     public void setData(long originalEmojiId, long currentEmojiId, ArrayList<DevGramBadges.Option> options) {
-        for (AnimatedEmojiDrawable d : drawables) if (d != null && attached) d.removeView(this);
+        for (AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable d : drawables) if (d != null && attached) d.detach();
         ids.clear();
         drawables.clear();
         this.originalEmojiId = originalEmojiId;
         ids.add(0L);
-        drawables.add(originalEmojiId != 0 ? AnimatedEmojiDrawable.make(account, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE, originalEmojiId) : null);
+        drawables.add(makeEmoji(originalEmojiId));
         for (DevGramBadges.Option o : options) {
             if (o.emojiId == originalEmojiId) continue;
             ids.add(o.emojiId);
-            drawables.add(AnimatedEmojiDrawable.make(account, AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE, o.emojiId));
+            drawables.add(makeEmoji(o.emojiId));
         }
         selected = currentEmojiId == originalEmojiId ? 0 : currentEmojiId;
-        if (attached) for (AnimatedEmojiDrawable d : drawables) if (d != null) d.addView(this);
+        if (attached) for (AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable d : drawables) if (d != null) d.attach();
         requestLayout();
         invalidate();
+    }
+
+    private AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable makeEmoji(long id) {
+        if (id == 0) return null;
+        DevGramBadgeEmojiDrawable drawable = new DevGramBadgeEmojiDrawable(this, AndroidUtilities.dp(ICON),
+                AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW_LARGE,
+                () -> Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider));
+        drawable.setCurrentAccount(account);
+        drawable.set(id, false);
+        return drawable;
     }
 
     public void setSelected(long emojiId) {
@@ -106,10 +116,11 @@ public class DevGramBadgePickerView extends View {
             boolean sel = ids.get(i) == selected;
             if (sel || i == pressed) canvas.drawCircle(cx, cy, r, bgPaint);
             if (sel) canvas.drawCircle(cx, cy, r, ringPaint);
-            AnimatedEmojiDrawable d = drawables.get(i);
+            AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable d = drawables.get(i);
             if (d != null) {
                 int half = AndroidUtilities.dp(ICON / 2f);
                 d.setBounds((int) cx - half, (int) cy - half, (int) cx + half, (int) cy + half);
+                d.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourcesProvider));
                 d.draw(canvas);
             }
         }
@@ -151,13 +162,13 @@ public class DevGramBadgePickerView extends View {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         attached = true;
-        for (AnimatedEmojiDrawable d : drawables) if (d != null) d.addView(this);
+        for (AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable d : drawables) if (d != null) d.attach();
     }
 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         attached = false;
-        for (AnimatedEmojiDrawable d : drawables) if (d != null) d.removeView(this);
+        for (AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable d : drawables) if (d != null) d.detach();
     }
 }

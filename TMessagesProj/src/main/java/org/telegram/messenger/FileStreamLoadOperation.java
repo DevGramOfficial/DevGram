@@ -28,6 +28,7 @@ import org.telegram.tgnet.TLRPC;
 
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
@@ -48,9 +49,9 @@ public class FileStreamLoadOperation implements DataSource, FileLoadOperationStr
     private long bytesRemaining;
     private long bytesTransferred;
     private long requestedLength;
-    private boolean opened;
+    private volatile boolean opened;
     private long currentOffset;
-    private CountDownLatch countDownLatch;
+    private volatile CountDownLatch countDownLatch;
     private RandomAccessFile file;
     private TLRPC.Document document;
     private Object parentObject;
@@ -160,10 +161,18 @@ public class FileStreamLoadOperation implements DataSource, FileLoadOperationStr
                 if (bytesRemaining < readLength) {
                     readLength = (int) bytesRemaining;
                 }
-                while ((availableLength == 0 && opened) || file == null) {
+                while (opened && (availableLength == 0 || file == null)) {
+                    throwIfLoadFailed();
                     availableLength = (int) loadOperation.getDownloadedLengthFromOffset(currentOffset, readLength)[0];
                     if (availableLength == 0) {
-                        countDownLatch = new CountDownLatch(1);
+                        CountDownLatch latch = new CountDownLatch(1);
+                        countDownLatch = latch;
+                        if (!opened) {
+                            break;
+                        }
+                        // A failed request cannot supply more bytes. Recreating it here
+                        // loops forever for deleted messages and repeats the global bulletin.
+                        throwIfLoadFailed();
                         FileLoadOperation loadOperation = FileLoader.getInstance(currentAccount).loadStreamFile(this, document, null, parentObject, currentOffset, false, getCurrentPriority());
                         if (this.loadOperation != loadOperation) {
 //                            FileLog.e("FileStreamLoadOperation " + document.id + " read: changed operation!");
@@ -171,8 +180,12 @@ public class FileStreamLoadOperation implements DataSource, FileLoadOperationStr
                             this.loadOperation = loadOperation;
                         }
 //                        FileLog.e("FileStreamLoadOperation " + document.id + " read sleeping.... Zzz");
-                        if (countDownLatch != null) {
-                            countDownLatch.await();
+                        throwIfLoadFailed();
+                        if (!opened) {
+                            break;
+                        }
+                        latch.await();
+                        if (countDownLatch == latch) {
                             countDownLatch = null;
                         }
                     }
@@ -232,10 +245,19 @@ public class FileStreamLoadOperation implements DataSource, FileLoadOperationStr
             } catch (InterruptedException e) {
                 FileLog.e(e);
                 return C.RESULT_NOTHING_READ;
+            } catch (IOException e) {
+                throw e;
             } catch (Exception e) {
                 throw new IOException(e);
             }
             return bytesRead;
+        }
+    }
+
+    private void throwIfLoadFailed() throws FileNotFoundException {
+        if (loadOperation == null || loadOperation.isFailed()) {
+            // Media3 treats FileNotFoundException as terminal rather than retrying.
+            throw new FileNotFoundException("Telegram media is no longer available");
         }
     }
 
@@ -247,6 +269,8 @@ public class FileStreamLoadOperation implements DataSource, FileLoadOperationStr
     @Override
     public void close() {
         FileLog.e("FileStreamLoadOperation " + document.id + " close me=" + this);
+        boolean wasOpened = opened;
+        opened = false;
         if (loadOperation != null) {
             loadOperation.removeStreamListener(this);
         }
@@ -260,14 +284,14 @@ public class FileStreamLoadOperation implements DataSource, FileLoadOperationStr
         }
         uri = null;
         allStreams.remove(document.id);
-        if (opened) {
-            opened = false;
+        if (wasOpened) {
             transferEnded();
         }
-        if (countDownLatch != null) {
+        CountDownLatch latch = countDownLatch;
+        countDownLatch = null;
+        if (latch != null) {
          //   FileLog.d("FileStreamLoadOperation count down");
-            countDownLatch.countDown();
-            countDownLatch = null;
+            latch.countDown();
         }
     }
 

@@ -125,10 +125,17 @@ public final class DevGramProfileBackground {
     }
 
     // Отправить выбранный файл боту на модерацию. mime — тип файла (image/…, video/…, image/gif).
-    // Фото сжимаются как обычные фото, видео — до 15 с, без звука и не больше 720p. done(null) — ушло.
+    // Фото сжимаются как обычные фото, видео — до 15 с, с сохранением аудиодорожки и не больше 720p. done(null) — ушло.
     public static void upload(int account, String path, String mime, Utilities.Callback<String> done) {
+        upload(account,path,mime,false,done);
+    }
+    public static void upload(int account,String path,String mime,boolean stage,Utilities.Callback<String> done){
+        upload(account, path, mime, stage, 0, done);
+    }
+    public static void upload(int account,String path,String mime,boolean stage,long subject,Utilities.Callback<String> done){
+        final String caption=stage?"dgbg_stage"+(subject<0?":"+subject:""):CAPTION;
         if (path == null) {
-            done.run("Не удалось открыть файл");
+            done.run(DevGramLocale.text("Не удалось открыть файл"));
             return;
         }
         final boolean gif = "image/gif".equals(mime);
@@ -137,26 +144,26 @@ public final class DevGramProfileBackground {
         if (video) {
             info = SendMessagesHelper.createDevGramBackgroundVideo(path, MAX_VIDEO_SECONDS, MAX_VIDEO_SIDE);
             if (info == null) {
-                done.run("Этот формат видео не поддерживается");
+                done.run(DevGramLocale.text("Этот формат видео не поддерживается"));
                 return;
             }
         }
         final VideoEditedInfo fInfo = info;
         DevGramPackages.resolveUsernameThen(account, DevGramPackages.CATALOG_BOT_USERNAME, (user, chat) -> {
             if (user == null) {
-                done.run("Нет связи с ботом DevGram");
+                done.run(DevGramLocale.text("Нет связи с ботом DevGram"));
                 return;
             }
             try {
                 AccountInstance ai = AccountInstance.getInstance(account);
                 if (gif) {
                     // GIF уходит документом — Telegram сам превращает его в лёгкое видео
-                    SendMessagesHelper.prepareSendingDocument(ai, path, path, null, CAPTION, null, user.id,
+                    SendMessagesHelper.prepareSendingDocument(ai, path, path, null, caption, null, user.id,
                             null, null, null, null, null, false, 0, null, null, false);
                 } else {
                     SendMessagesHelper.SendingMediaInfo m = new SendMessagesHelper.SendingMediaInfo();
                     m.path = path;
-                    m.caption = CAPTION;
+                    m.caption = caption;
                     m.isVideo = video;
                     m.videoEditedInfo = fInfo;
                     ArrayList<SendMessagesHelper.SendingMediaInfo> list = new ArrayList<>();
@@ -167,7 +174,7 @@ public final class DevGramProfileBackground {
                 done.run(null);
             } catch (Throwable e) {
                 FileLog.e(e);
-                done.run("Не удалось отправить файл");
+                done.run(DevGramLocale.text("Не удалось отправить файл"));
             }
         });
     }

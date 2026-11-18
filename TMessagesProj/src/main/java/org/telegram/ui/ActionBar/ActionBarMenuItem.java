@@ -95,6 +95,23 @@ import me.vkryl.android.animator.FactorAnimator;
 
 public class ActionBarMenuItem extends FrameLayout {
 
+    void onOverlayMenuClosed() {
+    }
+
+    @Nullable
+    SimpleActionBarMenuOverlay getSubMenuOverlay() {
+        return null;
+    }
+
+    @Nullable
+    MenuOverlayHost getSubMenuOverlayHost() {
+        return null;
+    }
+
+    boolean canOpenSubMenuOverlay() {
+        return false;
+    }
+
     private FrameLayout wrappedSearchFrameLayout;
 
     public static void addText(ActionBarPopupWindow.ActionBarPopupWindowLayout popupLayout, String text, Theme.ResourcesProvider resourcesProvider) {

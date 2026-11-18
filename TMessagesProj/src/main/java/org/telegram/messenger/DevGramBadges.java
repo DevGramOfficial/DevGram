@@ -70,6 +70,7 @@ public class DevGramBadges {
         public int border; // стиль обводки сообщений (0 — нет)
         public int bgMsg;          // фон профиля: номер поста в архиве (0 — нет), ставит бот после модерации
         public boolean bgVideo;    // фон — видео/GIF (иначе фото)
+        public boolean backgroundWithoutReview;
         public int[] nick;         // цвет ника: 1 цвет или 2 для градиента (null — обычный)
         public int number;         // уникальный номер выпуска значка поддержавшего
         public Badge(long emojiId, String text) {
@@ -108,14 +109,32 @@ public class DevGramBadges {
     public static final long[] READY_EMOJI = {EMOJI_TEAM, EMOJI_SUPPORTER, EMOJI_OFFICIAL, EMOJI_PLUGIN_DEV};
     public static final String[] READY_EMOJI_LABELS = {"✅ Команда", "✈️ Поддержавший", "✈️ Официальный", "🧩 Разработчик плагинов"};
 
+    public static String[] getReadyTexts() {
+        return localizedLabels(READY_TEXTS);
+    }
+
+    public static String[] getReadyTextLabels() {
+        return localizedLabels(READY_TEXT_LABELS);
+    }
+
+    public static String[] getReadyEmojiLabels() {
+        return localizedLabels(READY_EMOJI_LABELS);
+    }
+
+    private static String[] localizedLabels(String[] source) {
+        String[] labels = source.clone();
+        for (int i = 0; i < labels.length; i++) labels[i] = DevGramLocale.text(labels[i]);
+        return labels;
+    }
+
     // Значок по умолчанию для старой int-роли (обратная совместимость с облаком).
     private static Badge defaultBadge(int role) {
         switch (role) {
-            case ROLE_OFFICIAL:  return new Badge(EMOJI_OFFICIAL, READY_TEXTS[3]);
-            case ROLE_CHANNEL:   return new Badge(EMOJI_CHANNEL, READY_TEXTS[2]);
-            case ROLE_TEAM:      return new Badge(EMOJI_TEAM, READY_TEXTS[0], ACCESS_DEVELOPER | ACCESS_SUPPORTER);
+            case ROLE_OFFICIAL:  return new Badge(EMOJI_OFFICIAL, getReadyTexts()[3]);
+            case ROLE_CHANNEL:   return new Badge(EMOJI_CHANNEL, getReadyTexts()[2]);
+            case ROLE_TEAM:      return new Badge(EMOJI_TEAM, getReadyTexts()[0], ACCESS_DEVELOPER | ACCESS_SUPPORTER);
             case ROLE_SUPPORTER:
-            default:             return new Badge(EMOJI_SUPPORTER, READY_TEXTS[1], ACCESS_SUPPORTER);
+            default:             return new Badge(EMOJI_SUPPORTER, getReadyTexts()[1], ACCESS_SUPPORTER);
         }
     }
 
@@ -168,11 +187,14 @@ public class DevGramBadges {
         styleVersion++;
     }
 
+    public static void appearanceChanged() { notifyBadgesChanged(); }
+
     // Перерисовать всё, что показывает значки/обводку/цвет ника/фон профиля. Обычные ячейки
     // слушают updateInterfaces, а открытый ProfileActivity — глобальный reloadInterface.
     private static void notifyBadgesChanged() {
         invalidateStyles();
         AndroidUtilities.runOnUIThread(() -> {
+            DevGramProfilePolicy.dispatchListeners();
             // ProfileActivity слушает глобальный reloadInterface, а не только account-scoped
             // updateInterfaces. Без него новый значок уже лежал в кэше, но открытый профиль мог
             // продолжать показывать старую шапку до полного перезапуска приложения.
@@ -190,10 +212,12 @@ public class DevGramBadges {
     private static final AtomicBoolean cloudSyncInFlight = new AtomicBoolean();
 
     public static void syncFromCloud() {
+        DevGramProfilePolicy.start();
+        DevGramMusicPresence.start();
         if (!cloudSyncInFlight.compareAndSet(false, true)) {
             return;
         }
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             try {
                 String json = httpSend("GET", RTDB_BASE + "/badges.json", null);
                 if (json == null) {
@@ -284,7 +308,7 @@ public class DevGramBadges {
         } else {
             final HttpURLConnection c = streamConn;
             if (c != null) {
-                Utilities.globalQueue.postRunnable(c::disconnect); // свернули — соединение не держим
+                DevGramNetworkQueue.postRunnable(c::disconnect); // свернули — соединение не держим
             }
         }
     }
@@ -340,7 +364,7 @@ public class DevGramBadges {
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(60000); // сервер шлёт keep-alive каждые 25 с: тишина 60 с → реконнект
                 streamConn = conn;
-                android.util.Log.i("DevGramBadges", "поток значков: HTTP " + conn.getResponseCode());
+                android.util.Log.i("DevGramBadges", DevGramLocale.text("поток значков: HTTP ") + conn.getResponseCode());
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                     String line, event = null;
                     while (streamWanted && (line = br.readLine()) != null) {
@@ -355,7 +379,7 @@ public class DevGramBadges {
             } catch (Throwable e) {
                 // обрыв/таймаут/свернули приложение — переподключимся, когда снова нужно
                 if (streamWanted) {
-                    android.util.Log.w("DevGramBadges", "поток значков оборвался: " + e);
+                    android.util.Log.w("DevGramBadges", DevGramLocale.text("поток значков оборвался: ") + e);
                 }
             } finally {
                 streamConn = null;
@@ -474,6 +498,20 @@ public class DevGramBadges {
         return adminIdToken;
     }
 
+    public interface AdminTokenCallback { void run(String token, String error); }
+    /** Catalog moderation needs a fresh Firebase token, including after process restoration. */
+    public static void withAdminToken(AdminTokenCallback callback) {
+        restoreAdminSession();
+        final String identity = adminUid;
+        DevGramNetworkQueue.postRunnable(() -> {
+            String token = ensureFreshToken();
+            AndroidUtilities.runOnUIThread(() -> {
+                boolean same = identity != null && identity.equals(adminUid) && isSignedIn();
+                callback.run(same ? token : null, same && token != null && !token.isEmpty() ? null : "moderator_session");
+            });
+        });
+    }
+
     // UID вошедшего аккаунта (или null). Главный админ, если совпадает с MAIN_ADMIN_UID.
     public static String getAdminUid() {
         return adminUid;
@@ -485,7 +523,7 @@ public class DevGramBadges {
 
     // Вход команды/модератора: Firebase Auth REST (email/пароль → idToken + UID). Держим в сессии.
     public static void signIn(String email, String password, Callback cb) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("email", email);
@@ -511,7 +549,7 @@ public class DevGramBadges {
                 adminIdToken = null;
                 adminUid = null;
                 adminRefreshToken = null;
-                AndroidUtilities.runOnUIThread(() -> cb.onResult(false, "неверный email или пароль"));
+                AndroidUtilities.runOnUIThread(() -> cb.onResult(false, DevGramLocale.text("неверный email или пароль")));
             } catch (Throwable e) {
                 adminIdToken = null;
                 adminUid = null;
@@ -527,7 +565,7 @@ public class DevGramBadges {
     }
 
     public static void signUpModerator(String email, String password, UidCallback cb) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("email", email);
@@ -544,12 +582,12 @@ public class DevGramBadges {
                         return;
                     }
                     if (r.has("error")) {
-                        final String msg = r.getJSONObject("error").optString("message", "ошибка");
+                        final String msg = r.getJSONObject("error").optString("message", DevGramLocale.text("ошибка"));
                         AndroidUtilities.runOnUIThread(() -> cb.onResult(null, msg));
                         return;
                     }
                 }
-                AndroidUtilities.runOnUIThread(() -> cb.onResult(null, "не удалось создать аккаунт"));
+                AndroidUtilities.runOnUIThread(() -> cb.onResult(null, DevGramLocale.text("не удалось создать аккаунт")));
             } catch (Throwable e) {
                 AndroidUtilities.runOnUIThread(() -> cb.onResult(null, e.getMessage()));
             }
@@ -643,6 +681,7 @@ public class DevGramBadges {
                 b.border = o.optInt("b", 0);
                 b.bgMsg = o.optInt("g", 0);
                 b.bgVideo = "video".equals(o.optString("gt", ""));
+                b.backgroundWithoutReview = o.optBoolean("bgAuto", false);
                 b.number = o.optInt("i", 0);
                 org.json.JSONArray n = o.optJSONArray("n");
                 if (n != null && n.length() > 0) {
@@ -704,6 +743,9 @@ public class DevGramBadges {
 
     public static int borderOf(long userId) {
         if (userId <= 0) return 0;
+        if (!DevGramProfilePolicy.allowed(userId, "chat.bubble")) return 0;
+        org.json.JSONObject document = DevGramProfileDocument.get(userId);
+        if (document.has("messageFrame")) return document.optInt("messageFrame");
         Integer cached = borderCache.get(userId);
         if (cached != null) return cached;
         Badge b = badgeOf(userId);
@@ -715,7 +757,7 @@ public class DevGramBadges {
     // ---- значки на выбор (поддержавшие) ----
 
     public static void fetchOptions(Utilities.Callback<ArrayList<Option>> callback) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             ArrayList<Option> list = new ArrayList<>();
             String res = httpSend("GET", RTDB_BASE + "/badges_options.json", null);
             try {
@@ -737,7 +779,7 @@ public class DevGramBadges {
 
     // Команда: добавить/убрать значок из списка на выбор
     public static void putOption(long emojiId, String title, Callback callback) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             String body;
             try {
                 body = new JSONObject().put("t", title == null ? "" : title).toString();
@@ -747,16 +789,16 @@ public class DevGramBadges {
             String tok = ensureFreshToken();
             String res = tok == null ? null : httpSend("PUT", RTDB_BASE + "/badges_options/" + emojiId + ".json?auth=" + tok, body);
             final boolean ok = res != null;
-            AndroidUtilities.runOnUIThread(() -> callback.onResult(ok, ok ? null : "Не удалось сохранить"));
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(ok, ok ? null : DevGramLocale.text("Не удалось сохранить")));
         });
     }
 
     public static void removeOption(long emojiId, Callback callback) {
-        Utilities.globalQueue.postRunnable(() -> {
+        DevGramNetworkQueue.postRunnable(() -> {
             String tok = ensureFreshToken();
             String res = tok == null ? null : httpSend("DELETE", RTDB_BASE + "/badges_options/" + emojiId + ".json?auth=" + tok, null);
             final boolean ok = res != null;
-            AndroidUtilities.runOnUIThread(() -> callback.onResult(ok, ok ? null : "Не удалось удалить"));
+            AndroidUtilities.runOnUIThread(() -> callback.onResult(ok, ok ? null : DevGramLocale.text("Не удалось удалить")));
         });
     }
 
@@ -772,13 +814,39 @@ public class DevGramBadges {
     }
 
     private static void updateSelf(int account, Long emojiId, Integer border, JSONObject fields, Callback callback, boolean retryToken) {
-        DevGramBeta.activate(account, (tokenOk, tokenError) -> {
+        if (emojiId == null && border == null && fields != null && fields.has("g") && fields.optInt("g", -1) == 0) {
+            DevGramProfilePolicy.request(account, "studio/background/clear", new JSONObject(), (result, error) -> {
+                if (result == null) callback.onResult(false, DevGramLocale.text("Не удалось убрать фон"));
+                else DevGramProfileDocument.load(account, (loaded, loadError) -> callback.onResult(true, null));
+            });
+            return;
+        }
+        if (emojiId == null && (border != null || fields != null && fields.has("n"))) {
+            long uid = UserConfig.getInstance(account).getClientUserId();
+            String feature = border != null ? "chat.bubble" : "profile.nick";
+            if (!DevGramProfilePolicy.allowed(uid, feature)) { callback.onResult(false, DevGramLocale.text("Нет доступа к этой функции")); return; }
+            DevGramProfileDocument.load(account, (loaded, loadError) -> {
+                if (loaded == null) { callback.onResult(false, DevGramLocale.text("Не удалось загрузить оформление")); return; }
+                JSONObject doc = DevGramProfileDocument.raw(uid);
+                try {
+                    if (border != null) doc.put("messageFrame", border);
+                    if (fields != null && fields.has("n")) {
+                        org.json.JSONArray colors = fields.optJSONArray("n");
+                        doc.put("nickColor", colors != null && colors.length() > 0 ? colors.optLong(0) & 0xffffff : 0);
+                        doc.put("nickColor2", colors != null && colors.length() > 1 ? colors.optLong(1) & 0xffffff : 0);
+                    }
+                    DevGramProfileDocument.save(account, doc, (saved, error) -> callback.onResult(saved != null, saved == null ? DevGramLocale.text("Не удалось сохранить оформление") : null));
+                } catch (Exception e) { callback.onResult(false, DevGramLocale.text("Не удалось сохранить оформление")); }
+            });
+            return;
+        }
+        DevGramBeta.Callback authCallback = (tokenOk, tokenError) -> {
             if (!tokenOk) {
-                callback.onResult(false, tokenError != null ? tokenError : "Не удалось подтвердить аккаунт");
+                callback.onResult(false, tokenError != null ? tokenError : DevGramLocale.text("Не удалось подтвердить аккаунт"));
                 return;
             }
             final long uid = UserConfig.getInstance(account).getClientUserId();
-            Utilities.globalQueue.postRunnable(() -> {
+            DevGramNetworkQueue.postRunnable(() -> {
                 boolean ok = false;
                 String serverError = null;
                 try {
@@ -824,15 +892,17 @@ public class DevGramBadges {
                     }
                 });
             });
-        });
+        };
+        if (emojiId != null && DevGramProfilePolicy.allowed(UserConfig.getInstance(account).getClientUserId(), "badge.choice")) DevGramBeta.authenticate(account, authCallback);
+        else DevGramBeta.activate(account, authCallback);
     }
 
     private static String selfErrorText(String code) {
-        if ("not_supporter".equals(code)) return "Нужен значок поддержавшего";
-        if ("emoji_not_offered".equals(code)) return "Этот значок больше недоступен";
-        if ("bad_nick".equals(code)) return "Неподходящий цвет";
-        if ("token".equals(code)) return "Не удалось подтвердить аккаунт";
-        return "Не удалось сохранить";
+        if ("not_supporter".equals(code)) return DevGramLocale.text("Нужен значок поддержавшего");
+        if ("emoji_not_offered".equals(code)) return DevGramLocale.text("Этот значок больше недоступен");
+        if ("bad_nick".equals(code)) return DevGramLocale.text("Неподходящий цвет");
+        if ("token".equals(code)) return DevGramLocale.text("Не удалось подтвердить аккаунт");
+        return DevGramLocale.text("Не удалось сохранить");
     }
 
     /** Передаёт номерной значок между двумя подключёнными в клиенте аккаунтами. */
@@ -846,12 +916,12 @@ public class DevGramBadges {
 
     private static void transferViaBot(final int sourceAccount, final int targetAccount, final Callback callback) {
         if (sourceAccount == targetAccount) {
-            callback.onResult(false, "Выберите другой аккаунт");
+            callback.onResult(false, DevGramLocale.text("Выберите другой аккаунт"));
             return;
         }
         DevGramPackages.resolveUsernameThen(sourceAccount, DevGramPackages.CATALOG_BOT_USERNAME, (sourceBot, sourceChat) -> {
             if (sourceBot == null) {
-                callback.onResult(false, "Не удалось открыть бота передачи");
+                callback.onResult(false, DevGramLocale.text("Не удалось открыть бота передачи"));
                 return;
             }
             fetchBotHistory(sourceAccount, sourceBot.id, (messages, error) -> {
@@ -902,14 +972,14 @@ public class DevGramBadges {
                     AndroidUtilities.runOnUIThread(() -> pollTransferClaim(sourceAccount, sourceBotId,
                             targetAccount, callback, baselineMessageId, attempt + 1), 700);
                 } else {
-                    callback.onResult(false, "Бот не создал ссылку передачи");
+                    callback.onResult(false, DevGramLocale.text("Бот не создал ссылку передачи"));
                 }
                 return;
             }
             final String transferToken = token;
             DevGramPackages.resolveUsernameThen(targetAccount, DevGramPackages.CATALOG_BOT_USERNAME, (targetBot, targetChat) -> {
                 if (targetBot == null) {
-                    callback.onResult(false, "Не удалось открыть бота на аккаунте-получателе");
+                    callback.onResult(false, DevGramLocale.text("Не удалось открыть бота на аккаунте-получателе"));
                     return;
                 }
                 fetchBotHistory(targetAccount, targetBot.id, (targetMessages, targetError) -> {
@@ -951,7 +1021,7 @@ public class DevGramBadges {
             } else if (attempt < 14) {
                 AndroidUtilities.runOnUIThread(() -> pollTransferResult(targetAccount, targetBotId, callback, baselineMessageId, attempt + 1), 700);
             } else {
-                callback.onResult(false, "Бот не подтвердил передачу");
+                callback.onResult(false, DevGramLocale.text("Бот не подтвердил передачу"));
             }
         });
     }
@@ -1010,7 +1080,7 @@ public class DevGramBadges {
                 }
                 final long sourceUid = UserConfig.getInstance(sourceAccount).getClientUserId();
                 final long targetUid = UserConfig.getInstance(targetAccount).getClientUserId();
-                Utilities.globalQueue.postRunnable(() -> {
+                DevGramNetworkQueue.postRunnable(() -> {
                     boolean ok = false;
                     String error = null;
                     try {
@@ -1052,12 +1122,12 @@ public class DevGramBadges {
     }
 
     private static String transferErrorText(String code) {
-        if ("target_has_badge".equals(code)) return "У этого аккаунта уже есть значок";
-        if ("cooldown".equals(code)) return "Значок можно передавать не чаще одного раза в 30 дней";
-        if ("not_supporter".equals(code)) return "Значок поддержавшего не найден";
-        if ("same_account".equals(code)) return "Выберите другой аккаунт";
-        if ("token".equals(code) || "target_token".equals(code)) return "Не удалось подтвердить аккаунт";
-        return "Не удалось передать значок";
+        if ("target_has_badge".equals(code)) return DevGramLocale.text("У этого аккаунта уже есть значок");
+        if ("cooldown".equals(code)) return DevGramLocale.text("Значок можно передавать не чаще одного раза в 30 дней");
+        if ("not_supporter".equals(code)) return DevGramLocale.text("Значок поддержавшего не найден");
+        if ("same_account".equals(code)) return DevGramLocale.text("Выберите другой аккаунт");
+        if ("token".equals(code) || "target_token".equals(code)) return DevGramLocale.text("Не удалось подтвердить аккаунт");
+        return DevGramLocale.text("Не удалось передать значок");
     }
 
     // как httpSend, но тело ошибки (не 2xx) отдаётся в errorBody[0]
@@ -1106,6 +1176,9 @@ public class DevGramBadges {
 
     // Фон профиля: номер поста в архиве (0 — нет)
     public static int backgroundOf(long userId) {
+        if (!DevGramProfilePolicy.allowed(userId, "profile.media")) return 0;
+        JSONObject document = DevGramProfileDocument.get(userId);
+        if (document.has("backgroundMsg")) return document.optInt("backgroundMsg");
         Badge b = supporterBadge(userId);
         return b == null ? 0 : b.bgMsg;
     }
@@ -1121,6 +1194,12 @@ public class DevGramBadges {
 
     // Цвет ника: 1 цвет или 2 для градиента; null — обычный
     public static int[] nickColorsOf(long userId) {
+        if (!DevGramProfilePolicy.allowed(userId, "profile.nick")) return null;
+        JSONObject doc = DevGramProfileDocument.get(userId);
+        if (doc.has("nickColor")) {
+            int first = doc.optInt("nickColor"), second = doc.optInt("nickColor2");
+            return first == 0 ? null : second == 0 ? new int[]{first | 0xff000000} : new int[]{first | 0xff000000, second | 0xff000000};
+        }
         Badge b = supporterBadge(userId);
         return b == null ? null : b.nick;
     }
@@ -1168,7 +1247,9 @@ public class DevGramBadges {
     // document_id кастом-эмодзи для значка этого диалога (0 — значка нет).
     public static long emojiIdOf(long dialogId) {
         Badge b = badgeOf(dialogId);
-        return b == null ? 0 : b.emojiId;
+        if (b == null) return 0;
+        if (dialogId > 0 && b.emojiId != b.originalEmojiId && !DevGramProfilePolicy.allowed(dialogId, "badge.choice")) return b.originalEmojiId;
+        return b.emojiId;
     }
 
     // --- управление (экран «Значки DevGram») ---
@@ -1216,6 +1297,7 @@ public class DevGramBadges {
                 JSONObject r = new JSONObject(resp);
                 String fresh = r.optString("id_token", null);
                 if (fresh != null && !fresh.isEmpty()) {
+                    if (!rt.equals(adminRefreshToken)) return null;
                     adminIdToken = fresh;
                     adminRefreshToken = r.optString("refresh_token", rt);
                     adminTokenAt = System.currentTimeMillis();
@@ -1239,6 +1321,11 @@ public class DevGramBadges {
     }
 
     public static void grantBadge(long rawDialogId, long emojiId, String textTemplate, int access) {
+        Badge previous = badgeOf(normalizeDialogId(rawDialogId));
+        grantBadge(rawDialogId, emojiId, textTemplate, access, previous != null && previous.backgroundWithoutReview);
+    }
+
+    public static void grantBadge(long rawDialogId, long emojiId, String textTemplate, int access, boolean backgroundWithoutReview) {
         final long dialogId = normalizeDialogId(rawDialogId);
         if (dialogId == 0) {
             return;
@@ -1249,8 +1336,21 @@ public class DevGramBadges {
             o.put("e", emojiId);
             o.put("t", textTemplate == null ? "" : textTemplate);
             o.put("p", access);
+            o.put("bgAuto", backgroundWithoutReview);
             // обводку, выбранную поддержавшим, при смене значка командой не сбрасываем
             Badge prev = badgeOf(dialogId);
+            if (prev != null) {
+                if (prev.number > 0) o.put("i", prev.number);
+                if (prev.bgMsg > 0) {
+                    o.put("g", prev.bgMsg);
+                    o.put("gt", prev.bgVideo ? "video" : "photo");
+                }
+                if (prev.nick != null) {
+                    org.json.JSONArray colors = new org.json.JSONArray();
+                    for (int color : prev.nick) colors.put(color);
+                    o.put("n", colors);
+                }
+            }
             if (prev != null && prev.border != 0 && (access & ACCESS_SUPPORTER) != 0) {
                 o.put("b", prev.border);
             }
@@ -1265,7 +1365,7 @@ public class DevGramBadges {
             p.edit().putString(key(dialogId), json).apply();
         }
         if (isSignedIn()) {
-            Utilities.globalQueue.postRunnable(() -> {
+            DevGramNetworkQueue.postRunnable(() -> {
                 // свежий токен (idToken живёт 1ч) + ретрай с принудительным refresh при 401,
                 // иначе запись молча падает и значок «иногда не выдаётся».
                 String tok = ensureFreshToken();
@@ -1279,7 +1379,7 @@ public class DevGramBadges {
                 if (res != null) {
                     syncFromCloud();
                 } else {
-                    FileLog.e("DevGramBadges: не удалось выдать значок " + dialogId + " (запись в облако провалилась)");
+                    FileLog.e(DevGramLocale.text("DevGramBadges: не удалось выдать значок ") + dialogId + DevGramLocale.text(" (запись в облако провалилась)"));
                 }
             });
         }
@@ -1293,7 +1393,7 @@ public class DevGramBadges {
         }
         invalidateStyles();
         if (isSignedIn()) {
-            Utilities.globalQueue.postRunnable(() -> {
+            DevGramNetworkQueue.postRunnable(() -> {
                 String tok = ensureFreshToken();
                 String res = httpSend("DELETE", RTDB_BASE + "/badges/" + dialogId + ".json?auth=" + tok, null);
                 if (res == null) {
@@ -1324,10 +1424,10 @@ public class DevGramBadges {
 
     public static String roleName(int role) {
         switch (role) {
-            case ROLE_TEAM: return "Команда проекта";
-            case ROLE_OFFICIAL: return "Официальный канал DevGram";
-            case ROLE_CHANNEL: return "Канал";
-            default: return "Поддержавший";
+            case ROLE_TEAM: return DevGramLocale.text("Команда проекта");
+            case ROLE_OFFICIAL: return DevGramLocale.text("Официальный канал DevGram");
+            case ROLE_CHANNEL: return DevGramLocale.text("Канал");
+            default: return DevGramLocale.text("Поддержавший");
         }
     }
 
@@ -1354,9 +1454,11 @@ public class DevGramBadges {
         }
         CharSequence text = badgeText(dialogId, name);
         long emojiId = emojiIdOf(dialogId);
+        long renderEmojiId = DevGramThemeEmoji.forTone(emojiId, androidx.core.graphics.ColorUtils.calculateLuminance(
+                org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_undo_infoColor)) < 0.179);
         org.telegram.tgnet.TLRPC.Document doc = null;
         try {
-            doc = org.telegram.ui.Components.AnimatedEmojiDrawable.findDocument(UserConfig.selectedAccount, emojiId);
+            doc = org.telegram.ui.Components.AnimatedEmojiDrawable.findDocument(UserConfig.selectedAccount, renderEmojiId);
         } catch (Throwable ignore) {
         }
         org.telegram.ui.Components.Bulletin b;
@@ -1368,7 +1470,7 @@ public class DevGramBadges {
                 if (b.getLayout() instanceof org.telegram.ui.Components.Bulletin.TwoLineLayout) {
                     org.telegram.ui.Components.BackupImageView iv = ((org.telegram.ui.Components.Bulletin.TwoLineLayout) b.getLayout()).imageView;
                     iv.setAnimatedEmojiDrawable(tinted(org.telegram.ui.Components.AnimatedEmojiDrawable.make(
-                            UserConfig.selectedAccount, org.telegram.ui.Components.AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, emojiId),
+                            UserConfig.selectedAccount, org.telegram.ui.Components.AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW, renderEmojiId),
                             org.telegram.ui.ActionBar.Theme.getColor(org.telegram.ui.ActionBar.Theme.key_undo_infoColor)));
                 }
             } catch (Throwable ignore) {
@@ -1397,7 +1499,7 @@ public class DevGramBadges {
                         (org.telegram.ui.Components.Bulletin.ButtonLayout) b.getLayout();
                 layout.setButton(new org.telegram.ui.Components.Bulletin.UndoButton(
                         layout.getContext(), true, null)
-                        .setText("Подробнее")
+                        .setText(DevGramLocale.text("Подробнее"))
                         .setUndoAction(() -> {
                             org.telegram.ui.ActionBar.BaseFragment fragment =
                                     org.telegram.ui.LaunchActivity.getSafeLastFragment();

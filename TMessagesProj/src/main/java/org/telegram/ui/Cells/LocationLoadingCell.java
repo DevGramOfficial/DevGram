@@ -67,3 +67,4 @@ public class LocationLoadingCell extends FrameLayout {
         return Theme.getColor(key, resourcesProvider);
     }
 }
+

@@ -11,8 +11,8 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
@@ -56,9 +56,11 @@ public class DevGramLastSeenColorsActivity extends DevGramSettingsFragment {
     private UniversalRecyclerView listView;
     private final DevGramColorTierRow[] rows = new DevGramColorTierRow[4];
 
-    private static final String[] TIER_TITLES = {
-        "🟢 В сети", "🟡 Недавно (до 15 мин)", "🟠 Был 15–30 мин назад", "🔴 Был 30–60 мин назад"
+    private static String[] getTierTitles() {
+        return new String[]{
+        DevGramLocale.text("🟢 В сети"), DevGramLocale.text("🟡 Недавно (до 15 мин)"), DevGramLocale.text("🟠 Был 15–30 мин назад"), DevGramLocale.text("🔴 Был 30–60 мин назад")
     };
+    }
     private final String[] tierKeys = {KEY_ONLINE, KEY_15, KEY_30, KEY_60};
     private final int[] tierDefaults = new int[4];
 
@@ -75,7 +77,7 @@ public class DevGramLastSeenColorsActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Цвет точек");
+        actionBar.setTitle(DevGramLocale.text("Цвет точек"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -101,10 +103,10 @@ public class DevGramLastSeenColorsActivity extends DevGramSettingsFragment {
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
-        items.add(UItem.asShadow("Отдельный цвет точки для каждого статуса «был(а) недавно». "
-                + "Нажми «Своя», чтобы ввести цвет в формате #RRGGBB."));
+        items.add(UItem.asShadow(DevGramLocale.text("Отдельный цвет точки для каждого статуса «был(а) недавно». ")
+                + DevGramLocale.text("Нажми «Своя», чтобы ввести цвет в формате #RRGGBB.")));
         for (int t = 0; t < 4; t++) {
-            items.add(UItem.asHeader(TIER_TITLES[t]));
+            items.add(UItem.asHeader(getTierTitles()[t]));
             if (rows[t] == null) {
                 final int tier = t;
                 rows[t] = new DevGramColorTierRow(getContext(), resourceProvider, PALETTE, tierDefaults[t], prefColor(tierKeys[t]));
@@ -114,7 +116,7 @@ public class DevGramLastSeenColorsActivity extends DevGramSettingsFragment {
             }
             items.add(UItem.asCustom(1000 + t, rows[t]));
         }
-        items.add(UItem.asShadow("«Авто» возвращает цвет по умолчанию для этого статуса."));
+        items.add(UItem.asShadow(DevGramLocale.text("«Авто» возвращает цвет по умолчанию для этого статуса.")));
     }
 
     private void onPick(int tier, int swatch) {
@@ -183,21 +185,21 @@ public class DevGramLastSeenColorsActivity extends DevGramSettingsFragment {
         });
 
         AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Свой цвет (HEX)");
+        b.setTitle(DevGramLocale.text("Свой цвет (HEX)"));
         b.setView(wrap);
-        b.setPositiveButton(LocaleController.getString(R.string.Save), (d, w) -> {
+        b.setPositiveButton(DevGramLocale.getString(R.string.Save), (d, w) -> {
             Integer parsed = parseHex(edit.getText().toString());
             if (parsed == null) {
                 if (getParentActivity() != null) {
                     org.telegram.ui.Components.BulletinFactory.of(this)
-                            .createErrorBulletin("Неверный HEX. Пример: #FFAA00").show();
+                            .createErrorBulletin(DevGramLocale.text("Неверный HEX. Пример: #FFAA00")).show();
                 }
                 return;
             }
             setPrefColor(tierKeys[tier], parsed);
             rows[tier].setCurrentColor(parsed);
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         AlertDialog dialog = b.create();
         showDialog(dialog);
         edit.requestFocus();

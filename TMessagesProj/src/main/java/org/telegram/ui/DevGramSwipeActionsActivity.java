@@ -12,6 +12,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.DevGramSwipeAction;
@@ -49,7 +50,7 @@ public class DevGramSwipeActionsActivity extends DevGramSettingsFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Действия свайпом");
+        actionBar.setTitle(DevGramLocale.text("Действия свайпом"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
@@ -69,23 +70,23 @@ public class DevGramSwipeActionsActivity extends DevGramSettingsFragment {
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         items.add(UItem.asCustom(ID_PREVIEW, preview));
-        items.add(UItem.asShadow("Проведите по сообщению влево и, не отпуская палец, двигайте вверх или вниз для выбора действия."));
+        items.add(UItem.asShadow(DevGramLocale.text("Проведите по сообщению влево и, не отпуская палец, двигайте вверх или вниз для выбора действия.")));
 
         adapter.whiteSectionStart();
-        items.add(UItem.asHeader("Поведение"));
-        items.add(UItem.asCheck(ID_LOOP, "Циклический выбор")
+        items.add(UItem.asHeader(DevGramLocale.text("Поведение")));
+        items.add(UItem.asCheck(ID_LOOP, DevGramLocale.text("Циклический выбор"))
                 .setChecked(DevGramConfig.swipeActionsLoop));
-        items.add(UItem.asCheck(ID_REVERSED, "Обратное направление")
+        items.add(UItem.asCheck(ID_REVERSED, DevGramLocale.text("Обратное направление"))
                 .setChecked(DevGramConfig.swipeActionsReversed));
         adapter.whiteSectionEnd();
-        items.add(UItem.asShadow("При смене действия срабатывает короткий виброотклик. Обратное направление меняет порядок выбора вверх и вниз."));
+        items.add(UItem.asShadow(DevGramLocale.text("При смене действия срабатывает короткий виброотклик. Обратное направление меняет порядок выбора вверх и вниз.")));
 
-        addSection(items, adapter, "Включённые действия", enabled, true);
-        items.add(UItem.asShadow("Перетаскивайте действия, чтобы изменить их порядок. Нажмите на действие, чтобы отключить его."));
+        addSection(items, adapter, DevGramLocale.text("Включённые действия"), enabled, true);
+        items.add(UItem.asShadow(DevGramLocale.text("Перетаскивайте действия, чтобы изменить их порядок. Нажмите на действие, чтобы отключить его.")));
 
         ArrayList<DevGramSwipeAction> disabled = DevGramSwipeAction.disabled(enabled);
         if (!disabled.isEmpty()) {
-            addSection(items, adapter, "Выключенные действия", disabled, false);
+            addSection(items, adapter, DevGramLocale.text("Выключенные действия"), disabled, false);
             items.add(UItem.asShadow(null));
         }
     }
@@ -175,7 +176,7 @@ public class DevGramSwipeActionsActivity extends DevGramSettingsFragment {
         }
 
         void set(DevGramSwipeAction action, boolean divider) {
-            title.setText(action.title);
+            title.setText(DevGramLocale.text(action.title));
             icon.setImageResource(action.iconRes);
             icon.setColorFilter(new PorterDuffColorFilter(
                     Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon), PorterDuff.Mode.MULTIPLY));

@@ -85,7 +85,7 @@ public class DevGramSettingsLayout extends FrameLayout implements Theme.Colorabl
         actionBar.setItemsBackgroundColor(Theme.getColor(Theme.key_listSelector, resourcesProvider), false);
 
         listView.adapter.setApplyBackground(false);
-        listView.setClipToPadding(false);
+        listView.setClipToPadding(true);
         listView.setPadding(0, AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight(), 0, 0);
         addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
@@ -112,7 +112,17 @@ public class DevGramSettingsLayout extends FrameLayout implements Theme.Colorabl
 
     public void setInsets(int top, int bottom) {
         listView.setPadding(0, top + ActionBar.getCurrentActionBarHeight(), 0, bottom);
-        listView.setClipToPadding(false);
+        listView.setClipToPadding(true);
+    }
+
+    @Override
+    protected void onMeasure(int widthSpec,int heightSpec) {
+        super.onMeasure(widthSpec,heightSpec);
+        int headerHeight=actionBar.getMeasuredHeight();
+        if(headerHeight>0&&listView.getPaddingTop()!=headerHeight){
+            listView.setPadding(listView.getPaddingLeft(),headerHeight,listView.getPaddingRight(),listView.getPaddingBottom());
+            super.onMeasure(widthSpec,heightSpec);
+        }
     }
 
     @Override
@@ -123,7 +133,7 @@ public class DevGramSettingsLayout extends FrameLayout implements Theme.Colorabl
     }
 
     private void updateTopFade() {
-        fadeView.setFadeZoneTop(actionBar.getMeasuredHeight() + dp(42));
+        fadeView.setFadeZoneTop(actionBar.getMeasuredHeight());
         fadeView.setFadeHeightTop(dp(78));
         fadeView.setTopFadeColor(Theme.getColor(Theme.key_windowBackgroundGray, resourcesProvider));
         fadeView.setFadeTopAlpha(Math.round(fadeAlpha * 255f));

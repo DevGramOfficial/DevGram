@@ -15,11 +15,11 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.DevGramFilterController;
 import org.telegram.messenger.DialogObject;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserObject;
@@ -82,10 +82,10 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
         actionBar.setTitle(screenTitle());
         if (mode == MODE_ROOT) {
             ActionBarMenuItem more = actionBar.createMenu().addItem(0, R.drawable.ic_ab_other);
-            more.addSubItem(ID_SELECT_CHAT, 0, "Выбрать чат");
-            more.addSubItem(ID_IMPORT, R.drawable.msg_archive, "Импорт базы данных");
-            more.addSubItem(ID_EXPORT, R.drawable.msg_unarchive, "Экспорт базы данных");
-            more.addSubItem(ID_CLEAR, R.drawable.msg_clear, "Очистить");
+            more.addSubItem(ID_SELECT_CHAT, 0, DevGramLocale.text("Выбрать чат"));
+            more.addSubItem(ID_IMPORT, R.drawable.msg_archive, DevGramLocale.text("Импорт базы данных"));
+            more.addSubItem(ID_EXPORT, R.drawable.msg_unarchive, DevGramLocale.text("Экспорт базы данных"));
+            more.addSubItem(ID_CLEAR, R.drawable.msg_clear, DevGramLocale.text("Очистить"));
         } else {
             actionBar.createMenu().addItem(ID_ADD, R.drawable.msg_add);
         }
@@ -117,9 +117,9 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
     }
 
     private String screenTitle() {
-        if (mode == MODE_BANS) return "Локальная блокировка";
-        if (mode == MODE_RULES) return scopeDialogId == 0 ? "Общие фильтры" : "Фильтры чата";
-        return "Фильтры сообщений";
+        if (mode == MODE_BANS) return DevGramLocale.text("Локальная блокировка");
+        if (mode == MODE_RULES) return scopeDialogId == 0 ? DevGramLocale.text("Общие фильтры") : DevGramLocale.text("Фильтры чата");
+        return DevGramLocale.text("Фильтры сообщений");
     }
 
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
@@ -137,27 +137,27 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
             else scopedCounts.put(rule.dialogId, scopedCounts.containsKey(rule.dialogId) ? scopedCounts.get(rule.dialogId) + 1 : 1);
         }
 
-        items.add(UItem.asHeader("Основные"));
-        items.add(UItem.asCheck(ID_MASTER, "Включить фильтры").setChecked(DevGramFilterController.isEnabled()));
-        items.add(UItem.asCheck(ID_PRIVATE, "Общие фильтры в личных чатах").setChecked(DevGramFilterController.filterPrivateChats()));
-        items.add(UItem.asCheck(ID_BLOCKED, "Скрывать сообщения заблокированных").setChecked(DevGramFilterController.hideBlocked()));
-        items.add(UItem.asShadow("Фильтрация выполняется только на этом устройстве. Отправитель не узнает, что сообщение скрыто."));
+        items.add(UItem.asHeader(DevGramLocale.text("Основные")));
+        items.add(UItem.asCheck(ID_MASTER, DevGramLocale.text("Включить фильтры")).setChecked(DevGramFilterController.isEnabled()));
+        items.add(UItem.asCheck(ID_PRIVATE, DevGramLocale.text("Общие фильтры в личных чатах")).setChecked(DevGramFilterController.filterPrivateChats()));
+        items.add(UItem.asCheck(ID_BLOCKED, DevGramLocale.text("Скрывать сообщения заблокированных")).setChecked(DevGramFilterController.hideBlocked()));
+        items.add(UItem.asShadow(DevGramLocale.text("Фильтрация выполняется только на этом устройстве. Отправитель не узнает, что сообщение скрыто.")));
 
-        items.add(UItem.asButton(ID_SHARED, "Общие фильтры",
-                countLabel(sharedCount, "фильтр", "фильтра", "фильтров")));
+        items.add(UItem.asButton(ID_SHARED, DevGramLocale.text("Общие фильтры"),
+                countLabel(sharedCount, DevGramLocale.text("фильтр"), DevGramLocale.text("фильтра"), DevGramLocale.text("фильтров"))));
         int banCount = DevGramFilterController.getShadowBans().size();
-        items.add(UItem.asButton(ID_BANS, "Локальная блокировка",
-                countLabel(banCount, "запись", "записи", "записей")));
+        items.add(UItem.asButton(ID_BANS, DevGramLocale.text("Локальная блокировка"),
+                countLabel(banCount, DevGramLocale.text("запись"), DevGramLocale.text("записи"), DevGramLocale.text("записей"))));
 
         dialogScopes.clear();
         if (!scopedCounts.isEmpty()) {
             items.add(UItem.asShadow(null));
-            items.add(UItem.asHeader("Отдельные чаты"));
+            items.add(UItem.asHeader(DevGramLocale.text("Отдельные чаты")));
             for (Map.Entry<Long, Integer> entry : scopedCounts.entrySet()) {
                 long did = entry.getKey();
                 int index = dialogScopes.size();
                 dialogScopes.add(did);
-                String subtitle = countLabel(entry.getValue(), "фильтр", "фильтра", "фильтров");
+                String subtitle = countLabel(entry.getValue(), DevGramLocale.text("фильтр"), DevGramLocale.text("фильтра"), DevGramLocale.text("фильтров"));
                 TLObject object = dialogObject(did);
                 if (object != null) {
                     UItem item = UItem.asProfileCell(object);
@@ -169,7 +169,7 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
                 }
             }
         }
-        items.add(UItem.asShadow("Добавить отдельный набор можно через меню ⋮ → «Выбрать чат»."));
+        items.add(UItem.asShadow(DevGramLocale.text("Добавить отдельный набор можно через меню ⋮ → «Выбрать чат».")));
     }
 
     private void fillRules(ArrayList<UItem> items) {
@@ -177,9 +177,9 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
         for (DevGramFilterController.Rule rule : DevGramFilterController.getRules()) {
             if (rule.dialogId == scopeDialogId) visibleRules.add(rule);
         }
-        items.add(UItem.asHeader(scopeDialogId == 0 ? "Общий набор" : dialogTitle(scopeDialogId)));
+        items.add(UItem.asHeader(scopeDialogId == 0 ? DevGramLocale.text("Общий набор") : dialogTitle(scopeDialogId)));
         if (visibleRules.isEmpty()) {
-            items.add(UItem.asShadow("В этом наборе пока нет фильтров. Для добавления нажмите +."));
+            items.add(UItem.asShadow(DevGramLocale.text("В этом наборе пока нет фильтров. Для добавления нажмите +.")));
         } else {
             for (int i = 0; i < visibleRules.size(); i++) {
                 DevGramFilterController.Rule rule = visibleRules.get(i);
@@ -187,7 +187,7 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
                 item.onBind(view -> view.setAlpha(rule.enabled ? 1f : 0.5f));
                 items.add(item);
             }
-            items.add(UItem.asShadow("Нажмите для изменения. Удерживайте фильтр, чтобы включить, выключить или удалить его."));
+            items.add(UItem.asShadow(DevGramLocale.text("Нажмите для изменения. Удерживайте фильтр, чтобы включить, выключить или удалить его.")));
         }
         sharedRules.clear();
         if (scopeDialogId != 0) {
@@ -195,22 +195,22 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
                 if (rule.dialogId == 0) sharedRules.add(rule);
             }
             if (!sharedRules.isEmpty()) {
-                items.add(UItem.asHeader("Общие фильтры в этом чате"));
+                items.add(UItem.asHeader(DevGramLocale.text("Общие фильтры в этом чате")));
                 for (int i = 0; i < sharedRules.size(); i++) {
                     DevGramFilterController.Rule rule = sharedRules.get(i);
                     items.add(UItem.asCheck(EXCLUSION_BASE + i, rule.text)
                             .setChecked(!rule.excludedDialogs.contains(scopeDialogId)));
                 }
-                items.add(UItem.asShadow("Выключенный здесь общий фильтр продолжит работать во всех остальных чатах."));
+                items.add(UItem.asShadow(DevGramLocale.text("Выключенный здесь общий фильтр продолжит работать во всех остальных чатах.")));
             }
         }
     }
 
     private void fillBans(ArrayList<UItem> items) {
         bans = DevGramFilterController.getShadowBans();
-        items.add(UItem.asHeader("Скрытые отправители"));
+        items.add(UItem.asHeader(DevGramLocale.text("Скрытые отправители")));
         if (bans.isEmpty()) {
-            items.add(UItem.asShadow("Список пуст. Нажмите +, чтобы выбрать пользователя или чат."));
+            items.add(UItem.asShadow(DevGramLocale.text("Список пуст. Нажмите +, чтобы выбрать пользователя или чат.")));
             return;
         }
         for (int i = 0; i < bans.size(); i++) {
@@ -219,13 +219,13 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
             if (object != null) {
                 UItem item = UItem.asProfileCell(object);
                 item.id = BAN_BASE + i;
-                item.subtext = "Локально скрыт · нажмите для удаления";
+                item.subtext = DevGramLocale.text("Локально скрыт · нажмите для удаления");
                 items.add(item);
             } else {
                 items.add(UItem.asButton(BAN_BASE + i, dialogTitle(did), "ID " + did));
             }
         }
-        items.add(UItem.asShadow("Для добавления нажмите +. При локальной блокировке отправитель не получает уведомлений."));
+        items.add(UItem.asShadow(DevGramLocale.text("Для добавления нажмите +. При локальной блокировке отправитель не получает уведомлений.")));
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
@@ -266,11 +266,11 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
         if (index < 0 || index >= visibleRules.size()) return false;
         DevGramFilterController.Rule rule = visibleRules.get(index);
         new AlertDialog.Builder(getParentActivity()).setTitle(rule.text)
-                .setItems(new CharSequence[]{rule.enabled ? "Выключить" : "Включить", "Изменить", "Удалить"}, (dialog, which) -> {
+                .setItems(new CharSequence[]{rule.enabled ? DevGramLocale.text("Выключить") : DevGramLocale.text("Включить"), DevGramLocale.text("Изменить"), DevGramLocale.text("Удалить")}, (dialog, which) -> {
                     if (which == 0) { rule.enabled = !rule.enabled; saveVisibleRule(rule); refresh(); }
                     else if (which == 1) editRule(rule);
                     else confirmRemoveRule(rule);
-                }).setNegativeButton("Отмена", null).show();
+                }).setNegativeButton(DevGramLocale.text("Отмена"), null).show();
         return true;
     }
 
@@ -284,12 +284,12 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
         scrollView.addView(content, LayoutHelper.createScroll(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
         OutlineTextContainerView outline = new OutlineTextContainerView(context, resourceProvider);
-        outline.setText("Регулярное выражение");
+        outline.setText(DevGramLocale.text("Регулярное выражение"));
         EditTextBoldCursor input = new EditTextBoldCursor(context);
         input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         input.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider));
         input.setHintTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteHintText, resourceProvider));
-        input.setHint("Например: реклама|спам");
+        input.setHint(DevGramLocale.text("Например: реклама|спам"));
         input.setBackground(null);
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -305,14 +305,14 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
         content.addView(outline, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 4));
 
         TextView hint = new TextView(context);
-        hint.setText("Можно использовать обычный текст или регулярное выражение Java.");
+        hint.setText(DevGramLocale.text("Можно использовать обычный текст или регулярное выражение Java."));
         hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         hint.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
         content.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 12, 10, 0));
 
-        TextCheckCell enabled = optionCell(context, "Фильтр включён", old == null || old.enabled);
-        TextCheckCell insensitive = optionCell(context, "Без учёта регистра", old != null && old.caseInsensitive);
-        TextCheckCell reversed = optionCell(context, "Обратный фильтр", old != null && old.reversed);
+        TextCheckCell enabled = optionCell(context, DevGramLocale.text("Фильтр включён"), old == null || old.enabled);
+        TextCheckCell insensitive = optionCell(context, DevGramLocale.text("Без учёта регистра"), old != null && old.caseInsensitive);
+        TextCheckCell reversed = optionCell(context, DevGramLocale.text("Обратный фильтр"), old != null && old.reversed);
         content.addView(enabled, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
         content.addView(insensitive, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
         content.addView(reversed, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 52));
@@ -325,21 +325,21 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
 
         ButtonWithCounterView save = new ButtonWithCounterView(context, resourceProvider).setRound();
         save.setColor(Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider));
-        save.setText(old == null ? "Добавить фильтр" : "Сохранить изменения", false);
+        save.setText(old == null ? DevGramLocale.text("Добавить фильтр") : DevGramLocale.text("Сохранить изменения"), false);
         content.addView(save, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 0, 8, 8, 0, 0));
 
         BottomSheet.Builder builder = new BottomSheet.Builder(context, true, resourceProvider);
-        builder.setTitle(old == null ? "Новый фильтр" : "Изменить фильтр", true).setCustomView(scrollView);
+        builder.setTitle(old == null ? DevGramLocale.text("Новый фильтр") : DevGramLocale.text("Изменить фильтр"), true).setCustomView(scrollView);
         BottomSheet sheet = builder.create();
         save.setOnClickListener(v -> {
             String pattern = input.getText().toString().trim();
             if (TextUtils.isEmpty(pattern)) {
-                error.setText("Введите текст или регулярное выражение"); error.setVisibility(View.VISIBLE);
+                error.setText(DevGramLocale.text("Введите текст или регулярное выражение")); error.setVisibility(View.VISIBLE);
                 outline.animateError(1f); AndroidUtilities.shakeViewSpring(outline); return;
             }
             try { Pattern.compile(pattern, insensitive.isChecked() ? Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE : 0); }
             catch (Throwable t) {
-                error.setText("Некорректное регулярное выражение"); error.setVisibility(View.VISIBLE);
+                error.setText(DevGramLocale.text("Некорректное регулярное выражение")); error.setVisibility(View.VISIBLE);
                 outline.animateError(1f); AndroidUtilities.shakeViewSpring(outline); return;
             }
             DevGramFilterController.Rule rule = old == null ? new DevGramFilterController.Rule() : old;
@@ -367,9 +367,9 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
     }
 
     private void confirmRemoveRule(DevGramFilterController.Rule rule) {
-        new AlertDialog.Builder(getParentActivity()).setTitle("Удалить фильтр?").setMessage(rule.text)
-                .setPositiveButton("Удалить", (dialog, which) -> { DevGramFilterController.removeRule(rule.id); refresh(); })
-                .setNegativeButton("Отмена", null).show();
+        new AlertDialog.Builder(getParentActivity()).setTitle(DevGramLocale.text("Удалить фильтр?")).setMessage(rule.text)
+                .setPositiveButton(DevGramLocale.text("Удалить"), (dialog, which) -> { DevGramFilterController.removeRule(rule.id); refresh(); })
+                .setNegativeButton(DevGramLocale.text("Отмена"), null).show();
     }
 
     private void selectChat(boolean addToBans) {
@@ -389,16 +389,16 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
     }
 
     private void confirmRemoveBan(long did) {
-        new AlertDialog.Builder(getParentActivity()).setTitle("Убрать из локальной блокировки?").setMessage(dialogTitle(did))
-                .setPositiveButton("Убрать", (dialog, which) -> { DevGramFilterController.setShadowBanned(did, false); refresh(); })
-                .setNegativeButton("Отмена", null).show();
+        new AlertDialog.Builder(getParentActivity()).setTitle(DevGramLocale.text("Убрать из локальной блокировки?")).setMessage(dialogTitle(did))
+                .setPositiveButton(DevGramLocale.text("Убрать"), (dialog, which) -> { DevGramFilterController.setShadowBanned(did, false); refresh(); })
+                .setNegativeButton(DevGramLocale.text("Отмена"), null).show();
     }
 
     private void confirmClear() {
-        new AlertDialog.Builder(getParentActivity()).setTitle("Очистить все фильтры?")
-                .setMessage("Будут удалены регулярные фильтры и список локальной блокировки.")
-                .setPositiveButton("Очистить", (dialog, which) -> { DevGramFilterController.clearAll(); refresh(); })
-                .setNegativeButton("Отмена", null).show();
+        new AlertDialog.Builder(getParentActivity()).setTitle(DevGramLocale.text("Очистить все фильтры?"))
+                .setMessage(DevGramLocale.text("Будут удалены регулярные фильтры и список локальной блокировки."))
+                .setPositiveButton(DevGramLocale.text("Очистить"), (dialog, which) -> { DevGramFilterController.clearAll(); refresh(); })
+                .setNegativeButton(DevGramLocale.text("Отмена"), null).show();
     }
 
     private void importClipboard() {
@@ -407,16 +407,17 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
             ClipData data = manager.getPrimaryClip();
             String value = data == null || data.getItemCount() == 0 ? "" : data.getItemAt(0).coerceToText(getParentActivity()).toString();
             if (!DevGramFilterController.importJson(value, true)) throw new IllegalArgumentException();
-            refresh(); BulletinFactory.of(this).createSimpleBulletin(R.raw.done, "Фильтры импортированы").show();
-        } catch (Throwable t) { BulletinFactory.of(this).createErrorBulletin("В буфере нет подходящего набора фильтров").show(); }
+            refresh(); BulletinFactory.of(this).createSimpleBulletin(R.raw.done, DevGramLocale.text("Фильтры импортированы")).show();
+        } catch (Throwable t) { BulletinFactory.of(this).createErrorBulletin(DevGramLocale.text("В буфере нет подходящего набора фильтров")).show(); }
     }
 
 
     private String ruleDescription(DevGramFilterController.Rule rule) {
-        return (rule.caseInsensitive ? "Без учёта регистра" : "С учётом регистра") + (rule.reversed ? " · обратный" : "");
+        return (rule.caseInsensitive ? DevGramLocale.text("Без учёта регистра") : DevGramLocale.text("С учётом регистра")) + (rule.reversed ? DevGramLocale.text(" · обратный") : "");
     }
 
     private String countLabel(int count, String one, String few, String many) {
+        if (!DevGramLocale.isRussian()) return count == 1 ? count + " " + one : count + " " + many;
         int mod100 = count % 100, mod10 = count % 10;
         String word = mod100 >= 11 && mod100 <= 14 ? many : mod10 == 1 ? one : mod10 >= 2 && mod10 <= 4 ? few : many;
         return count + " " + word;
@@ -432,11 +433,11 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
 
     private String dialogTitle(long did) {
         try {
-            if (DialogObject.isEncryptedDialog(did)) return "Секретный чат";
+            if (DialogObject.isEncryptedDialog(did)) return DevGramLocale.text("Секретный чат");
             if (DialogObject.isUserDialog(did)) {
                 TLRPC.User user = getMessagesController().getUser(did);
                 if (user != null) {
-                    if (UserObject.isUserSelf(user)) return LocaleController.getString(R.string.SavedMessages);
+                    if (UserObject.isUserSelf(user)) return DevGramLocale.getString(R.string.SavedMessages);
                     String name = ContactsController.formatName(user.first_name, user.last_name);
                     if (!TextUtils.isEmpty(name)) return name;
                 }
@@ -445,7 +446,7 @@ public class DevGramFiltersActivity extends DevGramSettingsFragment {
                 if (chat != null && !TextUtils.isEmpty(chat.title)) return chat.title;
             }
         } catch (Throwable ignore) {}
-        return "Чат " + did;
+        return DevGramLocale.text("Чат ") + did;
     }
 
     private void refresh() {

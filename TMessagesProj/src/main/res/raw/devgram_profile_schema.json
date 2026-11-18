@@ -1,0 +1,2804 @@
+{
+  "version": 1,
+  "scalars": {
+    "commentsEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.comments",
+      "default": 0
+    },
+    "commentsCount": {
+      "min": 1,
+      "max": 10,
+      "feature": "profile.comments",
+      "default": 3
+    },
+    "profileTextEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.palette",
+      "default": 0
+    },
+    "profileTextColor": {
+      "min": -2147483648,
+      "max": 4294967295,
+      "feature": "profile.palette",
+      "default": -1
+    },
+    "bannerMode": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.palette",
+      "default": 0
+    },
+    "bannerColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.palette",
+      "default": 0
+    },
+    "bannerColor2": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "bannerAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 100
+    },
+    "bannerDim": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 0
+    },
+    "bannerBlend": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.palette",
+      "default": 0
+    },
+    "bannerBlendRadius": {
+      "min": 2,
+      "max": 60,
+      "feature": "profile.palette",
+      "default": 16
+    },
+    "bannerAsset": {
+      "min": 0,
+      "max": 9007199254740991,
+      "feature": "profile.media",
+      "default": 0
+    },
+    "pageAsset": {
+      "min": 0,
+      "max": 9007199254740991,
+      "feature": "profile.media",
+      "default": 0
+    },
+    "bannerSound": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.media",
+      "default": 0
+    },
+    "pageSound": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.media",
+      "default": 0
+    },
+    "bannerVolume": {
+      "min": 0,
+      "max": 65,
+      "feature": "profile.media",
+      "default": 20
+    },
+    "pageVolume": {
+      "min": 0,
+      "max": 65,
+      "feature": "profile.media",
+      "default": 20
+    },
+    "pageMode": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.palette",
+      "default": 0
+    },
+    "pageColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.palette",
+      "default": 0
+    },
+    "pageColor2": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "pageAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 100
+    },
+    "pageDim": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 0
+    },
+    "pageBlur": {
+      "min": 0,
+      "max": 32,
+      "feature": "profile.blur",
+      "default": 0
+    },
+    "avatarRadius": {
+      "min": 0,
+      "max": 64,
+      "feature": "avatar.shape",
+      "default": 18
+    },
+    "avatarRound": {
+      "min": 0,
+      "max": 100,
+      "feature": "avatar.shape",
+      "default": 0
+    },
+    "avatarAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "avatar.shape",
+      "default": 100
+    },
+    "avatarDim": {
+      "min": 0,
+      "max": 100,
+      "feature": "avatar.shape",
+      "default": 0
+    },
+    "avatarFade": {
+      "min": 0,
+      "max": 100,
+      "feature": "avatar.shape",
+      "default": 0
+    },
+    "avatarFadeRadius": {
+      "min": 0,
+      "max": 100,
+      "feature": "avatar.shape",
+      "default": 50
+    },
+    "layout": {
+      "min": 0,
+      "max": 3,
+      "feature": "profile.layout",
+      "default": 0
+    },
+    "avatarScale": {
+      "min": 75,
+      "max": 125,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "avatarX": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarY": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameScale": {
+      "min": 80,
+      "max": 130,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "nameX": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameY": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "font": {
+      "min": 0,
+      "max": 4,
+      "feature": "profile.font",
+      "default": 0
+    },
+    "statusScale": {
+      "min": 80,
+      "max": 130,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "statusX": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusY": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsScale": {
+      "min": 75,
+      "max": 125,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "buttonsX": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsY": {
+      "min": -40,
+      "max": 40,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nickColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.nick",
+      "default": 0
+    },
+    "nickColor2": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.nick",
+      "default": 0
+    },
+    "messageFrame": {
+      "min": 0,
+      "max": 64,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "cardColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.cards",
+      "default": 0
+    },
+    "cardAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.cards",
+      "default": 100
+    },
+    "buttonShape": {
+      "min": 0,
+      "max": 3,
+      "feature": "profile.buttons",
+      "default": 0
+    },
+    "blur": {
+      "min": 0,
+      "max": 20,
+      "feature": "profile.blur",
+      "default": 0
+    },
+    "bubble": {
+      "min": 0,
+      "max": 6,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "bubbleColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "textColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "chatFont": {
+      "min": 0,
+      "max": 4,
+      "feature": "chat.font",
+      "default": 0
+    },
+    "bubbleEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "bubbleGradient": {
+      "min": 0,
+      "max": 1,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "bubbleAlpha": {
+      "min": 0,
+      "max": 255,
+      "feature": "chat.bubble",
+      "default": 255
+    },
+    "bubbleColor2Alpha": {
+      "min": 0,
+      "max": 255,
+      "feature": "chat.bubble",
+      "default": 255
+    },
+    "bubbleTextAlpha": {
+      "min": 0,
+      "max": 255,
+      "feature": "chat.bubble",
+      "default": 255
+    },
+    "bubbleColor2": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "chat.bubble",
+      "default": 9336034
+    },
+    "bubbleAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "chat.bubble",
+      "default": 0
+    },
+    "bubbleFont": {
+      "min": 0,
+      "max": 6,
+      "feature": "chat.font",
+      "default": 0
+    },
+    "chatBadgeEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "chat.badge",
+      "default": 0
+    },
+    "chatBadgeWidth": {
+      "min": 35,
+      "max": 100,
+      "feature": "chat.badge",
+      "default": 65
+    },
+    "chatBadgeAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "chat.badge",
+      "default": 70
+    },
+    "chatBadgeFade": {
+      "min": 15,
+      "max": 100,
+      "feature": "chat.badge",
+      "default": 100
+    },
+    "chatBadgeX": {
+      "min": 0,
+      "max": 100,
+      "feature": "chat.badge",
+      "default": 50
+    },
+    "chatBadgeY": {
+      "min": 0,
+      "max": 100,
+      "feature": "chat.badge",
+      "default": 50
+    },
+    "playerCover": {
+      "min": 0,
+      "max": 1,
+      "feature": "music.player",
+      "default": 0
+    },
+    "lyrics": {
+      "min": 0,
+      "max": 1,
+      "feature": "music.lyrics",
+      "default": 0
+    },
+    "lyricsMotion": {
+      "min": 0,
+      "max": 1,
+      "feature": "music.lyrics.animated",
+      "default": 0
+    },
+    "activity": {
+      "min": 0,
+      "max": 1,
+      "feature": "music.activity",
+      "default": 0
+    },
+    "cardEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.cards",
+      "default": 0
+    },
+    "cardJoin": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.cards",
+      "default": 0
+    },
+    "cardRadiusEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.cards",
+      "default": 0
+    },
+    "cardRadius": {
+      "min": 0,
+      "max": 30,
+      "feature": "profile.cards",
+      "default": 12
+    },
+    "cardBlur": {
+      "min": 0,
+      "max": 50,
+      "feature": "profile.blur",
+      "default": 0
+    },
+    "cardGlass": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.cards.glass",
+      "default": 0
+    },
+    "cardGlassBlur": {
+      "min": 2,
+      "max": 40,
+      "feature": "profile.cards.glass",
+      "default": 12
+    },
+    "cardGlassBend": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.cards.glass",
+      "default": 40
+    },
+    "cardGlassThick": {
+      "min": 0,
+      "max": 24,
+      "feature": "profile.cards.glass",
+      "default": 8
+    },
+    "cardGlassLight": {
+      "min": 0,
+      "max": 200,
+      "feature": "profile.cards.glass",
+      "default": 100
+    },
+    "cardVolume": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.cards.volume",
+      "default": 0
+    },
+    "cardLightAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "profile.cards.volume",
+      "default": 135
+    },
+    "cardLightColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.cards.volume",
+      "default": 16777215
+    },
+    "cardSideLight": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.cards.volume",
+      "default": 0
+    },
+    "cardCenterBrightness": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.cards.volume",
+      "default": 100
+    },
+    "cardLightRadius": {
+      "min": 0,
+      "max": 1500,
+      "feature": "profile.cards.volume",
+      "default": 100
+    },
+    "cardLightDistance": {
+      "min": 0,
+      "max": 500,
+      "feature": "profile.cards.volume",
+      "default": 0
+    },
+    "cardLightStrength": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.cards.volume",
+      "default": 65
+    },
+    "buttonCopyCards": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.buttons",
+      "default": 1
+    },
+    "buttonColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.buttons",
+      "default": 2700368
+    },
+    "buttonAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.buttons",
+      "default": 100
+    },
+    "buttonBlur": {
+      "min": 0,
+      "max": 50,
+      "feature": "profile.buttons",
+      "default": 0
+    },
+    "nameSize": {
+      "min": 50,
+      "max": 200,
+      "feature": "profile.font",
+      "default": 100
+    },
+    "nameFont": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.font",
+      "default": 0
+    },
+    "nameColorEnabled": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.nick",
+      "default": 0
+    },
+    "nickAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.nick",
+      "default": 100
+    },
+    "nickAlpha2": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.nick",
+      "default": 100
+    },
+    "nameEffect": {
+      "min": 0,
+      "max": 7,
+      "feature": "profile.name.effects",
+      "default": 0
+    },
+    "nameSpeed": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.name.effects",
+      "default": 100
+    },
+    "nameAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "profile.name.effects",
+      "default": 0
+    },
+    "nameGlow": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.name.effects",
+      "default": 0
+    },
+    "nameGlowRadius": {
+      "min": 0,
+      "max": 40,
+      "feature": "profile.name.effects",
+      "default": 12
+    },
+    "nameGlowStrength": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.name.effects",
+      "default": 100
+    },
+    "nameShadow": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.name.effects",
+      "default": 0
+    },
+    "nameShadowColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.name.effects",
+      "default": 0
+    },
+    "nameShadowRadius": {
+      "min": 0,
+      "max": 40,
+      "feature": "profile.name.effects",
+      "default": 6
+    },
+    "nameShadowStrength": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.name.effects",
+      "default": 70
+    },
+    "nameShadowX": {
+      "min": -20,
+      "max": 20,
+      "feature": "profile.name.effects",
+      "default": 2
+    },
+    "nameShadowY": {
+      "min": -20,
+      "max": 20,
+      "feature": "profile.name.effects",
+      "default": 2
+    },
+    "thoughtColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.thought",
+      "default": 16777215
+    },
+    "thoughtBackground": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.thought",
+      "default": 2700368
+    },
+    "thoughtAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.thought",
+      "default": 100
+    },
+    "thoughtTextAlpha": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.thought",
+      "default": 100
+    },
+    "thoughtFontCopy": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.thought",
+      "default": 1
+    },
+    "thoughtFont": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.thought",
+      "default": 0
+    },
+    "thoughtShadow": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.thought",
+      "default": 0
+    },
+    "thoughtShadowColor": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.thought",
+      "default": 0
+    },
+    "thoughtShadowRadius": {
+      "min": 0,
+      "max": 40,
+      "feature": "profile.thought",
+      "default": 6
+    },
+    "thoughtShadowStrength": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.thought",
+      "default": 70
+    },
+    "thoughtShadowX": {
+      "min": -20,
+      "max": 20,
+      "feature": "profile.thought",
+      "default": 0
+    },
+    "thoughtShadowY": {
+      "min": -20,
+      "max": 20,
+      "feature": "profile.thought",
+      "default": 3
+    },
+    "avatarOffsetX": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarOffsetY": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarScaleX": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "avatarScaleY": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "avatarRotation": {
+      "min": -180,
+      "max": 180,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarAnchorX": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarAnchorY": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarAlignX": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "avatarAlignY": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameOffsetX": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameOffsetY": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameScaleX": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "nameScaleY": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "nameRotation": {
+      "min": -180,
+      "max": 180,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameAnchorX": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameAnchorY": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameAlignX": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "nameAlignY": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusOffsetX": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusOffsetY": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusScaleX": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "statusScaleY": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "statusRotation": {
+      "min": -180,
+      "max": 180,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusAnchorX": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusAnchorY": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusAlignX": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "statusAlignY": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsOffsetX": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsOffsetY": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsScaleX": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "buttonsScaleY": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "buttonsRotation": {
+      "min": -180,
+      "max": 180,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsAnchorX": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsAnchorY": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsAlignX": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "buttonsAlignY": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleOffsetX": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleOffsetY": {
+      "min": -45,
+      "max": 45,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleScaleX": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "titleScaleY": {
+      "min": 10,
+      "max": 300,
+      "feature": "profile.layout.advanced",
+      "default": 100
+    },
+    "titleRotation": {
+      "min": -180,
+      "max": 180,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleAnchorX": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleAnchorY": {
+      "min": 0,
+      "max": 5,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleAlignX": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "titleAlignY": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.layout.advanced",
+      "default": 0
+    },
+    "bannerMediaType": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.media",
+      "default": 0
+    },
+    "pageMediaType": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.media",
+      "default": 0
+    },
+    "chatBadgeMediaType": {
+      "min": 0,
+      "max": 1,
+      "feature": "chat.badge",
+      "default": 0
+    },
+    "headerMode": {
+      "min": 0,
+      "max": 4,
+      "feature": "profile.layout",
+      "default": 0
+    },
+    "bannerColor3": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.gradient",
+      "default": 9336034
+    },
+    "bannerUse3": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "bannerGradientType": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "bannerGradientAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "bannerGradientSpread": {
+      "min": 20,
+      "max": 200,
+      "feature": "profile.gradient",
+      "default": 100
+    },
+    "bannerGradientCenterX": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.gradient",
+      "default": 50
+    },
+    "bannerGradientCenterY": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.gradient",
+      "default": 50
+    },
+    "bannerFadeType": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.opacity",
+      "default": 0
+    },
+    "bannerFadeAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "profile.opacity",
+      "default": 0
+    },
+    "bannerFadeSpread": {
+      "min": 20,
+      "max": 200,
+      "feature": "profile.opacity",
+      "default": 100
+    },
+    "bannerFadeCenterX": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 50
+    },
+    "bannerFadeCenterY": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 50
+    },
+    "pageColor3": {
+      "min": 0,
+      "max": 16777215,
+      "feature": "profile.gradient",
+      "default": 9336034
+    },
+    "pageUse3": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "pageGradientType": {
+      "min": 0,
+      "max": 1,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "pageGradientAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "profile.gradient",
+      "default": 0
+    },
+    "pageGradientSpread": {
+      "min": 20,
+      "max": 200,
+      "feature": "profile.gradient",
+      "default": 100
+    },
+    "pageGradientCenterX": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.gradient",
+      "default": 50
+    },
+    "pageGradientCenterY": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.gradient",
+      "default": 50
+    },
+    "pageFadeType": {
+      "min": 0,
+      "max": 2,
+      "feature": "profile.opacity",
+      "default": 0
+    },
+    "pageFadeAngle": {
+      "min": 0,
+      "max": 360,
+      "feature": "profile.opacity",
+      "default": 0
+    },
+    "pageFadeSpread": {
+      "min": 20,
+      "max": 200,
+      "feature": "profile.opacity",
+      "default": 100
+    },
+    "pageFadeCenterX": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 50
+    },
+    "pageFadeCenterY": {
+      "min": 0,
+      "max": 100,
+      "feature": "profile.opacity",
+      "default": 50
+    }
+  },
+  "strings": {
+    "titleText": 40,
+    "thoughtText": 200,
+    "badge": 24,
+    "clan": 10
+  },
+  "fontFiles": {
+    "nameFontFile": "profile.font",
+    "chatFontFile": "chat.font",
+    "metadata": "preserve existing {sha256,name}; never invent asset hashes; files are selected separately"
+  },
+  "frameGraph": {
+    "feature": "avatar.nodes",
+    "maxNodes": 512,
+    "maxWires": 8192,
+    "node": "{id:1..65535,t:catalog type,x:-10000..10000,y:-10000..10000,o:boolean,v:knob values,s:knob strings}",
+    "wire": "[sourceId,targetId,inputPin,outputIndex]; knob pins start at100; use compatible types and no cycles",
+    "catalog": {
+      "nodes": [
+        {
+          "hint": "лента, спрайт или своя картинка",
+          "name": "Картинка",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 3,
+              "name": "Файл"
+            }
+          ],
+          "pins": [],
+          "type": 1,
+          "category": 0,
+          "signal": false,
+          "gives": 1
+        },
+        {
+          "hint": "копия аватара как слой рамки",
+          "name": "Аватарка",
+          "knobs": [
+            {
+              "default": 100,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 1,
+              "max": 0,
+              "kind": 4,
+              "name": "Слева направо"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 2,
+              "max": 0,
+              "kind": 4,
+              "name": "Сверху вниз"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Поворот"
+            }
+          ],
+          "pins": [],
+          "type": 2,
+          "category": 0,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "число для ручки любого узла",
+          "name": "Значение",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 4,
+              "name": "Число"
+            }
+          ],
+          "pins": [],
+          "type": 5,
+          "category": 0,
+          "signal": false,
+          "gives": 6
+        },
+        {
+          "hint": "отпускает число ходить: размах, скорость, ход",
+          "name": "Живое число",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 4,
+              "name": "Размах"
+            },
+            {
+              "default": 60,
+              "min": 1,
+              "role": 0,
+              "max": 600,
+              "kind": 0,
+              "name": "Скорость"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 3,
+              "kind": 1,
+              "name": "Ход",
+              "options": [
+                "Туда-сюда",
+                "По кругу",
+                "Скачком",
+                "Толчком"
+              ]
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Сдвиг"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 6,
+              "name": "Число",
+              "many": false
+            }
+          ],
+          "type": 56,
+          "category": 0,
+          "signal": true,
+          "gives": 6
+        },
+        {
+          "hint": "джойстик вместо ползунка",
+          "name": "Интерфейс",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 4,
+              "name": "Вбок"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 4,
+              "name": "Вниз"
+            }
+          ],
+          "pins": [],
+          "type": 6,
+          "category": 0,
+          "signal": false,
+          "gives": 6
+        },
+        {
+          "hint": "оттенок для украшения",
+          "name": "Цвет",
+          "knobs": [
+            {
+              "default": -1,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 2,
+              "name": "Цвет"
+            }
+          ],
+          "pins": [],
+          "type": 3,
+          "category": 0,
+          "signal": false,
+          "gives": 3
+        },
+        {
+          "hint": "лента по краю аватара",
+          "name": "Обод",
+          "knobs": [
+            {
+              "default": 10,
+              "min": 1,
+              "role": 0,
+              "max": 80,
+              "kind": 0,
+              "name": "Толщина"
+            },
+            {
+              "default": 0,
+              "min": -20,
+              "role": 0,
+              "max": 60,
+              "kind": 0,
+              "name": "Отступ"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Сдвиг"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Вращение"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 1,
+              "kind": 1,
+              "name": "Без стыка",
+              "options": [
+                "нет",
+                "да"
+              ]
+            }
+          ],
+          "pins": [
+            {
+              "kind": 1,
+              "name": "Картинка",
+              "many": false
+            }
+          ],
+          "type": 10,
+          "category": 1,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "спрайт повторяется по краю",
+          "name": "Узор",
+          "knobs": [
+            {
+              "default": 90,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            },
+            {
+              "default": 24,
+              "min": 1,
+              "role": 0,
+              "max": 64,
+              "kind": 0,
+              "name": "Сколько"
+            },
+            {
+              "default": 3,
+              "min": -20,
+              "role": 0,
+              "max": 60,
+              "kind": 0,
+              "name": "Отступ"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Сдвиг"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Вращение"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 1,
+              "name": "Картинка",
+              "many": false
+            }
+          ],
+          "type": 11,
+          "category": 1,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "одно украшение на краю",
+          "name": "Метка",
+          "knobs": [
+            {
+              "default": 100,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            },
+            {
+              "default": 0,
+              "min": -20,
+              "role": 0,
+              "max": 60,
+              "kind": 0,
+              "name": "Отступ"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Место"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Вращение"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 1,
+              "name": "Картинка",
+              "many": false
+            }
+          ],
+          "type": 12,
+          "category": 1,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "стоит там, где повесили",
+          "name": "Наклейка",
+          "knobs": [
+            {
+              "default": 100,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 1,
+              "max": 0,
+              "kind": 4,
+              "name": "Слева направо"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 2,
+              "max": 0,
+              "kind": 4,
+              "name": "Сверху вниз"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Поворот"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 1,
+              "name": "Картинка",
+              "many": false
+            }
+          ],
+          "type": 13,
+          "category": 1,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "облако вокруг аватара",
+          "name": "Частицы",
+          "knobs": [
+            {
+              "default": 14,
+              "min": 1,
+              "role": 0,
+              "max": 64,
+              "kind": 0,
+              "name": "Сколько"
+            },
+            {
+              "default": 80,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            },
+            {
+              "default": 40,
+              "min": 0,
+              "role": 0,
+              "max": 200,
+              "kind": 0,
+              "name": "Ширина облака"
+            },
+            {
+              "default": 90,
+              "min": 2,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Длина пути"
+            },
+            {
+              "default": 100,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Скорость"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 1,
+              "name": "Картинка",
+              "many": false
+            }
+          ],
+          "type": 14,
+          "category": 1,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "куда летят частицы",
+          "name": "Направление",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 2,
+              "kind": 1,
+              "name": "Куда",
+              "options": [
+                "в одну сторону",
+                "от центра",
+                "к центру"
+              ]
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Угол"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 26,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "веер от общего направления",
+          "name": "Разлёт",
+          "knobs": [
+            {
+              "default": 30,
+              "min": 0,
+              "role": 0,
+              "max": 180,
+              "kind": 0,
+              "name": "Разлёт"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 20,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "частицы вьются на лету",
+          "name": "Турбулентность",
+          "knobs": [
+            {
+              "default": 35,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Сила"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 21,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "тянет вниз с ускорением",
+          "name": "Тяжесть",
+          "knobs": [
+            {
+              "default": 40,
+              "min": -100,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Тяжесть"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 22,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "крутит саму частицу",
+          "name": "Вращение",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Поворот"
+            },
+            {
+              "default": 180,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "За жизнь"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 23,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "частица перемигивает",
+          "name": "Мерцание",
+          "knobs": [
+            {
+              "default": 40,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Глубина"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 24,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "у каждой частицы свой путь и размер",
+          "name": "Разнобой",
+          "knobs": [
+            {
+              "default": 45,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Разнобой"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 25,
+          "category": 2,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "красит украшение",
+          "name": "Оттенок",
+          "knobs": [
+            {
+              "default": -1,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 2,
+              "name": "Цвет"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            },
+            {
+              "kind": 3,
+              "name": "Цвет",
+              "many": false
+            }
+          ],
+          "type": 30,
+          "category": 3,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "просвечивает украшение насквозь",
+          "name": "Прозрачность",
+          "knobs": [
+            {
+              "default": 100,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Видно"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 31,
+          "category": 3,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "двигает по краю и от края",
+          "name": "Сдвиг",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Сдвиг"
+            },
+            {
+              "default": 0,
+              "min": -20,
+              "role": 0,
+              "max": 60,
+              "kind": 0,
+              "name": "Отступ"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 40,
+          "category": 4,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "доворачивает украшение",
+          "name": "Поворот",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Поворот"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 41,
+          "category": 4,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "умножает размер: 100 — как есть",
+          "name": "Размер",
+          "knobs": [
+            {
+              "default": 100,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 42,
+          "category": 4,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "место, поворот и размер разом",
+          "name": "Трансформация",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "По краю"
+            },
+            {
+              "default": 0,
+              "min": -20,
+              "role": 0,
+              "max": 60,
+              "kind": 0,
+              "name": "От края"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 1,
+              "max": 0,
+              "kind": 4,
+              "name": "Слева направо"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 2,
+              "max": 0,
+              "kind": 4,
+              "name": "Сверху вниз"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 3,
+              "max": 0,
+              "kind": 4,
+              "name": "Поворот"
+            },
+            {
+              "default": 100,
+              "min": 10,
+              "role": 0,
+              "max": 400,
+              "kind": 0,
+              "name": "Размер"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 43,
+          "category": 4,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "стопка украшений; после неё правят всё сразу",
+          "name": "Слои",
+          "knobs": [],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": true
+            }
+          ],
+          "type": 50,
+          "category": 5,
+          "signal": false,
+          "gives": 5
+        },
+        {
+          "hint": "выбирает одно из нескольких: по тумблеру или по сигналу",
+          "name": "Событие",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 5,
+              "name": "Переключатель"
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 1,
+              "kind": 1,
+              "name": "Лад",
+              "options": [
+                "Переключатель",
+                "Сигнал"
+              ]
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 1,
+              "kind": 1,
+              "name": "Очередь",
+              "options": [
+                "По порядку",
+                "Случайно"
+              ]
+            },
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 0,
+              "kind": 6,
+              "name": "Сигнал"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 7,
+              "name": "Выключено",
+              "many": false
+            },
+            {
+              "kind": 7,
+              "name": "Включено",
+              "many": true
+            }
+          ],
+          "type": 55,
+          "category": 5,
+          "signal": false,
+          "gives": 7
+        },
+        {
+          "hint": "объекты держатся точки главного",
+          "name": "Закрепить",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 8,
+              "kind": 1,
+              "name": "Точка",
+              "options": [
+                "середина",
+                "сверху",
+                "снизу",
+                "слева",
+                "справа",
+                "слева сверху",
+                "справа сверху",
+                "слева снизу",
+                "справа снизу"
+              ]
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Главный",
+              "many": false
+            },
+            {
+              "kind": 4,
+              "name": "Объект",
+              "many": true
+            }
+          ],
+          "type": 51,
+          "category": 5,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "запекает эффекты в одну текстуру — без лагов",
+          "name": "Запечка",
+          "knobs": [
+            {
+              "default": 0,
+              "min": 0,
+              "role": 0,
+              "max": 1,
+              "kind": 1,
+              "name": "Старые версии",
+              "options": [
+                "нет",
+                "да"
+              ]
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 72,
+          "category": 5,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "ореол света из цветов самой картинки",
+          "name": "Свечение",
+          "knobs": [
+            {
+              "default": 50,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Сила"
+            },
+            {
+              "default": 50,
+              "min": 0,
+              "role": 0,
+              "max": 100,
+              "kind": 0,
+              "name": "Радиус"
+            }
+          ],
+          "pins": [
+            {
+              "kind": 4,
+              "name": "Слой",
+              "many": false
+            }
+          ],
+          "type": 70,
+          "category": 7,
+          "signal": false,
+          "gives": 4
+        },
+        {
+          "hint": "то, что видно в профиле",
+          "name": "Рамка",
+          "knobs": [],
+          "pins": [
+            {
+              "kind": 5,
+              "name": "Вход",
+              "many": false
+            }
+          ],
+          "type": 60,
+          "category": 6,
+          "signal": false,
+          "gives": 0
+        },
+        {
+          "hint": "показывает свою ветку",
+          "name": "Просмотр",
+          "knobs": [],
+          "pins": [
+            {
+              "kind": 5,
+              "name": "Вход",
+              "many": false
+            }
+          ],
+          "type": 61,
+          "category": 6,
+          "signal": false,
+          "gives": 0
+        }
+      ],
+      "categories": [
+        "Источники",
+        "Украшения",
+        "Частицы",
+        "Цвет",
+        "Расположение",
+        "Сборка",
+        "Вывод",
+        "Эффекты"
+      ],
+      "version": 1
+    },
+    "sources": "Use listed blank: sources or preserve existing asset:sha256.extension values. Never invent hashes or local paths. Connect decoration layers through Layers to Frame output."
+  },
+  "chatBadgeSource": "chat.badge; preserve an existing asset:sha256.png/jpg/gif/webp source or clear it. Images are selected separately.",
+  "headerConfig": {
+    "feature": "profile.layout.advanced",
+    "version": [
+      2,
+      3
+    ],
+    "fields": {
+      "avatar_x": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "avatar_y": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "avatar_rotate": {
+        "min": -180,
+        "max": 180,
+        "default": 0,
+        "integer": false
+      },
+      "avatar_scale_x": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "avatar_scale_y": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "anchor_avatar_to": {
+        "min": 0,
+        "max": 7,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_avatar_to_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_avatar_to_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_avatar_from_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_avatar_from_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_avatar_x": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_avatar_y": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "name_x": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "name_y": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "name_rotate": {
+        "min": -180,
+        "max": 180,
+        "default": 0,
+        "integer": false
+      },
+      "name_scale_x": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "name_scale_y": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "anchor_name_to": {
+        "min": 0,
+        "max": 7,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_name_to_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_name_to_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_name_from_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_name_from_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_name_x": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_name_y": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "status_x": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "status_y": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "status_rotate": {
+        "min": -180,
+        "max": 180,
+        "default": 0,
+        "integer": false
+      },
+      "status_scale_x": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "status_scale_y": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "anchor_status_to": {
+        "min": 0,
+        "max": 7,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_status_to_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_status_to_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_status_from_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_status_from_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_status_x": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_status_y": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "actions_x": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "actions_y": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "actions_rotate": {
+        "min": -180,
+        "max": 180,
+        "default": 0,
+        "integer": false
+      },
+      "actions_scale_x": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "actions_scale_y": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "anchor_actions_to": {
+        "min": 0,
+        "max": 7,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_actions_to_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_actions_to_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_actions_from_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_actions_from_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_actions_x": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_actions_y": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "title_x": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "title_y": {
+        "min": -45,
+        "max": 45,
+        "default": 0,
+        "integer": false
+      },
+      "title_rotate": {
+        "min": -180,
+        "max": 180,
+        "default": 0,
+        "integer": false
+      },
+      "title_scale_x": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "title_scale_y": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": false
+      },
+      "anchor_title_to": {
+        "min": 0,
+        "max": 7,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_title_to_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_title_to_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_title_from_x": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_title_from_y": {
+        "min": 0,
+        "max": 2,
+        "default": 1,
+        "integer": true
+      },
+      "anchor_title_x": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "anchor_title_y": {
+        "min": -600,
+        "max": 600,
+        "default": 0,
+        "integer": true
+      },
+      "name_anchor": {
+        "min": 0,
+        "max": 2,
+        "default": 0,
+        "integer": true
+      },
+      "vertical_actions": {
+        "min": 0,
+        "max": 1,
+        "default": 0,
+        "integer": true
+      },
+      "actions_plain_content": {
+        "min": 0,
+        "max": 1,
+        "default": 0,
+        "integer": true
+      },
+      "actions_content_scale_x": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": true
+      },
+      "actions_content_scale_y": {
+        "min": 10,
+        "max": 300,
+        "default": 100,
+        "integer": true
+      }
+    },
+    "targets": "0 native,1 screen,2 thought,3 avatar,4 name,5 status,6 actions,7 title; own/target edge points are independent:0 start,1 center,2 end; anchor margins are dp; shifts are percent of root width; never invent account titles"
+  },
+  "profilePalette": {
+    "feature": "profile.palette",
+    "keys": [
+      "key_actionBarDefault",
+      "key_actionBarDefaultIcon",
+      "key_actionBarDefaultSelector",
+      "key_actionBarDefaultSubtitle",
+      "key_actionBarDefaultTitle",
+      "key_avatar_text",
+      "key_chat_linkSelectBackground",
+      "key_chat_messageLinkIn",
+      "key_chats_actionMessage",
+      "key_chats_attachMessage",
+      "key_chats_message",
+      "key_chats_name",
+      "key_chats_nameMessage_threeLines",
+      "key_divider",
+      "key_glass_targetMainTopPanel",
+      "key_listSelector",
+      "key_profile_status",
+      "key_profile_tabSelectedLine",
+      "key_profile_tabSelectedText",
+      "key_profile_tabSelector",
+      "key_profile_tabText",
+      "key_profile_title",
+      "key_windowBackgroundGray",
+      "key_windowBackgroundWhite",
+      "key_windowBackgroundWhiteBlackText",
+      "key_windowBackgroundWhiteBlueHeader",
+      "key_windowBackgroundWhiteBlueText",
+      "key_windowBackgroundWhiteBlueText2",
+      "key_windowBackgroundWhiteBlueText4",
+      "key_windowBackgroundWhiteGrayText",
+      "key_windowBackgroundWhiteGrayText2",
+      "key_windowBackgroundWhiteGrayText3",
+      "key_windowBackgroundWhiteGrayText4",
+      "key_windowBackgroundWhiteLinkText",
+      "key_windowBackgroundWhiteValueText"
+    ],
+    "values": "ARGB integer; omit a slot to use the current theme"
+  },
+  "blocks": {
+    "max": 64,
+    "types": [
+      "code",
+      "image",
+      "link",
+      "music",
+      "text"
+    ],
+    "fields": {
+      "id": "stable [A-Za-z0-9_-]{1,36}; preserve existing IDs",
+      "title": 80,
+      "text": 2000,
+      "url": "legacy: https or tg; native rowType: plain value up to512 chars; image: preserve existing asset hash or HTTPS",
+      "height": "80..480",
+      "imageFocusX/imageFocusY": "image crop focus over overflow0..1000;500 centers the image",
+      "imageScale": "image crop zoom100..400 percent;100 covers the block without gaps",
+      "mediaType": "image only:0 static,1 animated; actual uploaded frame count is authoritative",
+      "components": "native component definitions <=8192 chars",
+      "css": "native CSS <=16384 chars",
+      "script": "BlockScript <=16384 chars; never JavaScript",
+      "rowType": "0link,1labeled text,2section,3spacer,4note,5colored icon,6long text,7emoji,8visitor switch,9shared counter,10image,11shared pixel canvas,12integration",
+      "icon": "Telegram drawable name",
+      "emoji": "existing document ID, never invent",
+      "iconColor/titleColor/valueColor/iconBack": "ARGB integer;0 uses client colors",
+      "showLink/divider/ownOnly": "boolean; never make a row private unless requested",
+      "action/longAction": "0none,1open,2copy,3share,4chat",
+      "radius": "0..48",
+      "viewX/viewY": "canvas center -100000..100000",
+      "viewSpan": "8..384",
+      "service": "0lastfm,1github,2steam,3yandex,4spotify,5soundcloud,7discord,8Android player",
+      "mode": "0..8",
+      "parts": "unique service part indexes0..8",
+      "accounts": "public handles by provider, never credentials"
+    }
+  },
+  "layers": {
+    "max": 12,
+    "types": [
+      "dots",
+      "glow",
+      "ribbon",
+      "ring",
+      "stars",
+      "sticker"
+    ],
+    "fields": {
+      "color": "RGB integer",
+      "alpha": "0..100",
+      "size": "1..100",
+      "speed": "-100..100",
+      "rotation": "-360..360",
+      "text": "up to12 chars"
+    }
+  },
+  "nodes": {
+    "max": 512,
+    "id": "0..511, unique",
+    "types": [
+      "add",
+      "color",
+      "multiply",
+      "opacity",
+      "rotation",
+      "scale",
+      "sine",
+      "time"
+    ],
+    "inputs": "at most2 earlier node IDs; no cycles",
+    "value": "-10000..10000",
+    "layer": "0..11",
+    "x": "-10000..10000",
+    "y": "-10000..10000",
+    "collapsed": "0..1"
+  },
+  "rows": "unique bio,username,phone,birthday,channel,music,extras,business_hours,business_location,location,id_dc,note,shared_media,comments,block:<stable-id>,integration:<provider>; up to96; hiddenRows uses same keys; shared_media is hide-only and remains outside the movable information rows",
+  "customShape": "3..160 pairs of integers0..1000",
+  "integrations": "up to7 unique providers github/discord/steam/spotify/soundcloud/yandex/lastfm, public handle <=80chars",
+  "theme": "v1; palette0..7,background/frame/pattern0..4,shape0..9,dim0..100",
+  "budget": "normalized document <=512KiB; never invent media asset IDs or account roles"
+}

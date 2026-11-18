@@ -441,12 +441,12 @@ public class UniversalRecyclerView extends RecyclerListView {
                 final ViewHolder viewHolder = getChildViewHolder(view);
                 int type = viewHolder.getItemViewType();
                 return !UniversalAdapter.isShadow(type)
-                        && !(MessagesController.getGlobalMainSettings().getBoolean("dg_separateHeaders", true)
+                        && !(!DevGramClassicDesign.enabled() && MessagesController.getGlobalMainSettings().getBoolean("dg_separateHeaders", true)
                         && (type == UniversalAdapter.VIEW_TYPE_HEADER
                         || type == UniversalAdapter.VIEW_TYPE_BLACK_HEADER));
             },
             UniversalAdapter::isShadow,
-            padding, roundRadius,
+            DevGramClassicDesign.enabled() ? 0 : padding, DevGramClassicDesign.enabled() ? 0 : roundRadius,
             super::drawBackgroundRect,
             topPadding
         );

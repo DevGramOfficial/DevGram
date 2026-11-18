@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.animation.LinearInterpolator;
 import android.widget.FrameLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramConfig;
 import org.telegram.messenger.DevGramSwipeAction;
@@ -61,7 +62,7 @@ public class DevGramSwipeActionsPreviewCell extends FrameLayout {
         long me = UserConfig.getInstance(account).getClientUserId();
 
         TLRPC.TL_message message = new TLRPC.TL_message();
-        message.message = "Проведите влево и выберите действие";
+        message.message = DevGramLocale.text("Проведите влево и выберите действие");
         message.date = now;
         message.dialog_id = 1L;
         message.flags = 256;
@@ -72,7 +73,7 @@ public class DevGramSwipeActionsPreviewCell extends FrameLayout {
         message.out = false;
 
         TLRPC.TL_message reply = new TLRPC.TL_message();
-        reply.message = "Так выглядит выбор действия";
+        reply.message = DevGramLocale.text("Так выглядит выбор действия");
         reply.date = now;
         reply.dialog_id = 1L;
         reply.flags = 256;
@@ -90,7 +91,7 @@ public class DevGramSwipeActionsPreviewCell extends FrameLayout {
 
         MessageObject messageObject = new MessageObject(account, message, true, false);
         messageObject.replyMessageObject = new MessageObject(account, reply, true, false);
-        messageObject.customReplyName = "Вы";
+        messageObject.customReplyName = DevGramLocale.text("Вы");
         messageObject.resetLayout();
         messageObject.eventId = 1L;
 

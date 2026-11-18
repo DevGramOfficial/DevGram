@@ -16,6 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.DevGramBadges;
 import org.telegram.messenger.DevGramPluginBlocks;
 import org.telegram.ui.ActionBar.AlertDialog;
@@ -23,7 +24,6 @@ import org.telegram.ui.Components.EditTextBoldCursor;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPlugins;
-import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
@@ -69,7 +69,7 @@ public class DevGramPluginInstallSheet {
                                         String meta, String capabilities, String pkgSha) {
         String[] m = meta.split("\u001f", -1);
         final String id = m.length > 0 ? m[0] : "";
-        String name = m.length > 1 && !m[1].isEmpty() ? m[1] : (id.isEmpty() ? "Плагин" : id);
+        String name = m.length > 1 && !m[1].isEmpty() ? m[1] : (id.isEmpty() ? DevGramLocale.text("Плагин") : id);
         String ver = m.length > 2 ? m[2] : "";
         String author = m.length > 3 ? m[3] : "";
         String desc = m.length > 4 ? m[4] : "";
@@ -119,17 +119,17 @@ public class DevGramPluginInstallSheet {
                                        String foreign, String meta, String hash) {
         if (foreign != null && !foreign.isEmpty()) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
-                    .createErrorBulletin("Это плагин для " + foreign + " — в DevGram он не работает").show();
+                    .createErrorBulletin(DevGramLocale.text("Это плагин для ") + foreign + DevGramLocale.text(" — в DevGram он не работает")).show();
             return;
         }
         if (meta == null || meta.isEmpty()) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
-                    .createErrorBulletin("Это не похоже на плагин DevGram").show();
+                    .createErrorBulletin(DevGramLocale.text("Это не похоже на плагин DevGram")).show();
             return;
         }
         String[] m = meta.split("\u001f", -1);
         final String id = m.length > 0 ? m[0] : "";
-        String name = m.length > 1 && !m[1].isEmpty() ? m[1] : (id.isEmpty() ? "Плагин" : id);
+        String name = m.length > 1 && !m[1].isEmpty() ? m[1] : (id.isEmpty() ? DevGramLocale.text("Плагин") : id);
         String ver = m.length > 2 ? m[2] : "";
         String author = m.length > 3 ? m[3] : "";
         String desc = m.length > 4 ? m[4] : "";
@@ -171,7 +171,7 @@ public class DevGramPluginInstallSheet {
         root.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(18), AndroidUtilities.dp(20), AndroidUtilities.dp(24));
 
         TextView eyebrow = new TextView(context);
-        eyebrow.setText(installed ? "ОБНОВЛЕНИЕ ПЛАГИНА" : "УСТАНОВКА ПЛАГИНА");
+        eyebrow.setText(installed ? DevGramLocale.text("ОБНОВЛЕНИЕ ПЛАГИНА") : DevGramLocale.text("УСТАНОВКА ПЛАГИНА"));
         eyebrow.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         eyebrow.setTypeface(AndroidUtilities.bold());
         eyebrow.setLetterSpacing(.09f);
@@ -213,7 +213,7 @@ public class DevGramPluginInstallSheet {
         // версия + автор
         StringBuilder sub = new StringBuilder();
         if (!ver.isEmpty()) {
-            sub.append("Версия ").append(ver);
+            sub.append(DevGramLocale.text("Версия ")).append(ver);
         }
         if (!author.isEmpty()) {
             if (sub.length() > 0) {
@@ -232,7 +232,7 @@ public class DevGramPluginInstallSheet {
 
         // бейдж проверки (как у exteraGram, в нашем стиле)
         TextView badge = new TextView(context);
-        badge.setText(verified ? (fromDevChannel ? "🧩 Проверенный разработчик" : "🛡️ Проверено DevGram") : "⚠️ Неизвестный источник");
+        badge.setText(verified ? (fromDevChannel ? DevGramLocale.text("🧩 Проверенный разработчик") : DevGramLocale.text("🛡️ Проверено DevGram")) : DevGramLocale.text("⚠️ Неизвестный источник"));
         badge.setTextColor(verified ? 0xFFFFFFFF : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         badge.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         badge.setTypeface(AndroidUtilities.bold());
@@ -263,9 +263,9 @@ public class DevGramPluginInstallSheet {
         TextView warnText = new TextView(context);
         warnText.setText(verified
                 ? (fromDevChannel
-                    ? "✓ Проверенный источник\nПлагин из канала-разработчика плагинов DevGram (🧩). Такие каналы проверены командой — плагинам из них можно доверять."
-                    : "✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять.")
-                : "ⓘ Внимание: неизвестный источник\nПлагина нет в реестре проверенных DevGram, он выполняет код в приложении. Устанавливай только если доверяешь автору.");
+                    ? DevGramLocale.text("✓ Проверенный источник\nПлагин из канала-разработчика плагинов DevGram (🧩). Такие каналы проверены командой — плагинам из них можно доверять.")
+                    : DevGramLocale.text("✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять."))
+                : DevGramLocale.text("ⓘ Внимание: неизвестный источник\nПлагина нет в реестре проверенных DevGram, он выполняет код в приложении. Устанавливай только если доверяешь автору."));
         warnText.setTextColor(verified ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         warnText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
         warn.addView(warnText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -296,23 +296,23 @@ public class DevGramPluginInstallSheet {
         // ---- сведения ----
         java.io.File infoFile = packagePath != null ? new java.io.File(packagePath) : localFile;
         LinearLayout infoCard = infoCard(context);
-        infoCard.addView(cardTitle(context, "Сведения"));
+        infoCard.addView(cardTitle(context, DevGramLocale.text("Сведения")));
         org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "ID", id, null);
-        if (ver != null && !ver.isEmpty()) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Версия", ver, null);
-        if (author != null && !author.isEmpty()) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Автор", author, null);
+        if (ver != null && !ver.isEmpty()) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, DevGramLocale.text("Версия"), ver, null);
+        if (author != null && !author.isEmpty()) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, DevGramLocale.text("Автор"), author, null);
         String minVersion = org.telegram.messenger.DevGramPluginInfo.metaValue(capabilitiesSource, "__min_version__");
-        if (minVersion != null) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Мин. версия DevGram", minVersion, null);
-        org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Формат", packagePath != null ? ".dgplugin — пакет" : "исходник Python", null);
+        if (minVersion != null) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, DevGramLocale.text("Мин. версия DevGram"), minVersion, null);
+        org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, DevGramLocale.text("Формат"), packagePath != null ? DevGramLocale.text(".dgplugin — пакет") : DevGramLocale.text("исходник Python"), null);
         long size = infoFile != null && infoFile.exists() ? infoFile.length()
                 : (verifySource != null ? verifySource.getBytes(java.nio.charset.StandardCharsets.UTF_8).length : 0);
-        if (size > 0) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Размер", org.telegram.messenger.DevGramPluginInfo.formatSize(size), null);
+        if (size > 0) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, DevGramLocale.text("Размер"), org.telegram.messenger.DevGramPluginInfo.formatSize(size), null);
         int lines = org.telegram.messenger.DevGramPluginInfo.codeLines(capabilitiesSource);
-        if (lines > 0) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "Строк кода", String.valueOf(lines), null);
+        if (lines > 0) org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, DevGramLocale.text("Строк кода"), String.valueOf(lines), null);
         if (verifyHash != null && !verifyHash.isEmpty()) {
             String shortHash = org.telegram.ui.Components.DevGramPluginInfoViews.shortHash(verifyHash);
             org.telegram.ui.Components.DevGramPluginInfoViews.addRow(context, infoCard, "SHA-256", shortHash, () -> {
                 AndroidUtilities.addToClipboard(verifyHash);
-                org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyBulletin("Хеш скопирован").show();
+                org.telegram.ui.Components.BulletinFactory.of(fragment).createCopyBulletin(DevGramLocale.text("Хеш скопирован")).show();
             });
         }
         org.telegram.ui.Components.DevGramPluginInfoViews.makeCollapsible(infoCard, false);
@@ -321,7 +321,7 @@ public class DevGramPluginInstallSheet {
         // галка «включить после установки»
         final boolean[] enableAfter = {true};
         CheckBoxCell check = new CheckBoxCell(context, 1, fragment.getResourceProvider());
-        check.setText("Включить после установки", "", true, false);
+        check.setText(DevGramLocale.text("Включить после установки"), "", true, false);
         check.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
                 Theme.getColor(Theme.key_windowBackgroundGray), Theme.getColor(Theme.key_listSelector)));
         check.setOnClickListener(v -> {
@@ -332,8 +332,8 @@ public class DevGramPluginInstallSheet {
 
         // Для уже установленного ID карточка выполняет обновление тем же безопасным путём.
         TextView install = new TextView(context);
-        install.setText(installed ? "Обновить плагин"
-                : (verified ? "Установить плагин" : "Установить неизвестный плагин"));
+        install.setText(installed ? DevGramLocale.text("Обновить плагин")
+                : (verified ? DevGramLocale.text("Установить плагин") : DevGramLocale.text("Установить неизвестный плагин")));
         install.setGravity(Gravity.CENTER);
         install.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
         install.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -354,7 +354,7 @@ public class DevGramPluginInstallSheet {
         final LinearLayout warnRef = warn;
         Runnable applyVerified = () -> {
             boolean vv = vState[0];
-            badgeRef.setText(vv ? (devState[0] ? "🧩 Проверенный разработчик" : "🛡️ Проверено DevGram") : "⚠️ Неизвестный источник");
+            badgeRef.setText(vv ? (devState[0] ? DevGramLocale.text("🧩 Проверенный разработчик") : DevGramLocale.text("🛡️ Проверено DevGram")) : DevGramLocale.text("⚠️ Неизвестный источник"));
             badgeRef.setTextColor(vv ? 0xFFFFFFFF : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             badgeRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16),
                     vv ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
@@ -362,30 +362,30 @@ public class DevGramPluginInstallSheet {
                     vv ? 0x223BA55D : Theme.getColor(Theme.key_windowBackgroundGray)));
             warnTextRef.setText(vv
                     ? (devState[0]
-                        ? "✓ Проверенный источник\nПлагин из канала-разработчика плагинов DevGram (🧩). Такие каналы проверены командой — плагинам из них можно доверять."
-                        : "✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять.")
-                    : "ⓘ Внимание: неизвестный источник\nПлагина нет в реестре проверенных DevGram, он выполняет код в приложении. Устанавливай только если доверяешь автору.");
+                        ? DevGramLocale.text("✓ Проверенный источник\nПлагин из канала-разработчика плагинов DevGram (🧩). Такие каналы проверены командой — плагинам из них можно доверять.")
+                        : DevGramLocale.text("✓ Проверенный плагин\nОн есть в реестре DevGram — код проверен, можно доверять."))
+                    : DevGramLocale.text("ⓘ Внимание: неизвестный источник\nПлагина нет в реестре проверенных DevGram, он выполняет код в приложении. Устанавливай только если доверяешь автору."));
             warnTextRef.setTextColor(vv ? 0xFF3BA55D : Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
             if (!blockKnown[0] && !blockFailed[0]) {
-                installRef.setText("Проверяю блокировку…");
+                installRef.setText(DevGramLocale.text("Проверяю блокировку…"));
                 installRef.setEnabled(false);
             } else if (blockState[0]) {
-                installRef.setText("⛔ Установка заблокирована");
+                installRef.setText(DevGramLocale.text("⛔ Установка заблокирована"));
                 installRef.setEnabled(false);
             } else if (analysisRunning[0]) {
-                installRef.setText("Проверяем код…");
+                installRef.setText(DevGramLocale.text("Проверяем код…"));
                 installRef.setEnabled(false);
             } else if (needsRiskAcknowledgement(analysisReport[0], vv, riskAcknowledged[0])) {
                 int danger = org.telegram.ui.Components.devgram.PluginAnalysisViews.severityColor(
                         org.telegram.messenger.devgram.plugins.PluginAnalysisReport.SEVERITY_CRITICAL, fragment.getResourceProvider());
                 installRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18), danger,
                         Theme.multAlpha(danger, .8f)));
-                installRef.setText("Посмотреть отчёт");
+                installRef.setText(DevGramLocale.text("Посмотреть отчёт"));
                 installRef.setEnabled(true);
                 return;
             } else {
-                installRef.setText(installed ? "Обновить плагин"
-                        : (vv ? "Установить плагин" : "Установить неизвестный плагин"));
+                installRef.setText(installed ? DevGramLocale.text("Обновить плагин")
+                        : (vv ? DevGramLocale.text("Установить плагин") : DevGramLocale.text("Установить неизвестный плагин")));
                 installRef.setEnabled(true);
             }
             installRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(18),
@@ -403,8 +403,8 @@ public class DevGramPluginInstallSheet {
             applyVerified.run();
             if (blockButton[0] != null) {
                 blockButton[0].setEnabled(true);
-                blockButton[0].setText(!blockKnown[0] ? "Повторить проверку блокировки"
-                        : (blockState[0] ? "Разблокировать установку" : "Заблокировать установку"));
+                blockButton[0].setText(!blockKnown[0] ? DevGramLocale.text("Повторить проверку блокировки")
+                        : (blockState[0] ? DevGramLocale.text("Разблокировать установку") : DevGramLocale.text("Заблокировать установку")));
             }
         };
 
@@ -427,7 +427,7 @@ public class DevGramPluginInstallSheet {
             teamBtn.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
             teamBtn.setPadding(0, AndroidUtilities.dp(12), 0, AndroidUtilities.dp(6));
             final TextView tb = teamBtn;
-            Runnable applyTeam = () -> tb.setText(vState[0] ? "✕ Убрать из проверенных" : "✓ Сделать проверенным");
+            Runnable applyTeam = () -> tb.setText(vState[0] ? DevGramLocale.text("✕ Убрать из проверенных") : DevGramLocale.text("✓ Сделать проверенным"));
             applyTeam.run();
             teamBtn.setOnClickListener(v -> ensureAdmin(fragment, () -> {
                 boolean ok = vState[0] ? DevGramPlugins.unverifyByHash(verifyHash) : DevGramPlugins.verifyByHash(verifyHash);
@@ -436,7 +436,7 @@ public class DevGramPluginInstallSheet {
                     applyVerified.run();
                     applyTeam.run();
                     org.telegram.ui.Components.BulletinFactory.of(fragment)
-                            .createSimpleBulletin(R.raw.contact_check, vState[0] ? "Плагин помечен проверенным" : "Проверка снята").show();
+                            .createSimpleBulletin(R.raw.contact_check, vState[0] ? DevGramLocale.text("Плагин помечен проверенным") : DevGramLocale.text("Проверка снята")).show();
                 }
             }));
             root.addView(teamBtn, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
@@ -456,7 +456,7 @@ public class DevGramPluginInstallSheet {
                     return;
                 }
                 manageBlock.setEnabled(false);
-                manageBlock.setText("Сохраняю…");
+                manageBlock.setText(DevGramLocale.text("Сохраняю…"));
                 boolean next = !blockState[0];
                 DevGramPluginBlocks.setBlocked(account, id, verifyHash, name, blockFingerprint, next, status -> {
                     if (status.success) {
@@ -464,7 +464,7 @@ public class DevGramPluginInstallSheet {
                         blockState[0] = status.blocked;
                         org.telegram.ui.Components.BulletinFactory.of(fragment)
                                 .createSimpleBulletin(R.raw.contact_check,
-                                        status.blocked ? "Установка плагина заблокирована" : "Блокировка снята").show();
+                                        status.blocked ? DevGramLocale.text("Установка плагина заблокирована") : DevGramLocale.text("Блокировка снята")).show();
                     } else {
                         org.telegram.ui.Components.BulletinFactory.of(fragment)
                                 .createErrorBulletin(status.reason).show();
@@ -495,7 +495,7 @@ public class DevGramPluginInstallSheet {
                     Theme.getColor(Theme.key_featuredStickers_addButton),
                     Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
             ScaleStateListAnimator.apply(pubBtn, .025f, 1.2f);
-            pubBtn.setText("📚 Опубликовать в каталог");
+            pubBtn.setText(DevGramLocale.text("📚 Опубликовать в каталог"));
             final TextView[] rejectionRef = new TextView[1];
             final String fId = id, fName = name, fVer = ver, fAuthor = author, fDesc = desc, fIcon = iconUrl, fSource = verifySource == null ? "" : verifySource, fPackage = packagePath;
             final long fChannelId = sourceDialogId;
@@ -528,19 +528,19 @@ public class DevGramPluginInstallSheet {
             DevGramPlugins.getPluginSubmissionStatus(fId, fSource, status -> {
                 if (status == 1) {
                     rejectionInfo.setVisibility(View.GONE);
-                    pubBtnRef.setText("⏳ Плагин находится на модерации");
+                    pubBtnRef.setText(DevGramLocale.text("⏳ Плагин находится на модерации"));
                     pubBtnRef.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
                     pubBtnRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14), Theme.getColor(Theme.key_windowBackgroundGray)));
                     pubBtnRef.setOnClickListener(null);
                     DevGramPlugins.canWithdrawPending(fId, allowed -> {
                         if (allowed) {
-                            pubBtnRef.setText("⏳ На модерации  ·  Отозвать");
+                            pubBtnRef.setText(DevGramLocale.text("⏳ На модерации  ·  Отозвать"));
                             pubBtnRef.setTextColor(Theme.getColor(Theme.key_text_RedRegular));
                             pubBtnRef.setOnClickListener(v -> DevGramPlugins.withdrawPending(fId, ok -> {
                                 if (ok) {
                                     pubBtnRef.setVisibility(android.view.View.GONE);
                                     org.telegram.ui.Components.BulletinFactory.of(fragment)
-                                            .createSimpleBulletin(R.raw.contact_check, "Заявка отозвана").show();
+                                            .createSimpleBulletin(R.raw.contact_check, DevGramLocale.text("Заявка отозвана")).show();
                                 }
                             }));
                         }
@@ -549,8 +549,8 @@ public class DevGramPluginInstallSheet {
                     DevGramPlugins.fetchRejectionReason(fId, reason -> {
                         pubBtnRef.setVisibility(android.view.View.VISIBLE);
                         rejectionInfo.setVisibility(View.VISIBLE);
-                        rejectionInfo.setText("Заявка отклонена\n" + (reason.isEmpty() ? "Модератор не указал причину." : reason));
-                        pubBtnRef.setText("Исправить и отправить снова  →");
+                        rejectionInfo.setText(DevGramLocale.text("Заявка отклонена\n") + (reason.isEmpty() ? DevGramLocale.text("Модератор не указал причину.") : reason));
+                        pubBtnRef.setText(DevGramLocale.text("Исправить и отправить снова  →"));
                         pubBtnRef.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
                         pubBtnRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                                 Theme.getColor(Theme.key_featuredStickers_addButton),
@@ -592,14 +592,14 @@ public class DevGramPluginInstallSheet {
                 upd.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
                 upd.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(12), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
                 if (sameVersion) {
-                    upd.setText("✓ Актуально в каталоге");
+                    upd.setText(DevGramLocale.text("✓ Актуально в каталоге"));
                     upd.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
                     upd.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14),
                             Theme.getColor(Theme.key_windowBackgroundGray)));
                     rootRef.addView(upd, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 6, 0, 4));
                     return;
                 }
-                upd.setText("🔄 Обновить в каталоге");
+                upd.setText(DevGramLocale.text("🔄 Обновить в каталоге"));
                 upd.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
                 upd.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                         Theme.getColor(Theme.key_featuredStickers_addButton),
@@ -608,14 +608,14 @@ public class DevGramPluginInstallSheet {
                 final TextView updRef = upd;
                 // Кнопка меняет состояние прямо в карточке — без перезахода в меню.
                 final Runnable makeButton = () -> {
-                    updRef.setText("🔄 Обновить в каталоге");
+                    updRef.setText(DevGramLocale.text("🔄 Обновить в каталоге"));
                     updRef.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
                     updRef.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(14),
                             Theme.getColor(Theme.key_featuredStickers_addButton),
                             Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
                 };
                 final Runnable makeDone = () -> {
-                    updRef.setText("✓ Обновлено в каталоге");
+                    updRef.setText(DevGramLocale.text("✓ Обновлено в каталоге"));
                     updRef.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
                     updRef.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14),
                             Theme.getColor(Theme.key_windowBackgroundGray)));
@@ -623,7 +623,7 @@ public class DevGramPluginInstallSheet {
                 };
                 final String[] pubVer = { uVer };
                 upd.setOnClickListener(v -> {
-                    updRef.setText("⏳ Отправляется…");
+                    updRef.setText(DevGramLocale.text("⏳ Отправляется…"));
                     updRef.setOnClickListener(null);
                     DevGramPlugins.CatalogEntry ce = new DevGramPlugins.CatalogEntry();
                     ce.id = uId; ce.name = uName; ce.author = uAuthor; ce.desc = uDesc;
@@ -631,17 +631,17 @@ public class DevGramPluginInstallSheet {
                     ce.version = uVer; ce.update = true;
                     DevGramPlugins.SubmissionCallback cb = r -> {
                         if (r == 1) {
-                            updRef.setText("⏳ Применяется…");
+                            updRef.setText(DevGramLocale.text("⏳ Применяется…"));
                             org.telegram.ui.Components.BulletinFactory.of(fragment)
                                     .createSimpleBulletin(R.raw.contact_check,
-                                            "Обновление отправлено — применяется, статистика сохранится").show();
+                                            DevGramLocale.text("Обновление отправлено — применяется, статистика сохранится")).show();
                             waitCatalogApplied(uId, pubVer[0], 0, makeDone, makeButton);
                         } else {
                             makeButton.run();
-                            String msg = (r == -1 ? "Плагин заблокирован — обновление запрещено"
-                                    : (r == -2 ? "Файл не прошёл проверку"
-                                    : (r == -3 ? "Пакет должен содержать открытые исходники .py"
-                                    : "Не удалось отправить обновление, попробуйте ещё раз")));
+                            String msg = (r == -1 ? DevGramLocale.text("Плагин заблокирован — обновление запрещено")
+                                    : (r == -2 ? DevGramLocale.text("Файл не прошёл проверку")
+                                    : (r == -3 ? DevGramLocale.text("Пакет должен содержать открытые исходники .py")
+                                    : DevGramLocale.text("Не удалось отправить обновление, попробуйте ещё раз"))));
                             org.telegram.ui.Components.BulletinFactory.of(fragment)
                                     .createSimpleBulletin(R.raw.error, msg).show();
                         }
@@ -696,7 +696,7 @@ public class DevGramPluginInstallSheet {
             org.telegram.messenger.DevGramPluginTranslation.translate(originals, map -> {
                 if (map == null) {
                     translateButton.setState(org.telegram.ui.Components.DevGramTranslateButton.STATE_TRANSLATE);
-                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin("Не удалось перевести").show();
+                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(DevGramLocale.text("Не удалось перевести")).show();
                     return;
                 }
                 if (map.containsKey(name)) title.setText(map.get(name));
@@ -718,10 +718,10 @@ public class DevGramPluginInstallSheet {
             if (ok) {
                 org.telegram.ui.Components.BulletinFactory.of(fragment)
                         .createSimpleBulletin(R.raw.contact_check,
-                                "Плагин «" + name + "» " + (installed ? "обновлён" : "установлен")).show();
+                                DevGramLocale.text("Плагин «") + name + DevGramLocale.text("» ") + (installed ? DevGramLocale.text("обновлён") : DevGramLocale.text("установлен"))).show();
             } else {
                 org.telegram.ui.Components.BulletinFactory.of(fragment)
-                        .createErrorBulletin(installed ? "Не удалось обновить плагин" : "Не удалось установить плагин").show();
+                        .createErrorBulletin(installed ? DevGramLocale.text("Не удалось обновить плагин") : DevGramLocale.text("Не удалось установить плагин")).show();
             }
         };
         final Runnable[] openReport = new Runnable[1];
@@ -731,7 +731,7 @@ public class DevGramPluginInstallSheet {
                 return;
             }
             install.setEnabled(false);
-            install.setText("Проверяю блокировку…");
+            install.setText(DevGramLocale.text("Проверяю блокировку…"));
             DevGramPluginBlocks.check(id, verifyHash, blockFingerprint, status -> {
                 blockKnown[0] = status.success;
                 blockFailed[0] = !status.success;
@@ -739,7 +739,7 @@ public class DevGramPluginInstallSheet {
                 applyBlock.run();
                 if (status.success && status.blocked) {
                     org.telegram.ui.Components.BulletinFactory.of(fragment)
-                            .createErrorBulletin("Установка этого плагина заблокирована").show();
+                            .createErrorBulletin(DevGramLocale.text("Установка этого плагина заблокирована")).show();
                     return;
                 }
                 if (!status.success) {
@@ -754,7 +754,7 @@ public class DevGramPluginInstallSheet {
             if (analysisReport[0] == null) return;
             boolean confirm = needsRiskAcknowledgement(analysisReport[0], vState[0], riskAcknowledged[0]);
             new org.telegram.ui.Components.devgram.PluginAnalysisReportSheet(fragment, analysisReport[0], analysisNew[0],
-                    confirm ? (installed ? "Понимаю риски, обновить" : "Понимаю риски, установить") : null,
+                    confirm ? (installed ? DevGramLocale.text("Понимаю риски, обновить") : DevGramLocale.text("Понимаю риски, установить")) : null,
                     confirm ? () -> {
                         riskAcknowledged[0] = true;
                         applyBlock.run();
@@ -830,7 +830,7 @@ public class DevGramPluginInstallSheet {
         root.addView(icon, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         TextView title = new TextView(context);
-        title.setText("Проверка блокировки недоступна");
+        title.setText(DevGramLocale.text("Проверка блокировки недоступна"));
         title.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
         title.setTypeface(AndroidUtilities.bold());
@@ -838,9 +838,9 @@ public class DevGramPluginInstallSheet {
         root.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 0));
 
         TextView text = new TextView(context);
-        text.setText("Не удалось проверить, не заблокирован ли «" + pluginName + "» командой DevGram"
+        text.setText(DevGramLocale.text("Не удалось проверить, не заблокирован ли «") + pluginName + DevGramLocale.text("» командой DevGram")
                 + (reason != null && !reason.isEmpty() ? " (" + reason + ")" : "")
-                + ".\n\nВы устанавливаете плагин на свой страх и риск: он выполняет код в приложении.");
+                + DevGramLocale.text(".\n\nВы устанавливаете плагин на свой страх и риск: он выполняет код в приложении."));
         text.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         text.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
         text.setLineSpacing(AndroidUtilities.dp(3), 1f);
@@ -853,7 +853,7 @@ public class DevGramPluginInstallSheet {
         BottomSheet riskSheet = builder.create();
 
         TextView confirm = new TextView(context);
-        confirm.setText("Установить на свой страх и риск");
+        confirm.setText(DevGramLocale.text("Установить на свой страх и риск"));
         confirm.setGravity(Gravity.CENTER);
         confirm.setTextColor(0xFFFFFFFF);
         confirm.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -868,7 +868,7 @@ public class DevGramPluginInstallSheet {
         root.addView(confirm, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50, 0, 20, 0, 0));
 
         TextView cancel = new TextView(context);
-        cancel.setText("Отмена");
+        cancel.setText(DevGramLocale.text("Отмена"));
         cancel.setGravity(Gravity.CENTER);
         cancel.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
         cancel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
@@ -887,7 +887,7 @@ public class DevGramPluginInstallSheet {
     private static void choosePublishFilter(BaseFragment fragment, DevGramPlugins.CatalogEntry ce, final String packagePath, Runnable onSubmitted) {
         if (DevGramPlugins.isBlocked(ce.source)) {
             org.telegram.ui.Components.BulletinFactory.of(fragment)
-                    .createErrorBulletin("Этот плагин удалён командой — публиковать нельзя").show();
+                    .createErrorBulletin(DevGramLocale.text("Этот плагин удалён командой — публиковать нельзя")).show();
             return;
         }
         DevGramPlugins.fetchFilters(filters -> {
@@ -904,14 +904,14 @@ public class DevGramPluginInstallSheet {
             root.setPadding(AndroidUtilities.dp(20), AndroidUtilities.dp(18), AndroidUtilities.dp(20), AndroidUtilities.dp(14));
 
             TextView title = new TextView(ctx);
-            title.setText("Категория публикации");
+            title.setText(DevGramLocale.text("Категория публикации"));
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
             title.setTypeface(AndroidUtilities.bold());
             title.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
             root.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             TextView subtitle = new TextView(ctx);
-            subtitle.setText("Выберите раздел, где пользователям будет проще найти «" + ce.name + "».");
+            subtitle.setText(DevGramLocale.text("Выберите раздел, где пользователям будет проще найти «") + ce.name + DevGramLocale.text("»."));
             subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
             subtitle.setTextColor(Theme.getColor(Theme.key_dialogTextGray3));
             subtitle.setLineSpacing(AndroidUtilities.dp(2), 1f);
@@ -938,13 +938,13 @@ public class DevGramPluginInstallSheet {
                 LinearLayout texts = new LinearLayout(ctx);
                 texts.setOrientation(LinearLayout.VERTICAL);
                 TextView name = new TextView(ctx);
-                name.setText(selected.isEmpty() ? "Без категории" : selected);
+                name.setText(selected.isEmpty() ? DevGramLocale.text("Без категории") : selected);
                 name.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
                 name.setTypeface(AndroidUtilities.bold());
                 name.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
                 texts.addView(name, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
                 TextView hint = new TextView(ctx);
-                hint.setText(selected.isEmpty() ? "Показывать только в общем списке" : "Опубликовать в этой категории");
+                hint.setText(selected.isEmpty() ? DevGramLocale.text("Показывать только в общем списке") : DevGramLocale.text("Опубликовать в этой категории"));
                 hint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
                 hint.setTextColor(Theme.getColor(Theme.key_dialogTextGray3));
                 texts.addView(hint, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 2, 0, 0));
@@ -956,18 +956,18 @@ public class DevGramPluginInstallSheet {
                 row.addView(arrow, LayoutHelper.createLinear(24, 24, Gravity.CENTER_VERTICAL));
                 row.setOnClickListener(v -> {
                     row.setEnabled(false);
-                    name.setText("Отправляем…");
+                    name.setText(DevGramLocale.text("Отправляем…"));
                     ce.filter = selected;
                     DevGramPlugins.SubmissionCallback scb = r -> {
                         if (r == 1 && sheetRef[0] != null) sheetRef[0].dismiss();
-                        String msg = r == 1 ? "Заявка отправлена на модерацию"
-                                : (r == -1 ? "Плагин заблокирован — публикация запрещена"
+                        String msg = r == 1 ? DevGramLocale.text("Заявка отправлена на модерацию")
+                                : (r == -1 ? DevGramLocale.text("Плагин заблокирован — публикация запрещена")
                                 : (r == -2 ? DevGramPlugins.validateCatalogEntry(ce)
-                                : (r == -3 ? "Пакет должен содержать открытые исходники .py"
-                                : "Firebase не подтвердил отправку. Нажмите ещё раз")));
+                                : (r == -3 ? DevGramLocale.text("Пакет должен содержать открытые исходники .py")
+                                : DevGramLocale.text("Firebase не подтвердил отправку. Нажмите ещё раз"))));
                         org.telegram.ui.Components.BulletinFactory.of(fragment).createSimpleBulletin(r == 1 ? R.raw.contact_check : R.raw.error, msg).show();
                         if (r == 1) { if (onSubmitted != null) onSubmitted.run(); }
-                        else { row.setEnabled(true); name.setText(selected.isEmpty() ? "Без категории" : selected); }
+                        else { row.setEnabled(true); name.setText(selected.isEmpty() ? DevGramLocale.text("Без категории") : selected); }
                     };
                     // Пакет .dgplugin: сначала шлём файл боту (dgpkg:<id>), потом заявку; иначе обычная публикация исходника.
                     if (packagePath != null) {
@@ -994,7 +994,7 @@ public class DevGramPluginInstallSheet {
         if (button == null) return;
         if (rejectionInfo != null) rejectionInfo.setVisibility(View.GONE);
         button.setVisibility(View.VISIBLE);
-        button.setText("⏳ Плагин находится на модерации");
+        button.setText(DevGramLocale.text("⏳ Плагин находится на модерации"));
         button.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText));
         button.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(14), Theme.getColor(Theme.key_windowBackgroundGray)));
         button.setOnClickListener(null);
@@ -1031,8 +1031,8 @@ public class DevGramPluginInstallSheet {
         if (context == null) {
             return;
         }
-        EditTextBoldCursor emailEt = makeInput(context, "Email команды", InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
-        EditTextBoldCursor passEt = makeInput(context, "Пароль", InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor emailEt = makeInput(context, DevGramLocale.text("Email команды"), InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT);
+        EditTextBoldCursor passEt = makeInput(context, DevGramLocale.text("Пароль"), InputType.TYPE_TEXT_VARIATION_PASSWORD | InputType.TYPE_CLASS_TEXT);
         passEt.setTransformationMethod(PasswordTransformationMethod.getInstance());
 
         LinearLayout box = new LinearLayout(context);
@@ -1042,9 +1042,9 @@ public class DevGramPluginInstallSheet {
         box.addView(passEt, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 44, 0f, 12f, 0f, 0f));
 
         AlertDialog.Builder b = new AlertDialog.Builder(context);
-        b.setTitle("Вход команды DevGram");
+        b.setTitle(DevGramLocale.text("Вход команды DevGram"));
         b.setView(box);
-        b.setPositiveButton("Войти", (d, w) -> {
+        b.setPositiveButton(DevGramLocale.text("Войти"), (d, w) -> {
             String email = emailEt.getText().toString().trim();
             String pass = passEt.getText().toString();
             if (email.isEmpty() || pass.isEmpty()) {
@@ -1054,11 +1054,11 @@ public class DevGramPluginInstallSheet {
                 if (ok) {
                     onReady.run();
                 } else {
-                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin("Не удалось войти: " + err).show();
+                    org.telegram.ui.Components.BulletinFactory.of(fragment).createErrorBulletin(DevGramLocale.text("Не удалось войти: ") + err).show();
                 }
             }));
         });
-        b.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+        b.setNegativeButton(DevGramLocale.getString(R.string.Cancel), null);
         fragment.showDialog(b.create());
         emailEt.requestFocus();
         AndroidUtilities.showKeyboard(emailEt);

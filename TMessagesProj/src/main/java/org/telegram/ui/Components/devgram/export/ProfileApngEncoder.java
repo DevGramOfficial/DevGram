@@ -1,0 +1,16 @@
+package org.telegram.ui.Components.devgram.export;
+import android.graphics.Bitmap;
+import java.io.*;
+import java.util.zip.CRC32;
+import java.util.zip.Deflater;
+
+/** Streaming RGBA APNG: two reusable frame buffers rather than a retained scene. */
+public final class ProfileApngEncoder implements Closeable {
+    private final DataOutputStream output;private final int width,height,frames;private int count,sequence;private boolean finished;
+    public ProfileApngEncoder(File file,int width,int height,int frames)throws IOException{if(width<=0||height<=0||(long)width*height>4_000_000||frames<=0||frames>1800)throw new IllegalArgumentException();this.width=width;this.height=height;this.frames=frames;output=new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file),65536));output.write(new byte[]{(byte)137,80,78,71,13,10,26,10});ByteArrayOutputStream header=new ByteArrayOutputStream();DataOutputStream data=new DataOutputStream(header);data.writeInt(width);data.writeInt(height);data.write(new byte[]{8,6,0,0,0});chunk("IHDR",header.toByteArray());header.reset();data.writeInt(frames);data.writeInt(0);chunk("acTL",header.toByteArray());}
+    public void addFrame(Bitmap bitmap,int delay)throws IOException{if(finished||count>=frames||bitmap.getWidth()!=width||bitmap.getHeight()!=height)throw new IOException("apng_frame");ByteArrayOutputStream ctl=new ByteArrayOutputStream();DataOutputStream control=new DataOutputStream(ctl);control.writeInt(sequence++);control.writeInt(width);control.writeInt(height);control.writeInt(0);control.writeInt(0);control.writeShort(Math.max(1,Math.min(65535,delay)));control.writeShort(1000);control.writeByte(0);control.writeByte(0);chunk("fcTL",ctl.toByteArray());
+        Deflater deflater=new Deflater(Deflater.BEST_SPEED);ByteArrayOutputStream compressed=new ByteArrayOutputStream();int[] pixels=new int[width];byte[] row=new byte[width*4+1],buffer=new byte[65536];try{for(int y=0;y<height;y++){bitmap.getPixels(pixels,0,width,0,y,width,1);for(int x=0;x<width;x++){int pixel=pixels[x],at=1+x*4;row[at]=(byte)(pixel>>16);row[at+1]=(byte)(pixel>>8);row[at+2]=(byte)pixel;row[at+3]=(byte)(pixel>>>24);}deflater.setInput(row);while(!deflater.needsInput()){int bytes=deflater.deflate(buffer);if(bytes>0)compressed.write(buffer,0,bytes);}}deflater.finish();while(!deflater.finished()){int bytes=deflater.deflate(buffer);if(bytes>0)compressed.write(buffer,0,bytes);}}finally{deflater.end();}byte[] bytes=compressed.toByteArray();if(count++==0)chunk("IDAT",bytes);else{ByteArrayOutputStream packet=new ByteArrayOutputStream(bytes.length+4);DataOutputStream data=new DataOutputStream(packet);data.writeInt(sequence++);data.write(bytes);chunk("fdAT",packet.toByteArray());}}
+    private void chunk(String name,byte[] bytes)throws IOException{byte[] type=name.getBytes("US-ASCII");output.writeInt(bytes.length);output.write(type);output.write(bytes);CRC32 crc=new CRC32();crc.update(type);crc.update(bytes);output.writeInt((int)crc.getValue());}
+    public void finish()throws IOException{if(finished)return;if(count!=frames)throw new IOException("apng_incomplete");chunk("IEND",new byte[0]);finished=true;output.close();}
+    public void close()throws IOException{if(!finished){finished=true;output.close();}}
+}

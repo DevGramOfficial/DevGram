@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
+import org.telegram.ui.ActionBar.Theme;
 
 // DevGram: обводка сообщений поддержавших (как рамки чатов в TikTok) — градиентная рамка вокруг
 // пузыря и украшения-эмодзи по углам. Стиль выбирает сам поддержавший (поле «b» его значка),
@@ -27,6 +28,8 @@ public final class DevGramMessageFrame {
         // тонкая рамка одним цветом (на тон темнее заливки, как в TikTok); 0 — без рамки
         int border;
         boolean gradientBorder; // градиентная рамка — только у «Неона»
+        int angle=45;
+        public boolean reference;
         boolean onEdge;         // украшения на кромке (выглядывают из-за края), иначе — на углах
 
         Style(int id, String title, int[] colors, String tl, String tr, String bl, String br) {
@@ -118,16 +121,22 @@ public final class DevGramMessageFrame {
     }
 
     private static Shader fillShader(Cache c, Style s, float left, float top, float right, float bottom) {
-        if (c == null) return new LinearGradient(left, top, right, bottom, s.fill, null, Shader.TileMode.CLAMP);
+        if (c == null) return gradient(s,left,top,right,bottom);
         c.hit(s.id, left, top, right, bottom);
-        if (c.fill == null) c.fill = new LinearGradient(left, top, right, bottom, s.fill, null, Shader.TileMode.CLAMP);
+        if (c.fill == null) c.fill = gradient(s,left,top,right,bottom);
         return c.fill;
+    }
+    private static Shader gradient(Style s,float left,float top,float right,float bottom){double angle=Math.toRadians(s.angle);float x=(float)Math.cos(angle),y=(float)Math.sin(angle),extent=s.reference?Math.max(right-left,bottom-top)/2f:(Math.abs((right-left)*x)+Math.abs((bottom-top)*y))/2f,cx=(left+right)/2f,cy=(top+bottom)/2f;return colorShader(cx-x*extent,cy-y*extent,cx+x*extent,cy+y*extent,s.fill);}
+
+    private static Shader colorShader(float left,float top,float right,float bottom,int[] colors){
+        if(colors==null||colors.length<2){int color=colors==null||colors.length==0?0:colors[0];return new LinearGradient(left,top,right,bottom,color,color,Shader.TileMode.CLAMP);}
+        return new LinearGradient(left,top,right,bottom,colors,null,Shader.TileMode.CLAMP);
     }
 
     private static Shader borderShader(Cache c, Style s, float left, float top, float right, float bottom) {
-        if (c == null) return new LinearGradient(left, top, right, bottom, s.colors, null, Shader.TileMode.CLAMP);
+        if (c == null) return colorShader(left, top, right, bottom, s.colors);
         c.hit(s.id, left, top, right, bottom);
-        if (c.border == null) c.border = new LinearGradient(left, top, right, bottom, s.colors, null, Shader.TileMode.CLAMP);
+        if (c.border == null) c.border = colorShader(left, top, right, bottom, s.colors);
         return c.border;
     }
 
@@ -135,7 +144,47 @@ public final class DevGramMessageFrame {
     }
 
     public static Style get(int id) {
+        if (id >= 1000000) return DYNAMIC.get(id);
         return id > 0 && id < BY_ID.length ? BY_ID[id] : null;
+    }
+
+    private static final java.util.LinkedHashMap<Integer, Style> DYNAMIC = new java.util.LinkedHashMap<>(32, .75f, true);
+    private static final java.util.HashMap<Long, Integer> DYNAMIC_USERS = new java.util.HashMap<>();
+    private static int dynamicVersion = -1, nextDynamicId = 1000000;
+
+    public static int forUser(long uid, int fallback) {
+        if(!org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("devgramChatBubbles",true))return 0;
+        org.json.JSONObject doc = org.telegram.messenger.DevGramProfileDocument.get(uid);
+        if(doc.has("bubbleEnabled")&&doc.optInt("bubbleEnabled")==0)return fallback;
+        if (!doc.has("bubbleColor") && !doc.has("textColor")) return fallback;
+        int version = org.telegram.messenger.DevGramBadges.styleVersion;
+        if (version != dynamicVersion) { DYNAMIC.clear(); DYNAMIC_USERS.clear(); dynamicVersion = version; }
+        Integer cached = DYNAMIC_USERS.get(uid); if (cached != null && DYNAMIC.containsKey(cached)) return cached;
+        int id = fromDocument(doc, fallback); DYNAMIC_USERS.put(uid, id); return id;
+    }
+
+    /** Apply the source colors without changing their alpha or the authored text color. */
+    public static int fromDocument(org.json.JSONObject doc, int fallback) {
+        if(doc.has("bubbleEnabled")&&doc.optInt("bubbleEnabled")==0)return fallback;
+        if (!doc.has("bubbleColor") && !doc.has("textColor")) return fallback;
+        Style base = get(fallback); int id = nextDynamicId++;
+        if (nextDynamicId == Integer.MAX_VALUE) nextDynamicId = 1000000;
+        int color = DevGramProfileBubbleColors.color(doc,"bubbleColor",-13938056);
+        int background = doc.has("bubbleColor") ? color : base != null && base.fill != null && base.fill.length > 0 ? base.fill[0] : Theme.getColor(Theme.key_chat_inBubble);
+        int contrast = androidx.core.graphics.ColorUtils.calculateLuminance(background) < .4 ? 0xffffffff : 0xff151515;
+        int text = DevGramProfileBubbleColors.color(doc,"textColor",0xffffffff);
+        int stroke = androidx.core.graphics.ColorUtils.blendARGB(background, contrast, .18f);
+        Style value = new Style(id, "", base == null ? new int[]{stroke} : base.colors,
+                base == null ? null : base.tl, base == null ? null : base.tr, base == null ? null : base.bl, base == null ? null : base.br);
+        value.fill = doc.has("bubbleColor") ? doc.optInt("bubbleGradient")==1?new int[]{color,DevGramProfileBubbleColors.color(doc,"bubbleColor2",-7459358)}:new int[]{color} : base == null ? null : base.fill;
+        value.angle=doc.optInt("bubbleAngle");value.reference=true;
+        value.text = text; value.link = text;
+        value.border = base == null ? 0 : base.border; value.gradientBorder = base != null && base.gradientBorder; value.onEdge = base != null && base.onEdge;
+        DYNAMIC.put(id, value);
+        if (DYNAMIC.size() > 512) {
+            Integer removed = DYNAMIC.keySet().iterator().next(); DYNAMIC.remove(removed); DYNAMIC_USERS.values().remove(removed);
+        }
+        return id;
     }
 
     // Кисть заливки пузыря (градиент по его границам). null — у стиля нет заливки.
@@ -145,11 +194,34 @@ public final class DevGramMessageFrame {
 
     public static Paint fillPaint(Cache cache, int styleId, float left, float top, float right, float bottom, float alpha) {
         Style s = get(styleId);
-        if (s == null || s.fill == null) return null;
+        if (s == null || s.fill == null || s.fill.length == 0) return null;
         fillPaint.setShader(s.fill.length == 1 ? null : fillShader(cache, s, left, top, right, bottom));
         if (s.fill.length == 1) fillPaint.setColor(s.fill[0]);
-        fillPaint.setAlpha((int) (255 * alpha));
+        fillPaint.setAlpha((int) ((s.fill.length==1?android.graphics.Color.alpha(s.fill[0]):255) * alpha));
         return fillPaint;
+    }
+
+    private static final Paint referenceSolid=new Paint();
+    public static int beginReference(Canvas canvas,int id){
+        Style style=get(id);if(!reference(id))return -1;
+        if(style.fill.length>1)return canvas.saveLayer(null,null);
+        referenceSolid.setColorFilter(new android.graphics.PorterDuffColorFilter(style.fill[0],android.graphics.PorterDuff.Mode.SRC_ATOP));
+        return canvas.saveLayer(null,referenceSolid);
+    }
+    /** The send transition uses the same native silhouette and tint as the settled cell. */
+    public static void drawReferenceBubble(Canvas canvas,Drawable drawable,Cache cache,int id){
+        int layer=beginReference(canvas,id);
+        try{drawable.draw(canvas);}finally{if(layer>=0){try{overlayReference(canvas,drawable.getBounds(),cache,id);}finally{canvas.restoreToCount(layer);}}}
+    }
+    private static final Paint referenceOverlay=new Paint(Paint.ANTI_ALIAS_FLAG);
+    private static final android.graphics.PorterDuffXfermode referenceAtop=new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_ATOP);
+    public static boolean reference(int id){Style style=get(id);return style!=null&&style.reference&&style.fill!=null&&style.fill.length>0;}
+    /** Tint the native drawBackgroundInternal layer; its native shape, grouping and alpha stay intact. */
+    public static void overlayReference(Canvas canvas,android.graphics.Rect bounds,Cache cache,int id){
+        Style style=get(id);if(style==null||!style.reference||style.fill==null||style.fill.length<2||bounds.width()<=0||bounds.height()<=0)return;
+        referenceOverlay.setShader(style.fill.length>1?fillShader(cache,style,bounds.left,bounds.top,bounds.right,bounds.bottom):null);
+        referenceOverlay.setColor(style.fill.length>1?0xffffffff:style.fill[0]);referenceOverlay.setXfermode(referenceAtop);
+        canvas.drawRect(bounds,referenceOverlay);referenceOverlay.setShader(null);referenceOverlay.setXfermode(null);
     }
 
     // Кисть-обводка по контуру пузыря (вместе с хвостом — её рисует сам MessageDrawable). null — без рамки.

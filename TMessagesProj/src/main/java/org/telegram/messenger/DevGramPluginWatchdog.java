@@ -112,8 +112,8 @@ public final class DevGramPluginWatchdog {
         if (executions.get(thread) != execution || !reportedPlugins.add(execution.pluginId)) {
             return;
         }
-        FileLog.e("[DevGramPlugins] плагин не отвечает: " + execution.pluginId
-                + ", поток=" + thread.getName());
+        FileLog.e(DevGramLocale.text("[DevGramPlugins] плагин не отвечает: ") + execution.pluginId
+                + DevGramLocale.text(", поток=") + thread.getName());
         AndroidUtilities.runOnUIThread(() -> showAlert(execution));
     }
 
@@ -128,16 +128,16 @@ public final class DevGramPluginWatchdog {
             return;
         }
         AlertDialog.Builder builder = new AlertDialog.Builder(activity, fragment.getResourceProvider());
-        builder.setTitle("Плагин не отвечает");
-        builder.setMessage("Плагин «" + execution.pluginName
-                + "» выполняется дольше " + execution.timeoutSeconds
-                + " секунд и может блокировать DevGram.");
-        builder.setPositiveButton("Подождать", null);
-        builder.setNegativeButton("Отключить", (dialog, which) -> {
+        builder.setTitle(DevGramLocale.text("Плагин не отвечает"));
+        builder.setMessage(DevGramLocale.text("Плагин «") + execution.pluginName
+                + DevGramLocale.text("» выполняется дольше ") + execution.timeoutSeconds
+                + DevGramLocale.text(" секунд и может блокировать DevGram."));
+        builder.setPositiveButton(DevGramLocale.text("Подождать"), null);
+        builder.setNegativeButton(DevGramLocale.text("Отключить"), (dialog, which) -> {
             DevGramPlugins.forceDisableWithoutPython(execution.pluginId);
             restartApp(activity);
         });
-        builder.setNeutralButton("Удалить", (dialog, which) -> {
+        builder.setNeutralButton(DevGramLocale.text("Удалить"), (dialog, which) -> {
             DevGramPlugins.forceDeleteWithoutPython(execution.pluginId, execution.fileName);
             restartApp(activity);
         });

@@ -470,8 +470,10 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
                     if (isProfilePlaylist) {
                         actionBar.setVisibility(View.VISIBLE);
-                        actionBar.setTranslationY(Math.max(0, top - backgroundPaddingTop - dp(10) + dp(6) * (1.0f - actionBarSlide) - actionBar.getTop()));
-                        actionBarShadow.setTranslationY(Math.max(0, top - backgroundPaddingTop - dp(10) + dp(6) * (1.0f - actionBarSlide) - actionBar.getTop()));
+                        // actionBar already pads its content by statusBarHeight, which top includes too
+                        final float actionBarY = Math.max(0, top - AndroidUtilities.statusBarHeight - backgroundPaddingTop + dp(20) + dp(6) * (1.0f - actionBarSlide) - actionBar.getTop());
+                        actionBar.setTranslationY(actionBarY);
+                        actionBarShadow.setTranslationY(actionBarY);
                     }
                 }
             }
@@ -545,6 +547,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                     int x = durationTextView.getLeft() - dp(4) - playbackSpeedButton.getMeasuredWidth();
                     playbackSpeedButton.layout(x, playbackSpeedButton.getTop(), x + playbackSpeedButton.getMeasuredWidth(), playbackSpeedButton.getBottom());
                 }
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                return true;
             }
         };
 

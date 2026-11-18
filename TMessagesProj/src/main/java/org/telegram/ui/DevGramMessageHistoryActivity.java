@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramMessagesController;
 import org.telegram.messenger.MessageObject;
@@ -93,7 +94,7 @@ public class DevGramMessageHistoryActivity extends BaseFragment {
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("История изменений");
+        actionBar.setTitle(DevGramLocale.text("История изменений"));
         actionBar.setSubtitle(messages.size() + " " + pluralVersions(messages.size()));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
@@ -136,11 +137,12 @@ public class DevGramMessageHistoryActivity extends BaseFragment {
     }
 
     private String pluralVersions(int n) {
+        if (!DevGramLocale.isRussian()) return n == 1 ? DevGramLocale.text("версия") : DevGramLocale.text("версий");
         int mod10 = n % 10;
         int mod100 = n % 100;
-        if (mod10 == 1 && mod100 != 11) return "версия";
-        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "версии";
-        return "версий";
+        if (mod10 == 1 && mod100 != 11) return DevGramLocale.text("версия");
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return DevGramLocale.text("версии");
+        return DevGramLocale.text("версий");
     }
 
     private class Adapter extends RecyclerListView.SelectionAdapter {

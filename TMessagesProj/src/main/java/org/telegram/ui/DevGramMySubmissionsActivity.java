@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DevGramPlugins;
 import org.telegram.messenger.R;
@@ -30,7 +31,7 @@ public class DevGramMySubmissionsActivity extends BaseFragment {
     @Override
     public View createView(Context context) {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
-        actionBar.setTitle("Мои заявки");
+        actionBar.setTitle(DevGramLocale.text("Мои заявки"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); }
         });
@@ -65,13 +66,13 @@ public class DevGramMySubmissionsActivity extends BaseFragment {
             else rejected++;
         }
         LinearLayout summary = surface(context, 22);
-        summary.addView(text(context, "Публикации", 20, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider)));
-        summary.addView(text(context, published + " опубликовано  •  " + pending + " на проверке  •  " + rejected + " отклонено",
+        summary.addView(text(context, DevGramLocale.text("Публикации"), 20, true, Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resourceProvider)));
+        summary.addView(text(context, published + DevGramLocale.text(" опубликовано  •  ") + pending + DevGramLocale.text(" на проверке  •  ") + rejected + DevGramLocale.text(" отклонено"),
                 13, false, Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider)),
                 LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 5, 0, 0));
         content.addView(summary, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 14));
         if (rows.isEmpty()) {
-            TextView empty = text(context, "Заявок пока нет\nОпубликовать плагин можно из менеджера плагинов.", 15, false,
+            TextView empty = text(context, DevGramLocale.text("Заявок пока нет\nОпубликовать плагин можно из менеджера плагинов."), 15, false,
                     Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider));
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(0, AndroidUtilities.dp(70), 0, 0);
@@ -92,8 +93,8 @@ public class DevGramMySubmissionsActivity extends BaseFragment {
         title.setSingleLine(true);
         title.setEllipsize(TextUtils.TruncateAt.END);
         head.addView(title, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1f));
-        String state = "published".equals(entry.submissionState) ? "ОПУБЛИКОВАН"
-                : "pending".equals(entry.submissionState) ? "НА ПРОВЕРКЕ" : "ОТКЛОНЁН";
+        String state = "published".equals(entry.submissionState) ? DevGramLocale.text("ОПУБЛИКОВАН")
+                : "pending".equals(entry.submissionState) ? DevGramLocale.text("НА ПРОВЕРКЕ") : DevGramLocale.text("ОТКЛОНЁН");
         int color = "published".equals(entry.submissionState) ? 0xFF35A866
                 : "pending".equals(entry.submissionState) ? Theme.getColor(Theme.key_featuredStickers_addButton, resourceProvider)
                 : Theme.getColor(Theme.key_text_RedRegular, resourceProvider);
@@ -102,7 +103,7 @@ public class DevGramMySubmissionsActivity extends BaseFragment {
         chip.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(9), Theme.multAlpha(color, .13f)));
         head.addView(chip, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 8, 0, 0, 0));
         card.addView(head);
-        String meta = (TextUtils.isEmpty(entry.version) ? "" : "Версия " + entry.version)
+        String meta = (TextUtils.isEmpty(entry.version) ? "" : DevGramLocale.text("Версия ") + entry.version)
                 + (TextUtils.isEmpty(entry.filter) ? "" : (TextUtils.isEmpty(entry.version) ? "" : "  •  ") + entry.filter);
         if (!meta.isEmpty()) card.addView(text(context, meta, 13, false,
                 Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourceProvider)),

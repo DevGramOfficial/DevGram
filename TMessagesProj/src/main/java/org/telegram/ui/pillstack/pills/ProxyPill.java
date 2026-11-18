@@ -11,6 +11,7 @@ import android.view.Gravity;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 
+import org.telegram.messenger.DevGramLocale;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.NotificationCenter;
@@ -79,16 +80,16 @@ public class ProxyPill extends BasePill implements NotificationCenter.Notificati
         SharedConfig.ProxyInfo proxy = SharedConfig.currentProxy;
         if (!enabled || proxy == null) {
             iconView.setImageResource(R.drawable.drawer_proxy_off);
-            result = "Прокси";
+            result = DevGramLocale.text("Прокси");
             stopLoading();
         } else if (connected) {
             long ping = Utilities.clamp(proxy.ping, 9999L, 0L);
             iconView.setImageResource(R.drawable.drawer_proxy_on);
-            result = ping > 0 ? (ping + " мс") : "Подключено";
+            result = ping > 0 ? (ping + DevGramLocale.text(" мс")) : DevGramLocale.text("Подключено");
             stopLoading();
         } else {
             iconView.setImageResource(R.drawable.drawer_proxy_off);
-            result = "Подключение…";
+            result = DevGramLocale.text("Подключение…");
             startLoading();
         }
         if (forceRefresh || !TextUtils.equals(current, result)) {
@@ -132,7 +133,7 @@ public class ProxyPill extends BasePill implements NotificationCenter.Notificati
         final BaseFragment fragment = LaunchActivity.getSafeLastFragment();
         if (fragment == null) return false;
         ItemOptions.makeOptions(fragment, this)
-                .add(R.drawable.msg_settings, "Настройки", () -> fragment.presentFragment(new PillStackPreferencesActivity()))
+                .add(R.drawable.msg_settings, DevGramLocale.text("Настройки"), () -> fragment.presentFragment(new PillStackPreferencesActivity()))
                 .setDrawScrim(false)
                 .setDimAlpha(0)
                 .show();

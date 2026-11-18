@@ -60,6 +60,9 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
     private boolean allowCrossfadeWithImage = true;
     private boolean allowDrawWhileCacheGenerating;
     private ArrayList<Decorator> decorators;
+    private long devgramAvatarUser;
+    private boolean devgramDrawingAvatar;
+    private org.telegram.ui.Components.DevGramAvatarDecor devgramAvatarDecor;
 
     public boolean updateThumbShaderMatrix() {
         if (currentThumbDrawable != null && thumbShader != null) {
@@ -511,6 +514,8 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
             }
         }
 
+        devgramAvatarUser=object instanceof TLRPC.User?((TLRPC.User)object).id:0;
+
     }
 
     public static File getAvatarLocalFile(int currentAccount, TLObject obj) {
@@ -590,6 +595,8 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
         if (ignoreImageSet) {
             return;
         }
+        long nextAvatar=parentObject instanceof TLRPC.User&&(thumb instanceof org.telegram.ui.Components.AvatarDrawable||imageFilter!=null&&(imageFilter.startsWith("50_50")||imageFilter.startsWith("100_100")||imageFilter.equals("avatar")))?((TLRPC.User)parentObject).id:0;
+        if(devgramAvatarUser!=nextAvatar&&devgramAvatarDecor!=null)devgramAvatarDecor.release();devgramAvatarUser=nextAvatar;
         if (crossfadeWithOldImage && setImageBackup != null && setImageBackup.isWebfileSet()) {
             setBackupImage();
         }
@@ -878,6 +885,7 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
     }
 
     public void setImageBitmap(Drawable bitmap) {
+        devgramAvatarUser=0;if(devgramAvatarDecor!=null)devgramAvatarDecor.release();
         ImageLoader.getInstance().cancelLoadingForImageReceiver(this, true);
 
         if (crossfadeWithOldImage) {
@@ -1094,6 +1102,7 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
     }
 
     public void clearImage() {
+        devgramAvatarUser=0;if(devgramAvatarDecor!=null)devgramAvatarDecor.release();
         for (int a = 0; a < 4; a++) {
             recycleBitmap(null, a);
         }
@@ -1880,6 +1889,10 @@ public class ImageReceiver implements NotificationCenter.NotificationCenterDeleg
     }
 
     public boolean draw(Canvas canvas, BackgroundThreadDrawHolder backgroundThreadDrawHolder) {
+        if(backgroundThreadDrawHolder==null&&!devgramDrawingAvatar&&org.telegram.ui.Components.DevGramAvatarDecor.eligible(this,devgramAvatarUser)){
+            if(devgramAvatarDecor==null)devgramAvatarDecor=new org.telegram.ui.Components.DevGramAvatarDecor();
+            devgramDrawingAvatar=true;try{return devgramAvatarDecor.draw(canvas,this,devgramAvatarUser,()->draw(canvas,null));}finally{devgramDrawingAvatar=false;}
+        }
         boolean result = false;
         if (gradientBitmap != null && currentImageKey != null) {
             canvas.save();
