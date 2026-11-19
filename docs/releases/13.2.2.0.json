@@ -1,9 +1,13 @@
 {
   "version": "13.2.2.0",
-  "versionCode": 743409,
+  "versionCode": 746009,
   "telegramVersion": "13.2.2",
   "variant": "afatRelease",
-  "apkSha256": "2e277ff620e67eba45e2f78c45eb3a6fa3f58a2f9bc53bd36914225d26bc762c",
+  "iosDesignIncluded": false,
+  "buildProperties": {
+    "DEVGRAM_INCLUDE_IOS_DESIGN": "false"
+  },
+  "apkSha256": "affb6d9449e8b36c0d140260b24639aa16949a1df27c18912443f8215ad209cc",
   "certificateSha256": "156ebcff11041c72ff91239139b52cc3eaabcdf1b441bad81f6a29c098902bba",
   "sourceScope": "Android client and build files; release snapshot based on the existing public release history"
 }

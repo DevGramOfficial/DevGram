@@ -87,8 +87,8 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
     public void setInputIslandBubbleDrawable(BlurredBackgroundDrawable drawable) {
         blurredBackgroundDrawable = drawable;
         drawable.setClassicGlassAllowed(true);
-        blurredBackgroundDrawable.setPadding(dp(7));
-        blurredBackgroundDrawable.setRadius(dp(org.telegram.ui.Components.DevGramClassicDesign.enabled() ? 24 : INPUT_BUBBLE_RADIUS));
+        blurredBackgroundDrawable.setPadding(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 0 : 7));
+        blurredBackgroundDrawable.setRadius(dp(org.telegram.ui.Components.DevGramClassicDesign.enabled() ? 24 : org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 20 : INPUT_BUBBLE_RADIUS));
     }
 
     public void setUnderKeyboardBackgroundDrawable(BlurredBackgroundDrawable drawable) {
@@ -281,7 +281,7 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
             getMeasuredWidth() - Math.round(inputBubbleOffsetRight),
             inputBubbleHeightRound
         );
-        tmpRect.inset(0, -dp(7));
+        tmpRect.inset(0, -dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 0 : 7));
         tmpRect.offset(0, blurTop + (int) bubbleInputTranlationY);
 
         blurredBackgroundDrawable.setBounds(tmpRect);
@@ -295,7 +295,7 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
             leftBubbleDrawable.setAlpha(sideBubblesAlpha);
             leftBubbleDrawable.draw(canvas);
         }
-        if (rightBubbleDrawable != null && rightBubbleSet) {
+        if (rightBubbleDrawable != null && rightBubbleSet && !org.telegram.messenger.DevGramSwiftgramDesign.section("chat")) {
             int bubbleTop = blurTop + (int) bubbleInputTranlationY + inputBubbleHeightRound - sideBubbleSize;
             tmpSideRect.set(rightBubbleLeft, bubbleTop, rightBubbleRight, bubbleTop + sideBubbleSize);
             rightBubbleDrawable.setBounds(tmpSideRect);
@@ -395,7 +395,7 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
     }
 
     private final Rect tmpSideRect = new Rect();
-    private final int sideBubbleSize = dp(44);
+    private final int sideBubbleSize = dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 40 : 44);
     private BlurredBackgroundDrawable leftBubbleDrawable;
     private BlurredBackgroundDrawable rightBubbleDrawable;
     private int leftBubbleLeft, leftBubbleRight;
@@ -406,14 +406,14 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
     public void setLeftBubbleDrawable(BlurredBackgroundDrawable drawable) {
         leftBubbleDrawable = drawable;
         if (drawable != null) {
-            drawable.setRadius(dp(22));
+            drawable.setRadius(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 20 : 22));
         }
     }
 
     public void setRightBubbleDrawable(BlurredBackgroundDrawable drawable) {
         rightBubbleDrawable = drawable;
         if (drawable != null) {
-            drawable.setRadius(dp(22));
+            drawable.setRadius(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 20 : 22));
         }
     }
 

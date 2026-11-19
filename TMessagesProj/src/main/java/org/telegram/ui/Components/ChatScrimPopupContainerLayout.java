@@ -42,7 +42,8 @@ public class ChatScrimPopupContainerLayout extends LinearLayout {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (maxHeight != 0) {
-            heightMeasureSpec = MeasureSpec.makeMeasureSpec(maxHeight, MeasureSpec.AT_MOST);
+            int parentLimit = MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED ? maxHeight : MeasureSpec.getSize(heightMeasureSpec);
+            heightMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(maxHeight, parentLimit), MeasureSpec.AT_MOST);
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         if (popupWindowLayout == null) {

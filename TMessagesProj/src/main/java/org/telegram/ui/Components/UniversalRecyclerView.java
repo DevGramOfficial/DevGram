@@ -431,10 +431,62 @@ public class UniversalRecyclerView extends RecyclerListView {
     public void setSections() {
         setSections(dp(12), dp(MessagesController.getGlobalMainSettings().getInt("dg_sectionRadius", 20)), false);
     }
+    private boolean swiftgramSettingsSections;
+    private ItemDecoration swiftgramSettingsCardsDecoration;
+    private final Path swiftgramSettingsCardClip = new Path();
+    private final RectF swiftgramSettingsCardRect = new RectF();
+
+    private static boolean swiftgramSettingsCardType(int type) {
+        return type == UniversalAdapter.VIEW_TYPE_CUSTOM || type == UniversalAdapter.VIEW_TYPE_CUSTOM_WITH_BACKGROUND;
+    }
+
+    /** Standalone previews need their own inset, gap and clip, just like grouped rows. */
+    private void swiftgramSettingsCardOffsets(Rect out, int type) {
+        if (!swiftgramSettingsSections || !swiftgramSettingsCardType(type)) return;
+        float width = AndroidUtilities.displaySize.x / AndroidUtilities.density;
+        out.left = out.right = dp(DevGramSwiftgramHeaderLayout.sectionInset(width));
+        out.top = out.bottom = dp(8);
+    }
+
+    @Override
+    public boolean drawChild(Canvas canvas, View child, long drawingTime) {
+        ViewHolder holder = swiftgramSettingsSections ? getChildViewHolder(child) : null;
+        if (holder == null || !swiftgramSettingsCardType(holder.getItemViewType())) return super.drawChild(canvas, child, drawingTime);
+        int save = canvas.save();
+        swiftgramSettingsCardRect.set(child.getX(), child.getY(), child.getX() + child.getWidth(), child.getY() + child.getHeight());
+        swiftgramSettingsCardClip.rewind();
+        swiftgramSettingsCardClip.addRoundRect(swiftgramSettingsCardRect, dp(26), dp(26), Path.Direction.CW);
+        canvas.clipPath(swiftgramSettingsCardClip);
+        try { return super.drawChild(canvas, child, drawingTime); }
+        finally { canvas.restoreToCount(save); }
+    }
+
+    private static boolean swiftgramStandaloneRow(int type) {
+        return UniversalAdapter.isShadow(type) || type == UniversalAdapter.VIEW_TYPE_HEADER || type == UniversalAdapter.VIEW_TYPE_BLACK_HEADER
+                || type == UniversalAdapter.VIEW_TYPE_CUSTOM || type == UniversalAdapter.VIEW_TYPE_FULLY_CUSTOM
+                || type == UniversalAdapter.VIEW_TYPE_CUSTOM_WITH_BACKGROUND || type == UniversalAdapter.VIEW_TYPE_FULLSCREEN_CUSTOM;
+    }
+    /** Group standard settings rows; editors and existing custom cards keep their own insets. */
+    public void setSwiftgramSettingsSections() {
+        swiftgramSettingsSections = true;
+        if (swiftgramSettingsCardsDecoration == null) {
+            swiftgramSettingsCardsDecoration = new ItemDecoration() {
+                @Override public void getItemOffsets(@NonNull Rect out, @NonNull View view, @NonNull RecyclerView parent, @NonNull State state) {
+                    ViewHolder holder = parent.getChildViewHolder(view);
+                    if (holder != null) swiftgramSettingsCardOffsets(out, holder.getItemViewType());
+                }
+            };
+            addItemDecoration(swiftgramSettingsCardsDecoration);
+        }
+        super.setSections(view -> view.getParent() == this && !swiftgramStandaloneRow(getChildViewHolder(view).getItemViewType()),
+                UniversalRecyclerView::swiftgramStandaloneRow, dp(16), dp(26), super::drawBackgroundRect, false);
+    }
     public void setSections(boolean topPadding) {
         setSections(dp(12), dp(MessagesController.getGlobalMainSettings().getInt("dg_sectionRadius", 20)), topPadding);
     }
     public void setSections(int padding, float roundRadius, boolean topPadding) {
+        swiftgramSettingsSections = false;
+        if (swiftgramSettingsCardsDecoration != null) invalidateItemDecorations();
         super.setSections(
             view -> {
                 if (view.getParent() != this) return false;

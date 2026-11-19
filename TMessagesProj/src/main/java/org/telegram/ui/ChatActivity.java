@@ -161,6 +161,7 @@ import org.telegram.messenger.DevGramIOSConfig;
 import org.telegram.messenger.DevGramTranslator;
 import org.telegram.messenger.DevGramSwipeAction;
 import org.telegram.messenger.DevGramMessagesController;
+import org.telegram.messenger.DevGramSelfDestructingMedia;
 import org.telegram.messenger.DownloadController;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.EmojiData;
@@ -1082,7 +1083,7 @@ public class ChatActivity extends BaseFragment implements
     private int popupAnimationIndex = -1;
     private AnimatorSet scrimAnimatorSet;
     public ActionBarPopupWindow scrimPopupWindow;
-    private DevGramIOSMessageMenuOverlay devGramIOSMessageMenuOverlay;
+    private DevGramMessageMenuSurface devGramIOSMessageMenuOverlay;
     private boolean scrimPopupWindowHideDimOnDismiss = true;
     private int scrimPopupX, scrimPopupY;
     private ActionBarMenuSubItem[] scrimPopupWindowItems;
@@ -4917,6 +4918,8 @@ public class ChatActivity extends BaseFragment implements
 
         ActionBarMenu menu = actionBar.createMenu();
         final boolean dgIosHeader = isTitleCentered();
+        final boolean swiftgramSavedHeader = org.telegram.messenger.DevGramSwiftgramDesign.section("chat")
+                && currentUser != null && currentUser.self && chatMode == 0;
         menu.setCenteredTitle(dgIosHeader);
 
         if (chatMode == MODE_QUICK_REPLIES && !QuickRepliesController.isSpecial(quickReplyShortcut)) {
@@ -4934,7 +4937,7 @@ public class ChatActivity extends BaseFragment implements
         }
 
         if (currentEncryptedChat == null && (chatMode == 0 || chatMode == MODE_SAVED || chatMode == MODE_SUGGESTIONS) && !isReport()) {
-            int searchDrawable = dgIosHeader ? android.R.color.transparent : R.drawable.outline_header_search;
+            int searchDrawable = dgIosHeader && !swiftgramSavedHeader ? android.R.color.transparent : R.drawable.outline_header_search;
             searchIconItem = menu.addItem(search, isSupportedTags() ? R.drawable.navbar_search_tag : searchDrawable);
             searchIconItem.setContentDescription(LocaleController.getString(R.string.Search));
             searchItem = menu.addItem(chat_menu_search, searchDrawable, themeDelegate);
@@ -4982,7 +4985,7 @@ public class ChatActivity extends BaseFragment implements
         }, 1);
         */
 
-        int dotsDrawable = dgIosHeader ? android.R.color.transparent : R.drawable.ic_ab_other;
+        int dotsDrawable = swiftgramSavedHeader ? R.drawable.swiftgram_ic_ab_other : dgIosHeader ? android.R.color.transparent : R.drawable.ic_ab_other;
         int attachDrawable = dgIosHeader ? android.R.color.transparent : R.drawable.mini_attach;
 
         editTextItem = menu.lazilyAddItem(chat_menu_edit_text_options, dotsDrawable, themeDelegate);
@@ -5001,7 +5004,9 @@ public class ChatActivity extends BaseFragment implements
             if (currentUser != null) {
                 userFull = getMessagesController().getUserFull(currentUser.id);
             }
-            headerItem = menu.addItem(chat_menu_options, otherIcon);
+            headerItem = swiftgramSavedHeader
+                    ? menu.addItem(chat_menu_options, R.drawable.swiftgram_ic_ab_other)
+                    : menu.addItem(chat_menu_options, otherIcon);
             headerItem.setSubMenuDelegate(new ActionBarMenuItem.ActionBarSubMenuItemDelegate() {
                 @Override
                 public void onShowSubMenu() {
@@ -5016,7 +5021,7 @@ public class ChatActivity extends BaseFragment implements
             otherIcon.addView(headerItem.getIconView());
             headerItem.setContentDescription(LocaleController.getString(R.string.AccDescrMoreOptions));
             avatarContainer.setAvatarOptionsMenuItem(headerItem);
-            headerItem.setForceHidden(dgIosHeader);
+            headerItem.setForceHidden(dgIosHeader && !swiftgramSavedHeader);
 
             if (currentUser != null && currentUser.self && chatMode != MODE_SAVED) {
                 savedChatsItem = headerItem.lazilyAddSubItem(view_as_topics, R.drawable.msg_topics, LocaleController.getString(R.string.SavedViewAsChats));
@@ -9348,7 +9353,13 @@ public class ChatActivity extends BaseFragment implements
             }
         });
         bottomChannelButtonsLayout.setOnButtonsTotalWidthChanged((l, r) -> {
-            chatInputViewsContainer.setInputBubbleOffsets(l, r);
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("chat") && chatActivityEnterView != null
+                    && bottomViewsVisibilityController.getCurrentPriorityContainerId() == MESSAGE_INPUT_CONTAINER) {
+                // Hidden channel controls must not reset the compose/reply field to full width.
+                chatActivityEnterView.updateIOSInputBubbleBoundsForPreview();
+            } else {
+                chatInputViewsContainer.setInputBubbleOffsets(l, r);
+            }
         });
 
         chatInputBubbleContainer.addView(bottomChannelButtonsLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 56, Gravity.BOTTOM, 0, 0, 0, (44 - 56) / 2));
@@ -16845,6 +16856,9 @@ public class ChatActivity extends BaseFragment implements
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
             return null;
         }
+        if (currentEncryptedChat == null && DevGramSelfDestructingMedia.enabled(currentAccount, dialog_id)) {
+            getMessagesStorage().prepareSelfDestructingMedia(dialog_id, messageObject.getId());
+        }
         if (readNow) {
             final boolean delete = messageObject.messageOwner.ttl != 0x7FFFFFFF;
             final int ttl = messageObject.messageOwner.ttl == 0x7FFFFFFF ? 0 : messageObject.messageOwner.ttl;
@@ -16874,13 +16888,17 @@ public class ChatActivity extends BaseFragment implements
         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.ttl != 0x7FFFFFFF) {
             return null;
         }
+        if (currentEncryptedChat == null && DevGramSelfDestructingMedia.enabled(currentAccount, dialog_id)) {
+            // Keep the viewer's object intact during playback. Convert the stored
+            // copy into ordinary local media once this viewing has finished.
+            return () -> getMessagesStorage().retainSelfDestructingMedia(dialog_id, messageObject.getId());
+        }
         // DevGram (порт поведения AyuGram): в режиме призрака статусы прочтения не уходят,
         // поэтому сервер НЕ уничтожает медиа «на один просмотр». Значит и локально его затирать
         // нельзя — иначе просмотр = безвозвратная потеря. При выключенных read-пакетах просто
         // оставляем медиа как есть (без forceExpired и без doDeleteShowOnceTask) — его можно
         // пересмотреть. Завязано на sendReadPackets, как и вся ghost-логика.
-        if (!org.telegram.messenger.DevGramGhostSettings.get(currentAccount).sendReadMessages
-                || DevGramConfig.saveDeletedMessages || DevGramConfig.saveMedia) {
+        if (!org.telegram.messenger.DevGramGhostSettings.get(currentAccount).sendReadMessages) {
             return null;
         }
         final long taskId = getMessagesController().createDeleteShowOnceTask(dialog_id, messageObject.getId());
@@ -16891,6 +16909,13 @@ public class ChatActivity extends BaseFragment implements
             updateMessages(msgs, true);
         }
         return () -> getMessagesController().doDeleteShowOnceTask(taskId, dialog_id, messageObject.getId());
+    }
+
+    private void devgramRefreshRetainedMedia(MessageObject messageObject) {
+        messageObject.forceExpired = false;
+        messageObject.setType();
+        messageObject.generateThumbs(false);
+        messageObject.checkMediaExistance();
     }
 
     private void clearChatData(boolean full) {
@@ -22219,7 +22244,7 @@ public class ChatActivity extends BaseFragment implements
                 && getChatMode() != MODE_SAVED
                 && getChatMode() != MODE_WELCOME_MESSAGES
                 && getDialogId() != 0
-                && getDialogId() != getUserConfig().getClientUserId();
+                && (org.telegram.messenger.DevGramSwiftgramDesign.section("chat") || getDialogId() != getUserConfig().getClientUserId());
     }
 
     public boolean isInSearchMode() {
@@ -22298,18 +22323,22 @@ public class ChatActivity extends BaseFragment implements
                 java.util.List<TLRPC.Message> devgramSaved =
                         DevGramMessagesController.getInstance().getDeletedMessages(currentUserId, dialog_id, 0);
                 if (!devgramSaved.isEmpty()) {
-                    java.util.HashSet<Integer> devDeletedIds = new java.util.HashSet<>();
+                    java.util.HashMap<Integer, TLRPC.Message> devDeleted = new java.util.HashMap<>();
                     for (TLRPC.Message dm : devgramSaved) {
                         if (dm != null) {
-                            devDeletedIds.add(dm.id);
+                            devDeleted.put(dm.id, dm);
                         }
                     }
                     for (MessageObject mo : messArr) {
                         if (mo == null || mo.messageOwner == null) {
                             continue;
                         }
-                        if (devDeletedIds.contains(mo.getId())) {
+                        TLRPC.Message savedMessage = devDeleted.get(mo.getId());
+                        if (savedMessage != null) {
                             mo.messageOwner.devgramDeleted = true;
+                            if (DevGramSelfDestructingMedia.restore(currentAccount, mo.messageOwner, savedMessage)) {
+                                devgramRefreshRetainedMedia(mo);
+                            }
                         }
                     }
                 }
@@ -24981,10 +25010,18 @@ public class ChatActivity extends BaseFragment implements
             }
         } else if (id == NotificationCenter.updateMessageMedia) {
             TLRPC.Message message = (TLRPC.Message) args[0];
+            if (message.dialog_id != 0 && message.dialog_id != dialog_id) return;
             MessageObject existMessageObject = messagesDict[0].get(message.id);
             if (existMessageObject != null) {
                 existMessageObject.messageOwner.media = message.media;
                 existMessageObject.messageOwner.attachPath = message.attachPath;
+                if (message.devgramDeleted && message.media != null && message.media.ttl_seconds == 0) {
+                    existMessageObject.messageOwner.devgramDeleted = true;
+                    existMessageObject.messageOwner.ttl = 0;
+                    existMessageObject.messageOwner.destroyTime = 0;
+                    existMessageObject.messageOwner.destroyTimeMillis = 0;
+                    devgramRefreshRetainedMedia(existMessageObject);
+                }
                 existMessageObject.generateThumbs(false);
                 if (existMessageObject.getGroupId() != 0 && (existMessageObject.photoThumbs == null || existMessageObject.photoThumbs.isEmpty())) {
                     MessageObject.GroupedMessages groupedMessages = groupedMessagesMap.get(existMessageObject.getGroupId());
@@ -28149,6 +28186,13 @@ public class ChatActivity extends BaseFragment implements
                 }
                 if (devgramObj != null && devgramObj.messageOwner != null && !devgramObj.messageOwner.devgramDeleted) {
                     devgramObj.messageOwner.devgramDeleted = true;
+                    if (DevGramSelfDestructingMedia.candidate(devgramObj.messageOwner)) {
+                        TLRPC.Message saved = DevGramMessagesController.getInstance().getDeletedMessage(
+                                getUserConfig().getClientUserId(), getDialogId(), mid);
+                        if (DevGramSelfDestructingMedia.restore(currentAccount, devgramObj.messageOwner, saved)) {
+                            devgramRefreshRetainedMedia(devgramObj);
+                        }
+                    }
                     // точечно перерисовываем ТОЛЬКО эту ячейку — список не двигаем
                     devgramUpdateCellFor(devgramObj);
                 }
@@ -33036,7 +33080,9 @@ public class ChatActivity extends BaseFragment implements
             updateScrimSourceBitmap();
 
             final boolean iosMessageMenu = DevGramIOSConfig.iosMessageMenu();
-            if (!iosMessageMenu || DevGramIOSConfig.nativeMenuBlur()) {
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("menus")) {
+                popupLayout.setBackground(new DevGramSwiftgramMenuBackground(popupLayout, contentView));
+            } else if (!iosMessageMenu || DevGramIOSConfig.nativeMenuBlur()) {
                 popupLayout.setBackground(scrimBlur3Factory.create(popupLayout, true)
                     .setColorProvider(BlurredBackgroundProviderImpl.messageMenuBackground(resourceProvider))
                     .setRadius(dp(iosMessageMenu ? 16 : 12))
@@ -34322,31 +34368,6 @@ public class ChatActivity extends BaseFragment implements
             }
             scrimPopupWindow = new ActionBarPopupWindow(scrimPopupContainerLayout, LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT) {
                 @Override
-                public void dismiss() {
-                    super.dismiss();
-                    if (scrimPopupWindow != this) {
-                        return;
-                    }
-                    if (Bulletin.getVisibleBulletin() == messageSeenPrivacyBulletin && messageSeenPrivacyBulletin != null) {
-                        messageSeenPrivacyBulletin.hide();
-                        messageSeenPrivacyBulletin = null;
-                    }
-                    scrimPopupWindow = null;
-                    devGramIOSMessageMenuOverlay = null;
-                    menuDeleteItem = null;
-                    scrimPopupWindowItems = null;
-                    chatLayoutManager.setCanScrollVertically(true);
-                    if (scrimPopupWindowHideDimOnDismiss) {
-                        dimBehindView(false);
-                    } else {
-                        scrimPopupWindowHideDimOnDismiss = true;
-                    }
-                    if (chatActivityEnterView != null && chatActivityEnterView.getEditField() != null) {
-                        chatActivityEnterView.getEditField().setAllowDrawCursor(true);
-                    }
-                }
-
-                @Override
                 public void dismiss(boolean animated) {
                     super.dismiss(animated);
                     if (finalReactionsLayout1 != null) {
@@ -34354,6 +34375,33 @@ public class ChatActivity extends BaseFragment implements
                     }
                 }
             };
+            // Every dismissal path (outside tap, back, action or animated surface) must
+            // clear the scrim, cursor and scroll lock, including dismiss(false).
+            final ActionBarPopupWindow messagePopup = scrimPopupWindow;
+            messagePopup.setOnDismissListener(() -> {
+                if (scrimPopupWindow != messagePopup) {
+                    return;
+                }
+                if (Bulletin.getVisibleBulletin() == messageSeenPrivacyBulletin && messageSeenPrivacyBulletin != null) {
+                    messageSeenPrivacyBulletin.hide();
+                    messageSeenPrivacyBulletin = null;
+                }
+                scrimPopupWindow = null;
+                DevGramMessageMenuSurface overlay = devGramIOSMessageMenuOverlay;
+                devGramIOSMessageMenuOverlay = null;
+                if (overlay != null) overlay.release();
+                menuDeleteItem = null;
+                scrimPopupWindowItems = null;
+                chatLayoutManager.setCanScrollVertically(true);
+                if (scrimPopupWindowHideDimOnDismiss) {
+                    dimBehindView(false);
+                } else {
+                    scrimPopupWindowHideDimOnDismiss = true;
+                }
+                if (chatActivityEnterView != null && chatActivityEnterView.getEditField() != null) {
+                    chatActivityEnterView.getEditField().setAllowDrawCursor(true);
+                }
+            });
             scrimPopupWindow.setPauseNotifications(true);
             scrimPopupWindow.setDismissAnimationDuration(220);
             scrimPopupWindow.setOutsideTouchable(true);
@@ -34440,10 +34488,8 @@ public class ChatActivity extends BaseFragment implements
                         }
                     }
                 }
-                devGramIOSMessageMenuOverlay = new DevGramIOSMessageMenuOverlay(
-                        getContext(), contentView, selectedMessageViews, scrimPopupContainerLayout,
-                        finalPopupX, finalPopupY, DevGramIOSConfig.nativeMenuBlur(), () -> {
-                    DevGramIOSMessageMenuOverlay overlay = devGramIOSMessageMenuOverlay;
+                Runnable closeSurface = () -> {
+                    DevGramMessageMenuSurface overlay = devGramIOSMessageMenuOverlay;
                     devGramIOSMessageMenuOverlay = null;
                     if (scrimPopupWindow != null) {
                         scrimPopupWindow.dismiss(false);
@@ -34451,8 +34497,13 @@ public class ChatActivity extends BaseFragment implements
                     if (overlay != null) {
                         overlay.release();
                     }
-                });
-                scrimPopupWindow.setContentView(devGramIOSMessageMenuOverlay);
+                };
+                devGramIOSMessageMenuOverlay = org.telegram.messenger.DevGramSwiftgramDesign.section("menus")
+                        ? new DevGramSwiftgramMessageMenuOverlay(getContext(), contentView, selectedMessageViews,
+                            scrimPopupContainerLayout, finalPopupX, finalPopupY, closeSurface)
+                        : new DevGramIOSMessageMenuOverlay(getContext(), contentView, selectedMessageViews,
+                            scrimPopupContainerLayout, finalPopupX, finalPopupY, DevGramIOSConfig.nativeMenuBlur(), closeSurface);
+                scrimPopupWindow.setContentView((View) devGramIOSMessageMenuOverlay);
                 scrimPopupWindow.setWidth(LayoutHelper.MATCH_PARENT);
                 scrimPopupWindow.setHeight(LayoutHelper.MATCH_PARENT);
             }
@@ -46760,6 +46811,9 @@ public class ChatActivity extends BaseFragment implements
         if (actionBar == null) {
             return !Theme.isCurrentThemeDark();
         }
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") && !actionBar.isActionModeShowed()) {
+            return AndroidUtilities.computePerceivedBrightness(getThemedColor(Theme.key_windowBackgroundGray)) > .721f;
+        }
         if (org.telegram.ui.Components.DevGramMaterial3.enabled()
                 && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_title", false)
                 && !actionBar.isActionModeShowed()) {
@@ -49140,7 +49194,8 @@ public class ChatActivity extends BaseFragment implements
             parentChatActivity.checkUi_topFade();
         }
 
-        if (!MessagesController.getGlobalMainSettings().getBoolean("dg_chatHeaderShading", false)) {
+        if (!org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")
+                && !MessagesController.getGlobalMainSettings().getBoolean("dg_chatHeaderShading", false)) {
             chatActivityFadeView.setFadeTopAlpha(0);
             chatActivityFadeView.setFadeZoneTop(0);
             return;
@@ -49162,6 +49217,9 @@ public class ChatActivity extends BaseFragment implements
 
         boolean md3ChatHeader = org.telegram.ui.Components.DevGramMaterial3.enabled()
                 && MessagesController.getGlobalMainSettings().getBoolean("dg_md3_title", false);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+            chatActivityFadeView.setTopFadeColor(getThemedColor(Theme.key_windowBackgroundGray));
+        }
         chatActivityFadeView.setFadeTopAlpha(actionBar.getVisibility() == View.VISIBLE ? 255 : 0);
         chatActivityFadeView.setFadeZoneTop((int) fadeHeight + (md3ChatHeader ? dp(org.telegram.ui.Components.DevGramMaterial3.CHAT_HEADER_FADE_ZONE_DP) : 0));
     }

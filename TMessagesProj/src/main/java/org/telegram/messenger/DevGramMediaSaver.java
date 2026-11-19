@@ -26,10 +26,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DevGramMediaSaver {
 
     private static volatile File dir;
+    private static final Object fileLock = new Object();
+    private static final DispatchQueue saveQueue = new DispatchQueue("devgramMediaSaver");
+    private static final ConcurrentHashMap<String, PendingSave> pending = new ConcurrentHashMap<>();
+    private static volatile long generation;
 
     public static File getDir() {
         if (dir == null) {
@@ -61,6 +66,12 @@ public class DevGramMediaSaver {
     }
 
     public static void changeDirectory(String folderName) {
+        synchronized (fileLock) {
+            changeDirectoryInternal(folderName);
+        }
+    }
+
+    private static void changeDirectoryInternal(String folderName) {
         File oldDir = getDir();
         File[] oldFiles = oldDir != null ? oldDir.listFiles() : null;
         DevGramConfig.setSavedMediaFolder(folderName);
@@ -80,7 +91,7 @@ public class DevGramMediaSaver {
 
     // Сохранённая копия по имени файла из FileLoader.getAttachFileName().
     public static File getSaved(String fileName) {
-        if (TextUtils.isEmpty(fileName)) {
+        if (TextUtils.isEmpty(fileName) || !new File(fileName).getName().equals(fileName)) {
             return null;
         }
         try {
@@ -104,11 +115,77 @@ public class DevGramMediaSaver {
         try {
             ArrayList<Attachment> attaches = new ArrayList<>();
             collect(message, attaches);
+            long currentGeneration = generation;
             for (int i = 0; i < attaches.size(); i++) {
-                keep(account, attaches.get(i), message, 0);
+                keep(account, attaches.get(i), message, 0, currentGeneration);
             }
         } catch (Throwable e) {
             FileLog.e(e);
+        }
+    }
+
+    // Called on the storage queue before expiry. No speculative downloads: only
+    // complete files already available for the user's viewing can be retained.
+    static File saveSelfDestructingMessage(int account, TLRPC.Message message) {
+        synchronized (fileLock) {
+            if (!DevGramConfig.saveMedia || !allowedForDialog(account, message)) return null;
+            ArrayList<Attachment> attachments = new ArrayList<>();
+            collect(message, attachments);
+            TLRPC.MessageMedia media = MessageObject.getMedia(message);
+            File primary = null;
+            for (Attachment attachment : attachments) {
+                TLObject object = attachment.object;
+                String name = FileLoader.getAttachFileName(object);
+                if (TextUtils.isEmpty(name)) continue;
+                File destination = new File(getDir(), name);
+                long expected = expectedSize(object);
+                if (!complete(destination, expected)) {
+                    File source = FileLoader.getInstance(account).getPathToAttach(object, null, true, true);
+                    if (!complete(source, expected)) {
+                        source = FileLoader.getInstance(account).getPathToAttach(object, null, false, true);
+                    }
+                    if (!complete(source, expected) && object == media.document && !TextUtils.isEmpty(message.attachPath)) {
+                        source = new File(message.attachPath);
+                    }
+                    if (complete(source, expected)) {
+                        pin(source, destination, expected);
+                    } else {
+                        File cache = FileLoader.getInstance(account).getPathToAttach(object, null, true, true);
+                        if (cache != null) {
+                            File encrypted = new File(cache.getAbsolutePath() + ".enc");
+                            File key = new File(FileLoader.getInternalCacheDir(), cache.getName() + ".enc.key");
+                            long limit = DevGramConfig.mediaCacheLimit();
+                            if (complete(encrypted, expected) && (limit <= 0 || encrypted.length() <= limit)) {
+                                try {
+                                    trimFor(encrypted.length());
+                                    DevGramEncryptedMediaCopy.copy(encrypted, key, destination, expected);
+                                } catch (Exception e) {
+                                    FileLog.e(e);
+                                }
+                            }
+                        }
+                    }
+                }
+                if (complete(destination, expected)) {
+                    if (media.document != null && !(media.document instanceof TLRPC.TL_documentEmpty)) {
+                        if (object == media.document) primary = destination;
+                    } else if (attachment.owner == media.photo && object instanceof TLRPC.PhotoSize
+                            && (primary == null || primary.length() < destination.length())) {
+                        primary = destination;
+                    }
+                }
+            }
+            // Only advertise photo sizes that really survived. Otherwise the
+            // decoder can select an unavailable larger size after returning to chat.
+            if (primary != null && media.photo != null) {
+                for (int i = media.photo.sizes.size() - 1; i >= 0; i--) {
+                    TLRPC.PhotoSize size = media.photo.sizes.get(i);
+                    if (!isInlinePreview(size) && getSaved(FileLoader.getAttachFileName(size)) == null) {
+                        media.photo.sizes.remove(i);
+                    }
+                }
+            }
+            return primary != null && primary.isFile() ? primary : null;
         }
     }
 
@@ -136,6 +213,33 @@ public class DevGramMediaSaver {
             this.object = object;
             this.owner = owner;
         }
+    }
+
+    private static class PendingSave {
+        final Attachment attachment;
+        final TLRPC.Message parent;
+        final long generation;
+
+        PendingSave(Attachment attachment, TLRPC.Message parent, long generation) {
+            this.attachment = attachment;
+            this.parent = parent;
+            this.generation = generation;
+        }
+    }
+
+    // The download may finish after the short recovery retries have expired, or
+    // under a custom filename. Pin the actual completed file, off the loader queue.
+    public static void onFileLoaded(int account, String fileName, File file) {
+        String key = account + ":" + fileName;
+        PendingSave request = pending.remove(key);
+        if (request == null) return;
+        saveQueue.postRunnable(() -> {
+            synchronized (fileLock) {
+                if (canKeep(account, request.parent, request.generation)) {
+                    pin(file, new File(getDir(), fileName), expectedSize(request.attachment.object));
+                }
+            }
+        });
     }
 
     private static void collect(TLRPC.Message message, ArrayList<Attachment> out) {
@@ -202,7 +306,26 @@ public class DevGramMediaSaver {
 
     // ================= закрепление файла =================
 
-    private static void keep(int account, Attachment attachment, TLRPC.Message parent, int attempt) {
+    private static boolean canKeep(int account, TLRPC.Message parent, long requestGeneration) {
+        return requestGeneration == generation && DevGramConfig.saveMedia
+                && allowedForDialog(account, parent);
+    }
+
+    private static long expectedSize(TLObject attach) {
+        if (attach instanceof TLRPC.Document) return ((TLRPC.Document) attach).size;
+        if (attach instanceof TLRPC.PhotoSize) return ((TLRPC.PhotoSize) attach).size;
+        if (attach instanceof TLRPC.VideoSize) return ((TLRPC.VideoSize) attach).size;
+        return 0;
+    }
+
+    private static void keep(int account, Attachment attachment, TLRPC.Message parent, int attempt, long requestGeneration) {
+        synchronized (fileLock) {
+            keepInternal(account, attachment, parent, attempt, requestGeneration);
+        }
+    }
+
+    private static void keepInternal(int account, Attachment attachment, TLRPC.Message parent, int attempt, long requestGeneration) {
+        if (!canKeep(account, parent, requestGeneration)) return;
         TLObject attach = attachment.object;
         String name;
         try {
@@ -214,34 +337,65 @@ public class DevGramMediaSaver {
             return;
         }
         File dst = new File(getDir(), name);
-        if (dst.exists() && dst.length() > 0) {
+        long expected = expectedSize(attach);
+        if (complete(dst, expected)) {
+            pending.remove(account + ":" + name);
             return; // уже закреплено
         }
         File src = existing(FileLoader.getInstance(account).getPathToAttach(attach, null, false, true));
-        if (src == null) {
+        if (!complete(src, expected)) {
             // ttl-медиа и часть превью лежат только в кеше
             src = existing(FileLoader.getInstance(account).getPathToAttach(attach, null, true, true));
         }
-        if (src == null) {
-            requestDownload(account, attachment, parent, attempt);
+        // Outgoing voice/video/documents can still live at their original local path.
+        if (!complete(src, expected) && attach instanceof TLRPC.Document
+                && MessageObject.getMedia(parent) != null && MessageObject.getMedia(parent).document == attach
+                && !TextUtils.isEmpty(parent.attachPath)) {
+            src = existing(new File(parent.attachPath));
+        }
+        if (!complete(src, expected)) {
+            requestDownload(account, attachment, parent, attempt, requestGeneration);
             return;
         }
-        long networkLimit = ApplicationLoader.isConnectedToWiFi()
-                ? DevGramConfig.mediaWifiLimit() : DevGramConfig.mediaCellularLimit();
-        if (networkLimit > 0 && src.length() > networkLimit) return;
-        if (src.equals(dst)) {
-            return;
-        }
+        pin(src, dst, expected);
+        if (complete(dst, expected)) pending.remove(account + ":" + name);
+    }
+
+    private static boolean complete(File file, long expected) {
+        return file != null && file.isFile() && file.length() > 0
+                && (expected <= 0 || file.length() == expected);
+    }
+
+    private static void pin(File src, File dst, long expected) {
+        if (!complete(src, expected) || complete(dst, expected) || src.equals(dst)) return;
+        long folderLimit = DevGramConfig.mediaCacheLimit();
+        if (folderLimit > 0 && src.length() > folderLimit) return;
         trimFor(src.length());
+        // A partial destination must never masquerade as an available attachment.
+        if (dst.exists() && !dst.delete()) return;
         if (!hardLink(src, dst)) {
             copy(src, dst);
         }
     }
 
+    // Network caps control additional downloads, not files already on this device.
+    private static boolean downloadAllowed(TLObject attach) {
+        long networkLimit = ApplicationLoader.isConnectedToWiFi()
+                ? DevGramConfig.mediaWifiLimit() : DevGramConfig.mediaCellularLimit();
+        long size = expectedSize(attach);
+        return networkLimit <= 0 || size > 0 && size <= networkLimit;
+    }
+
     // Файла нет на диске — просим скачать и проверяем ещё раз чуть позже.
-    private static void requestDownload(int account, Attachment attachment, TLRPC.Message parent, int attempt) {
-        if (attempt >= RETRY_DELAYS.length) {
+    private static void requestDownload(int account, Attachment attachment, TLRPC.Message parent, int attempt, long requestGeneration) {
+        if (attempt >= RETRY_DELAYS.length || !downloadAllowed(attachment.object)) {
             return;
+        }
+        String key = account + ":" + FileLoader.getAttachFileName(attachment.object);
+        PendingSave request = new PendingSave(attachment, parent, requestGeneration);
+        if (pending.putIfAbsent(key, request) == null) {
+            // Bound retained metadata even when Telegram cannot serve a deleted file.
+            saveQueue.postRunnable(() -> pending.remove(key, request), 10 * 60 * 1000L);
         }
         try {
             TLObject attach = attachment.object;
@@ -257,7 +411,7 @@ public class DevGramMediaSaver {
             FileLog.e(e);
         }
         final int next = attempt + 1;
-        Utilities.globalQueue.postRunnable(() -> keep(account, attachment, parent, next), RETRY_DELAYS[attempt]);
+        saveQueue.postRunnable(() -> keep(account, attachment, parent, next, requestGeneration), RETRY_DELAYS[attempt]);
     }
 
     private static File existing(File f) {
@@ -274,18 +428,25 @@ public class DevGramMediaSaver {
     }
 
     private static void copy(File src, File dst) {
-        try (FileInputStream in = new FileInputStream(src); FileOutputStream out = new FileOutputStream(dst)) {
-            byte[] buf = new byte[64 * 1024];
-            int read;
-            while ((read = in.read(buf)) > 0) {
-                out.write(buf, 0, read);
+        File temp = null;
+        try {
+            temp = File.createTempFile(".retaining-", ".tmp", dst.getParentFile());
+            long length = src.length();
+            try (FileInputStream in = new FileInputStream(src); FileOutputStream out = new FileOutputStream(temp)) {
+                byte[] buf = new byte[64 * 1024];
+                int read;
+                while ((read = in.read(buf)) > 0) {
+                    out.write(buf, 0, read);
+                }
+                out.getFD().sync();
+            }
+            if (temp.length() != length || !temp.renameTo(dst)) {
+                throw new java.io.IOException("Could not retain complete media file");
             }
         } catch (Throwable e) {
             FileLog.e(e);
-            try {
-                dst.delete(); // недокачанный огрызок хуже, чем ничего
-            } catch (Throwable ignore) {
-            }
+        } finally {
+            if (temp != null) temp.delete();
         }
     }
 
@@ -307,17 +468,21 @@ public class DevGramMediaSaver {
     }
 
     public static void clear() {
-        try {
-            File[] files = getDir().listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    if (!".nomedia".equals(f.getName())) {
-                        f.delete();
+        synchronized (fileLock) {
+            generation++;
+            pending.clear();
+            try {
+                File[] files = getDir().listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        if (!".nomedia".equals(f.getName())) {
+                            f.delete();
+                        }
                     }
                 }
+            } catch (Throwable e) {
+                FileLog.e(e);
             }
-        } catch (Throwable e) {
-            FileLog.e(e);
         }
     }
 

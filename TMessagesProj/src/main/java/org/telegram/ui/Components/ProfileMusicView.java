@@ -42,7 +42,7 @@ import org.telegram.ui.ProfileActivity;
 
 public class ProfileMusicView extends View {
 
-    private final Theme.ResourcesProvider resourcesProvider;
+    protected final Theme.ResourcesProvider resourcesProvider;
     private final PorterDuffColorFilter filterColorWhite = new PorterDuffColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
     private final PorterDuffColorFilter filterColorBlack = new PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN);
 
@@ -126,8 +126,12 @@ public class ProfileMusicView extends View {
     }
 
     // Same color as ProfileActionsView buttons.
+    private int devgramNativeButtonColor;
+    public void updateDevGramColors(){setButtonColor(devgramNativeButtonColor,hasColorById);checkTextColor();}
     public void setButtonColor(int color, boolean hasColorById) {
         if (trailingView != null) trailingView.setButtonColor(color, hasColorById);
+        devgramNativeButtonColor=color;
+        color=DevGramProfilePalette.rowColor(resourcesProvider,"background",color);
         if (buttonColor == color && this.hasColorById == hasColorById) return;
         buttonColor = color;
         this.hasColorById = hasColorById;
@@ -142,12 +146,16 @@ public class ProfileMusicView extends View {
 
     private void checkTextColor() {
         final boolean useBlackText = parentExpanded < 0.8f && isButtonColorLight();
-        textColor = useBlackText ? Color.BLACK : Color.WHITE;
+        textColor = DevGramProfilePalette.rowColor(resourcesProvider,"text",useBlackText ? Color.BLACK : Color.WHITE);
         icon.setColorFilter(useBlackText ? filterColorBlack : filterColorWhite);
-        iconPaint.setColor(textColor);
-        arrowPaint.setColor(Theme.multAlpha(textColor, 0.85f));
+        int iconColor=DevGramProfilePalette.rowColor(resourcesProvider,"icon",useBlackText?Color.BLACK:Color.WHITE);
+        if(DevGramProfilePalette.rowColor(resourcesProvider,"icon")!=null)icon.setColorFilter(new PorterDuffColorFilter(iconColor,PorterDuff.Mode.SRC_IN));
+        iconPaint.setColor(iconColor);
+        arrowPaint.setColor(Theme.multAlpha(iconColor, 0.85f));
         invalidate();
     }
+
+    protected int devgramContentIconColor(){return iconPaint.getColor();}
 
     public void setParentExpanded(float expanded) {
         if (trailingView != null) trailingView.setParentExpanded(expanded);
@@ -385,7 +393,7 @@ public class ProfileMusicView extends View {
 
         canvas.save();
         canvas.clipPath(clipPath);
-        if (!ignoreRect && renderNode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && renderNode.hasDisplayList() && canvas.isHardwareAccelerated()) {
+        if (DevGramProfilePalette.rowColor(resourcesProvider,"background")==null && !ignoreRect && renderNode != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && renderNode.hasDisplayList() && canvas.isHardwareAccelerated()) {
             canvas.save();
             if (avatarView != null) {
                 View v = (View) avatarView.getParent();

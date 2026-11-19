@@ -2782,7 +2782,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-                final int height = Math.max(dp(44), getMeasuredHeight());
+                final int height = Math.max(dp(getDefaultHeight()), getMeasuredHeight());
                 if (animatorInputFieldHeight.getFactor() > 0) {
                     animatorInputFieldHeight.animateTo(height);
                 } else {
@@ -3006,13 +3006,14 @@ public class ChatActivityEnterView extends FrameLayout implements
                 }
             };
             attachButton.setScaleType(ImageView.ScaleType.CENTER);
-            attachButton.setImageResource(R.drawable.msg_input_attach2);
+            attachButton.setImageResource(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? R.drawable.swiftgram_input_attach : R.drawable.msg_input_attach2);
             if (iOSMessageInputFieldAvailable()) {
-                attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_actionBarActionModeDefaultIcon), PorterDuff.Mode.MULTIPLY));
+                attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? Theme.key_chat_messagePanelIcons : Theme.key_actionBarActionModeDefaultIcon), PorterDuff.Mode.MULTIPLY));
                 attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_CIRCLE_20DP, dp(19)));
                 iosAttachBubble = new FrameLayout(context);
                 iosAttachBubble.addView(attachButton, LayoutHelper.createFrame(38, 38, Gravity.CENTER));
-                textFieldContainer.addView(iosAttachBubble, LayoutHelper.createFrame(getDefaultHeight(), getDefaultHeight(), Gravity.BOTTOM | Gravity.LEFT));
+                textFieldContainer.addView(iosAttachBubble, LayoutHelper.createFrame(getDefaultHeight(), getDefaultHeight(), Gravity.BOTTOM | Gravity.LEFT,
+                        org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 8 : 0, 0, 0, 0));
             } else {
                 attachButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.MULTIPLY));
                 attachButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
@@ -3124,8 +3125,8 @@ public class ChatActivityEnterView extends FrameLayout implements
             @Override
             protected void onSizeChanged(int w, int h, int oldw, int oldh) {
                 super.onSizeChanged(w, h, oldw, oldh);
-                setPivotX(w - dp(22));
-                setPivotY(h - dp(22));
+                setPivotX(w - dp(getDefaultHeight() / 2f));
+                setPivotY(h - dp(getDefaultHeight() / 2f));
             }
 
             @Override
@@ -3432,7 +3433,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
             @Override
             protected void dispatchDraw(@NonNull Canvas canvas) {
-                if (!audioVideoButtonContainerForbidden && !DevGramClassicDesign.enabled()) {
+                if (!audioVideoButtonContainerForbidden && !DevGramClassicDesign.enabled() && !org.telegram.messenger.DevGramSwiftgramDesign.section("chat")) {
                     float s = 1;
                     if (expandStickersButton != null) {
                         if (expandStickersButton.getVisibility() == View.VISIBLE) {
@@ -3442,7 +3443,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
                     final float r = dpf2(19);
                     paint.setColor(getThemedColor(Theme.key_chat_messagePanelSend));
-                    final float height = dpf2(38);
+                    final float height = dpf2(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 34 : 38);
                     final float width = dpf2(38);
                     final float centerX = getMeasuredWidth() * .5f;
                     final float centerY = getMeasuredHeight() * .5f;
@@ -5003,7 +5004,7 @@ public class ChatActivityEnterView extends FrameLayout implements
     public void updateAudioVideoButton() {
         if (audioVideoSendButton != null) {
             audioVideoSendButton.setColorFilter(new PorterDuffColorFilter(
-                    (audioVideoButtonContainerForbidden || DevGramClassicDesign.enabled())
+                    org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? getThemedColor(Theme.key_chat_messagePanelIcons) : (audioVideoButtonContainerForbidden || DevGramClassicDesign.enabled())
                             ? getThemedColor(Theme.key_glass_defaultIcon)
                             : iOSMessageInputFieldAvailable()
                                     ? getThemedColor(Theme.key_actionBarActionModeDefaultIcon)
@@ -5023,7 +5024,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             effectiveSendWidth = Math.max(side, sendButton.width() - dp(12));
         }
         int extraSendWidth = Math.max(0, effectiveSendWidth - side);
-        chatInputViewsContainer.setInputBubbleOffsets(dp(50), dp(50) + extraSendWidth);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chat")) {
+            chatInputViewsContainer.setInputBubbleOffsets(dp(54), dp(8));
+        } else chatInputViewsContainer.setInputBubbleOffsets(dp(50), dp(50) + extraSendWidth);
 
         int baseX = Math.round(getX() + textFieldContainer.getX());
         int left = baseX + Math.round(iosAttachBubble.getX());
@@ -6214,9 +6217,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         updateFieldHint(false);
         messageEditText.setSingleLine(false);
         messageEditText.setMaxLines(6);
-        messageEditText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18);
+        messageEditText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? Math.max(14, SharedConfig.fontSize + 1) : 18);
         messageEditText.setGravity(Gravity.BOTTOM);
-        messageEditText.setPadding(0, dp(9), 0, dp(10));
+        messageEditText.setPadding(0, dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 9.5f : 9), 0, dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 9.5f : 10));
         messageEditText.setBackgroundDrawable(null);
         messageEditText.setTextColor(getThemedColor(Theme.key_chat_messagePanelText));
         messageEditText.setLinkTextColor(getThemedColor(Theme.key_chat_messageLinkOut));
@@ -6917,7 +6920,7 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     public static final int DEFAULT_HEIGHT = 44;
-    public static int getDefaultHeight() { return DevGramClassicDesign.enabled() ? DevGramClassicDesign.COMPOSE_HEIGHT : DEFAULT_HEIGHT; }
+    public static int getDefaultHeight() { return org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 40 : DevGramClassicDesign.enabled() ? DevGramClassicDesign.COMPOSE_HEIGHT : DEFAULT_HEIGHT; }
 
     private boolean resizeForTopViewLastShow;
     private void resizeForTopView(boolean show) {
@@ -7026,8 +7029,7 @@ public class ChatActivityEnterView extends FrameLayout implements
 
         audioVideoButtonContainer.setAlpha(audioVideoButtonContainerForbidden ? 0.5f : 1.0f);
         audioVideoButtonContainer.invalidate();
-        audioVideoSendButton.setColorFilter(new PorterDuffColorFilter((audioVideoButtonContainerForbidden || DevGramClassicDesign.enabled()) ?
-            getThemedColor(Theme.key_glass_defaultIcon) : Color.WHITE, PorterDuff.Mode.SRC_IN));
+        updateAudioVideoButton();
         audioVideoSendButton.invalidate();
         updateFieldHint(false);
         boolean currentModeVideo = isInVideoMode;
@@ -9326,7 +9328,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         slowModeButton.setVisibility(visible ? VISIBLE : GONE);
         int padding = visible ? dp(slowModeButton.isPremiumMode ? 26 : 16) : 0;
         if (messageEditText != null && messageEditText.getPaddingRight() != padding) {
-            messageEditText.setPadding(0, dp(9), padding, dp(10));
+            messageEditText.setPadding(0, dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 9.5f : 9), padding, dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 9.5f : 10));
         }
     }
 
@@ -10977,7 +10979,7 @@ public class ChatActivityEnterView extends FrameLayout implements
         if (botKeyboardView != null) {
             botKeyboardView.updateColors();
         }
-        audioVideoSendButton.setColorFilter(new PorterDuffColorFilter((audioVideoButtonContainerForbidden || DevGramClassicDesign.enabled()) ? getThemedColor(Theme.key_glass_defaultIcon) : Color.WHITE, PorterDuff.Mode.SRC_IN));
+        updateAudioVideoButton();
         emojiButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));
         emojiButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
         deleteRichDraftButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_glass_defaultIcon), PorterDuff.Mode.SRC_IN));

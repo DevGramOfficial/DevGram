@@ -9,6 +9,8 @@ public final class IconResources extends Resources {
     IconResources(Resources source) {super(source.getAssets(),source.getDisplayMetrics(),source.getConfiguration());this.source=source;}
     @Override public Drawable getDrawableForDensity(int id,int density,Theme theme) throws NotFoundException {
         IconObserver.INSTANCE.log(id);
+        int swiftgram = org.telegram.ui.Components.DevGramSwiftgramIcons.resolve(id);
+        if (swiftgram != id) return source.getDrawableForDensity(swiftgram, density, theme);
         Drawable custom=IconManager.INSTANCE.getDrawable(id,density,this);
         return custom!=null?custom:source.getDrawableForDensity(IconManager.INSTANCE.baseIcon(id),density,theme);
     }

@@ -7,7 +7,7 @@ public final class DevGramProfileCustomization {
     public static void setEnabled(boolean enabled) {
         if (enabled == enabled()) return;
         MessagesController.getGlobalMainSettings().edit().putBoolean("devgramProfileCustomization", enabled).apply();
-        if (enabled) DevGramProfilePolicy.start(); else DevGramProfilePolicy.stop();
+        if (enabled || DevGramSwiftgramDesign.selected()) DevGramProfilePolicy.start(); else DevGramProfilePolicy.stop();
         DevGramProfilePolicy.changed();
         DevGramMusicListener.refreshCurrent();
     }

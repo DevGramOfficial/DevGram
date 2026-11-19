@@ -173,8 +173,8 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     private boolean drawCommunityAvatar;
     private boolean isShareToStoryCell;
     public ShareDialogCell.RepostStoryDrawable repostStoryDrawable;
-    public int avatarStart = 11;
-    public int messagePaddingStart = 72;
+    public int avatarStart = org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? 16 : 11;
+    public int messagePaddingStart = org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? 80 : 72;
     public int heightDefault = 70;
     public int heightThreeLines = 76;
     public int addHeightForTags = 3;
@@ -552,7 +552,7 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
     // Возвращает iOS-цвет для текущего свайп-действия, либо fallback вне iOS-режима
     // и для случаев, которых нет в найденном iOS-спеке (архивная папка/PSA/community-ungroup).
     private int dgIosSwipeColor(int fallback) {
-        if (org.telegram.messenger.DevGramConfig.getDesignMode() != org.telegram.messenger.DevGramConfig.DESIGN_MODE_IOS) {
+        if (!org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist")) {
             return fallback;
         }
         if (currentDialogFolderId != 0 || promoDialog || folderId != 0 || ChatObject.isCommunity(chat)) {
@@ -2683,13 +2683,9 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
                 thumbImage[i].setImageCoords(thumbLeft + (thumbSize + 2) * i, avatarTop + dp(31) + (twoLinesForName ? dp(20) : 0) - (!(useForceThreeLines || SharedConfig.useThreeLinesLayout) && tags != null && !tags.isEmpty() ? dp(9) : 0), dp(18), dp(18));
             }
         } else {
-            // DevGram: в iOS-режиме аватарки в списке чатов — 60dp, точное значение из
-            // исходников (ChatListItem.swift: avatarDiameter = min(60, ...) при обычном
-            // размере шрифта). Текстовая колонка начинается на фиксированных messagePaddingStart
-            // (72dp) и от размера аватарки не зависит, так что запас остаётся небольшим
-            // (72-11-60=1dp) — тесновато, но без наложения. В остальных режимах — как раньше (52dp).
-            final int dgAvatarSize = org.telegram.messenger.DevGramConfig.getDesignMode() == org.telegram.messenger.DevGramConfig.DESIGN_MODE_IOS ? 60 : 52;
-            avatarTop = dp(9);
+            // ChatListItem: 16 pt leading avatar, 60 pt diameter, 8 pt gap to the text column.
+            final int dgAvatarSize = org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? 60 : 52;
+            avatarTop = org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? Math.max(0, (getMeasuredHeight() - dp(60)) / 2) : dp(9);
             messageNameTop = dp(31);
             timeTop = dp(16);
             errorTop = dp(38);

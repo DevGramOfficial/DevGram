@@ -45,6 +45,7 @@ public class DevGramBadgesActivity extends BaseFragment {
     private static final int ID_SIGN_IN = 4;
     private static final int ID_SIGN_OUT = 5;
     private static final int ID_SUPPORT_REQUESTS = 6;
+    private static final int ID_DESIGN_ACCESS = 7;
 
     private static final Pattern USERNAME = Pattern.compile("^(?:https?://)?(?:t\\.me/|telegram\\.me/|@)?([A-Za-z][A-Za-z0-9_]{3,31})(?:[/?].*)?$");
 
@@ -149,6 +150,9 @@ public class DevGramBadgesActivity extends BaseFragment {
         items.add(UItem.asButton(ID_LIST, R.drawable.msg_list, DevGramLocale.text("Выданные значки"), count > 0 ? String.valueOf(count) : ""));
         items.add(UItem.asButton(ID_OPTIONS, R.drawable.msg_input_like, DevGramLocale.text("Значки для поддержавших")));
         items.add(UItem.asButton(ID_SUPPORT_REQUESTS, R.drawable.msg_list, DevGramLocale.text("Заявки на значки")));
+        if (DevGramBadges.hasDeveloperFeatures(getUserConfig().getClientUserId())) {
+            items.add(UItem.asButton(ID_DESIGN_ACCESS, R.drawable.msg_colors, DevGramLocale.text("Доступ к стилю iOS")));
+        }
         items.add(UItem.asShadow(DevGramLocale.text("Поддержавшие выбирают себе значок из этого списка в разделе «Поддержавшим».")));
 
         items.add(UItem.asHeader(DevGramLocale.text("Аккаунт команды")));
@@ -164,7 +168,11 @@ public class DevGramBadgesActivity extends BaseFragment {
     }
 
     private void onItemClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == ID_SUPPORT_REQUESTS) {
+        if (item.id == ID_DESIGN_ACCESS) {
+            if (DevGramBadges.hasDeveloperFeatures(getUserConfig().getClientUserId())) {
+                presentFragment(new DevGramDesignPolicyActivity());
+            }
+        } else if (item.id == ID_SUPPORT_REQUESTS) {
             org.telegram.messenger.browser.Browser.openUrl(getParentActivity(), DevGramSupportSheet.SUPPORT_URL + "/admin");
         } else if (item.id == ID_LIST) {
             presentFragment(new DevGramBadgeListActivity());

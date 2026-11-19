@@ -775,6 +775,12 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             floatingButton.setAnimation(R.raw.write_contacts_fab_icon, 44);
             floatingButton.imageView.getAnimatedDrawable().setCurrentFrame(floatingButton.imageView.getAnimatedDrawable().getFramesCount() - 1);
             floatingButton.setContentDescription(getString(R.string.CreateNewContact));
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("contacts")) {
+                final ActionBarMenuItem addContact = menu.addItem(1598, R.drawable.msg_add);
+                addContact.setContentDescription(getString(R.string.CreateNewContact));
+                addContact.setOnClickListener(v -> floatingButton.performClick());
+                contentView.removeView(floatingButton);
+            }
         }
 
         if (initialSearchString != null) {

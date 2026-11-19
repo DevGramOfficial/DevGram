@@ -77,10 +77,11 @@ public class TextSettingsCell extends FrameLayout {
     public TextSettingsCell(Context context, int padding, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
-        this.padding = padding;
+        this.padding = padding = org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : padding;
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) betterLayout = true;
 
         textView = new TextView(context);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 16);
         textView.setLines(1);
         textView.setMaxLines(1);
         textView.setSingleLine(true);
@@ -121,7 +122,7 @@ public class TextSettingsCell extends FrameLayout {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), AndroidUtilities.dp(50) + (needDivider ? 1 : 0));
+        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), AndroidUtilities.dp(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 52 : 50) + (needDivider ? 1 : 0));
 
         int availableWidth = getMeasuredWidth() - getPaddingLeft() - getPaddingRight() - AndroidUtilities.dp(34);
         int width = betterLayout ? availableWidth : availableWidth / 2;

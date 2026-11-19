@@ -94,6 +94,7 @@ import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 
 public class MainTabsActivity extends ViewPagerActivity implements NotificationCenter.NotificationCenterDelegate, FactorAnimator.Target {
+    private org.telegram.ui.Components.DevGramSwiftgramTabBar swiftgramTabs;
     private org.telegram.ui.Components.DevGramClassicDrawer classicDrawer;
 
     public void openClassicDrawer() {
@@ -119,7 +120,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     // DevGram: нумерация позиций ViewPager должна совпадать с видимым порядком вкладок —
     // иначе свайп между экранами не соответствует порядку кнопок снизу (был баг: свайп
     // прыгал между Звонками и Настройками, минуя Чаты). В iOS-режиме видимый порядок —
-    // Контакты/Звонки/Чаты/Настройки (см. visualOrder в createView()), и там же Контакты
+    // Профиль/Звонки/Чаты/Настройки (см. visualOrder в createView()), и там же профиль
     // и Звонки всегда включены (нет скрытия), поэтому позиции в iOS-режиме фиксированные.
     private int posChats() {
         return org.telegram.ui.Components.DevGramMaterial3.iosNavigation() ? 2 : POSITION_CHATS;
@@ -329,6 +330,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     private void checkContactsTabBadge() {
         if (tabsView != null && tabs[INDEX_CONTACTS] != null) {
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+                tabs[INDEX_CONTACTS].setCounter(null, false, false);
+                if (swiftgramTabs != null) swiftgramTabs.sync(true);
+                return;
+            }
             final boolean hasPermission = Build.VERSION.SDK_INT >= 23 && ContactsController.hasContactsPermission();
             if (hasPermission) {
                 MessagesController.getGlobalNotificationsSettings().edit().putBoolean("askAboutContacts2", true).apply();
@@ -339,6 +345,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 tabs[INDEX_CONTACTS].setCounter(null, true, true);
             }
         }
+        if (swiftgramTabs != null) swiftgramTabs.sync(true);
     }
 
     @Override
@@ -352,16 +359,15 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     @Override
     public View createView(Context context) {
         classicDrawer = null;
+        swiftgramTabs = null;
         super.createView(context);
         tabletLayout = false;
 
         tabsView = new MainTabsLayout(context, resourceProvider);
         tabsView.setClipChildren(false);
 
-        // DevGram: в iOS-режиме нет отдельного таба профиля (как в Settings.app/Telegram-iOS —
-        // свой профиль открывается через карточку в «Настройках», не через нижний таб) и нет
-        // общего слота Звонки/Настройки — вместо профиля в его слоте живут «Настройки», а
-        // Звонки всегда занимают свой собственный слот (см. createBaseFragmentAt/posProfile).
+        // DevGram: iOS has separate Profile, Calls, Chats and Settings pages.
+        // The legacy contacts slot holds Profile; the legacy profile slot holds Settings.
         boolean iosNav = org.telegram.ui.Components.DevGramMaterial3.iosNavigation();
 
         tabs = new GlassTabView[5];
@@ -446,6 +452,30 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsViewWrapper.setOnClickListener(v -> {});
         tabsViewWrapper.addView(tabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT,
                 LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+        if (iosNav) {
+            tabsView.setAlpha(0f);
+            tabsView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+            for (GlassTabView tab : tabs) tab.setEnabled(false);
+            swiftgramTabs = new org.telegram.ui.Components.DevGramSwiftgramTabBar(context,
+                    new GlassTabView[]{tabs[INDEX_CONTACTS], tabs[INDEX_CALLS], tabs[INDEX_CHATS], tabs[INDEX_PROFILE]}, () -> {
+                BaseFragment active = getCurrentVisibleFragment();
+                if (active instanceof DialogsActivity) ((DialogsActivity) active).search("", true);
+                else if (active != null && active.getActionBar() != null) active.getActionBar().openSearchField("", true);
+            });
+            swiftgramTabs.setLongPressHandler((index, anchor) -> {
+                if (index == 0) return openAccountSelector(anchor);
+                if (index == 1) return openCallsSelector(anchor);
+                if (index == 2) return openFoldersSelector(anchor);
+                return openAccountSelector(anchor);
+            });
+            swiftgramTabs.setGlass(
+                    iBlur3FactoryGlass.create(swiftgramTabs.platter(), BlurredBackgroundProviderImpl.mainTabs(resourceProvider)),
+                    iBlur3FactoryGlass.create(swiftgramTabs.searchButton(), BlurredBackgroundProviderImpl.mainTabs(resourceProvider)));
+            tabsViewWrapper.addView(swiftgramTabs, LayoutHelper.createFrame(-1,
+                    org.telegram.ui.Components.DevGramSwiftgramTabBar.heightDp(), Gravity.BOTTOM,
+                    org.telegram.messenger.DevGramSwiftgramDesign.NAVIGATION_INSET, 0,
+                    org.telegram.messenger.DevGramSwiftgramDesign.NAVIGATION_INSET, 0));
+        }
         tabsViewWrapper.setClipToPadding(false);
         contentView.addView(tabsViewWrapper, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
         applyTabsBarGeometry();
@@ -520,6 +550,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         } else {
             tabs[INDEX_CHATS].setCounter(null, false, animated);
         }
+        if (swiftgramTabs != null) swiftgramTabs.sync(animated);
     }
 
     public boolean openContactsSelector(View anchor) {
@@ -918,7 +949,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     protected int getFragmentsCount() {
-        return getUserConfig().showContactsTab ? TABS_COUNT : TABS_COUNT - 1;
+        return org.telegram.ui.Components.DevGramMaterial3.iosNavigation() || getUserConfig().showContactsTab ? TABS_COUNT : TABS_COUNT - 1;
     }
 
     @Override
@@ -976,6 +1007,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             dialogsActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
             dialogsActivity.setClassicDrawerOpener(this::openClassicDrawer);
             return dialogsActivity;
+        } else if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") && position == posContacts()) {
+            Bundle args = new Bundle();
+            args.putLong("user_id", getUserConfig().getClientUserId());
+            args.putBoolean("my_profile", true);
+            args.putBoolean("hasMainTabs", true);
+            return new ProfileActivity(args);
         } else if (getUserConfig().showContactsTab && position == posContacts()) {
             Bundle args = new Bundle();
             args.putBoolean("needPhonebook", true);
@@ -983,7 +1020,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             args.putBoolean("hasMainTabs", true);
             return new ContactsActivity(args);
         } else if (position == posCallsOrSettings()) {
-            if (getUserConfig().showCallsTab) {
+            if (org.telegram.ui.Components.DevGramMaterial3.iosNavigation() || getUserConfig().showCallsTab) {
                 Bundle args = new Bundle();
                 args.putBoolean("needFinishFragment", false);
                 args.putBoolean("hasMainTabs", true);
@@ -994,7 +1031,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             return new SettingsActivity(args);
         } else if (position == posProfile()) {
             // DevGram: в iOS-режиме бывший слот профиля занят «Настройками» — свой профиль
-            // в этом режиме открывается изнутри Настроек (карточка «Мой профиль»).
+            // доступен на первой вкладке и из карточки «Мой профиль» в Настройках.
             if (org.telegram.ui.Components.DevGramMaterial3.iosNavigation()) {
                 Bundle args = new Bundle();
                 args.putBoolean("hasMainTabs", true);
@@ -1023,9 +1060,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             GlassTabView tab = tabs[a];
             tab.setSelected(indexToPosition(a) == position, animated);
         }
+        if (swiftgramTabs != null) swiftgramTabs.sync(animated);
     }
 
     public void setGestureSelectedOverride(float animatedPosition, boolean allow) {
+        if (swiftgramTabs != null) swiftgramTabs.setPageProgress(animatedPosition, allow);
         for (int index = 0; index < tabs.length; index++) {
             final int position = indexToPosition(index);
             final float visibility = Math.max(0, 1f - Math.abs(position - animatedPosition));
@@ -1120,7 +1159,8 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             }
         }
 
-        tabsViewWrapper.setPadding(systemInsets.left, 0, systemInsets.right, navigationBarHeight);
+        tabsViewWrapper.setPadding(systemInsets.left, 0, systemInsets.right,
+                navigationBarHeight + (swiftgramTabs != null ? dp(8) : 0));
 
         final WindowInsetsCompat consumed = isUpdateLayoutVisible ?
             insets.inset(0, 0, 0, navigationBarHeight) : insets;
@@ -1167,6 +1207,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         } else if (id == NotificationCenter.needSetDayNightTheme) {
             clearAllHiddenFragments();
         } else if (id == NotificationCenter.contactsTabVisibleToggled) {
+            if (org.telegram.ui.Components.DevGramMaterial3.iosNavigation()) {
+                checkContactsTabBadge();
+                return;
+            }
             // DevGram: только точечный сдвиг в рамках одной и той же (стоковой) схемы позиций —
             // смена схемы целиком (вход/выход из iOS-режима) обрабатывается отдельно,
             // см. mainTabsSchemeChanged ниже.
@@ -1194,6 +1238,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             rebuildPagerAt(target);
             selectTab(target, false);
         } else if (id == NotificationCenter.callTabsVisibleToggled) {
+            if (org.telegram.ui.Components.DevGramMaterial3.iosNavigation()) return;
             // DevGram: только точечный сдвиг в рамках одной и той же (стоковой) схемы —
             // смена схемы целиком см. mainTabsSchemeChanged ниже.
             final boolean callTabsVisible = getUserConfig().showCallsTab;
@@ -1302,8 +1347,19 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsViewWrapper.setTranslationY(lerp(hiddenY, normalY, factor));
         tabsView.setClickable(factor > 1);
         tabsView.setEnabled(factor > 1);
-        tabsView.setAlpha(factor);
-        tabsView.setVisibility(factor > 0 ? View.VISIBLE : View.GONE);
+        if (swiftgramTabs != null) {
+            // Native controllers retain selection/click handlers, but never paint
+            // their old bar underneath the source-derived glass presentation.
+            tabsView.setAlpha(0f);
+            // Keep anchors laid out and logically visible for native long-press
+            // menus; alpha, disabled controls and accessibility hide the old bar.
+            tabsView.setVisibility(factor > 0 ? View.VISIBLE : View.INVISIBLE);
+            swiftgramTabs.setAlpha(factor);
+            swiftgramTabs.setVisibility(factor > 0 ? View.VISIBLE : View.INVISIBLE);
+        } else {
+            tabsView.setAlpha(factor);
+            tabsView.setVisibility(factor > 0 ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void checkUi_callTabVisible(boolean callTabsVisible, boolean animated) {

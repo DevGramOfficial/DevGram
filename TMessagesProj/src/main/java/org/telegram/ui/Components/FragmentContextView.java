@@ -1342,6 +1342,24 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                     playbackSpeedButton.setTag(1);
                 }
                 closeButton.setContentDescription(getString(R.string.AccDescrClosePlayer));
+                if (swiftgramAudio()) {
+                    playButton.setLayoutParams(LayoutHelper.createFrame(40, 40, Gravity.TOP | Gravity.LEFT));
+                    closeButton.setLayoutParams(LayoutHelper.createFrame(44, 40, Gravity.RIGHT | Gravity.TOP));
+                    titleTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 21, Gravity.TOP, 45, 1, 45 + (isSideMenued ? 64 : 0), 0));
+                    subtitleTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 17, Gravity.TOP, 45, 20, 45 + (isSideMenued ? 64 : 0), 0));
+                    subtitleTextView.setVisibility(VISIBLE);
+                    for (int i = 0; i < 2; i++) {
+                        TextView title = i == 0 ? titleTextView.getTextView() : titleTextView.getNextTextView();
+                        TextView subtitle = i == 0 ? subtitleTextView.getTextView() : subtitleTextView.getNextTextView();
+                        title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+                        title.setTypeface(Typeface.DEFAULT);
+                        title.setGravity(Gravity.CENTER);
+                        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 10);
+                        subtitle.setTypeface(Typeface.DEFAULT);
+                        subtitle.setGravity(Gravity.CENTER);
+                        ThemeBind.textColor(subtitle, Theme.key_inappPlayerPerformer, resourcesProvider);
+                    }
+                }
             } else {
                 playButton.setLayoutParams(LayoutHelper.createFrame(36, 36, Gravity.TOP | Gravity.LEFT, 8, 0, 0, 0));
                 titleTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36, Gravity.LEFT | Gravity.TOP, 35 + 16, 0, (isSideMenued ? 64 : 0) + 36, 0));
@@ -1701,7 +1719,12 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
     float speakerAmplitude;
     float micAmplitude;
 
+    private boolean swiftgramAudio() {
+        return currentStyle == STYLE_AUDIO_PLAYER && org.telegram.messenger.DevGramSwiftgramDesign.section("media");
+    }
+
     public int getStyleHeight() {
+        if (swiftgramAudio()) return 40;
         // новому мини-плееру нужно 48dp: при 36 низ обложки и подпись обрезались
         return currentStyle == STYLE_INACTIVE_GROUP_CALL || currentStyle == STYLE_AUDIO_PLAYER && miniPlayer != null ? 48 : 36;
     }
@@ -2106,7 +2129,13 @@ public class FragmentContextView extends FrameLayout implements NotificationCent
                 }
                 TypefaceSpan span = new TypefaceSpan(AndroidUtilities.bold(), 0, getThemedColor(Theme.key_inappPlayerPerformer));
                 stringBuilder.setSpan(span, 0, messageObject.getMusicAuthor().length(), Spanned.SPAN_INCLUSIVE_INCLUSIVE);
-                titleTextView.setText(stringBuilder, !create && wasVisible && isMusic);
+                if (swiftgramAudio()) {
+                    titleTextView.setPadding(0, 0, 0, 0);
+                    titleTextView.setText(messageObject.getMusicTitle(), !create && wasVisible && isMusic);
+                    subtitleTextView.setText(messageObject.getMusicAuthor(), !create && wasVisible && isMusic);
+                } else {
+                    titleTextView.setText(stringBuilder, !create && wasVisible && isMusic);
+                }
             }
             // DevGram: мини-плеер обновляем на каждую смену состояния — иначе значок пауза/плей
             // менялся только при смене трека

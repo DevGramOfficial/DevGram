@@ -11,7 +11,7 @@ public final class DevGramSmartForward {
 
     public static boolean needs(int account, ArrayList<MessageObject> messages) {
         if (messages == null) return false;
-        for (MessageObject m : messages) if (m != null && m.messageOwner != null && (m.getId() <= 0 || m.messageOwner.noforwards
+        for (MessageObject m : messages) if (m != null && m.messageOwner != null && (m.getId() <= 0 || m.messageOwner.devgramDeleted || m.messageOwner.noforwards
                 || MessagesController.getInstance(account).isPeerNoForwards(m.getDialogId()))) return true;
         return false;
     }
@@ -46,7 +46,19 @@ public final class DevGramSmartForward {
             }
             return;
         }
-        if (m.isPhoto() || m.isVideo()) {
+        if (m.isVoice() || m.isRoundVideo()) {
+            // A deleted server document cannot be forwarded by id. Upload the
+            // local bytes with their original voice/round-video attributes.
+            TLRPC.Document original = m.getDocument();
+            TLRPC.TL_document document = new TLRPC.TL_document();
+            document.file_reference = new byte[0];
+            document.mime_type = original.mime_type;
+            document.size = file.length();
+            document.attributes = new ArrayList<>(original.attributes);
+            instance.getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of(
+                    document, null, file.getAbsolutePath(), target, null, null, caption, entities,
+                    null, null, notify, scheduleDate, 0, 0, null, null, false));
+        } else if (m.isPhoto() || m.isVideo()) {
             SendMessagesHelper.SendingMediaInfo info = new SendMessagesHelper.SendingMediaInfo();
             info.path = file.getAbsolutePath(); info.caption = caption; info.entities = entities;
             info.isVideo = m.isVideo(); info.hasMediaSpoilers = m.hasMediaSpoilers();

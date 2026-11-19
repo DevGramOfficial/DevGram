@@ -4762,7 +4762,29 @@ public class MessagesStorage extends BaseController {
         });
     }
 
+    public void prepareSelfDestructingMedia(long dialogId, int messageId) {
+        if (!DevGramSelfDestructingMedia.enabled(currentAccount, dialogId)) return;
+        storageQueue.postRunnable(() -> {
+            TLRPC.Message message = getMessageInternal(dialogId, messageId);
+            if (message != null) {
+                message.dialog_id = dialogId;
+                DevGramSelfDestructingMedia.retain(currentAccount, message);
+            }
+        });
+    }
+
+    public void retainSelfDestructingMedia(long dialogId, int messageId) {
+        ArrayList<Integer> mids = new ArrayList<>();
+        mids.add(messageId);
+        emptyMessagesMedia(dialogId, mids, true);
+    }
+
     public void emptyMessagesMedia(long dialogId, ArrayList<Integer> mids) {
+        emptyMessagesMedia(dialogId, mids, false);
+    }
+
+    private void emptyMessagesMedia(long dialogId, ArrayList<Integer> mids, boolean retainOnly) {
+        if (mids == null || mids.isEmpty()) return;
         storageQueue.postRunnable(() -> {
             SQLiteCursor cursor = null;
             SQLitePreparedStatement state = null;
@@ -4781,6 +4803,22 @@ public class MessagesStorage extends BaseController {
                         message.readAttachPath(data, getUserConfig().clientUserId);
                         data.reuse();
                         if (message.media != null) {
+                            message.id = cursor.intValue(1);
+                            message.date = cursor.intValue(2);
+                            message.dialog_id = cursor.longValue(3);
+                            NativeByteBuffer customParams = cursor.byteBufferValue(4);
+                            if (customParams != null) {
+                                MessageCustomParamsHelper.readLocalParams(message, customParams);
+                                customParams.reuse();
+                            }
+                            // A previously retained cloud message is now ordinary
+                            // media. Replayed expiry tasks must not delete its copy.
+                            if (message.media.ttl_seconds == 0 && !DialogObject.isEncryptedDialog(dialogId)) continue;
+                            if (DevGramSelfDestructingMedia.retain(currentAccount, message)) {
+                                messages.add(message);
+                                continue;
+                            }
+                            if (retainOnly) continue;
                             if (!addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, true)) {
                                 continue;
                             } else {
@@ -4791,14 +4829,6 @@ public class MessagesStorage extends BaseController {
                                 }
                             }
                             message.media.flags = message.media.flags & ~1;
-                            message.id = cursor.intValue(1);
-                            message.date = cursor.intValue(2);
-                            message.dialog_id = cursor.longValue(3);
-                            NativeByteBuffer customParams = cursor.byteBufferValue(4);
-                            if (customParams != null) {
-                                MessageCustomParamsHelper.readLocalParams(message, customParams);
-                                customParams.reuse();
-                            }
                             messages.add(message);
                         }
                     }
@@ -4862,7 +4892,7 @@ public class MessagesStorage extends BaseController {
                         state.bindLong(16, MessageObject.getChannelId(message));
                         NativeByteBuffer customParams = MessageCustomParamsHelper.writeLocalParams(message);
                         if (customParams != null) {
-                            state.bindByteBuffer(16, customParams);
+                            state.bindByteBuffer(17, customParams);
                         } else {
                             state.bindNull(17);
                         }
@@ -14588,6 +14618,7 @@ public class MessagesStorage extends BaseController {
                 if (data != null) {
                     TLRPC.Message msg = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
                     if (msg != null) {
+                        msg.readAttachPath(data, getUserConfig().getClientUserId());
                         DevGramMessagesController.getInstance().onMessageDeleted(currentAccount, msg, did, 0, mid, catchTime);
                         DevGramMediaSaver.saveMessage(currentAccount, msg);
                     }

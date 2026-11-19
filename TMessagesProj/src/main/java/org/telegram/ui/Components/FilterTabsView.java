@@ -156,10 +156,10 @@ public class FilterTabsView extends FrameLayout {
             if (c > 0) {
                 String counterText = String.format("%d", c);
                 int counterWidth = (int) Math.ceil(textCounterPaint.measureText(counterText));
-                int countWidth = Math.max(dp(TAB_COUNTER_HEIGHT - 10), counterWidth) + dp(10);
+                int countWidth = Math.max(dp(tabCounterHeight() - 10), counterWidth) + dp(10);
                 counterResultWidth = countWidth + dp(-2);
             } else {
-                counterResultWidth = !isDefault && isEditing ? dp(TAB_COUNTER_HEIGHT - 5) : 0;
+                counterResultWidth = !isDefault && isEditing ? dp(tabCounterHeight() - 5) : 0;
             }
             width += counterResultWidth;
 
@@ -177,9 +177,10 @@ public class FilterTabsView extends FrameLayout {
         }
     }
 
-    private static final float TAB_PADDING_WIDTH = 24;
-    private static final float TAB_INTERNAL_PADDING = 12.5f;
-    private static final float TAB_COUNTER_HEIGHT = 17.333f;
+    private static float tabPaddingWidth() { return swiftgramFolders() ? 26 : 24; }
+    private static float tabInternalPadding() { return swiftgramFolders() ? 10 : 12.5f; }
+    private static float tabCounterHeight() { return swiftgramFolders() ? 18 : 17.333f; }
+    private static boolean swiftgramFolders() { return org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist"); }
 
     public class TabView extends View {
 
@@ -294,7 +295,7 @@ public class FilterTabsView extends FrameLayout {
 
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-            int w = currentTab.getWidth(false) + dp(TAB_PADDING_WIDTH) + additionalTabWidth;
+            int w = currentTab.getWidth(false) + dp(tabPaddingWidth()) + additionalTabWidth;
             setMeasuredDimension(w, MeasureSpec.getSize(heightMeasureSpec));
         }
 
@@ -378,7 +379,7 @@ public class FilterTabsView extends FrameLayout {
                     counterText = String.format("%d", currentTab.counter);
                 }
                 counterWidth = (int) Math.ceil(textCounterPaint.measureText(counterText));
-                countWidth = (int) Math.max(dp(TAB_COUNTER_HEIGHT - 10), counterWidth) + dp(10);
+                countWidth = (int) Math.max(dp(tabCounterHeight() - 10), counterWidth) + dp(10);
             } else {
                 counterText = null;
                 counterWidth = 0;
@@ -387,7 +388,7 @@ public class FilterTabsView extends FrameLayout {
 
 
             if (showRemove && (isEditing || editingStartAnimationProgress != 0)) {
-                countWidth = (int) (countWidth + (dp(TAB_COUNTER_HEIGHT) - countWidth) * editingStartAnimationProgress);
+                countWidth = (int) (countWidth + (dp(tabCounterHeight()) - countWidth) * editingStartAnimationProgress);
             }
 
             tabCounterVisible = (countWidth != 0 && !animateCounterRemove) ? (counterText != null ? 1.0f : editingStartAnimationProgress) : 0;
@@ -477,7 +478,7 @@ public class FilterTabsView extends FrameLayout {
                 } else {
                     x = textX + titleWidth + dp(5);
                 }
-                int countTop = (getMeasuredHeight() - dp(TAB_COUNTER_HEIGHT)) / 2;
+                int countTop = (getMeasuredHeight() - dp(tabCounterHeight())) / 2;
 
                 if (showRemove && (isEditing || editingStartAnimationProgress != 0) && counterText == null) {
                     counterPaint.setAlpha((int) (editingStartAnimationProgress * 255));
@@ -490,7 +491,7 @@ public class FilterTabsView extends FrameLayout {
                 if (animateCounterReplace) {
                     counterWidth = animateFromCounterWidth * (1f - changeProgress) + counterWidth * changeProgress;
                 }
-                rect.set(x, countTop, x + w, countTop + dp(TAB_COUNTER_HEIGHT));
+                rect.set(x, countTop, x + w, countTop + dp(tabCounterHeight()));
                 if (animateCounterEnter || animateCounterRemove) {
                     canvas.save();
                     float s = animateCounterEnter ? changeProgress : 1f - changeProgress;
@@ -501,11 +502,11 @@ public class FilterTabsView extends FrameLayout {
                 if (animateCounterReplace) {
                     float y = countTop;
                     if (inCounter != null) {
-                        y += (dp(TAB_COUNTER_HEIGHT) - (inCounter.getLineBottom(0) - inCounter.getLineTop(0))) / 2f;
+                        y += (dp(tabCounterHeight()) - (inCounter.getLineBottom(0) - inCounter.getLineTop(0))) / 2f;
                     } else if (outCounter != null) {
-                        y += (dp(TAB_COUNTER_HEIGHT) - (outCounter.getLineBottom(0) - outCounter.getLineTop(0))) / 2f;
+                        y += (dp(tabCounterHeight()) - (outCounter.getLineBottom(0) - outCounter.getLineTop(0))) / 2f;
                     } else if (stableCounter != null) {
-                        y += (dp(TAB_COUNTER_HEIGHT) - (stableCounter.getLineBottom(0) - stableCounter.getLineTop(0))) / 2f;
+                        y += (dp(tabCounterHeight()) - (stableCounter.getLineBottom(0) - stableCounter.getLineTop(0))) / 2f;
                     }
                     y -= dp(0.5f);
 
@@ -657,7 +658,7 @@ public class FilterTabsView extends FrameLayout {
             if (currentTab.counter > 0) {
                 counterText = String.format("%d", currentTab.counter);
                 int counterWidth = (int) Math.ceil(textCounterPaint.measureText(counterText));
-                countWidth = Math.max(dp(TAB_COUNTER_HEIGHT - 10), counterWidth) + dp(10);
+                countWidth = Math.max(dp(tabCounterHeight() - 10), counterWidth) + dp(10);
             } else {
                 countWidth = 0;
             }
@@ -910,16 +911,16 @@ public class FilterTabsView extends FrameLayout {
     public FilterTabsView(Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
-        textCounterPaint.setTextSize(dpf2(11f));
-        textCounterPaint.setTypeface(AndroidUtilities.bold());
+        textCounterPaint.setTextSize(dpf2(swiftgramFolders() ? 14 : 11f));
+        textCounterPaint.setTypeface(swiftgramFolders() ? android.graphics.Typeface.DEFAULT : AndroidUtilities.bold());
         textPaint.setTextSize(dpf2(14f));
-        textPaint.setTypeface(AndroidUtilities.bold());
+        textPaint.setTypeface(swiftgramFolders() ? AndroidUtilities.getTypeface("fonts/rmedium.ttf") : AndroidUtilities.bold());
         deletePaint.setStyle(Paint.Style.STROKE);
         deletePaint.setStrokeCap(Paint.Cap.ROUND);
         deletePaint.setStrokeWidth(dp(1.5f));
 
         selectorDrawable = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, null);
-        float rad = AndroidUtilities.dpf2(14);
+        float rad = AndroidUtilities.dpf2(swiftgramFolders() ? 18 : 14);
         selectorDrawable.setCornerRadii(new float[]{rad, rad, rad, rad, rad, rad, rad, rad});
         selectorDrawable.setColor(Theme.getColor(tabLineColorKey, resourcesProvider));
 
@@ -1104,7 +1105,7 @@ public class FilterTabsView extends FrameLayout {
         });
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new TouchHelperCallback());
         itemTouchHelper.attachToRecyclerView(listView);
-        listViewPaddingH = Math.max(0, dp(23.5f - TAB_PADDING_WIDTH / 2f));
+        listViewPaddingH = Math.max(0, dp(23.5f - tabPaddingWidth() / 2f));
         listView.setPadding(listViewPaddingH, 0, listViewPaddingH, 0);
         listView.setClipToPadding(false);
         listView.setDrawSelectorBehind(true);
@@ -1281,7 +1282,7 @@ public class FilterTabsView extends FrameLayout {
         tab.iconRes = iconRes;
         tab.isDefault = isDefault;
         tab.isLocked = isLocked;
-        allTabsWidth += tab.getWidth(true) + dp(TAB_PADDING_WIDTH);
+        allTabsWidth += tab.getWidth(true) + dp(tabPaddingWidth());
         tabs.add(tab);
     }
 
@@ -1300,7 +1301,7 @@ public class FilterTabsView extends FrameLayout {
         Tab tab = new Tab(id, text, noanimate);
         tab.isDefault = isDefault;
         tab.isLocked = isLocked;
-        allTabsWidth += tab.getWidth(true) + dp(TAB_PADDING_WIDTH);
+        allTabsWidth += tab.getWidth(true) + dp(tabPaddingWidth());
         tabs.add(tab);
     }
 
@@ -1393,7 +1394,7 @@ public class FilterTabsView extends FrameLayout {
             positionToWidth.put(a, tabWidth);
             positionToCount.put(a, tabs.get(a).counter);
             positionToX.put(a, xOffset + additionalTabWidth / 2);
-            xOffset += tabWidth + dp(TAB_PADDING_WIDTH) + additionalTabWidth;
+            xOffset += tabWidth + dp(tabPaddingWidth()) + additionalTabWidth;
         }
     }
 
@@ -1456,6 +1457,26 @@ public class FilterTabsView extends FrameLayout {
         return result;
     }
 
+    /** Use the same rendered origin as TabView, including counter/width animations. */
+    private boolean swiftgramTabBounds(int position, RectF out) {
+        RecyclerListView.ViewHolder holder = listView.findViewHolderForAdapterPosition(position);
+        if (holder != null && holder.itemView instanceof TabView) {
+            TabView tab = (TabView) holder.itemView;
+            float width = tab.lastTabWidth > 0 ? tab.lastTabWidth : tab.currentTab.getWidth(false);
+            float x = tab.lastTabWidth > 0 ? tab.lastTextX : (tab.getMeasuredWidth() - width) / 2f;
+            out.set(tab.getX() + x, 0, tab.getX() + x + width, 0);
+            return true;
+        }
+        int first = layoutManager.findFirstVisibleItemPosition();
+        RecyclerListView.ViewHolder anchor = listView.findViewHolderForAdapterPosition(first);
+        if (anchor == null || position < 0 || position >= tabs.size()) return false;
+        float x = positionToX.get(position) - positionToX.get(first) + anchor.itemView.getX() + dp(tabPaddingWidth() / 2f);
+        out.set(x, 0, x + positionToWidth.get(position), 0);
+        return true;
+    }
+
+    private final RectF swiftgramPreviousTab = new RectF(), swiftgramCurrentTab = new RectF();
+
     private void drawSelector(Canvas canvas) {
         final int height = getMeasuredHeight();
         selectorDrawable.setAlpha((int) (255 * listView.getAlpha()));
@@ -1483,10 +1504,10 @@ public class FilterTabsView extends FrameLayout {
                     float prevH = positionToCount.get(idx1) != 0 ? 1 : 0;
                     float newH = positionToCount.get(idx2) != 0 ? 1 : 0;
                     if (additionalTabWidth != 0) {
-                        indicatorX = lerp(prevX, newX, animatingIndicatorProgress) + dp(TAB_PADDING_WIDTH / 2f);
+                        indicatorX = lerp(prevX, newX, animatingIndicatorProgress) + dp(tabPaddingWidth() / 2f);
                     } else {
                         int x = positionToX.get(position);
-                        indicatorX = lerp(prevX, newX, animatingIndicatorProgress) - (x - holder.itemView.getLeft()) + dp(TAB_PADDING_WIDTH / 2f);
+                        indicatorX = lerp(prevX, newX, animatingIndicatorProgress) - (x - holder.itemView.getLeft()) + dp(tabPaddingWidth() / 2f);
                     }
                     indicatorWidth = lerp(prevW, newW, animatingIndicatorProgress);
                     counterVisible = lerp(prevH, newH, animatingIndicatorProgress);
@@ -1510,12 +1531,21 @@ public class FilterTabsView extends FrameLayout {
                 counterVisible = tabView.tabCounterVisible;
             }
         }
+        if (swiftgramFolders()) {
+            int from = animatingIndicator ? previousPosition : currentPosition;
+            int to = manualScrollingToPosition != -1 ? manualScrollingToPosition : currentPosition;
+            if (swiftgramTabBounds(from, swiftgramPreviousTab) && swiftgramTabBounds(to, swiftgramCurrentTab)) {
+                float progress = animatingIndicator || manualScrollingToPosition != -1 ? animatingIndicatorProgress : 1f;
+                indicatorX = lerp(swiftgramPreviousTab.left, swiftgramCurrentTab.left, progress);
+                indicatorWidth = lerp(swiftgramPreviousTab.width(), swiftgramCurrentTab.width(), progress);
+            }
+        }
         if (indicatorWidth != 0) {
             canvas.save();
             canvas.translate(listView.getTranslationX(), 0);
             canvas.scale(listView.getScaleX(), 1f, listView.getPivotX() + listView.getX(), listView.getPivotY());
 
-            final float add = additionalTabWidth / 2f;
+            final float add = swiftgramFolders() ? 0 : additionalTabWidth / 2f;
 
             if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) {
                 Paint underline = Theme.fillingPaint(Theme.getColor(Theme.key_actionBarTabActiveText, resourcesProvider));
@@ -1524,8 +1554,9 @@ public class FilterTabsView extends FrameLayout {
                 return;
             }
 
-            final int y = height / 2 - dp(14);
-            selectorDrawable.setBounds((int) (indicatorX - dp(TAB_INTERNAL_PADDING) - add), y, (int) (indicatorX + indicatorWidth + dp(TAB_INTERNAL_PADDING) + add), y + dp(28));
+            final int selectedHeight = dp(swiftgramFolders() ? 36 : 28);
+            final int y = (height - selectedHeight) / 2;
+            selectorDrawable.setBounds((int) (indicatorX - dp(tabInternalPadding()) - add), y, (int) (indicatorX + indicatorWidth + dp(tabInternalPadding()) + add), y + selectedHeight);
             selectorDrawable.setAlpha(31);
             selectorDrawable.draw(canvas);
             canvas.restore();
@@ -1538,8 +1569,10 @@ public class FilterTabsView extends FrameLayout {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         clipPath.rewind();
-        clipPath.addRoundRect(dp(9), dp(9), w - dp(9), h - dp(9),
-            dp(16), dp(16), Path.Direction.CW);
+        final int side = dp(swiftgramFolders() ? 0 : 9);
+        final int vertical = swiftgramFolders() ? Math.max(0, (h - dp(44)) / 2) : dp(9);
+        clipPath.addRoundRect(side, vertical, w - side, h - vertical,
+            dp(swiftgramFolders() ? 22 : 16), dp(swiftgramFolders() ? 22 : 16), Path.Direction.CW);
     }
 
     @Override
@@ -1739,7 +1772,7 @@ public class FilterTabsView extends FrameLayout {
         invalidated = true;
         allTabsWidth = 0;
         for (int b = 0, N = tabs.size(); b < N; b++) {
-            allTabsWidth += tabs.get(b).getWidth(true) + dp(TAB_PADDING_WIDTH);
+            allTabsWidth += tabs.get(b).getWidth(true) + dp(tabPaddingWidth());
         }
         requestLayout();
         listView.setItemAnimator(null);
@@ -1767,7 +1800,7 @@ public class FilterTabsView extends FrameLayout {
                     defaultTab.setTitle(LocaleController.getString(R.string.FilterAllChats), null, false);
                 }
                 for (int b = 0; b < N; b++) {
-                    allTabsWidth += tabs.get(b).getWidth(true) + dp(TAB_PADDING_WIDTH);
+                    allTabsWidth += tabs.get(b).getWidth(true) + dp(tabPaddingWidth());
                 }
                 break;
             }
@@ -1803,7 +1836,7 @@ public class FilterTabsView extends FrameLayout {
                 defaultTab.setTitle(LocaleController.getString(R.string.FilterAllChats), null, false);
             }
             for (int b = 0, N = tabs.size(); b < N; b++) {
-                allTabsWidth += tabs.get(b).getWidth(true) + dp(TAB_PADDING_WIDTH);
+                allTabsWidth += tabs.get(b).getWidth(true) + dp(tabPaddingWidth());
             }
         }
     }

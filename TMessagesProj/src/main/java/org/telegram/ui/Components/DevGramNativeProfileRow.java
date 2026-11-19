@@ -31,6 +31,9 @@ public final class DevGramNativeProfileRow extends FrameLayout {
         super(context);this.account=account;this.owner=owner;this.row=row;this.resources=resources;this.preview=preview;type=DevGramProfileRowSpec.type(row);
         boolean divider=row.optBoolean("divider",true);String title=row.optString("title"),value=row.optString("url"),text=row.optString("text");
         int titleColor=color("titleColor",Theme.key_windowBackgroundWhiteBlackText),valueColor=color("valueColor",Theme.key_windowBackgroundWhiteGrayText2),iconColor=color("iconColor",Theme.key_windowBackgroundWhiteGrayIcon);
+        Integer blockTextColor=DevGramProfilePalette.Provider.blockTextColor(document);
+        if(blockTextColor!=null){titleColor=blockTextColor;valueColor=blockTextColor;}
+        titleColor=DevGramProfilePalette.rowColor(resources,"text",titleColor);valueColor=DevGramProfilePalette.rowColor(resources,"text",valueColor);
         View cell;
         switch(type){
             case 1:{TextDetailCell detail=new TextDetailCell(context,resources,true,true);detail.setTextAndValue(value,title,divider);detail.textView.setTextColor(valueColor);detail.valueTextView.setTextColor(titleColor);cell=detail;break;}
@@ -48,6 +51,7 @@ public final class DevGramNativeProfileRow extends FrameLayout {
                 else nativeCell.setTextAndValueAndIcon(title,display,icon,divider);
                 nativeCell.setTextColor(titleColor);nativeCell.getValueTextView().setTextColor(valueColor);nativeCell.getImageView().setColorFilter(iconColor);cell=nativeCell;break;}
         }
+        Integer background=DevGramProfilePalette.rowColor(resources,"background");if(background!=null)setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(row.optInt("radius",12)),background));
         int height=type==10?Math.max(80,Math.min(480,row.optInt("height",180))):type==11?220:-2;
         addView(cell,new FrameLayout.LayoutParams(-1,height==-2?-2:AndroidUtilities.dp(height)));
         if(preview){setDescendantFocusability(FOCUS_BLOCK_DESCENDANTS);setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);}
@@ -56,7 +60,7 @@ public final class DevGramNativeProfileRow extends FrameLayout {
     public void fillImageCard(){if(type==10&&getChildAt(0) instanceof BackupImageView){BackupImageView image=(BackupImageView)getChildAt(0);image.setRoundRadius(0);image.setAspectFit(false);}}
     private String switchKey(){return "devgramProfileSwitch_"+UserConfig.getInstance(account).getClientUserId()+"_"+owner+"_"+row.optString("id");}
     private boolean available(){return DevGramProfileCustomization.enabled()&&DevGramProfilePolicy.allowed(owner,"profile.blocks")&&DevGramProfilePolicy.allowed(owner,DevGramProfileRowSpec.feature(type))&&(!row.optBoolean("ownOnly")||UserConfig.getInstance(account).getClientUserId()==org.telegram.messenger.DevGramCommunityProfiles.owner(owner));}
-    private int color(String key,int fallback){int value=row.optInt(key);return value==0?Theme.getColor(fallback,resources):value;}
+    private int color(String key,int fallback){int value=row.optInt(key);int color=value==0?(key.equals("iconBack")?DevGramProfilePalette.inheritedColor(resources,fallback):Theme.getColor(fallback,resources)):value;return DevGramProfilePalette.rowColor(resources,key.equals("iconColor")?"icon":key.equals("iconBack")?"background":"text",color);}
     private static String shortValue(String text){return text.length()>44?text.substring(0,41)+"…":text;}
     private void action(int action){if(type==12&&(action==1||action==4)){String link=((DevGramIntegrationRowView)getChildAt(0)).serviceLink();if(!link.isEmpty())Browser.openUrl(getContext(),link);return;}String value=row.optString("url").trim();if(value.isEmpty())value=row.optString("text");if(value.isEmpty())return;switch(action){case 1:if(value.startsWith("https://")||value.startsWith("http://")||value.startsWith("tg://")||value.startsWith("tel:")||value.startsWith("mailto:"))Browser.openUrl(getContext(),value);else if(value.matches("[A-Za-z0-9][A-Za-z0-9.-]+\\.[A-Za-z]{2,}(/.*)?"))Browser.openUrl(getContext(),"https://"+value);break;case 2:AndroidUtilities.addToClipboard(value);Toast.makeText(getContext(),DevGramLocale.text("Скопировано"),Toast.LENGTH_SHORT).show();break;case 3:Intent share=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,value);try{getContext().startActivity(Intent.createChooser(share,DevGramLocale.text("Поделиться")));}catch(Exception ignored){}break;case 4:String handle=value.replaceFirst("^@","");if(handle.matches("[A-Za-z0-9_]{5,32}"))Browser.openUrl(getContext(),"https://t.me/"+handle);else if(value.startsWith("https://t.me/")||value.startsWith("tg://"))Browser.openUrl(getContext(),value);break;}}
     @Override public boolean onInterceptTouchEvent(MotionEvent event){return preview||super.onInterceptTouchEvent(event);}

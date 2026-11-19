@@ -26,6 +26,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean centerChatTitle() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("chat");
         return preferences().getBoolean("dg_ios_center_chat_title",
                 preferences().getBoolean("dg_centerTitle", DevGramConfig.centerTitle));
     }
@@ -40,6 +41,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean adaptiveTitleWidth() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("chat");
         return preferences().getBoolean("dg_ios_adaptive_title_width", true);
     }
 
@@ -48,6 +50,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean showUnreadCounter() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("chat");
         return preferences().getBoolean("dg_ios_show_unread_counter", centerChatTitle());
     }
 
@@ -56,6 +59,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean iosUnreadCounter() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("chat");
         return preferences().getBoolean("dg_ios_unread_counter_style", centerChatTitle());
     }
 
@@ -64,6 +68,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean iosInputPanel() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("chat");
         return preferences().getBoolean("dg_ios_input_panel", iosDesignDefault());
     }
 
@@ -82,6 +87,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean iosMessageMenu() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("menus");
         return preferences().getBoolean("dg_ios_message_menu", iosDesignDefault());
     }
 
@@ -99,6 +105,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean showWholeAlbumInMenu() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("menus");
         return preferences().getBoolean("dg_ios_message_menu_whole_album", false);
     }
 
@@ -107,6 +114,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean rememberKeyboardForMenu() {
+        if (DevGramSwiftgramDesign.selected()) return DevGramSwiftgramDesign.section("menus");
         return preferences().getBoolean("dg_ios_message_menu_remember_keyboard", true);
     }
 
@@ -115,6 +123,7 @@ public final class DevGramIOSConfig {
     }
 
     public static boolean compactMenuActions() {
+        if (DevGramSwiftgramDesign.section("menus")) return false;
         return preferences().getBoolean("dg_ios_message_menu_compact", false);
     }
 

@@ -2023,7 +2023,10 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
 
             imageMoveAnimation = new AnimatorSet();
 
-            if (object != null && object.imageReceiver.getThumbBitmap() != null && !byDelete && onClose == null) {
+            boolean keepingLocally = currentMessageObject != null
+                    && org.telegram.messenger.DevGramSelfDestructingMedia.enabled(currentAccount, currentMessageObject.getDialogId())
+                    && org.telegram.messenger.DevGramSelfDestructingMedia.candidate(currentMessageObject.messageOwner);
+            if (object != null && object.imageReceiver.getThumbBitmap() != null && !byDelete && (onClose == null || keepingLocally)) {
                 object.imageReceiver.setVisible(false, true);
 
                 final RectF drawRegion = object.imageReceiver.getDrawRegion();

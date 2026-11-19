@@ -3425,6 +3425,11 @@ public class RecyclerListView extends RecyclerView implements IBlur3Capture {
     ) {
         setSelectorDrawableColor(getThemedColor(Theme.key_settings_listSelector));
         if (DevGramClassicDesign.enabled()) { padding = 0; roundRadius = 0; }
+        else if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings") || org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) {
+            float width = AndroidUtilities.displaySize.x / AndroidUtilities.density;
+            padding = dp(DevGramSwiftgramHeaderLayout.sectionInset(width));
+            roundRadius = dp(26);
+        }
         this.isViewTypeSection = isViewTypeSection;
         this.sectionRadius = roundRadius;
         this.sectionRadiusTop = new float[] {

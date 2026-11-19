@@ -363,12 +363,12 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
         backgroundColor = getThemedColor(backgroundColorKey = Theme.key_dialogBackground);
         final boolean isDark = AndroidUtilities.computePerceivedBrightness(backgroundColor) < 0.721f;
         blurredNativeBackground = supportsNativeBlur() && progressViewStyle == ALERT_TYPE_MESSAGE;
-        blurredBackground = (blurredNativeBackground || !supportsNativeBlur() && SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_HIGH && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR)) && isDark;
+        blurredBackground = (blurredNativeBackground || !supportsNativeBlur() && SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_HIGH && LiteMode.isEnabled(LiteMode.FLAG_CHAT_BLUR)) && (isDark || swiftgramAlert());
 
         backgroundPaddings = new Rect();
         if (progressStyle != ALERT_TYPE_SPINNER || blurredBackground) {
             shadowDrawable = context.getResources().getDrawable(R.drawable.popup_fixed_alert4).mutate();
-            blurOpacity = progressStyle == ALERT_TYPE_SPINNER ? 0.55f : (isDark ? 0.80f : 0.985f);
+            blurOpacity = progressStyle == ALERT_TYPE_SPINNER ? 0.55f : (swiftgramAlert() ? isDark ? .80f : .78f : isDark ? 0.80f : 0.985f);
             shadowDrawable.setColorFilter(new PorterDuffColorFilter(backgroundColor, PorterDuff.Mode.MULTIPLY));
             shadowDrawable.getPadding(backgroundPaddings);
         }
@@ -652,7 +652,7 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                             (getHeight() + h) / 2f
                     );
                 } else {
-                    r = dp(20);
+                    r = dp(swiftgramAlert() ? 35 : 20);
                     AndroidUtilities.rectTmp.set(getPaddingLeft(), getPaddingTop(), getMeasuredWidth() - getPaddingRight(), getMeasuredHeight() - getPaddingBottom());
                 }
 
@@ -710,7 +710,23 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
         } else {
             maxWidth = dp(356);
         }
+        if (swiftgramAlert() && customView == null && items == null) maxWidth = dp(300);
         return Math.min(maxWidth, calculatedWidth) + backgroundPaddings.left + backgroundPaddings.right;
+    }
+
+    private boolean swiftgramAlert() {
+        return progressViewStyle == ALERT_TYPE_MESSAGE && org.telegram.messenger.DevGramSwiftgramDesign.section("menus");
+    }
+
+    private int swiftgramButtonCount() {
+        return (positiveButtonText == null ? 0 : 1) + (negativeButtonText == null ? 0 : 1)
+                + (neutralButtonText == null ? 0 : 1) + (negative2ButtonText == null ? 0 : 1);
+    }
+
+    private Drawable swiftgramButtonBackground(int color, boolean primary) {
+        int fill = primary ? color : Theme.multAlpha(getThemedColor(Theme.key_dialogTextBlack), .1f);
+        return Theme.createSimpleSelectorRoundRectDrawable(dp(24), fill,
+                Theme.multAlpha(primary ? color : getThemedColor(Theme.key_dialogTextBlack), primary ? .65f : .18f));
     }
     public AlertDialog setShowStarsBalance(boolean show) {
         needStarsBalance = show;
@@ -825,7 +841,7 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                 containerView.setPadding(0, 0, 0, 0);
                 containerView.setBackground(shadowDrawable);
 
-                containerView.setOutlineProvider(ViewOutlineProviderImpl.boundsWithPaddingRoundRect(dp(8), dp(20)));
+                containerView.setOutlineProvider(ViewOutlineProviderImpl.boundsWithPaddingRoundRect(dp(8), dp(swiftgramAlert() ? 35 : 20)));
                 containerView.setClipToOutline(true);
 
                 drawBackground = false;
@@ -930,10 +946,10 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
             titleTextView.cacheType = AnimatedEmojiDrawable.CACHE_TYPE_ALERT_PREVIEW;
             titleTextView.setText(title);
             titleTextView.setTextColor(lastTitleTextColor = getThemedColor(Theme.key_dialogTextBlack)); // re-applied in updateThemeColors unless customTextColor
-            titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20);
+            titleTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramAlert() ? 17 : 20);
             titleTextView.setTypeface(AndroidUtilities.bold());
-            titleTextView.setGravity((topAnimationIsNew ? Gravity.CENTER_HORIZONTAL : LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-            titleContainer.addView(titleTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (topAnimationIsNew ? Gravity.CENTER_HORIZONTAL : LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, 0, 19, 0, topAnimationIsNew ? 4 : (subtitle != null ? 2 : (items != null ? 14 : 10))));
+            titleTextView.setGravity((swiftgramAlert() || topAnimationIsNew ? Gravity.CENTER_HORIZONTAL : LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
+            titleContainer.addView(titleTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (swiftgramAlert() || topAnimationIsNew ? Gravity.CENTER_HORIZONTAL : LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, 0, swiftgramAlert() ? 22 : 19, 0, topAnimationIsNew ? 4 : (subtitle != null ? 2 : (items != null ? 14 : 10))));
         }
 
         if (secondTitle != null && title != null) {
@@ -989,7 +1005,8 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
         messageTextView = new EffectsTextView(getContext());
         NotificationCenter.listenEmojiLoading(messageTextView);
         messageTextView.setTextColor(lastMessageTextColor = getThemedColor(topAnimationIsNew ? Theme.key_windowBackgroundWhiteGrayText : Theme.key_dialogTextBlack)); // re-applied in updateThemeColors unless customTextColor
-        messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramAlert() ? 15 : 16);
+        if (swiftgramAlert() && customView == null && items == null) messageTextView.setGravity(Gravity.CENTER);
         messageTextView.setMovementMethod(new AndroidUtilities.LinkMovementMethodMy());
         ThemeBind.linkTextColor(messageTextView, Theme.key_dialogTextLink, themedColors);
         if (!messageTextViewClickable) {
@@ -1101,6 +1118,14 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                     }
                 }
             }
+            if (swiftgramAlert()) {
+                buttonsInTwoRows = false;
+                android.text.TextPaint text = new android.text.TextPaint(); text.setTextSize(dp(17));
+                float half = (Math.min(dp(300), AndroidUtilities.displaySize.x - dp(48)) - dp(32 + 8)) / 2f - dp(32);
+                verticalButtons = swiftgramButtonCount() != 2;
+                for (CharSequence label : new CharSequence[]{positiveButtonText, negativeButtonText, neutralButtonText, negative2ButtonText})
+                    if (label != null && text.measureText(label.toString()) > half) verticalButtons = true;
+            }
             if (verticalButtons) {
                 LinearLayout linearLayout = new LinearLayout(getContext());
                 linearLayout.setOrientation(LinearLayout.VERTICAL);
@@ -1110,6 +1135,18 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                     @Override
                     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
                         int count = getChildCount();
+                        if (swiftgramAlert()) {
+                            int width = right - left, half = (width - getPaddingLeft() - getPaddingRight() - dp(8)) / 2;
+                            for (int i = 0; i < count; i++) {
+                                View child = getChildAt(i);
+                                if (child.getTag() instanceof Integer) {
+                                    boolean positive = ((Integer) child.getTag()) == BUTTON_POSITIVE;
+                                    int x = positive != LocaleController.isRTL ? width - getPaddingRight() - half : getPaddingLeft();
+                                    child.layout(x, getPaddingTop(), x + half, getPaddingTop() + dp(48));
+                                } else child.layout(width / 2 - child.getMeasuredWidth() / 2, getPaddingTop(), width / 2 + child.getMeasuredWidth() / 2, getPaddingTop() + child.getMeasuredHeight());
+                            }
+                            return;
+                        }
                         View positiveButton = null;
                         int width = right - left;
                         if (buttonsInTwoRows) {
@@ -1195,6 +1232,14 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
 
+                        if (swiftgramAlert()) {
+                            int half = Math.max(1, (getMeasuredWidth() - getPaddingLeft() - getPaddingRight() - dp(8)) / 2);
+                            for (int i = 0; i < getChildCount(); i++) {
+                                View child = getChildAt(i);
+                                if (child.getTag() instanceof Integer) child.measure(MeasureSpec.makeMeasureSpec(half, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(48), MeasureSpec.EXACTLY));
+                            }
+                            return;
+                        }
                         int totalWidth = 0;
                         int availableWidth = getMeasuredWidth() - getPaddingLeft() - getPaddingRight();
                         int count = getChildCount();
@@ -1243,8 +1288,9 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
             } else {
                 buttonsLayout.setPadding(dp(8), dp(8), dp(8), dp(8));
             }
+            if (swiftgramAlert()) buttonsLayout.setPadding(dp(16), 0, dp(16), dp(16));
             containerView.addView(buttonsLayout, LayoutHelper.createLinear(
-                LayoutHelper.MATCH_PARENT, buttonsInTwoRows ? 96 : 52));
+                LayoutHelper.MATCH_PARENT, swiftgramAlert() ? (verticalButtons ? swiftgramButtonCount() * 48 + Math.max(0, swiftgramButtonCount() - 1) * 8 + 16 : 64) : buttonsInTwoRows ? 96 : 52));
             if (topAnimationIsNew) {
                 buttonsLayout.setTranslationY(-dp(8));
             }
@@ -1259,23 +1305,23 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
 
                     @Override
                     public void setTextColor(int color) {
-                        super.setTextColor(color);
-                        setBackground(Theme.getRoundRectSelectorDrawable(dp(20), color));
+                        super.setTextColor(swiftgramAlert() && getTag() instanceof Integer && ((Integer) getTag()) == BUTTON_POSITIVE ? android.graphics.Color.WHITE : color);
+                        setBackground(swiftgramAlert() ? swiftgramButtonBackground(color, getTag() instanceof Integer && ((Integer) getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), color));
                     }
                 };
                 textView.setMinWidth(dp(64));
                 textView.setTag(Dialog.BUTTON_POSITIVE);
-                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramAlert() ? 17 : 16);
                 ThemeBind.textColor(textView, dialogButtonColorKey, themedColors);
                 textView.setGravity(Gravity.CENTER);
                 textView.setTypeface(AndroidUtilities.bold());
                 textView.setText(positiveButtonText);
-                textView.setBackground(Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
+                textView.setBackground(swiftgramAlert() ? swiftgramButtonBackground(getThemedColor(dialogButtonColorKey), ((Integer) textView.getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
                 textView.setPadding(dp(12), 0, dp(12), 0);
                 if (verticalButtons) {
-                    buttonsLayout.addView(textView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 40, Gravity.FILL_HORIZONTAL));
+                    buttonsLayout.addView(textView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, swiftgramAlert() ? 48 : 40, Gravity.FILL_HORIZONTAL));
                 } else {
-                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 40, Gravity.TOP | Gravity.RIGHT));
+                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, swiftgramAlert() ? 48 : 40, Gravity.TOP | Gravity.RIGHT));
                 }
                 textView.setOnClickListener(v -> {
                     if (textView.isLoading()) return;
@@ -1298,25 +1344,25 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
 
                     @Override
                     public void setTextColor(int color) {
-                        super.setTextColor(color);
-                        setBackground(Theme.getRoundRectSelectorDrawable(dp(20), color));
+                        super.setTextColor(swiftgramAlert() && getTag() instanceof Integer && ((Integer) getTag()) == BUTTON_POSITIVE ? android.graphics.Color.WHITE : color);
+                        setBackground(swiftgramAlert() ? swiftgramButtonBackground(color, getTag() instanceof Integer && ((Integer) getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), color));
                     }
                 };
                 textView.setMinWidth(dp(64));
                 textView.setTag(Dialog.BUTTON_NEGATIVE);
-                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramAlert() ? 17 : 16);
                 ThemeBind.textColor(textView, dialogButtonColorKey, themedColors);
                 textView.setGravity(Gravity.CENTER);
                 textView.setTypeface(AndroidUtilities.bold());
                 textView.setEllipsize(TextUtils.TruncateAt.END);
                 textView.setSingleLine(true);
                 textView.setText(negativeButtonText.toString());
-                textView.setBackground(Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
+                textView.setBackground(swiftgramAlert() ? swiftgramButtonBackground(getThemedColor(dialogButtonColorKey), ((Integer) textView.getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
                 textView.setPadding(dp(12), 0, dp(12), 0);
                 if (verticalButtons) {
-                    buttonsLayout.addView(textView, 0, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 40, Gravity.FILL_HORIZONTAL));
+                    buttonsLayout.addView(textView, 0, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, swiftgramAlert() ? 48 : 40, Gravity.FILL_HORIZONTAL));
                 } else {
-                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 40, Gravity.TOP | Gravity.RIGHT));
+                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, swiftgramAlert() ? 48 : 40, Gravity.TOP | Gravity.RIGHT));
                 }
                 textView.setOnClickListener(v -> {
                     if (textView.isLoading()) return;
@@ -1339,25 +1385,25 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
 
                     @Override
                     public void setTextColor(int color) {
-                        super.setTextColor(color);
-                        setBackground(Theme.getRoundRectSelectorDrawable(dp(20), color));
+                        super.setTextColor(swiftgramAlert() && getTag() instanceof Integer && ((Integer) getTag()) == BUTTON_POSITIVE ? android.graphics.Color.WHITE : color);
+                        setBackground(swiftgramAlert() ? swiftgramButtonBackground(color, getTag() instanceof Integer && ((Integer) getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), color));
                     }
                 };
                 textView.setMinWidth(dp(64));
                 textView.setTag(Dialog.BUTTON_NEUTRAL);
-                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramAlert() ? 17 : 16);
                 ThemeBind.textColor(textView, dialogButtonColorKey, themedColors);
                 textView.setGravity(Gravity.CENTER);
                 textView.setTypeface(AndroidUtilities.bold());
                 textView.setEllipsize(TextUtils.TruncateAt.END);
                 textView.setSingleLine(true);
                 textView.setText(neutralButtonText.toString());
-                textView.setBackground(Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
+                textView.setBackground(swiftgramAlert() ? swiftgramButtonBackground(getThemedColor(dialogButtonColorKey), ((Integer) textView.getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
                 textView.setPadding(dp(12), 0, dp(12), 0);
                 if (verticalButtons) {
-                    buttonsLayout.addView(textView, 1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 40, Gravity.FILL_HORIZONTAL));
+                    buttonsLayout.addView(textView, 1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, swiftgramAlert() ? 48 : 40, Gravity.FILL_HORIZONTAL));
                 } else {
-                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 40, Gravity.TOP | Gravity.LEFT));
+                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, swiftgramAlert() ? 48 : 40, Gravity.TOP | Gravity.LEFT));
                 }
                 textView.setOnClickListener(v -> {
                     if (textView.isLoading()) return;
@@ -1381,24 +1427,24 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
                     @Override
                     public void setTextColor(int color) {
                         super.setTextColor(color);
-                        setBackgroundDrawable(Theme.getRoundRectSelectorDrawable(dp(20), color));
+                        setBackgroundDrawable(swiftgramAlert() ? swiftgramButtonBackground(color, false) : Theme.getRoundRectSelectorDrawable(dp(20), color));
                     }
                 };
                 textView.setMinWidth(dp(64));
                 textView.setTag(AlertDialog.BUTTON_NEGATIVE_2);
-                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramAlert() ? 17 : 16);
                 ThemeBind.textColor(textView, dialogButtonColorKey, themedColors);
                 textView.setGravity(Gravity.CENTER);
                 textView.setTypeface(AndroidUtilities.bold());
                 textView.setEllipsize(TextUtils.TruncateAt.END);
                 textView.setSingleLine(true);
                 textView.setText(negative2ButtonText.toString());
-                textView.setBackground(Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
+                textView.setBackground(swiftgramAlert() ? swiftgramButtonBackground(getThemedColor(dialogButtonColorKey), ((Integer) textView.getTag()) == BUTTON_POSITIVE) : Theme.getRoundRectSelectorDrawable(dp(20), getThemedColor(dialogButtonColorKey)));
                 textView.setPadding(dp(12), 0, dp(12), 0);
                 if (verticalButtons) {
-                    buttonsLayout.addView(textView, 0, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 40, Gravity.FILL_HORIZONTAL));
+                    buttonsLayout.addView(textView, 0, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, swiftgramAlert() ? 48 : 40, Gravity.FILL_HORIZONTAL));
                 } else {
-                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 40, Gravity.TOP | Gravity.RIGHT));
+                    buttonsLayout.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, swiftgramAlert() ? 48 : 40, Gravity.TOP | Gravity.RIGHT));
                 }
                 textView.setOnClickListener(v -> {
                     if (textView.isLoading()) return;
@@ -1413,7 +1459,7 @@ public class AlertDialog extends Dialog implements Drawable.Callback, Notificati
 
             if (verticalButtons) {
                 for (int i = 1; i < buttonsLayout.getChildCount(); i++) {
-                    ((ViewGroup.MarginLayoutParams) buttonsLayout.getChildAt(i).getLayoutParams()).topMargin = dp(6);
+                    ((ViewGroup.MarginLayoutParams) buttonsLayout.getChildAt(i).getLayoutParams()).topMargin = dp(swiftgramAlert() ? 8 : 6);
                 }
             }
         }

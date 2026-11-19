@@ -304,6 +304,7 @@ public class SecretVoicePlayer extends Dialog {
     private AudioVisualizerDrawable audioVisualizerDrawable;
     private boolean setCellInvisible;
     private Runnable openAction, closeAction;
+    private boolean keepMessageAfterPlayback;
 
     public void setCell(ChatMessageCell messageCell, Runnable openAction, Runnable closeAction) {
         this.openAction = openAction;
@@ -314,6 +315,9 @@ public class SecretVoicePlayer extends Dialog {
         }
         cell = messageCell;
         messageObject = cell != null ? cell.getMessageObject() : null;
+        keepMessageAfterPlayback = messageObject != null && !messageObject.isOutOwner()
+                && org.telegram.messenger.DevGramSelfDestructingMedia.enabled(messageObject.currentAccount, messageObject.getDialogId())
+                && org.telegram.messenger.DevGramSelfDestructingMedia.candidate(messageObject.messageOwner);
         isRound = messageObject != null && messageObject.isRoundVideo();
         resourcesProvider = cell != null ? cell.getResourcesProvider() : null;
         int videoDp = 360;
@@ -624,7 +628,9 @@ public class SecretVoicePlayer extends Dialog {
         if (messageObject != null && messageObject.getDialogId() != UserConfig.getInstance(messageObject.currentAccount).getClientUserId()) {
             hintView = new HintView2(context, HintView2.DIRECTION_BOTTOM);
             hintView.setMultilineText(true);
-            if (isOut) {
+            if (keepMessageAfterPlayback) {
+                hintView.setText(org.telegram.messenger.DevGramLocale.text("Включено локальное сохранение вложений."));
+            } else if (isOut) {
                 String name = "";
                 long did = messageObject.getDialogId();
                 if (did > 0) {
@@ -675,7 +681,7 @@ public class SecretVoicePlayer extends Dialog {
         }
         closeButton.setPadding(dp(12), dp(6), dp(12), dp(6));
         ScaleStateListAnimator.apply(closeButton);
-        closeButton.setText(LocaleController.getString(isOut ? R.string.VoiceOnceClose : R.string.VoiceOnceDeleteClose));
+        closeButton.setText(LocaleController.getString(isOut || keepMessageAfterPlayback ? R.string.VoiceOnceClose : R.string.VoiceOnceDeleteClose));
         closeButton.setOnClickListener(v -> {
             dismiss();
         });
@@ -738,6 +744,10 @@ public class SecretVoicePlayer extends Dialog {
     private AlertDialog backDialog;
     @Override
     public void onBackPressed() {
+        if (keepMessageAfterPlayback) {
+            dismiss();
+            return;
+        }
         if (backDialog != null) {
             backDialog.dismiss();
             backDialog = null;
@@ -804,7 +814,10 @@ public class SecretVoicePlayer extends Dialog {
         });
         windowView.invalidate();
 
-        if (this.closeAction != null) {
+        if (this.closeAction != null && keepMessageAfterPlayback) {
+            AndroidUtilities.runOnUIThread(this.closeAction);
+            this.closeAction = null;
+        } else if (this.closeAction != null) {
             if (cell != null) {
                 cell.makeVisibleAfterChange = true;
 //                AndroidUtilities.runOnUIThread(() -> {
@@ -879,7 +892,7 @@ public class SecretVoicePlayer extends Dialog {
                 }
             }
         });
-        final long duration = !open && closeAction == null ? 330 : 520;
+        final long duration = !open && (closeAction == null || keepMessageAfterPlayback) ? 330 : 520;
         openAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
         openAnimator.setDuration(duration);
         openAnimator.start();

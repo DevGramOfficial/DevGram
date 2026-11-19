@@ -99,7 +99,7 @@ public class TextCell extends FrameLayout implements Theme.Colorable {
 
         textView = new SimpleTextView(context);
         ThemeBind.textColor(textView, dialog ? Theme.key_dialogTextBlack : Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
-        textView.setTextSize(16);
+        textView.setTextSize(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 16);
         textView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
         textView.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT));
@@ -141,7 +141,7 @@ public class TextCell extends FrameLayout implements Theme.Colorable {
         if (needCheck) {
             checkBox = new Switch(context, resourcesProvider);
             checkBox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-            addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+            addView(checkBox, LayoutHelper.createFrame(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 51 : 37, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 31 : 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0));
         }
 
         setFocusable(true);
@@ -185,7 +185,7 @@ public class TextCell extends FrameLayout implements Theme.Colorable {
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int width = MeasureSpec.getSize(widthMeasureSpec);
-        int height = dp(heightDp);
+        int height = dp(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") && heightDp == 50 ? 52 : heightDp);
 
         if (lastWidth != 0 && lastWidth != width && valueText != null) {
             valueTextView.setText(TextUtils.ellipsize(valueText, valueTextView.getPaint(), AndroidUtilities.displaySize.x / 2.5f, TextUtils.TruncateAt.END), false);
@@ -552,7 +552,7 @@ public class TextCell extends FrameLayout implements Theme.Colorable {
         if (checkBox == null) {
             checkBox = new Switch(getContext(), resourcesProvider);
             checkBox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-            addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+            addView(checkBox, LayoutHelper.createFrame(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 51 : 37, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 31 : 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0));
         }
         if (checkBox != null) {
             checkBox.setVisibility(VISIBLE);

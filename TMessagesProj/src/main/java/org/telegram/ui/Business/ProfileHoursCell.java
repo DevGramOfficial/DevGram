@@ -170,6 +170,7 @@ public class ProfileHoursCell extends LinearLayout {
     }
 
     public void updateColors() {
+        Integer icon=org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"icon");if(arrowView!=null)arrowView.setColorFilter(icon==null?Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2,resourcesProvider):icon,PorterDuff.Mode.SRC_IN);
         switchText.setBackground(Theme.createSimpleSelectorRoundRectDrawable(dp(8), Theme.multAlpha(processColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText2, resourcesProvider)), .10f), Theme.multAlpha(processColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText2, resourcesProvider)), .22f)));
         switchText.setTextColor(processColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText2, resourcesProvider)));
     }

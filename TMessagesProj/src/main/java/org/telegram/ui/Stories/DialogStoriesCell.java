@@ -328,7 +328,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         titleView.setTextColor(getTextLogoColor());
         titleView.setTypeface(AndroidUtilities.bold());
         titleView.setPadding(0, dp(8), 0, dp(8));
-        titleView.setTextSize(dp(!AndroidUtilities.isTablet() && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 18 : 20));
+        titleView.setTextSize(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? 17 : !AndroidUtilities.isTablet() && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 18 : 20));
         titleView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         titleView.setFocusableInTouchMode(true);
         addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
@@ -635,6 +635,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
                 LocaleController.formatPluralString("Stories", totalCount);
         }
 
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist")) currentTitle = getString(R.string.MainTabsChats);
         if (!hasOverlayText) {
             titleView.setText(currentTitle, animated && !LocaleController.isRTL);
         }
@@ -953,6 +954,27 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
             subtitleOverlayContainer.setTranslationY(bottomY - barOffset + dp(15 + FAKE_TOP_PADDING + 4.333f + 8));
         }
 
+        if (progress > 0 && org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist")) {
+            final float density = AndroidUtilities.density;
+            final float minX = actionBar.getSwiftgramLeadingContentEnd() / density;
+            final float maxX = (getWidth() - dp(16) - actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha()) / density;
+            final float avatars = Math.max(0, lastViewRight - menuItemsOffset);
+            final float titleWidth = titleView.getDrawable().getCurrentWidth();
+            final float statusWidth = statusDrawable.isEmpty() ? 0 : dp(30);
+            final boolean fits = org.telegram.ui.Components.DevGramSwiftgramStoryTitleLayout.showsText((avatars + titleWidth + statusWidth) / density, minX, maxX);
+            final float contentWidth = avatars + (fits ? titleWidth : 0) + statusWidth;
+            final float origin = density * org.telegram.ui.Components.DevGramSwiftgramStoryTitleLayout.origin(getWidth() / density, contentWidth / density, minX, maxX);
+            final float shift = (origin - menuItemsOffset) * progress;
+            listViewMini.setTranslationX(menuItemsOffset + shift);
+            for (StoryCell cell : viewsDrawInParent) cell.setTranslationX(cell.getTranslationX() + shift);
+            titleView.setTranslationX(lastViewRight + shift);
+            titleView.getDrawable().setRightPadding(Math.max(0, getWidth() - titleView.getTranslationX() - titleWidth));
+            titleView.setAlpha(fits ? progress : 0);
+            telegramLogoView.setAlpha(0);
+            emojiStatusView.setTranslationX(lastViewRight + shift + (fits ? titleWidth : 0));
+            emojiStatusView.setVisibility(statusDrawable.isEmpty() ? GONE : VISIBLE);
+            emojiStatusView.setAlpha(statusDrawable.isEmpty() ? 0 : progress);
+        }
         super.dispatchDraw(canvas);
         if (currentState >= 0 && currentState != COLLAPSED_STATE) {
             Collections.sort(viewsDrawInParent, comparator);
@@ -1012,7 +1034,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        titleView.setTextSize(dp(!AndroidUtilities.isTablet() && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 18 : 20));
+        titleView.setTextSize(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? 17 : !AndroidUtilities.isTablet() && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 18 : 20));
         currentCellWidth = dp(ITEM_WIDTH);
         AndroidUtilities.rectTmp.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(dp(85 + FAKE_TOP_PADDING), MeasureSpec.EXACTLY));

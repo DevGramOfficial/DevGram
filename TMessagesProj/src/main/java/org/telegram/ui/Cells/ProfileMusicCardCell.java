@@ -125,6 +125,19 @@ public class ProfileMusicCardCell extends FrameLayout {
         return view;
     }
 
+    public void updateDevGramRowColors(){
+        int text=org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"text",Color.WHITE);
+        titleView.setTextColor(text);
+        authorView.setTextColor(org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"text",0xCCFFFFFF));
+        albumView.setTextColor(org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"text",0xA8FFFFFF));
+        int icon=org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"icon",Color.WHITE);
+        playView.iconPaint.setColor(icon);playView.invalidate();
+        arrowPaint.setColor(org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"icon",0xB8FFFFFF));
+        equalizerPaint.setColor(org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"icon",0xD9FFFFFF));
+        Integer background=org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"background");
+        if(background!=null)color1=color2=background;
+    }
+
     public void setPeerColor(MessagesController.PeerColor peerColor) {
         if (peerColor != null) {
             color1 = peerColor.getBgColor1(Theme.isCurrentThemeDark());
@@ -134,7 +147,7 @@ public class ProfileMusicCardCell extends FrameLayout {
             color1 = Theme.adaptHSV(base, .02f, -.26f);
             color2 = Theme.adaptHSV(base, -.02f, -.39f);
         }
-        invalidate();
+        updateDevGramRowColors();invalidate();
     }
 
     public void setMusic(TLRPC.Document document, MessageObject messageObject) {

@@ -48,12 +48,12 @@ public class ChatActivityEnterViewAnimatedIconView extends RLottieImageView {
 
     public ChatActivityEnterViewAnimatedIconView(Context context, int sizeDp) {
         super(context);
-        this.sizeDp = sizeDp;
+        this.sizeDp = org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 26 : sizeDp;
     }
 
     public void setState(State state, boolean animate) {
         org.telegram.messenger.devgram.icons.IconManager icons = org.telegram.messenger.devgram.icons.IconManager.INSTANCE;
-        if (!icons.isBasePackOnly("base.default")) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chat") || !icons.isBasePackOnly("base.default")) {
             if (animate && state == currentState && packStateDrawable != null && packStateRevision == icons.revision()) return;
             // Keep only the last static target: nesting old crossfades retains every previous icon.
             Drawable previous = packTargetDrawable;

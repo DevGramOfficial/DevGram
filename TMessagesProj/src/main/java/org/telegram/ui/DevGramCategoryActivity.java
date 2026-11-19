@@ -431,6 +431,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     }
 
     private static int md3Count() {
+        if (!gPref("dg_md3", true)) return 0;
         int c = 0;
         for (int i = 0; i < MD3_KEYS.length; i++) {
             if (gPref(MD3_KEYS[i], i < 3)) c++;
@@ -602,6 +603,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
     private final int category;
     private UniversalRecyclerView listView;
     private boolean ghostModeExpanded;
+    private boolean material3Expanded;
 
     public DevGramCategoryActivity(int category) {
         this.category = category;
@@ -768,13 +770,21 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
 
             // App-wide layout switch; classic chrome follows AyuGram 12.2.10.
             items.add(UItem.asHeader(DevGramLocale.text("Дизайн")));
+            final boolean iosDesignAvailable = org.telegram.messenger.DevGramSwiftgramDesign.available();
+            final int designMode = org.telegram.messenger.DevGramConfig.getDesignMode();
             items.add(UItem.asSlideView(
-                    new String[]{"DevGram", DevGramLocale.text("Старый")},
-                    org.telegram.messenger.DevGramConfig.getDesignMode() == org.telegram.messenger.DevGramConfig.DESIGN_MODE_OLD ? 1 : 0,
+                    iosDesignAvailable ? new String[]{"DevGram", "iOS", DevGramLocale.text("Старый")}
+                            : new String[]{"DevGram", DevGramLocale.text("Старый")},
+                    iosDesignAvailable ? designMode : designMode == org.telegram.messenger.DevGramConfig.DESIGN_MODE_OLD ? 1 : 0,
                     index -> {
-                        org.telegram.messenger.DevGramConfig.applyDesignPreset(index == 1
-                                ? org.telegram.messenger.DevGramConfig.DESIGN_MODE_OLD
-                                : org.telegram.messenger.DevGramConfig.DESIGN_MODE_DEVGRAM);
+                        final int mode = iosDesignAvailable ? index : index == 1
+                                ? org.telegram.messenger.DevGramConfig.DESIGN_MODE_OLD : org.telegram.messenger.DevGramConfig.DESIGN_MODE_DEVGRAM;
+                        if (mode == org.telegram.messenger.DevGramConfig.DESIGN_MODE_IOS
+                                && !DevGramAppearanceAccess.check(this, org.telegram.messenger.DevGramSwiftgramDesign.FEATURE)) {
+                            refreshList();
+                            return;
+                        }
+                        org.telegram.messenger.DevGramConfig.applyDesignPreset(mode);
                         refreshThenRebuildAppearanceScreens();
                     }).setId(ID_DESIGN_MODE));
 
@@ -853,25 +863,30 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             items.add(UItem.asCheck(ID_CHAT_HEADER_SHADING, DevGramLocale.text("Затемнение шапки чата"),
                     DevGramLocale.text("Показывать плавное затемнение позади верхней панели чата."), true)
                     .setChecked(gPref("dg_chatHeaderShading", false)));
-            items.add(UItem.asCheck(ID_MD3, org.telegram.messenger.DevGramNewBadge.mark("Material Design 3  " + md3Count() + "/" + (MD3_KEYS.length + 1), org.telegram.messenger.DevGramNewBadge.MATERIAL3))
-                    .setChecked(gPref("dg_md3", true)));
-            if (gPref("dg_md3", true)) {
+            items.add(UItem.asExpandableSwitch(ID_MD3, org.telegram.messenger.DevGramNewBadge.mark("Material Design 3", org.telegram.messenger.DevGramNewBadge.MATERIAL3), md3Count() + "/" + (MD3_KEYS.length + 1))
+                    .setChecked(gPref("dg_md3", true))
+                    .setCollapsed(!material3Expanded)
+                    .setClickCallback(v -> {
+                        gToggle("dg_md3", true);
+                        refreshThenRebuildAppearanceScreens();
+                    }));
+            if (material3Expanded) {
                 items.add(UItem.asRoundCheckbox(ID_MD3_PROGRESS, DevGramLocale.text("Индикаторы загрузки"))
-                        .setChecked(gPref("dg_md3_progress", true)));
+                        .setChecked(gPref("dg_md3_progress", true)).pad());
                 items.add(UItem.asRoundCheckbox(ID_MD3_SLIDER, DevGramLocale.text("Стиль слайдера"))
-                        .setChecked(gPref("dg_md3_slider", true)));
+                        .setChecked(gPref("dg_md3_slider", true)).pad());
                 items.add(UItem.asRoundCheckbox(ID_MD3_SWITCH, DevGramLocale.text("Стиль переключателей"))
-                        .setChecked(gPref("dg_md3_switch", true)));
+                        .setChecked(gPref("dg_md3_switch", true)).pad());
                 items.add(UItem.asRoundCheckbox(ID_MD3_TITLE, DevGramLocale.text("Заголовок чата"))
-                        .setChecked(gPref("dg_md3_title", false)));
+                        .setChecked(gPref("dg_md3_title", false)).pad());
                 items.add(UItem.asRoundCheckbox(ID_MD3_BOTTOMNAV, DevGramLocale.text("Нижняя панель навигации"))
-                        .setChecked(gPref("dg_md3_bottomnav", false)));
+                        .setChecked(gPref("dg_md3_bottomnav", false)).pad());
                 items.add(UItem.asRoundCheckbox(ID_MD3_FAB, DevGramLocale.text("Плавающие кнопки"))
-                        .setChecked(gPref("dg_md3_fab", false)));
+                        .setChecked(gPref("dg_md3_fab", false)).pad());
                 items.add(UItem.asRoundCheckbox(ID_MD3_PROFILE, DevGramLocale.text("Кнопки профиля"))
-                        .setChecked(gPref("dg_md3_profile", false)));
+                        .setChecked(gPref("dg_md3_profile", false)).pad());
                 items.add(UItem.asRoundCheckbox(ID_NEW_PLAYER, DevGramLocale.text("Плеер"))
-                        .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle()));
+                        .setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getConfiguredNewPlayerStyle()).pad());
             }
             items.add(UItem.asCheck(ID_GOOEY, DevGramLocale.text("«Липкая» анимация аватарок"))
                     .setChecked(gPref("dg_gooey", org.telegram.messenger.DevGramGooeyConfig.DEFAULT_ENABLED)));
@@ -1631,9 +1646,7 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             refreshThenRebuildAppearanceScreens();
             return;
         } else if (item.id == ID_MD3) {
-            gToggle("dg_md3", true);
-            refreshThenRebuildAppearanceScreens();
-            return;
+            material3Expanded = !material3Expanded;
         } else if (item.id == ID_MD3_PROGRESS) {
             gToggle("dg_md3_progress", true);
         } else if (item.id == ID_MD3_SLIDER) {
@@ -1653,9 +1666,9 @@ public class DevGramCategoryActivity extends DevGramSettingsFragment {
             refreshThenRebuildAppearanceScreens();
             return;
         } else if (item.id == ID_NEW_PLAYER) {
-            org.telegram.messenger.devgram.player.PlayerConfig.setNewPlayerStyle(!org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle());
+            org.telegram.messenger.devgram.player.PlayerConfig.setNewPlayerStyle(!org.telegram.messenger.devgram.player.PlayerConfig.getConfiguredNewPlayerStyle());
             if (view instanceof org.telegram.ui.Cells.TextCheckCell) {
-                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getNewPlayerStyle());
+                ((org.telegram.ui.Cells.TextCheckCell) view).setChecked(org.telegram.messenger.devgram.player.PlayerConfig.getConfiguredNewPlayerStyle());
             }
             listView.adapter.update(true);
             return;

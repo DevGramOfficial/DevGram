@@ -441,12 +441,14 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         private FrameLayout titleLayout;
         SimpleTextView[] titleTextView;
         AnimatedTextView subtitleTextView;
+        private BlurredBackgroundDrawable swiftgramTitleGlass;
+        private boolean swiftgramGallery() { return org.telegram.messenger.DevGramSwiftgramDesign.section("media"); }
 
         public PhotoViewerActionBarContainer(Context context) {
             super(context);
 
             container = new FrameLayout(context);
-            container.setPadding(dp(72 - 16), 0, 0, 0);
+            container.setPadding(swiftgramGallery() ? 0 : dp(72 - 16), 0, 0, 0);
             addView(container, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
             titleLayout = new FrameLayout(context) {
@@ -457,16 +459,16 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 }
             };
             titleLayout.setPivotX(dp(16));
-            titleLayout.setPadding(dp(16), 0, 0, 0);
+            titleLayout.setPadding(swiftgramGallery() ? 0 : dp(16), 0, 0, 0);
             titleLayout.setClipToPadding(false);
             container.addView(titleLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
             titleTextView = new SimpleTextView[2];
             for (int i = 0; i < 2; ++i) {
                 titleTextView[i] = new SimpleTextView(context);
-                titleTextView[i].setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+                titleTextView[i].setGravity((swiftgramGallery() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT) | Gravity.CENTER_VERTICAL);
                 titleTextView[i].setTextColor(0xffffffff);
-                titleTextView[i].setTextSize(20);
+                titleTextView[i].setTextSize(swiftgramGallery() ? 17 : 20);
                 titleTextView[i].setTypeface(AndroidUtilities.bold());
                 titleTextView[i].setDrawablePadding(dp(4));
                 titleTextView[i].setScrollNonFitText(true);
@@ -475,9 +477,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
 
             subtitleTextView = new AnimatedTextView(context, true, false, false);
             subtitleTextView.setAnimationProperties(.4f, 0, 320, CubicBezierInterpolator.EASE_OUT_QUINT);
-            subtitleTextView.setTextSize(dp(14));
-            subtitleTextView.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
-            subtitleTextView.setTextColor(0xffffffff);
+            subtitleTextView.setTextSize(dp(swiftgramGallery() ? 12 : 14));
+            subtitleTextView.setGravity((swiftgramGallery() ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT) | Gravity.CENTER_VERTICAL);
+            subtitleTextView.setTextColor(swiftgramGallery() ? 0x80ffffff : 0xffffffff);
             subtitleTextView.setEllipsizeByGradient(true);
             subtitleTextView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             subtitleTextView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
@@ -612,6 +614,13 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     titleLayout.setScaleY(haveSubtitle ? .87f : 1);
                 }
             }
+            if (swiftgramGallery()) {
+                if (subtitleAnimator != null) subtitleAnimator.cancel();
+                titleLayout.setTranslationY(0);
+                titleLayout.setScaleX(1); titleLayout.setScaleY(1);
+                subtitleTextView.setTranslationY(0);
+                requestLayout();
+            }
             subtitleTextView.setText(subtitle, animated);
             subtitleTextView.setContentDescription(TextUtils.isEmpty(subtitle) ? null : subtitle);
         }
@@ -628,6 +637,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         private ValueAnimator rightPaddingAnimator;
         private float rightPadding;
         public void updateRightPadding(float rightPadding, boolean animated) {
+            if (swiftgramGallery()) {
+                this.rightPadding = rightPadding;
+                requestLayout();
+                return;
+            }
             if (rightPaddingAnimator != null) {
                 rightPaddingAnimator.cancel();
                 rightPaddingAnimator = null;
@@ -667,7 +681,12 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 lastHeight = AndroidUtilities.displaySize.y;
                 updateOrientation();
             }
-            container.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height - t, MeasureSpec.EXACTLY));
+            container.measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(Math.max(0, height - t), MeasureSpec.EXACTLY));
+            if (swiftgramGallery()) {
+                final int available = Math.max(0, width - 2 * Math.max(dp(72), (int) rightPadding));
+                titleLayout.measure(MeasureSpec.makeMeasureSpec(available, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(24), MeasureSpec.EXACTLY));
+                subtitleTextView.measure(MeasureSpec.makeMeasureSpec(available, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(16), MeasureSpec.EXACTLY));
+            }
             setMeasuredDimension(width, height);
         }
 
@@ -675,6 +694,26 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
             int t = AndroidUtilities.statusBarHeight;
             container.layout(0, t, right - left, bottom - top);
+            if (swiftgramGallery()) {
+                final int width = right - left, row = bottom - top - t;
+                final boolean subtitle = hasSubtitle;
+                final int titleTop = (row - dp(subtitle ? 36 : 24)) / 2;
+                final int l = (width - titleLayout.getMeasuredWidth()) / 2;
+                titleLayout.layout(l, titleTop, l + titleLayout.getMeasuredWidth(), titleTop + dp(24));
+                subtitleTextView.layout(l, titleTop + dp(22), l + subtitleTextView.getMeasuredWidth(), titleTop + dp(38));
+            }
+        }
+
+        @Override protected void dispatchDraw(Canvas canvas) {
+            if (swiftgramGallery() && swiftgramTitleGlass != null) {
+                float text = Math.max(titleTextView[0].getPaint().measureText(String.valueOf(titleTextView[0].getText())), subtitleTextView.getDrawable().getCurrentWidth());
+                float width = Math.min(titleLayout.getMeasuredWidth(), Math.max(dp(150), text) + dp(28));
+                int left = Math.round((getWidth() - width) / 2f);
+                int top = AndroidUtilities.statusBarHeight + (getHeight() - AndroidUtilities.statusBarHeight - dp(44)) / 2;
+                swiftgramTitleGlass.setBounds(left, top, left + Math.round(width), top + dp(44));
+                swiftgramTitleGlass.draw(canvas);
+            }
+            super.dispatchDraw(canvas);
         }
 
         @Override
@@ -4927,6 +4966,9 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
         actionBarBackButtonDrawableDeafult = actionBarBackButton.getBackground();
         actionBarBackButtonDrawableGlass = null;
         actionBarContainer = new PhotoViewerActionBarContainer(activity);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("media")) {
+            actionBarContainer.swiftgramTitleGlass = iBlur3FactoryFrostedLiquidGlass.create(actionBarContainer).setColorProvider(BlurredBackgroundProviderImpl.photoViewer(resourcesProvider)).setRadius(dp(22)).setPadding(0);
+        }
         actionBar.addView(actionBarContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
         containerView.addView(actionBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 

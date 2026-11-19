@@ -6020,6 +6020,17 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         overridenDuration = duration;
     }
 
+    /** A separate native cell keeps extraction independent from the list's render-node cache. */
+    public ChatMessageCell createContextPreview() {
+        ChatMessageCell preview = new ChatMessageCell(getContext(), currentAccount, false, null, resourcesProvider);
+        copyParamsTo(preview);
+        preview.setDelegate(new ChatMessageCellDelegate() {});
+        preview.setFullyDraw(true);
+        preview.setParentViewSize(parentWidth, parentHeight);
+        preview.setMessageObject(currentMessageObject, currentMessagesGroup, isPinnedBottom(), isPinnedTop(), isFirstInChat());
+        return preview;
+    }
+
     public void setFullyDraw(boolean draw) {
         fullyDraw = draw;
     }

@@ -36,7 +36,7 @@ final class DevGramProfileEditSheet {
     }
     String t(String s){return DevGramLocale.text(s);}
     private int color(int key){return Theme.getColor(key,host.getResourceProvider());}
-    private String title(){if(page.startsWith("color:"))return "Выбор цвета";if(page.startsWith("gradient:"))return "Градиент";if(page.startsWith("fade:"))return "Затухание";switch(page){case "text":return "Текст профиля";case "avatar":return "Аватар";case "frame":return "Рамка аватара";case "name":return "Имя";case "thought":return "Мысль";case "banner":return "Шапка и баннер";case "background":return "Фон профиля";case "layout":return "Своя компоновка";case "cards":return "Настроить блоки";case "buttons":return "Кнопки действий";case "rows":return "Порядок и видимость строк";default:return "Оформление профиля";}}
+    private String title(){if(page.startsWith("rowColors:"))return "Цвета этого блока";if(page.startsWith("color:"))return "Выбор цвета";if(page.startsWith("gradient:"))return "Градиент";if(page.startsWith("fade:"))return "Затухание";switch(page){case "rowColors":return "Цвета отдельных блоков";case "text":return "Текст профиля";case "avatar":return "Аватар";case "frame":return "Рамка аватара";case "name":return "Имя";case "thought":return "Мысль";case "banner":return "Шапка и баннер";case "background":return "Фон профиля";case "layout":return "Своя компоновка";case "cards":return "Настроить блоки";case "buttons":return "Кнопки действий";case "rows":return "Порядок и видимость строк";default:return "Оформление профиля";}}
     boolean isShowing() { return sheet != null && sheet.isShowing(); }
     void navigate(String next) {
         if (!next.equals(page)) { history.push(page); scrollHistory.push(scroll == null ? 0 : scroll.getScrollY()); }
@@ -111,7 +111,7 @@ final class DevGramProfileEditSheet {
         View dot=new View(context);LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(AndroidUtilities.dp(26),AndroidUtilities.dp(26));params.leftMargin=AndroidUtilities.dp(12);row.addView(dot,params);
         Runnable bind=()->{
             label.setText(DevGramAppearanceAccess.label(host,feature,t(title)));
-            int rgb=editor.draft.document.optInt(key,key.equals("thoughtColor")||key.equals("nickColor")||key.equals("cardLightColor")?0xffffff:key.equals("cardColor")||key.equals("buttonColor")?0x293450:key.equals("thoughtBackground")?0x293450:key.endsWith("ShadowColor")?0:key.endsWith("Color3")?0x8e74e2:key.endsWith("Color2")?0x5077cf:0x101526);
+            int rgb=editor.draft.document.optInt(key,key.equals("buttonTextColor")||key.equals("cardTextColor")||key.equals("thoughtColor")||key.equals("nickColor")||key.equals("cardLightColor")?0xffffff:key.equals("cardColor")||key.equals("buttonColor")?0x293450:key.equals("thoughtBackground")?0x293450:key.endsWith("ShadowColor")?0:key.endsWith("Color3")?0x8e74e2:key.endsWith("Color2")?0x5077cf:0x101526);
             value.setText((editor.draft.document.has(key)||key.startsWith("thought")||key.startsWith("nameShadow"))?String.format(java.util.Locale.US,"#%06X",rgb):t("Как в Telegram"));
             android.graphics.drawable.GradientDrawable background=DevGramStudioControls.surface(0xff000000|rgb,color(Theme.key_divider));background.setCornerRadius(AndroidUtilities.dp(13));dot.setBackground(background);
         };
@@ -135,7 +135,9 @@ final class DevGramProfileEditSheet {
         row(title,"",()->DevGramAppearanceAccess.check(host,feature));
     }
     private void build(){
+        if(page.startsWith("rowColors:")){rowColors(page.substring(10));return;}
         switch(page){
+            case "rowColors":for(String key:host.devgramAllRowKeys())row(host.devgramRowLabel(key),"",()->navigate("rowColors:"+key));row(host.devgramRowLabel("balance"),"",()->navigate("rowColors:balance"));break;
             case "text":textPalette();break;
             case "avatar":
                 header("Форма");choices("shape",new String[]{"Круг","Скруглённый квадрат","Суперэллипс","Квадрат","Шестиугольник","Пятиугольник","Звезда","Сердце","Цветок","Своя"},true);
@@ -172,6 +174,8 @@ final class DevGramProfileEditSheet {
                 else row("Настроить блоки","",()->editor.sheet("cards"));break;
             case "layout":referenceLayout();break;
             case "cards":
+                row("Цвета отдельных блоков","",()->navigate("rowColors"));
+                blockTextSettings();
                 toggle("cardEnabled","Перекрасить блоки",editor.draft.document.has("cardColor"));
                 if(editor.draft.document.optInt("cardEnabled",editor.draft.document.has("cardColor")?1:0)==1){
                     header("Цвет и прозрачность");colors("cardColor","Цвет блоков");slider("cardAlpha","Плотность",0,100,100,"%");
@@ -191,6 +195,10 @@ final class DevGramProfileEditSheet {
                 }
                 header("Свои строки");row("Добавить строку","",()->editor.addBlock(null));row("Видимость строк","",()->editor.sheet("rows"));row("Кнопки действий","",()->editor.sheet("buttons"));break;
             case "buttons":
+                header("Текст кнопок");
+                toggle("buttonTextEnabled","Свой цвет текста кнопок",false);
+                if(editor.draft.document.optInt("buttonTextEnabled")==1)colors("buttonTextColor","Цвет текста кнопок");
+                help("Отдельный цвет подписей и значков кнопок профиля.","Работает независимо от цвета фона кнопок, текста в блоках и общего цвета профиля.");
                 header("Цвет");toggle("buttonCopyCards","Копировать цвет блоков",true);
                 if(editor.draft.document.optInt("buttonCopyCards",1)!=1){colors("buttonColor","Цвет кнопок");slider("buttonAlpha","Плотность",0,100,100,"%");slider("buttonBlur","Размытие за кнопками",0,50,0,"");}
                 help("Отдельное оформление кнопок профиля.","Кнопки под шапкой могут копировать цвет и эффекты карточек либо использовать собственный цвет, прозрачность и размытие фона.");
@@ -336,11 +344,19 @@ final class DevGramProfileEditSheet {
         slider(prefix+effect+"CenterX","Центр по горизонтали",0,100,50,"%");slider(prefix+effect+"CenterY","Центр по вертикали",0,100,50,"%");
         help("Удерживайте центр или конец линии и перетаскивайте, чтобы настроить эффект.",fade?"Затухание плавно скрывает часть изображения. Направление определяет сторону исчезновения, размер — ширину перехода, центр — положение видимой области.":"Направление меняет расположение цветов градиента. Размах расширяет или сужает переход. Для радиального градиента изменение центра перемещает цветовое пятно.");
     }
+    private void blockTextSettings(){
+        header("Текст в блоках");
+        toggle("cardTextEnabled","Свой цвет текста в блоках",false);
+        if(editor.draft.document.optInt("cardTextEnabled")==1)colors("cardTextColor","Цвет текста в блоках");
+        help("Отдельный цвет для текста, подписей и ссылок в блоках.","Имя, статус и кнопки профиля сохраняют свои цвета. Выключите этот параметр, чтобы вернуть общую палитру профиля.");
+    }
     private void textPalette(){
+        row("Цвета отдельных блоков","",()->navigate("rowColors"));
+        blockTextSettings();
         toggle("profileTextEnabled","Свой цвет текста",false);
         if(editor.draft.document.optInt("profileTextEnabled")==1){header("Цвет текста");paletteColor(null,"Цвет текста",Theme.key_windowBackgroundWhiteBlackText);help("Общая палитра текста профиля.","Общий цвет применяется к тексту профиля. В палитре ниже можно отдельно изменить подписи, значения, ссылки и кнопки.");}
         int last=-1;for(int i=0;i<DevGramProfilePalette.NAMES.length;i++){int group=DevGramProfilePalette.group(i);if(group!=last){header(DevGramProfilePalette.GROUPS[group]);last=group;}paletteColor(DevGramProfilePalette.NAMES[i],DevGramProfilePalette.LABELS[i],DevGramProfilePalette.KEYS[i]);}
-        row("Вернуть цвета темы","",()->new org.telegram.ui.ActionBar.AlertDialog.Builder(context,host.getResourceProvider()).setTitle(t("Вернуть цвета темы")).setMessage(t("Все цвета палитры будут сняты.")).setPositiveButton(t("Вернуть"),(d,w)->{if(DevGramAppearanceAccess.check(host,"profile.palette")){editor.remove("profilePalette");editor.remove("profileTextColor");editor.put("profileTextEnabled",0);rebuild(true);}}).setNegativeButton(DevGramLocale.getString(R.string.Cancel),null).show());
+        row("Вернуть цвета темы","",()->new org.telegram.ui.ActionBar.AlertDialog.Builder(context,host.getResourceProvider()).setTitle(t("Вернуть цвета темы")).setMessage(t("Все цвета палитры будут сняты.")).setPositiveButton(t("Вернуть"),(d,w)->{if(DevGramAppearanceAccess.check(host,"profile.palette")){editor.remove("profilePalette");editor.remove("profileTextColor");editor.put("profileTextEnabled",0);editor.remove("cardTextColor");editor.remove("cardTextEnabled");rebuild(true);}}).setNegativeButton(DevGramLocale.getString(R.string.Cancel),null).show());
     }
     private void paletteColor(String key,String title,int themeKey){
         JSONObject palette=editor.draft.document.optJSONObject("profilePalette");boolean selected=key==null?editor.draft.document.has("profileTextColor"):palette!=null&&palette.has(key);int current=key==null?editor.draft.document.optInt("profileTextColor",-1):selected?palette.optInt(key):Theme.getColor(themeKey);
@@ -349,6 +365,28 @@ final class DevGramProfileEditSheet {
             DevGramColorPickerView picker=new DevGramColorPickerView(context,host.getResourceProvider(),key!=null);picker.setColor(current);final int[] chosen={current};picker.setListener(value->chosen[0]=value);
             new org.telegram.ui.ActionBar.AlertDialog.Builder(context,host.getResourceProvider()).setTitle(t(title)).setView(picker).setPositiveButton(t("Применить"),(d,w)->{if(!DevGramAppearanceAccess.allowed(host,"profile.palette"))return;if(key==null)editor.put("profileTextColor",chosen[0]);else{JSONObject next=DevGramProfileDocument.copy(editor.draft.document.optJSONObject("profilePalette")==null?new JSONObject():editor.draft.document.optJSONObject("profilePalette"));try{next.put(key,chosen[0]);editor.put("profilePalette",next);}catch(Exception ignored){}}rebuild(true);}).setNeutralButton(t("Как в теме"),(d,w)->{if(!DevGramAppearanceAccess.allowed(host,"profile.palette"))return;if(key==null)editor.remove("profileTextColor");else{JSONObject next=DevGramProfileDocument.copy(editor.draft.document.optJSONObject("profilePalette")==null?new JSONObject():editor.draft.document.optJSONObject("profilePalette"));next.remove(key);editor.put("profilePalette",next);}rebuild(true);}).setNegativeButton(DevGramLocale.getString(R.string.Cancel),null).show();
         });
+    }
+    private void rowColors(String key){
+        header(host.devgramRowLabel(key));
+        help("Индивидуальные цвета блока.","Эти цвета действуют только на выбранный блок. Сброс возвращает общее оформление профиля.");
+        String[] fields={"text","background","icon"},labels={"Цвет текста","Цвет фона","Цвет значков"};
+        int[] defaults={Theme.key_windowBackgroundWhiteBlackText,Theme.key_windowBackgroundWhite,Theme.key_windowBackgroundWhiteGrayIcon};
+        for(int i=0;i<fields.length;i++){
+            final String field=fields[i],label=labels[i];final int themeKey=defaults[i];
+            JSONObject all=editor.draft.document.optJSONObject("rowColors"),style=all==null?null:all.optJSONObject(key);
+            boolean selected=style!=null&&style.has(field);
+            int current=selected?style.optInt(field):color(themeKey)&0xffffff;
+            row(DevGramAppearanceAccess.label(host,"profile.palette",t(label)),selected?String.format(java.util.Locale.US,"#%06X",current):t("Общий цвет"),()->{
+                if(!DevGramAppearanceAccess.check(host,"profile.palette"))return;
+                DevGramColorPickerView picker=new DevGramColorPickerView(context,host.getResourceProvider(),false);
+                picker.setColor(0xff000000|current);final int[] chosen={current};picker.setListener(value->chosen[0]=value&0xffffff);
+                new org.telegram.ui.ActionBar.AlertDialog.Builder(context,host.getResourceProvider()).setTitle(t(label)).setView(picker)
+                    .setPositiveButton(t("Применить"),(d,w)->{editor.setRowColor(key,field,chosen[0]);rebuild(true);})
+                    .setNeutralButton(t("Общий цвет"),(d,w)->{editor.setRowColor(key,field,null);rebuild(true);})
+                    .setNegativeButton(DevGramLocale.getString(R.string.Cancel),null).show();
+            });
+        }
+        row("Сбросить цвета блока","",()->{editor.setRowColor(key,null,null);rebuild(true);});
     }
     private boolean rowHidden(String key){JSONArray hidden=editor.draft.document.optJSONArray("hiddenRows");if(hidden!=null)for(int i=0;i<hidden.length();i++){String item=hidden.optString(i);if(item.equals(key)||item.equals("blocks")&&key.startsWith("block:")||item.equals("integrations")&&key.startsWith("integration:"))return true;}return false;}
     private void rows(){

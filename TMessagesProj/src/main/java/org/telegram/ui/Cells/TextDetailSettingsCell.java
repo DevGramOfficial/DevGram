@@ -39,7 +39,7 @@ public class TextDetailSettingsCell extends FrameLayout {
 
         textView = new TextView(context);
         ThemeBind.textColor(textView, Theme.key_windowBackgroundWhiteBlackText);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 16);
         textView.setLines(1);
         textView.setMaxLines(1);
         textView.setSingleLine(true);
@@ -49,7 +49,7 @@ public class TextDetailSettingsCell extends FrameLayout {
 
         valueTextView = new TextView(context);
         ThemeBind.textColor(valueTextView, Theme.key_windowBackgroundWhiteGrayText2);
-        valueTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        valueTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 14 : 13);
         valueTextView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
         valueTextView.setLines(1);
         valueTextView.setMaxLines(1);

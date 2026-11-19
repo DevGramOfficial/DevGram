@@ -1201,7 +1201,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         listAdapter = new ListAdapter(context);
 
         FrameLayout frameLayout = new FrameLayout(context);
-        frameLayout.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray, resourceProvider));
+        ThemeBind.backgroundColor(frameLayout, Theme.key_windowBackgroundGray, resourceProvider);
         fragmentView = frameLayout;
 
         listView = new RecyclerListView(context);
@@ -2916,6 +2916,16 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();
 
         themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_CELLBACKGROUNDCOLOR, new Class[]{TextSettingsCell.class, TextCheckCell.class, HeaderCell.class, BrightnessControlCell.class, ThemeTypeCell.class, TextSizeCell.class, BubbleRadiusCell.class, ChatListCell.class, NotificationsCheckCell.class, ThemesHorizontalListCell.class, TintRecyclerListView.class, TextCell.class, PeerColorActivity.ChangeNameColorCell.class, SwipeGestureSettingsView.class, DefaultThemesPreviewCell.class, AppIconsSelectorCell.class}, null, null, null, Theme.key_windowBackgroundWhite));
+
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+            themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_CELLBACKGROUNDCOLOR,
+                    new Class[]{HeaderCell.class}, null, null, null, Theme.key_windowBackgroundGray));
+            themeDescriptions.add(new ThemeDescription(null, 0, null, null, null, () -> {
+                if (getParentLayout() != null && getParentLayout().getLastFragment() == this) {
+                    setNavigationBarColor(getNavigationBarColor());
+                }
+            }, Theme.key_windowBackgroundGray));
+        }
 
         themeDescriptions.add(new ThemeDescription(listView, ThemeDescription.FLAG_LISTGLOWCOLOR, null, null, null, null, Theme.key_actionBarDefault));
 

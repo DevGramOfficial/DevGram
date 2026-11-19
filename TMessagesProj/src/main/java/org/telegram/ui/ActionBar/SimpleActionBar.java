@@ -69,6 +69,20 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
     private AnimatedTextView actionModeTitle;
     private AnimatedTextView actionModeSubtitle;
     private SimpleActionBarDoneButton doneButton;
+    private View swiftgramLeadingControl, swiftgramTitleControl;
+    public void setSwiftgramLeadingControl(View view) {
+        if (swiftgramLeadingControl != null) removeView(swiftgramLeadingControl);
+        swiftgramLeadingControl = view;
+        if (view != null) addView(view, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44, Gravity.LEFT | Gravity.TOP, 16, 0, 0, 0));
+        requestLayout();
+    }
+    public void setSwiftgramTitleControl(View view) {
+        if (swiftgramTitleControl != null) removeView(swiftgramTitleControl);
+        swiftgramTitleControl = view;
+        setTitle(null);
+        if (view != null) addView(view, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44, Gravity.CENTER_HORIZONTAL | Gravity.TOP));
+        requestLayout();
+    }
 
     private FrameLayout searchLayout;
     private EditTextBoldCursor searchField;
@@ -132,8 +146,16 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             }
             onItemClick(-1);
         });
-        addView(backButton, LayoutHelper.createFrame(46, 46, Gravity.TOP | Gravity.LEFT));
+        addView(backButton, LayoutHelper.createFrame(buttonSize(), buttonSize(), Gravity.TOP | Gravity.LEFT));
     }
+
+    static boolean swiftgram() {
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("navigation");
+    }
+
+    private static int buttonSize() { return swiftgram() ? 44 : 46; }
+    private static int glassPadding() { return swiftgram() ? 0 : 6; }
+    private static int edgeInset() { return swiftgram() ? 16 : 6; }
 
     /* Glass */
 
@@ -150,10 +172,10 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             return;
         }
         final BlurredBackgroundColorProvider buttonsColors = buttonsGlassColorProvider != null ? buttonsGlassColorProvider : glassColorProvider;
-        glassBack = factory.create(this).setColorProvider(buttonsColors).setRadius(dp(23)).setPadding(dp(6));
-        glassMenu = factory.create(this).setColorProvider(buttonsColors).setRadius(dp(23)).setPadding(dp(6));
-        glassDone = factory.create(this).setColorProvider(buttonsColors).setRadius(dp(23)).setPadding(dp(6));
-        glassMenuRadius = dp(23);
+        glassBack = factory.create(this).setColorProvider(buttonsColors).setRadius(dp(buttonSize() / 2f)).setPadding(dp(glassPadding()));
+        glassMenu = factory.create(this).setColorProvider(buttonsColors).setRadius(dp(buttonSize() / 2f)).setPadding(dp(glassPadding()));
+        glassDone = factory.create(this).setColorProvider(buttonsColors).setRadius(dp(buttonSize() / 2f)).setPadding(dp(glassPadding()));
+        glassMenuRadius = dp(buttonSize() / 2f);
         invalidate();
     }
 
@@ -257,7 +279,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         if (factory == null) {
             return null;
         }
-        return factory.create(owner).setColorProvider(glassColorProvider).setRadius(dp(23)).setPadding(dp(6));
+        return factory.create(owner).setColorProvider(glassColorProvider).setRadius(dp(buttonSize() / 2f)).setPadding(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("menus") ? 0 : 6));
     }
 
     /* Menu overlay */
@@ -324,7 +346,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             computeMenuPill(out);
             return true;
         }
-        final float half = dp(23);
+        final float half = dp(buttonSize() / 2f);
         final View itemMenu = (View) item.getParent();
         final float cx = (itemMenu != null ? itemMenu.getX() : 0) + item.getX() + item.getWidth() / 2f;
         final float cy = getRowTop() + ActionBar.getCurrentActionBarHeight() / 2f;
@@ -341,7 +363,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             return;
         }
 
-        final int p = dp(6);
+        final int p = dp(glassPadding());
 
         if (glassBack != null && backButton.getVisibility() == VISIBLE && backButton.getAlpha() > 0) {
             final float cx = backButton.getX() + backButton.getWidth() / 2f, cy = backButton.getY() + backButton.getHeight() / 2f;
@@ -391,8 +413,8 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
      * Returns the pill alpha; a pill narrower than a single button shrinks as a circle.
      */
     private float computeMenuPill(RectF rect) {
-        final int p = dp(6);
-        final float half = dp(23);
+        final int p = dp(glassPadding());
+        final float half = dp(buttonSize() / 2f);
         final float cy = getRowTop() + ActionBar.getCurrentActionBarHeight() / 2f;
         final float s = getSearchFactor();
         final float a = getActionModeFactor();
@@ -415,7 +437,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         // a pill narrower than a button shrinks as a circle; a fading pill shrinks a little
         final float k = Math.min(1f, width / (half * 2)) * lerp(0.8f, 1f, fade);
 
-        float right = getWidth() - p - getDoneButtonSpace(false);
+        float right = getWidth() - dp(edgeInset()) - getDoneButtonSpace(false);
         float left = right - Math.max(width, half * 2);
         float top = cy - half, bottom = cy + half;
         if (k < 1f) {
@@ -429,7 +451,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         rect.set(
             lerp(left, getSearchPillLeft(), sk),
             lerp(top, cy - half, sk),
-            lerp(right, getWidth() - p, sk),
+            lerp(right, getWidth() - dp(edgeInset()), sk),
             lerp(bottom, cy + half, sk)
         );
         return lerp(Math.min(1f, width / (half * 2)) * fade, 1f, sk);
@@ -452,7 +474,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
     }
 
     private float getSearchPillLeft() {
-        return hasBackButton() ? dp(6 + 46 + 6) : dp(6);
+        return hasBackButton() ? dp(edgeInset() + buttonSize() + (swiftgram() ? 8 : 6)) : dp(edgeInset());
     }
 
     /** Without a back button the close button appears only in action mode. */
@@ -510,31 +532,35 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         final int height = rowTop + rowHeight + extraHeight;
         final boolean hasBack = hasBackButton();
 
-        final int buttonTop = rowTop + (rowHeight - dp(46)) / 2;
-        setMargins(backButton, dp(6), buttonTop, 0);
+        final int buttonTop = rowTop + (rowHeight - dp(buttonSize())) / 2;
+        backButton.getLayoutParams().width = backButton.getLayoutParams().height = dp(buttonSize());
+        setMargins(backButton, dp(edgeInset()), buttonTop, 0);
         if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) {
             backButton.getLayoutParams().width = dp(54);
             backButton.getLayoutParams().height = dp(54);
             setMargins(backButton, 0, rowTop + (rowHeight - dp(54)) / 2, 0);
         }
 
+        if (swiftgramLeadingControl != null) measureChildWithMargins(swiftgramLeadingControl, widthMeasureSpec, 0, heightMeasureSpec, 0);
         final float menuWidth = menu != null && menu.getVisibility() != GONE ? menu.getTargetPillWidth() : 0;
         final float doneSpace = getDoneButtonSpace(true);
-        int titleSide = Math.max(hasBack ? dp(64) : dp(18), menuWidth > 0 || doneSpace > 0 ? (int) (menuWidth + doneSpace) + dp(6 + 12) : 0);
+        int titleSide = Math.max(hasBack ? dp(swiftgram() ? 68 : 64) : dp(18), menuWidth > 0 || doneSpace > 0 ? (int) (menuWidth + doneSpace) + dp(swiftgram() ? 24 : 18) : 0);
         titleSide = Math.max(titleSide, titleMinSideInset);
         titleLayout.setSideInset(titleSide);
+        titleLayout.swiftgramLeft = Math.max(titleMinSideInset, swiftgramLeadingControl != null ? dp(24) + swiftgramLeadingControl.getMeasuredWidth() : hasBack ? dp(68) : dp(16));
+        titleLayout.swiftgramRight = Math.max(titleMinSideInset, (int) (menuWidth + doneSpace) + dp(menuWidth > 0 || doneSpace > 0 ? 24 : 16));
         titleLayout.classicLeft = hasBack ? dp(72) : dp(18);
         titleLayout.classicRight = (int)(menuWidth + doneSpace) + dp(18);
         setMargins(titleLayout, 0, rowTop, 0);
         titleLayout.getLayoutParams().height = rowHeight;
 
         if (menu != null) {
-            setMargins(menu, 0, rowTop, dp(10));
-            menu.getLayoutParams().height = rowHeight;
+            setMargins(menu, 0, swiftgram() ? buttonTop : rowTop, dp(swiftgram() ? 16 : 10));
+            menu.getLayoutParams().height = swiftgram() ? dp(44) : rowHeight;
         }
         if (actionMode != null) {
-            setMargins(actionMode, 0, rowTop, dp(10));
-            actionMode.getLayoutParams().height = rowHeight;
+            setMargins(actionMode, 0, swiftgram() ? buttonTop : rowTop, dp(swiftgram() ? 16 : 10));
+            actionMode.getLayoutParams().height = swiftgram() ? dp(44) : rowHeight;
         }
         if (actionModeTitle != null) {
             final float modeWidth = actionMode != null ? actionMode.getTargetPillWidth() : 0;
@@ -550,13 +576,14 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             }
         }
         if (searchLayout != null) {
-            setMargins(searchLayout, (int) getSearchPillLeft(), buttonTop, dp(6));
+            setMargins(searchLayout, (int) getSearchPillLeft(), buttonTop, dp(edgeInset()));
         }
         if (doneButton != null) {
-            setMargins(doneButton, 0, buttonTop, dp(6));
+            setMargins(doneButton, 0, buttonTop, dp(edgeInset()));
         }
 
         super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+        if (swiftgramTitleControl != null) swiftgramTitleControl.measure(MeasureSpec.makeMeasureSpec(Math.max(0, width - titleLayout.swiftgramLeft - titleLayout.swiftgramRight), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(44), MeasureSpec.EXACTLY));
     }
 
     private boolean isOwnChild(View child) {
@@ -579,7 +606,9 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             final int w = child.getMeasuredWidth(), h = child.getMeasuredHeight();
             final int horizontal = Gravity.getAbsoluteGravity(lp.gravity, getLayoutDirection()) & Gravity.HORIZONTAL_GRAVITY_MASK;
             final int l;
-            if (horizontal == Gravity.RIGHT) {
+            if (child == swiftgramTitleControl) {
+                l = (int) org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.titleX(width, 0, 0, titleLayout.swiftgramLeft, titleLayout.swiftgramRight, w);
+            } else if (horizontal == Gravity.RIGHT) {
                 l = width - w - lp.rightMargin;
             } else if (horizontal == Gravity.CENTER_HORIZONTAL) {
                 l = (width - w) / 2 + lp.leftMargin - lp.rightMargin;
@@ -912,7 +941,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             return 0;
         }
         final float visible = target ? doneButton.getTargetVisibleFactor() : doneButton.getVisibleFactor() * (1f - getSearchFactor()) * (1f - getActionModeFactor());
-        return (doneButton.getButtonWidth() + dp(12)) * visible;
+        return (doneButton.getButtonWidth() + dp(swiftgram() ? 8 : 12)) * visible;
     }
 
     public void onMenuButtonPressed() {
@@ -1168,7 +1197,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         final Context context = getContext();
         searchLayout = new FrameLayout(context);
         searchLayout.setVisibility(INVISIBLE);
-        addView(searchLayout, indexOfChild(backButton), LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 46, Gravity.TOP | Gravity.LEFT));
+        addView(searchLayout, indexOfChild(backButton), LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, buttonSize(), Gravity.TOP | Gravity.LEFT));
 
 
         final LinearLayout searchFieldLayout = new LinearLayout(context);
@@ -1352,7 +1381,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         for (int i = 0, N = getChildCount(); i < N; i++) {
             final View child = getChildAt(i);
             if (!isOwnChild(child) && child.getVisibility() != GONE) {
-                setAlphaAndVisibility(child, customAlpha);
+                setAlphaAndVisibility(child, child == swiftgramLeadingControl ? 1f - s : customAlpha);
             }
         }
         if (actionMode != null) {
@@ -1382,7 +1411,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             backButton.setScaleX(1f);
             backButton.setScaleY(1f);
         } else {
-            backButton.setVisibility(a > 0 ? VISIBLE : GONE);
+            backButton.setVisibility(a > 0 && swiftgramLeadingControl == null ? VISIBLE : GONE);
             backButton.setAlpha(a);
             backButton.setScaleX(lerp(0.6f, 1f, a));
             backButton.setScaleY(lerp(0.6f, 1f, a));
@@ -1554,7 +1583,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         SimpleTextView subtitleOutView;
         CharSequence subtitle;
         private int sideInset;
-        private int classicLeft, classicRight;
+        private int classicLeft, classicRight, swiftgramLeft, swiftgramRight;
 
         TitleLayout(Context context) {
             super(context);
@@ -1574,7 +1603,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
             }
             final SimpleTextView view = new SimpleTextView(getContext());
             view.setGravity(org.telegram.ui.Components.DevGramClassicDesign.enabled() ? Gravity.LEFT : Gravity.CENTER);
-            view.setTypeface(AndroidUtilities.bold());
+            view.setTypeface(swiftgram() ? android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.BOLD) : AndroidUtilities.bold());
             view.setTextSize(org.telegram.ui.Components.DevGramClassicDesign.enabled() ? 20 : 17);
             view.setTextColor(titleColor);
             view.setEmojiColor(titleColor);
@@ -1703,7 +1732,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             final int width = MeasureSpec.getSize(widthMeasureSpec);
             final int height = MeasureSpec.getSize(heightMeasureSpec);
-            final int available = Math.max(0, width - (org.telegram.ui.Components.DevGramClassicDesign.enabled() ? classicLeft + classicRight : sideInset * 2));
+            final int available = Math.max(0, width - (org.telegram.ui.Components.DevGramClassicDesign.enabled() ? classicLeft + classicRight : swiftgram() ? swiftgramLeft + swiftgramRight : sideInset * 2));
             for (SimpleTextView view : titleViews) {
                 if (view != null && view.getVisibility() != GONE) {
                     view.measure(MeasureSpec.makeMeasureSpec(available, MeasureSpec.AT_MOST),
@@ -1737,7 +1766,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
                 final int textTop = hasSubtitle
                     ? (rowHeight / 2 - view.getTextHeight()) / 2 + dp(5)
                     : (rowHeight - view.getTextHeight()) / 2;
-                final int l = org.telegram.ui.Components.DevGramClassicDesign.enabled() ? classicLeft : (width - view.getMeasuredWidth()) / 2;
+                final int l = org.telegram.ui.Components.DevGramClassicDesign.enabled() ? classicLeft : swiftgram() ? (int) org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.titleX(width, 0, 0, swiftgramLeft, swiftgramRight, view.getMeasuredWidth()) : (width - view.getMeasuredWidth()) / 2;
                 final int t = textTop - view.getPaddingTop();
                 view.layout(l, t, l + view.getMeasuredWidth(), t + view.getMeasuredHeight());
             }
@@ -1747,7 +1776,7 @@ public class SimpleActionBar extends FrameLayout implements FactorAnimator.Targe
                         continue;
                     }
                     final int textTop = rowHeight / 2 + (rowHeight / 2 - view.getTextHeight()) / 2 - dp(2);
-                    final int l = org.telegram.ui.Components.DevGramClassicDesign.enabled() ? classicLeft : (width - view.getMeasuredWidth()) / 2;
+                    final int l = org.telegram.ui.Components.DevGramClassicDesign.enabled() ? classicLeft : swiftgram() ? (int) org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.titleX(width, 0, 0, swiftgramLeft, swiftgramRight, view.getMeasuredWidth()) : (width - view.getMeasuredWidth()) / 2;
                     view.layout(l, textTop, l + view.getMeasuredWidth(), textTop + view.getTextHeight());
                 }
             }

@@ -435,7 +435,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         avatarDrawable = new AvatarDrawable();
         avatarView = new BackupImageView(context);
         avatarView.setRoundRadius(dp(90));
-        avatarContainer.addView(avatarView, LayoutHelper.createFrame(90, 90, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 15, 0, 0));
+        avatarContainer.addView(avatarView, LayoutHelper.createFrame(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 100 : 90, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 100 : 90, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 10 : 15, 0, 0));
 
         avatarProgressView = new RadialProgressView(context) {
             private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -456,7 +456,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         avatarProgressView.setSize(AndroidUtilities.dp(26));
         avatarProgressView.setProgressColor(0xffffffff);
         avatarProgressView.setNoProgress(false);
-        avatarContainer.addView(avatarProgressView, LayoutHelper.createFrame(90, 90, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 15, 0, 0));
+        avatarContainer.addView(avatarProgressView, LayoutHelper.createFrame(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 100 : 90, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 100 : 90, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 10 : 15, 0, 0));
         showAvatarProgress(false, false);
 
         cameraButton = new FrameLayout(context);
@@ -473,19 +473,19 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         ScaleStateListAnimator.apply(cameraButton);
 
         titleView = new TextView(context);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22);
-        titleView.setTypeface(AndroidUtilities.bold());
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 28 : 22);
+        titleView.setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? android.graphics.Typeface.create("sans-serif-medium", 0) : AndroidUtilities.bold());
         titleView.setGravity(Gravity.CENTER);
         titleView.setSingleLine();
         titleView.setEllipsize(TextUtils.TruncateAt.END);
-        topView.addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 16, 138.333f - 12, 16, 0));
+        topView.addView(titleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 16, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 131 : 138.333f - 12, 16, 0));
 
         subtitleView = new SpoilersTextView(context);
-        subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 13);
         subtitleView.setGravity(Gravity.CENTER);
         subtitleView.setMaxLines(1);
         subtitleView.setEllipsize(TextUtils.TruncateAt.END);
-        topView.addView(subtitleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 168 - 12, 0, 0));
+        topView.addView(subtitleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 16, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 166 : 168 - 12, 16, 0));
 
         versionView = new TextView(context);
         versionView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -670,7 +670,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             return;
         }
 
-        items.add(UItem.asCustomShadow(topView, 200 - 12));
+        items.add(UItem.asCustomShadow(topView, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 210 : 200 - 12));
 
         HiddenAccountHelper.collectVisibleAccountNumbers(accountNumbers, currentAccount);
 
@@ -749,14 +749,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
         }
 
-        // DevGram: в режиме дизайна «iOS» полностью повторяем структуру карточек реального
-        // Settings-экрана Telegram-iOS/Swiftgram (сверялись по 3 скриншотам от пользователя):
-        // «Мой профиль» отдельной карточкой, затем DevGram, затем «Избранное/Недавние звонки/
-        // Устройства/Папки», затем «Уведомления/Приватность/Данные/Чат/Энергосбережение/Язык».
-        // Для остальных режимов дизайна порядок и группировка — стоковые exteraGram (как было).
-        boolean iosGrouping = org.telegram.messenger.DevGramConfig.getDesignMode() == org.telegram.messenger.DevGramConfig.DESIGN_MODE_IOS;
+        // Swiftgram PeerInfoSettingsItems grouping, retaining DevGram's additional sections.
+        boolean iosGrouping = org.telegram.messenger.DevGramSwiftgramDesign.section("settings");
         if (iosGrouping) {
-            items.add(SettingCell.Factory.of(51, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.settings_account, "Мой профиль"));
+            items.add(SettingCell.Factory.of(51, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.settings_account, org.telegram.messenger.DevGramLocale.text("Мой профиль")));
             items.add(UItem.asShadow(null));
 
             items.add(SettingCell.Factory.of(250, 0xFF2AABEE, 0xFF229ED9, R.drawable.settings_devgram, "DevGram", org.telegram.messenger.DevGramLocale.text("Настройки мода")));
@@ -764,7 +760,11 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             items.add(UItem.asShadow(null));
 
             items.add(SettingCell.Factory.of(52, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.outline_saved_24, getString(R.string.SavedMessages)));
-            items.add(SettingCell.Factory.of(53, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.outline_profile_call_24, "Недавние звонки"));
+            items.add(SettingCell.Factory.of(53, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.outline_profile_call_24, org.telegram.messenger.DevGramLocale.text("Недавние звонки")));
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+                items.add(SettingCell.Factory.of(54, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom,
+                        R.drawable.msg_contacts, getString(R.string.Contacts)));
+            }
             items.add(SettingCell.Factory.of(8, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_devices, getString(R.string.SettingsDevices), getString(R.string.SettingsDevicesInfo)));
             items.add(SettingCell.Factory.of(7, IconBackgroundColors.BLUE_ALT.top, IconBackgroundColors.BLUE_ALT.bottom, R.drawable.settings_folders, getString(R.string.SettingsFolders), getString(R.string.SettingsFoldersInfo)));
             items.add(UItem.asShadow(null));
@@ -940,6 +940,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             case 53:
                 presentSettingFragment(new CallLogActivity());
                 break;
+            case 54: {
+                Bundle args = new Bundle();
+                args.putBoolean("needPhonebook", true);
+                presentSettingFragment(new ContactsActivity(args));
+                break;
+            }
             case 2:
                 presentSettingFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_BASIC));
                 break;
@@ -1515,15 +1521,18 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             textLayout.setOrientation(VERTICAL);
 
             titleView = new SpoilersTextView(context);
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 16);
             textLayout.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 0));
 
             subtitleView = new TextView(context);
             subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
             textLayout.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 4, 0, 0));
 
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+                iconView.setColorFilter(0xffffffff, PorterDuff.Mode.SRC_IN);
+            }
             valueView = new TextView(context);
-            valueView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+            valueView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 16);
             if (LocaleController.isRTL) {
                 addView(valueView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 20, 0, 0, 0));
                 addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL, 20, 0, mini ? 12 : 18, 0));
@@ -1532,6 +1541,19 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
                 addView(iconLayout, LayoutHelper.createLinear(28, 28, Gravity.CENTER_VERTICAL | Gravity.LEFT, mini ? 9 : 18, 0, 0, 0));
                 addView(textLayout, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, 1, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL,  mini ? 12 : 18, 0, 20, 0));
                 addView(valueView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 0, 0, 20, 0));
+            }
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+                final ImageView disclosure = new ImageView(context);
+                disclosure.setImageResource(R.drawable.swiftgram_msg_arrowright);
+                disclosure.setColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayIcon, resourcesProvider), PorterDuff.Mode.SRC_IN);
+                disclosure.setScaleType(ImageView.ScaleType.CENTER);
+                disclosure.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                if (LocaleController.isRTL) {
+                    disclosure.setRotation(180);
+                    addView(disclosure, 0, LayoutHelper.createLinear(12, 20, Gravity.CENTER_VERTICAL, 16, 0, 0, 0));
+                } else {
+                    addView(disclosure, LayoutHelper.createLinear(12, 20, Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
+                }
             }
             updateColors();
         }
@@ -1562,6 +1584,10 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             titleView.setText(title);
             subtitleView.setVisibility((twoLines = !TextUtils.isEmpty(subtitle)) ? View.VISIBLE : View.GONE);
             subtitleView.setText(subtitle);
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+                subtitleView.setVisibility(GONE);
+                twoLines = false;
+            }
             setValue(value);
             updateColors();
         }
@@ -1575,7 +1601,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
             super.onMeasure(
                 MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
-                MeasureSpec.makeMeasureSpec(dp(mini ? 44 : twoLines ? 60 : 50), MeasureSpec.EXACTLY)
+                MeasureSpec.makeMeasureSpec(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 52 : mini ? 44 : twoLines ? 60 : 50), MeasureSpec.EXACTLY)
             );
         }
 

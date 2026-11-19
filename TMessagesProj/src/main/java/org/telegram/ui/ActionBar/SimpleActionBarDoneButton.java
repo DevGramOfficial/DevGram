@@ -72,15 +72,15 @@ public class SimpleActionBarDoneButton extends View implements FactorAnimator.Ta
         super(context);
         this.parentBar = bar;
         this.id = id;
-        this.style = SharedSettings.headerDoneButtonStyle.get();
-        this.shape = SharedSettings.headerDoneButtonShape.get();
+        this.style = SimpleActionBar.swiftgram() ? Style.ACCENT : SharedSettings.headerDoneButtonStyle.get();
+        this.shape = SimpleActionBar.swiftgram() ? Shape.TEXT : SharedSettings.headerDoneButtonShape.get();
         this.text = text;
 
         checkDrawable = ContextCompat.getDrawable(context, R.drawable.ic_ab_done).mutate();
         progressDrawable = new CircularProgressDrawable(dp(18), dp(2), 0xFFFFFFFF);
         progressDrawable.setCallback(this);
-        textPaint.setTypeface(AndroidUtilities.bold());
-        textPaint.setTextSize(dp(15));
+        textPaint.setTypeface(SimpleActionBar.swiftgram() ? AndroidUtilities.getTypeface("fonts/rmedium.ttf") : AndroidUtilities.bold());
+        textPaint.setTextSize(dp(SimpleActionBar.swiftgram() ? 17 : 15));
         updateColors();
         updateTextWidth();
 
@@ -184,7 +184,7 @@ public class SimpleActionBarDoneButton extends View implements FactorAnimator.Ta
         checkDrawable.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
         progressDrawable.setColor(color);
         textPaint.setColor(color);
-        setBackground(Theme.createRadSelectorDrawable(style == Style.ACCENT ? Theme.multAlpha(contentColor, 0.2f) : parentBar.getItemsBackgroundColor(false), dp(23), dp(23)));
+        setBackground(Theme.createRadSelectorDrawable(style == Style.ACCENT ? Theme.multAlpha(contentColor, 0.2f) : parentBar.getItemsBackgroundColor(false), dp(SimpleActionBar.swiftgram() ? 22 : 23), dp(SimpleActionBar.swiftgram() ? 22 : 23)));
         invalidate();
     }
 
@@ -194,14 +194,14 @@ public class SimpleActionBarDoneButton extends View implements FactorAnimator.Ta
 
     int getButtonWidth() {
         if (shape == Shape.ICON || TextUtils.isEmpty(text)) {
-            return dp(46);
+            return dp(SimpleActionBar.swiftgram() ? 44 : 46);
         }
-        return Math.max(dp(46), (int) Math.ceil(textWidth) + dp(32));
+        return Math.max(dp(SimpleActionBar.swiftgram() ? 44 : 46), (int) Math.ceil(textWidth) + dp(32));
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(getButtonWidth(), dp(46));
+        setMeasuredDimension(getButtonWidth(), dp(SimpleActionBar.swiftgram() ? 44 : 46));
     }
 
     @Override

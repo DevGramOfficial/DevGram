@@ -192,24 +192,29 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
             }
         };
         avatarImageView.setRoundRadius(dp(24));
-        addView(avatarImageView, LayoutHelper.createFrame(46, 46, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 0 : 7 + padding, 6, LocaleController.isRTL ? 7 + padding : 0, 0));
+        addView(avatarImageView, LayoutHelper.createFrame(swiftgramContacts() ? 40 : 46, swiftgramContacts() ? 40 : 46, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 0 : (swiftgramContacts() ? 16 : 7) + padding, 6, LocaleController.isRTL ? (swiftgramContacts() ? 16 : 7) + padding : 0, 0));
         setClipChildren(false);
 
         nameTextView = new SimpleTextView(context);
         ThemeBind.textColor(nameTextView, Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
-        nameTextView.setTypeface(AndroidUtilities.bold());
-        nameTextView.setTextSize(16);
+        nameTextView.setTypeface(swiftgramContacts() ? android.graphics.Typeface.DEFAULT : AndroidUtilities.bold());
+        nameTextView.setTextSize(swiftgramContacts() ? 17 : 16);
         nameTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-        addView(nameTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 28 + (checkbox == 2 ? 18 : 0) + additionalPadding : (64 + padding), 10, LocaleController.isRTL ? (64 + padding) : 28 + (checkbox == 2 ? 18 : 0) + additionalPadding, 0));
+        addView(nameTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 28 + (checkbox == 2 ? 18 : 0) + additionalPadding : ((swiftgramContacts() ? 65 : 64) + padding), 10, LocaleController.isRTL ? ((swiftgramContacts() ? 65 : 64) + padding) : 28 + (checkbox == 2 ? 18 : 0) + additionalPadding, 0));
 
         botVerification = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(20));
         emojiStatus = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(nameTextView, dp(20));
         devgramBadge = new org.telegram.ui.Components.DevGramBadgeEmojiDrawable(nameTextView, dp(18), AnimatedEmojiDrawable.CACHE_TYPE_KEYBOARD); // DevGram: значок крутится постоянно, а не 2 раза как статус
 
         statusTextView = new SimpleTextView(context);
-        statusTextView.setTextSize(15);
+        statusTextView.setTextSize(swiftgramContacts() ? 13 : 15);
         statusTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
-        addView(statusTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 28 + additionalPadding : (64 + padding), 32, LocaleController.isRTL ? (64 + padding) : 28 + additionalPadding, 0));
+        addView(statusTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 28 + additionalPadding : ((swiftgramContacts() ? 65 : 64) + padding), 32, LocaleController.isRTL ? ((swiftgramContacts() ? 65 : 64) + padding) : 28 + additionalPadding, 0));
+
+        if (swiftgramContacts()) {
+            ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(7);
+            ((LayoutParams) statusTextView.getLayoutParams()).topMargin = dp(27);
+        }
 
         imageView = new ImageView(context);
         imageView.setScaleType(ImageView.ScaleType.CENTER);
@@ -252,17 +257,17 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     }
     public void setAvatarPadding(int padding, int paddingText) {
         LayoutParams layoutParams = (LayoutParams) avatarImageView.getLayoutParams();
-        layoutParams.leftMargin = dp(LocaleController.isRTL ? 0 : 7 + padding);
-        layoutParams.rightMargin = dp(LocaleController.isRTL ? 7 + padding : 0);
+        layoutParams.leftMargin = dp(LocaleController.isRTL ? 0 : (swiftgramContacts() ? 16 : 7) + padding);
+        layoutParams.rightMargin = dp(LocaleController.isRTL ? (swiftgramContacts() ? 16 : 7) + padding : 0);
         avatarImageView.setLayoutParams(layoutParams);
 
         layoutParams = (LayoutParams) nameTextView.getLayoutParams();
-        layoutParams.leftMargin = dp(LocaleController.isRTL ? 28 + (checkBoxBig != null ? 18 : 0) : (64 + padding + paddingText));
-        layoutParams.rightMargin = dp(LocaleController.isRTL ? (64 + padding + paddingText) : 28 + (checkBoxBig != null ? 18 : 0));
+        layoutParams.leftMargin = dp(LocaleController.isRTL ? 28 + (checkBoxBig != null ? 18 : 0) : ((swiftgramContacts() ? 65 : 64) + padding + paddingText));
+        layoutParams.rightMargin = dp(LocaleController.isRTL ? ((swiftgramContacts() ? 65 : 64) + padding + paddingText) : 28 + (checkBoxBig != null ? 18 : 0));
 
         layoutParams = (FrameLayout.LayoutParams) statusTextView.getLayoutParams();
-        layoutParams.leftMargin = dp(LocaleController.isRTL ? 28 : (64 + padding + paddingText));
-        layoutParams.rightMargin = dp(LocaleController.isRTL ? (64 + padding + paddingText) : 28);
+        layoutParams.leftMargin = dp(LocaleController.isRTL ? 28 : ((swiftgramContacts() ? 65 : 64) + padding + paddingText));
+        layoutParams.rightMargin = dp(LocaleController.isRTL ? ((swiftgramContacts() ? 65 : 64) + padding + paddingText) : 28);
 
         if (checkBox != null) {
             layoutParams = (FrameLayout.LayoutParams) checkBox.getLayoutParams();
@@ -489,10 +494,24 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     }
 
 
+    private static boolean swiftgramContacts() {
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("contacts");
+    }
+
     private boolean callCellStyle;
 
     public void setCallCellStyle(int padding) {
         callCellStyle = true;
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("calls")) {
+            nameTextView.setTextSize(17);
+            nameTextView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            nameTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 22, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 30 : 86 + padding, 7, LocaleController.isRTL ? 86 + padding : 30, 0));
+            statusTextView.setTextSize(14);
+            statusTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 30 : 86 + padding, 29, LocaleController.isRTL ? 86 + padding : 30, 0));
+            avatarImageView.setRoundRadius(dp(20));
+            avatarImageView.setLayoutParams(LayoutHelper.createFrame(40, 40, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 0 : 34 + padding, 8, LocaleController.isRTL ? 34 + padding : 0, 0));
+            return;
+        }
         nameTextView.setTextSize(15);
         nameTextView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 30 : (66 + padding), 10, LocaleController.isRTL ? (66 + padding) : 30, 0));
         statusTextView.setTextSize(13);
@@ -509,7 +528,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(
             MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY),
-            MeasureSpec.makeMeasureSpec(dp(callCellStyle ? 56 : 58) + (needDivider ? 1 : 0), MeasureSpec.EXACTLY));
+            MeasureSpec.makeMeasureSpec(dp(callCellStyle ? 56 : swiftgramContacts() ? 52 : 58) + (needDivider ? 1 : 0), MeasureSpec.EXACTLY));
     }
 
     private boolean customStatusColors;
@@ -590,7 +609,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         }
 
         if (currentObject instanceof String) {
-            ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(19);
+            ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(swiftgramContacts() ? 16 : 19);
             String str = (String) currentObject;
             switch (str) {
                 case "contacts":
@@ -627,14 +646,14 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
             avatarImageView.setImage(null, "50_50", avatarDrawable);
             currentStatus = "";
         } else {
-            ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(10);
+            ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(swiftgramContacts() ? 7 : 10);
             if (currentUser != null) {
                 if (selfAsSavedMessages && UserObject.isUserSelf(currentUser)) {
                     nameTextView.setText(getString(R.string.SavedMessages), true);
                     statusTextView.setText(null);
                     avatarDrawable.setAvatarType(AvatarDrawable.AVATAR_TYPE_SAVED);
                     avatarImageView.setImage(null, "50_50", avatarDrawable, currentUser);
-                    ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(19);
+                    ((LayoutParams) nameTextView.getLayoutParams()).topMargin = dp(swiftgramContacts() ? 16 : 19);
                     return;
                 }
                 avatarDrawable.setInfo(currentAccount, currentUser);
@@ -787,7 +806,7 @@ public class UserCell extends FrameLayout implements NotificationCenter.Notifica
         }
 
         avatarImageView.setRoundRadius(isCommunity ? dp(46 * 20 / 72f) :
-                (currentChat != null && currentChat.forum ? dp(14) : dp(24)));
+                (currentChat != null && currentChat.forum ? dp(14) : dp(swiftgramContacts() ? 20 : 24)));
 
         ThemeBind.textColor(nameTextView, Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
     }

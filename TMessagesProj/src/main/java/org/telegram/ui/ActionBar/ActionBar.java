@@ -264,11 +264,13 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     // Центр круглого фона находится в glassPadding + 23dp. Центр штатной 54dp-кнопки —
     // 27dp, поэтому двигаем стрелку на базовые 2dp и на разницу увеличенного padding.
     private int glassBackTranslationX() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) return dp(16);
         return dp(2) + glassPadding - dp(6);
     }
 
     // Зеркальная компенсация справа удерживает меню в центре круглого фона при любом padding.
     private int glassMenuTranslationX() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) return -dp(16);
         return -dp(10) - (glassPadding - dp(6));
     }
 
@@ -308,6 +310,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         setBackground(null);
         setClipChildren(false);
         glassMode = true;
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+            glassPadding = 0;
+            glassTitleTextSize = 17;
+        }
         glassModeIsForum = isForum && !isTitleCentered();
 
         glassDrawable = factory.create(this)
@@ -647,14 +653,18 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
         titleTextView[i] = new SimpleTextView(getContext());
         titleTextView[i].devgramHideStatusGate = true; // DevGram: «Скрыть статус» прячет эмодзи-статус в шапке
-        titleTextView[i].setGravity(isCenterTitle ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        // Swiftgram centers the measured title view itself. SimpleTextView computes
+        // centered text offsets before shrinking a wrap-content view, clipping it.
+        titleTextView[i].setGravity(isTitleCentered() && !org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") ? Gravity.CENTER : Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) titleTextView[i].setWidthWrapContent(true);
         if (titleColorToSet != 0) {
             titleTextView[i].setTextColor(titleColorToSet);
         } else {
             titleTextView[i].setTextColor(getThemedColor(Theme.key_actionBarDefaultTitle));
         }
         titleTextView[i].setEmojiColor(titleTextView[i].getTextColor());
-        titleTextView[i].setTypeface(AndroidUtilities.bold());
+        titleTextView[i].setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")
+                ? android.graphics.Typeface.create("sans-serif-semibold", android.graphics.Typeface.NORMAL) : AndroidUtilities.bold());
         titleTextView[i].setDrawablePadding(dp(4));
         titleTextView[i].setPadding(0, dp(8), 0, dp(8));
         titleTextView[i].setRightDrawableTopPadding(-dp(1));
@@ -674,7 +684,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         if (titleTextView != null) {
             for (int a = 0; a < titleTextView.length; a++) {
                 if (titleTextView[a] != null) {
-                    titleTextView[a].setGravity(Gravity.CENTER);
+                    titleTextView[a].setGravity(org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") ? Gravity.LEFT | Gravity.CENTER_VERTICAL : Gravity.CENTER);
                 }
             }
         }
@@ -1382,8 +1392,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 invalidate();
             }
 
-            if (glassMode && menu != null) {
-                menu.setTranslationX(-lerp((float) dp(10), dp(5), searchFieldVisibleAlpha));
+            if ((glassMode || org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) && menu != null) {
+                menu.setTranslationX(org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")
+                        ? -dp(16) * (1 - searchFieldVisibleAlpha)
+                        : -lerp((float) dp(10), dp(5), searchFieldVisibleAlpha));
             }
             if (backgroundUpdateListener != null) {
                 backgroundUpdateListener.run();
@@ -1549,6 +1561,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") && getBackground() != null) setBackground(null);
         int width = MeasureSpec.getSize(widthMeasureSpec);
         int height = MeasureSpec.getSize(heightMeasureSpec);
         int actionBarHeight = getCurrentActionBarHeight();
@@ -1610,6 +1623,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 // A closing search field keeps filling the menu during its fade-out; don't squeeze the title for it.
                 int titleMenuWidth = menu != null ? menu.getMeasuredWidth() - (isSearchFieldVisible ? 0 : menu.getClosingSearchFieldWidth()) : 0;
                 int availableWidth = isTitleCentered() ? width - dp(120) : width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
+                if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+                    availableWidth = width - swiftgramLeftTitleInset() - swiftgramRightTitleInset();
+                }
                 availableWidth = Math.max(availableWidth, 0);
 
                 if (((fromBottom && i == 0) || (!fromBottom && i == 1)) && overlayTitleAnimation && titleAnimationRunning) {
@@ -1637,6 +1653,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 }
 
                 if (titleTextView[i] != null && titleTextView[i].getVisibility() != GONE) {
+                    if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) titleTextView[i].setTextSize(17);
                     titleTextView[i].measure(MeasureSpec.makeMeasureSpec(availableWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24) + titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom(), MeasureSpec.AT_MOST));
                     if (centerScale) {
                         CharSequence text = titleTextView[i].getText();
@@ -1692,13 +1709,15 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         int textLeft;
         if (backButtonImageView != null && backButtonImageView.getVisibility() != GONE) {
-            backButtonImageView.layout(0, additionalTop, backButtonImageView.getMeasuredWidth(), additionalTop + backButtonImageView.getMeasuredHeight());
+            int backLeft = org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") ? dp(16) : 0;
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) backButtonImageView.setTranslationX(0);
+            backButtonImageView.layout(backLeft, additionalTop, backLeft + backButtonImageView.getMeasuredWidth(), additionalTop + backButtonImageView.getMeasuredHeight());
             textLeft = glassMode ? dp(76) : dp(AndroidUtilities.isTablet() ? 80 : 72);
             if (countLayout != null) {
                 if (iOSUnreadBadgeAvailable()) {
                     int cw = countLayout.getMeasuredWidth();
                     int ch = countLayout.getMeasuredHeight();
-                    int cl = dp(BACK_COUNTER_LEFT_OFFSET_DP);
+                    int cl = backLeft + dp(BACK_COUNTER_LEFT_OFFSET_DP);
                     int ct = additionalTop + (backButtonImageView.getMeasuredHeight() - ch) / 2;
                     countLayout.layout(cl, ct, cl + cw, ct + ch);
                 } else {
@@ -1713,6 +1732,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         if (menu != null && menu.getVisibility() != GONE) {
             int menuLeft = menu.searchFieldVisible() ? dp(menuOccupyBack ? 0 : AndroidUtilities.isTablet() ? 74 : 66) : (getMeasuredWidth()) - menu.getMeasuredWidth();
             menu.layout(menuLeft, additionalTop, menuLeft + menu.getMeasuredWidth(), additionalTop + menu.getMeasuredHeight());
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+                // The source pill has a 16pt trailing inset, including bars without setupGlass.
+                menu.setTranslationX(-dp(16) * (1 - searchFieldVisibleAlpha));
+            }
         }
 
         for (int i = 0; i < 2; i++) {
@@ -1727,7 +1750,12 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                         textTop = (getCurrentActionBarHeight() - titleTextView[i].getTextHeight()) / 2;
                     }
                 }
-                titleTextView[i].layout(textLeft, additionalTop + textTop - titleTextView[i].getPaddingTop(), textLeft + titleTextView[i].getMeasuredWidth(), additionalTop + textTop + titleTextView[i].getTextHeight() - titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom());
+                int titleLeft = textLeft;
+                if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+                    titleLeft = (int) org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.titleX(getMeasuredWidth(), 0, 0,
+                            swiftgramLeftTitleInset(), swiftgramRightTitleInset(), titleTextView[i].getMeasuredWidth());
+                }
+                titleTextView[i].layout(titleLeft, additionalTop + textTop - titleTextView[i].getPaddingTop(), titleLeft + titleTextView[i].getMeasuredWidth(), additionalTop + textTop + titleTextView[i].getTextHeight() - titleTextView[i].getPaddingTop() + titleTextView[i].getPaddingBottom());
             }
         }
         if (additionalSubTitleOverlayContainer != null) {
@@ -1796,6 +1824,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     break;
                 default:
                     childTop = lp.topMargin;
+            }
+            if (child == swiftgramLeadingControl && org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+                childLeft = dp(16);
+                childTop = additionalTop + (getCurrentActionBarHeight() - height) / 2;
             }
             child.layout(childLeft, childTop, childLeft + width, childTop + height);
         }
@@ -2104,6 +2136,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     public static int getCurrentActionBarHeight() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) return dp(60);
         if (AndroidUtilities.displaySize.x > AndroidUtilities.displaySize.y) {
             return dp(48);
         } else {
@@ -2425,6 +2458,107 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private boolean isAnimationsAllowed;
+    private final Paint swiftgramNavigationPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Path swiftgramNavigationClip = new android.graphics.Path();
+
+    private void drawSwiftgramPill(Canvas canvas, Drawable glass, int left, int top, int right, int bottom, int alpha) {
+        if (glass != null) {
+            glass.setBounds(left, top, right, bottom); glass.setAlpha(alpha); glass.draw(canvas);
+            return;
+        }
+        if (right <= left || bottom <= top || alpha <= 0) return;
+        boolean dark = Theme.isCurrentThemeDark();
+        int surface = getThemedColor(Theme.key_windowBackgroundWhite);
+        boolean lightIcons = androidx.core.graphics.ColorUtils.calculateLuminance(itemsColor) > .7;
+        if (lightIcons && androidx.core.graphics.ColorUtils.calculateLuminance(surface) > .7) surface = 0xff000000;
+        swiftgramNavigationPaint.setColor(surface);
+        swiftgramNavigationPaint.setAlpha(Math.round(alpha * (dark ? .8f : .78f)));
+        AndroidUtilities.rectTmp.set(left, top, right, bottom);
+        if (contentView != null && blurredBackground) {
+            canvas.save();
+            swiftgramNavigationClip.rewind(); swiftgramNavigationClip.addRoundRect(AndroidUtilities.rectTmp, dp(22), dp(22), android.graphics.Path.Direction.CW);
+            canvas.clipPath(swiftgramNavigationClip);
+            AndroidUtilities.rectTmp2.set(left, top, right, bottom);
+            contentView.drawBlurRect(canvas, getY(), AndroidUtilities.rectTmp2, swiftgramNavigationPaint, true);
+            canvas.restore();
+        } else canvas.drawRoundRect(AndroidUtilities.rectTmp, dp(22), dp(22), swiftgramNavigationPaint);
+    }
+
+    private View swiftgramLeadingControl;
+    public void setSwiftgramLeadingControl(View control) { swiftgramLeadingControl = control; requestLayout(); }
+    public int getSwiftgramLeadingContentEnd() {
+        return swiftgramLeadingControl != null && swiftgramLeadingControl.getVisibility() == VISIBLE
+                ? Math.round(swiftgramLeadingControl.getX() + swiftgramLeadingControl.getMeasuredWidth()) : dp(16);
+    }
+
+    private int swiftgramLeftTitleInset() {
+        if (swiftgramLeadingControl != null && swiftgramLeadingControl.getVisibility() == VISIBLE) return getSwiftgramLeadingContentEnd() + dp(8);
+        return dp(16) + (backButtonImageView != null && backButtonImageView.getVisibility() == VISIBLE
+                ? backButtonImageView.getMeasuredWidth() + dp(8) : 0);
+    }
+
+    private int swiftgramRightTitleInset() {
+        return dp(16) + (menu != null && menu.getVisibility() == VISIBLE && !isSearchFieldVisible
+                ? Math.max(0, menu.getMeasuredWidth() - menu.getClosingSearchFieldWidth()) + dp(8) : 0);
+    }
+
+    /** The source navigation row has two 44pt glass button groups and an unboxed centered title. */
+    private float swiftgramChatPillLeft, swiftgramChatPillRight;
+
+    public float getSwiftgramChatClipLeft() { return swiftgramChatPillLeft; }
+    public float getSwiftgramChatClipRight() { return swiftgramChatPillRight; }
+
+    public int getSwiftgramChatContentLimit() {
+        ChatAvatarContainer chat = chatAvatarContainer2 != null ? chatAvatarContainer2 : chatAvatarContainer;
+        float density = AndroidUtilities.density;
+        float back = backButtonImageView != null && backButtonImageView.getVisibility() == VISIBLE ? backButtonImageView.getMeasuredWidth() / density : 0;
+        float trailing = menu != null && menu.getVisibility() == VISIBLE ? Math.max(0, menu.getItemsMeasuredWidth(false)) / density : 0;
+        return Math.max(0, (int) (density * org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.chatContentLimit(
+                getMeasuredWidth() / density, back, trailing, chat != null && chat.hasVisibleAvatar())));
+    }
+
+    private void drawSwiftgramNavigation(Canvas canvas) {
+        int y = (occupyStatusBar ? AndroidUtilities.statusBarHeight : 0) + dp(8);
+        int size = dp(44), inset = dp(16);
+        if (backButtonImageView != null && backButtonImageView.getVisibility() == VISIBLE) {
+            drawSwiftgramPill(canvas, glassDrawableBack, inset, y, inset + backButtonImageView.getMeasuredWidth(), y + size, 255);
+        }
+        int menuWidth = menu != null && menu.getVisibility() == VISIBLE ? Math.max(0, menu.getItemsWidth()) : 0;
+        ChatAvatarContainer chatTitle = chatAvatarContainer2 != null ? chatAvatarContainer2 : chatAvatarContainer;
+        boolean hasAvatar = chatTitle != null && chatTitle.hasVisibleAvatar();
+        int trailingWidth = Math.max(menuWidth, hasAvatar ? size : 0);
+        if (menuWidth > 0 && !hideGlassMenuPill && !doNotDrawGlassMenu && !glassOnlyBack) {
+            drawSwiftgramPill(canvas, glassDrawableMenu, getWidth() - inset - menuWidth, y, getWidth() - inset, y + size, Math.round(255 * (1 - searchFactor)));
+        }
+        if (searchFactor > 0) {
+            drawSwiftgramPill(canvas, glassDrawable, inset + (backButtonImageView == null ? 0 : size + dp(8)), y,
+                    getWidth() - inset, y + size, Math.round(255 * searchFactor));
+        }
+        if (chatTitle != null && chatTitle.getVisibility() == VISIBLE && drawGlassTitle && !glassOnlyBack) {
+            // ChatTitleComponent: min 150pt content, 12pt side insets and 44pt pill.
+            SimpleTextView title = chatTitle.getTitleTextView();
+            View subtitle = chatTitle.getSubtitleTextView();
+            int leftLimit = inset + (backButtonImageView == null ? 0 : backButtonImageView.getMeasuredWidth() + dp(8));
+            int rightLimit = getWidth() - inset - trailingWidth - (trailingWidth > 0 ? dp(8) : 0);
+            float desiredWidth = title.getExactWidthIncludeDrawables();
+            if (subtitle != null && subtitle.getVisibility() == VISIBLE) desiredWidth = Math.max(desiredWidth, subtitle.getMeasuredWidth());
+            int backWidth = backButtonImageView == null || backButtonImageView.getVisibility() != VISIBLE ? 0 : backButtonImageView.getMeasuredWidth();
+            int contentWidth = (int) (AndroidUtilities.density * org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.chatPillWidth(
+                    getWidth() / AndroidUtilities.density, backWidth / AndroidUtilities.density,
+                    menuWidth / AndroidUtilities.density, hasAvatar, desiredWidth / AndroidUtilities.density));
+            int pillLeft = Math.round(org.telegram.ui.Components.DevGramSwiftgramHeaderLayout.titleX(getWidth(), 0, 0, leftLimit, getWidth() - rightLimit, contentWidth));
+            swiftgramChatPillLeft = pillLeft;
+            swiftgramChatPillRight = pillLeft + contentWidth;
+            float center = pillLeft + contentWidth / 2f;
+            title.setTranslationX(center - (chatTitle.getX() + title.getLeft() + title.getWidth() / 2f));
+            if (subtitle != null) subtitle.setTranslationX(center - (chatTitle.getX() + subtitle.getLeft() + subtitle.getWidth() / 2f));
+            drawSwiftgramPill(canvas, glassDrawable, pillLeft, y, pillLeft + contentWidth, y + size, Math.round(255 * (1 - searchFactor) * (1 - getActionModeFactor())));
+        }
+        if (chatAvatarContainer2 != null && chatAvatarContainer2.isCentered() && isAvatarAlignAllowed()) {
+            if (hasAvatar) chatAvatarContainer2.alignAvatarCenter(this, getWidth() - inset - size / 2f, y + size / 2f);
+            else chatAvatarContainer2.resetAvatarAlignment();
+        }
+    }
 
     public void checkMenuItemsWidth() {
         final int defaultMenuWidth = Math.max(0, menu != null ? (int) menu.getItemsWidth() - dp(1) - dp(1) : 0);
@@ -2474,7 +2608,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         final int t = getHeight() - (getCurrentActionBarHeight() + s) / 2 - p;
         final int b = t + s + p * 2;
 
-        if (glassFlatDivider) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+            drawSwiftgramNavigation(canvas);
+        } else if (glassFlatDivider) {
             final boolean isDark = resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark();
             glassFlatDividerPaint.setColor(Theme.getColor(isDark ? Theme.key_actionBarDefault : Theme.key_chat_topPanelBackground, resourcesProvider));
             // DevGram: t/b рассчитаны для позиционирования стеклянных «капсул» внутри
@@ -2607,7 +2743,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             }
         }
 
-        if (blurredBackground && actionBarColor != Color.TRANSPARENT) {
+        if (blurredBackground && actionBarColor != Color.TRANSPARENT && !org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
             rectTmp.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
             blurScrimPaint.setColor(actionBarColor);
             if (adaptiveBackground) {
@@ -2867,7 +3003,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         // here also centered ordinary ActionBars (for example the account name on
         // the dialogs screen). ChatActivity supplies its centered avatar container;
         // other screens may still opt in explicitly through centerTitle().
-        return isCenterTitle
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") || isCenterTitle
                 || chatAvatarContainer2 != null && chatAvatarContainer2.isCentered();
     }
 
@@ -2961,13 +3097,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
     }
 
     private int getBackButtonWidth() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) return dp(44) + getBackPillCounterExtraWidth();
         if (!isBackPillMode()) return dp(54);
         return Math.max(dp(54), (int) (getBackPillWidth() - glassPadding - backButtonImageView.getTranslationX()));
     }
 
     private void measureBackButton(int heightSpec) {
         int width = getBackButtonWidth();
-        int paddingRight = width - dp(54);
+        int paddingRight = Math.max(0, width - dp(org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") ? 44 : 54));
         if (backButtonImageView.getPaddingRight() != paddingRight) {
             boolean old = ignoreLayoutRequest;
             ignoreLayoutRequest = true;
@@ -3062,6 +3199,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         public void checkUnreadView(int count) {
             if (!org.telegram.messenger.DevGramIOSConfig.showUnreadCounter()) count = 0;
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("chat") && !iOSUnreadBadgeAvailable()) count = 0;
             if (countLayout == null) createUnreadView(count); else setUnread(count);
         }
 

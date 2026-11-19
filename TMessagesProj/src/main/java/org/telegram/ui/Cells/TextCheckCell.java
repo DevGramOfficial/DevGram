@@ -99,11 +99,11 @@ public class TextCheckCell extends FrameLayout {
         super(context);
         this.resourcesProvider = resourcesProvider;
 
-        this.padding = padding;
+        this.padding = padding = org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : padding;
 
         textView = new TextView(context);
         ThemeBind.textColor(textView, dialog ? Theme.key_dialogTextBlack : Theme.key_windowBackgroundWhiteBlackText, resourcesProvider);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 17 : 16);
         textView.setLines(1);
         textView.setMaxLines(1);
         textView.setSingleLine(true);
@@ -113,7 +113,7 @@ public class TextCheckCell extends FrameLayout {
 
         valueTextView = new TextView(context);
         ThemeBind.textColor(valueTextView, dialog ? Theme.key_dialogIcon : Theme.key_windowBackgroundWhiteGrayText2, resourcesProvider);
-        valueTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+        valueTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 14 : 13);
         valueTextView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
         valueTextView.setLines(1);
         valueTextView.setMaxLines(1);
@@ -124,7 +124,7 @@ public class TextCheckCell extends FrameLayout {
 
         checkBox = new Switch(context, resourcesProvider);
         checkBox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-        addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+        addView(checkBox, LayoutHelper.createFrame(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 51 : 37, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 31 : 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0));
 
         setClipChildren(false);
 
@@ -150,7 +150,7 @@ public class TextCheckCell extends FrameLayout {
         if (isMultiline) {
             super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED));
         } else {
-            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(valueTextView.getVisibility() == VISIBLE ? 64 : height) + (needDivider ? 1 : 0), MeasureSpec.EXACTLY));
+            super.onMeasure(MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(valueTextView.getVisibility() == VISIBLE ? 64 : org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 52 : height) + (needDivider ? 1 : 0), MeasureSpec.EXACTLY));
         }
     }
 
@@ -195,7 +195,7 @@ public class TextCheckCell extends FrameLayout {
         addView(valueTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 64 : padding, 36, LocaleController.isRTL ? padding : 64, 0));
 
         removeView(checkBox);
-        addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+        addView(checkBox, LayoutHelper.createFrame(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 51 : 37, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 31 : 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0, org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? 16 : 22, 0));
     }
 
     public void setColors(int key, int switchKey, int switchKeyChecked, int switchThumb, int switchThumbChecked) {

@@ -85,6 +85,7 @@ public class ProfileActionsView extends View {
     };
 
     private final List<Action> actions = new ArrayList<>();
+    private DevGramSwiftgramProfileIcons swiftgramIcons;
     // DevGram: кнопки в стиле Material 3 — пилюля с иконкой и подпись под ней
     private final boolean material3;
     private final Paint containerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -162,14 +163,26 @@ public class ProfileActionsView extends View {
 
     public boolean myProfile;
 
+    private final Theme.ResourcesProvider resourcesProvider;
+
+    private int devgramActionContentColor(int fallback) {
+        return resourcesProvider instanceof DevGramProfilePalette.Provider
+                ? ((DevGramProfilePalette.Provider) resourcesProvider).actionContentColor(fallback) : fallback;
+    }
+
     public ProfileActionsView(Context context, int targetHeight) {
+        this(context, targetHeight, null);
+    }
+
+    public ProfileActionsView(Context context, int targetHeight, Theme.ResourcesProvider resourcesProvider) {
         super(context);
+        this.resourcesProvider = resourcesProvider;
 
         paint.setColor(Color.BLACK);
         paint.setAlpha(40);
 
         material3 = ProfileActionsUiHelper.isMaterial3Style();
-        xpadding = material3 ? ProfileActionsUiHelper.getSidePadding() : dpf2(14);
+        xpadding = org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? dpf2(16) : material3 ? ProfileActionsUiHelper.getSidePadding() : dpf2(14);
         ypadding = dpf2(12);
         top = dpf2(8);
         textPadding = dpf2(4);
@@ -267,6 +280,7 @@ public class ProfileActionsView extends View {
     }
 
     private float getGap() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) return dpf2(8);
         if (material3) {
             return ProfileActionsUiHelper.getContainerGap(getMeasuredWidth() - xpadding * 2f, activeCount);
         }
@@ -298,7 +312,7 @@ public class ProfileActionsView extends View {
         final float betweenPadding = getGap();
         layoutHeight = height;
         // DevGram: iOS-профиль — кнопки-круги (квадрат + радиус в половину), ряд по центру
-        final boolean dgIos = (org.telegram.messenger.DevGramConfig.iosProfile && !material3);
+        final boolean dgIos = (org.telegram.messenger.DevGramConfig.iosProfile && !material3 && !org.telegram.messenger.DevGramSwiftgramDesign.section("profiles"));
         float width = getItemWidth();
         float left = xpadding;
         float r = devgramShape == 0 ? getRoundRadius() : dp(devgramShape == 1 ? 28 : devgramShape == 2 ? 12 : 40);
@@ -355,6 +369,7 @@ public class ProfileActionsView extends View {
         }
 
         if (!ignoreRect) {
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") && !hasColorById && !devgramCustomSurface) paint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             for (int i = 0; i < c; i++) {
                 Action action = actions.get(i);
                 if (!action.isDeleted) {
@@ -420,10 +435,10 @@ public class ProfileActionsView extends View {
         final boolean monet = !hasColorById && Theme.getActiveTheme().isMonet();
         final float filledProgress = getFilledIconProgress(monet || isButtonColorLight());
         final boolean dark = Theme.isCurrentThemeDark();
-        final int iconColor = ColorUtils.blendARGB(
+        final int iconColor = devgramActionContentColor(ColorUtils.blendARGB(
                 monet ? org.telegram.messenger.devgram.utils.ui.MonetUtils.getOnSecondaryContainerColor(dark) : Theme.getColor(Theme.key_windowBackgroundWhiteBlueText),
-                Color.WHITE, filledProgress);
-        final int labelColor = hasColorById ? Color.WHITE : ColorUtils.blendARGB(Theme.getColor(Theme.key_profile_title), Color.WHITE, parentExpanded);
+                Color.WHITE, filledProgress));
+        final int labelColor = devgramActionContentColor(hasColorById ? Color.WHITE : ColorUtils.blendARGB(Theme.getColor(Theme.key_profile_title), Color.WHITE, parentExpanded));
         final int containerColor = monet
                 ? ColorUtils.blendARGB(org.telegram.messenger.devgram.utils.ui.MonetUtils.getSecondaryContainerColor(dark), paint.getColor(), filledProgress)
                 : paint.getColor();
@@ -632,13 +647,32 @@ public class ProfileActionsView extends View {
             return;
         }
 
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) {
+            if (swiftgramIcons == null) swiftgramIcons = new DevGramSwiftgramProfileIcons(this);
+            int color = devgramActionContentColor(hasColorById || parentExpanded > .5f ? Color.WHITE : Theme.getColor(Theme.key_windowBackgroundWhiteBlueText));
+            alpha *= action.getAlpha();
+            canvas.save();
+            canvas.scale(fraction * action.getScale(), fraction * action.getScale(), action.rect.centerX(), action.rect.centerY());
+            canvas.clipRect(action.rect);
+            swiftgramIcons.draw(canvas, action.key, isNotificationsEnabled, profileLiked, action.rect.centerX(), action.rect.top + dp(1), color, alpha, action.swiftgramPlay);
+            action.swiftgramPlay = false;
+            // Keep the source's single-line label baseline; narrowing a StaticLayout
+            // here wraps long translations upward over the 40pt icon.
+            action.text.ellipsize(Math.max(1, action.rect.width() - dp(8)));
+            action.text.draw(canvas, action.rect.centerX() - action.text.getWidth() / 2f,
+                    action.rect.bottom - dp(9) - action.text.getHeight() / 2f, color, alpha);
+            canvas.restore();
+            drawLoading(canvas, action, alpha, color);
+            return;
+        }
+
         final boolean isButtonColorLight = isButtonColorLight();
         float useFilledWhiteIcon = !isButtonColorLight ? 1 : MathUtils.clamp((parentExpanded - 0.75f) / 0.25f, 0, 1);
         if (isButtonColorLight && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             useFilledWhiteIcon = 0f;
         }
 
-        final int textColor = ColorUtils.blendARGB(Color.BLACK, Color.WHITE, useFilledWhiteIcon);
+        final int textColor = devgramActionContentColor(ColorUtils.blendARGB(Color.BLACK, Color.WHITE, useFilledWhiteIcon));
         updateColorFilter(textColor);
 
         canvas.save();
@@ -662,7 +696,7 @@ public class ProfileActionsView extends View {
         drawActionIcons(canvas, action, alpha, useFilledWhiteIcon);
 
         canvas.restore();
-        drawLoading(canvas, action, alpha, Color.WHITE);
+        drawLoading(canvas, action, alpha, textColor);
     }
 
     private void drawActionDrawable(Canvas canvas, Drawable drawable, float alpha) {
@@ -716,6 +750,7 @@ public class ProfileActionsView extends View {
     }
 
     public float getRoundRadius() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) return dp(16);
         if ((org.telegram.messenger.DevGramConfig.iosProfile && !material3) && layoutHeight > 0) {
             return layoutHeight / 2f; // круглые кнопки
         }
@@ -1245,6 +1280,7 @@ public class ProfileActionsView extends View {
 
     private class Action {
         int key;
+        boolean swiftgramPlay;
 
         private final ButtonBounce bounce = new ButtonBounce(ProfileActionsView.this);
         final RectF prevRect = new RectF();
@@ -1293,7 +1329,12 @@ public class ProfileActionsView extends View {
         }
 
         public void setText(CharSequence cs) {
+            if (key == KEY_MORE && org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) cs = org.telegram.messenger.DevGramLocale.getString(R.string.DevGramProfileActionsMore);
             this.title = cs;
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) {
+                this.text = new Text(cs.toString().toLowerCase(java.util.Locale.ROOT), 11, android.graphics.Typeface.DEFAULT);
+                return;
+            }
             if (material3) {
                 this.text = ProfileActionsUiHelper.createLabel(cs);
                 this.labelFitWidth = -1f;
@@ -1525,11 +1566,15 @@ public class ProfileActionsView extends View {
 
         public void update(ActionButton button) {
             updateDrawable(0, button.filledIcon, button.outlineIcon);
-            setText(getString(button.title));
+            setText(org.telegram.messenger.DevGramLocale.getString(button.title));
         }
 
         @SuppressLint("UseCompatLoadingForDrawables")
         public void updateDrawable(@RawRes int animatedRes, @DrawableRes int filledRes, @DrawableRes int outlineRes) {
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) {
+                swiftgramPlay = animatedRes != 0;
+                animatedRes = 0;
+            }
             if (animatedRes != 0) {
                 RLottieDrawable drawable = new RLottieDrawable(animatedRes, dp(56), dp(56), false, null);
                 drawable.setMasterParent(ProfileActionsView.this);
@@ -1543,6 +1588,11 @@ public class ProfileActionsView extends View {
 
             checkBounds();
         }
+    }
+
+    @Override protected void onDetachedFromWindow() {
+        if (swiftgramIcons != null) { swiftgramIcons.release(); swiftgramIcons = null; }
+        super.onDetachedFromWindow();
     }
 
     public enum ActionButton {

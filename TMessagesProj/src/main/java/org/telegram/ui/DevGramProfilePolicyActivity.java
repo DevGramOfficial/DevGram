@@ -14,9 +14,16 @@ import org.telegram.ui.Cells.TextSettingsCell;
 
 /** Live access policy. Catalog moderator roles are intentionally managed elsewhere. */
 public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
+    private final boolean designScope;
+    public DevGramProfilePolicyActivity() { this(false); }
+    protected DevGramProfilePolicyActivity(boolean designScope) { this.designScope = designScope; }
     public static final LinkedHashMap<String, String> LABELS = new LinkedHashMap<>();
     static {
         String[] entries = {
+            "design.ios|Стиль iOS", "design.ios.navigation|Нижние вкладки iOS", "design.ios.chatlist|Список чатов iOS",
+            "design.ios.chat|Чат и поле ввода iOS", "design.ios.profiles|Профили iOS", "design.ios.settings|Настройки iOS",
+            "design.ios.menus|Меню и окна iOS", "design.ios.media|Медиа и плееры iOS", "design.ios.contacts|Контакты iOS",
+            "design.ios.calls|Звонки iOS", "design.ios.stories|Истории iOS", "design.ios.animations|Анимации iOS",
             "profile.notices|Уведомления кастомизации", "profile.comments|Комментарии профиля", "profile.communities|Оформление каналов, групп и форумов",
             "profile.palette|Палитра профиля", "profile.gradient|Статичный градиент", "profile.aurora|Северное сияние", "profile.mesh|Живой шёлк",
             "profile.media|Статичные фоны профиля", "profile.media.animated|Анимированные фоны профиля", "profile.opacity|Затемнение фона", "profile.blur|Размытие фона",
@@ -34,6 +41,18 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
     }
     private static final LinkedHashMap<String, String> NOTES = new LinkedHashMap<>();
     static {
+        NOTES.put("design.ios", "Общий доступ ко всему оформлению Swiftgram. Ограничения отдельных разделов проверяются дополнительно.");
+        NOTES.put("design.ios.navigation", "Плавающая нижняя панель, подписи вкладок, значки и счётчики.");
+        NOTES.put("design.ios.chatlist", "Список чатов, папки, поиск, архив и действия со свайпом.");
+        NOTES.put("design.ios.chat", "Шапка чата, сообщения, ответы, строка ввода и кнопки отправки.");
+        NOTES.put("design.ios.profiles", "Профили людей, каналов, групп и форумов, управление сообществами.");
+        NOTES.put("design.ios.settings", "Главный экран настроек и вложенные разделы приложения.");
+        NOTES.put("design.ios.menus", "Меню сообщения, контекстные действия, диалоги и нижние окна.");
+        NOTES.put("design.ios.media", "Галерея, просмотр фото и видео, вложения и музыкальные плееры.");
+        NOTES.put("design.ios.contacts", "Список контактов, поиск людей и карточки участников.");
+        NOTES.put("design.ios.calls", "Список звонков и элементы интерфейса вызовов.");
+        NOTES.put("design.ios.stories", "Просмотр историй, подписи, реакции и кнопки действий.");
+        NOTES.put("design.ios.animations", "Переходы между экранами, раскрытие меню и анимации нажатия.");
         NOTES.put("profile.palette", "Цвета фона, текста и основных элементов профиля.");
         NOTES.put("profile.gradient", "Цвета, направление и форма статичных градиентов.");
         NOTES.put("profile.aurora", "Плавное движение цвета в фоне профиля.");
@@ -95,7 +114,9 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
         NOTES.put("music.listening", "Включение совместного прослушивания и подключение к нему.");
     }
 
-    private static final String[] CATEGORIES = {"Все разделы", "Фон и атмосфера", "Компоновка и карточки", "Аватар и рамки", "Имя и сообщения", "Блоки и интеграции", "Музыка и активность", "Мастерская и файлы", "Другие функции"};
+    private static final String[] PROFILE_CATEGORIES = {"Все разделы", "Фон и атмосфера", "Компоновка и карточки", "Аватар и рамки", "Имя и сообщения", "Блоки и интеграции", "Музыка и активность", "Мастерская и файлы", "Другие функции"};
+    private static final String[] DESIGN_CATEGORIES = {"Все разделы", "Навигация", "Чаты и сообщения", "Профили", "Настройки", "Меню и окна", "Медиа и истории", "Контакты и звонки", "Анимации"};
+    private String[] categories() { return designScope ? DESIGN_CATEGORIES : PROFILE_CATEGORIES; }
     private static final String[] TIER_NOTES = {"Доступно каждому пользователю DevGram.", "Нужен значок с функционалом для поддержавших.", "Нужен значок с функционалом разработчика.", "Функция отключена у всех. Сохранённое оформление останется в данных."};
     private UniversalRecyclerView list;
     private EditText search;
@@ -124,10 +145,11 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
     private int audienceColor(int tier) {
         return tier == 0 ? 0xff23866c : tier == 1 ? 0xffa86e16 : tier == 2 ? 0xff8b62cc : color(Theme.key_text_RedRegular);
     }
-    private boolean active() { return !closed && getParentActivity() != null && getUserConfig().getClientUserId() == viewer && DevGramProfileCustomization.enabled() && DevGramBadges.hasDeveloperFeatures(viewer); }
+    private boolean active() { return !closed && getParentActivity() != null && getUserConfig().getClientUserId() == viewer && (designScope || DevGramProfileCustomization.enabled()) && DevGramBadges.hasDeveloperFeatures(viewer); }
     private ArrayList<String> features() {
         LinkedHashSet<String> all = new LinkedHashSet<>(LABELS.keySet());
         all.addAll(DevGramProfilePolicy.DEFAULTS.keySet()); all.addAll(DevGramProfilePolicy.features());
+        all.removeIf(key -> designScope != key.startsWith("design."));
         return new ArrayList<>(all);
     }
     private void update(boolean animated) { if (list != null && !closed) list.adapter.update(animated); }
@@ -135,10 +157,27 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
     private TextView muted(String value, int size) { TextView v = text(value, size, false); v.setTextColor(color(Theme.key_windowBackgroundWhiteGrayText)); v.setLineSpacing(dp(2), 1); return v; }
     private LinearLayout column(int padding) { LinearLayout v = DevGramStudioControls.column(getParentActivity()); v.setPadding(dp(padding), dp(padding), dp(padding), dp(padding)); return v; }
     private LinearLayout row() { LinearLayout v = new LinearLayout(getParentActivity()); v.setGravity(Gravity.CENTER_VERTICAL); return v; }
-    private View wrap(View inner) { LinearLayout v = column(0); v.setPadding(dp(16), dp(5), dp(16), dp(5)); v.addView(inner, new LinearLayout.LayoutParams(-1, -2)); return v; }
+    private View wrap(View inner) {
+        LinearLayout v = column(0); v.setPadding(dp(16), dp(5), dp(16), dp(5));
+        // RecyclerListView only inspects its direct child for interactive content.
+        // Mark the wrapper interactive so its gesture detector leaves nested
+        // audience cards, search controls and filters to Android's dispatch.
+        v.setClickable(true);
+        v.addView(inner, new LinearLayout.LayoutParams(-1, -2)); return v;
+    }
     private void surface(View v, int fill, int stroke) { v.setBackground(DevGramStudioControls.surface(fill, stroke)); }
     private ImageView icon(int drawable, int tint) { ImageView v = new ImageView(getParentActivity()); v.setImageResource(drawable); v.setColorFilter(tint); v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO); return v; }
     private static int category(String key) {
+        if (key.startsWith("design.")) {
+            if (key.endsWith("chatlist") || key.endsWith("chat")) return 2;
+            if (key.endsWith("profiles")) return 3;
+            if (key.endsWith("settings")) return 4;
+            if (key.endsWith("menus")) return 5;
+            if (key.endsWith("media") || key.endsWith("stories")) return 6;
+            if (key.endsWith("contacts") || key.endsWith("calls")) return 7;
+            if (key.endsWith("animations")) return 8;
+            return 1;
+        }
         if (key.startsWith("avatar.")) return 3;
         if (key.startsWith("chat.") || key.equals("profile.nick") || key.equals("profile.name.effects") || key.equals("profile.thought") || key.equals("profile.font") || key.equals("badge.choice")) return 4;
         if (key.startsWith("profile.blocks") || key.equals("profile.integrations")) return 5;
@@ -151,7 +190,7 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
 
     @Override public View createView(Context context) {
         viewer = getUserConfig().getClientUserId();
-        actionBar.setBackButtonImage(R.drawable.ic_ab_back); actionBar.setTitle(t("Доступ к функциям"));
+        actionBar.setBackButtonImage(R.drawable.ic_ab_back); actionBar.setTitle(t(designScope ? "Доступ к стилю iOS" : "Доступ к функциям"));
         actionBar.createMenu().addItem(1, R.drawable.msg_retry).setContentDescription(t("Обновить"));
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override public void onItemClick(int id) { if (id == -1) finishFragment(); else if (id == 1) refresh(); }
@@ -187,16 +226,18 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
         });
     }
     private void fill(ArrayList<UItem> items, UniversalAdapter adapter) {
-        if (!DevGramProfileCustomization.enabled()) { items.add(UItem.asShadow(t("Кастомизация профилей отключена"))); return; }
+        if (!designScope && !DevGramProfileCustomization.enabled()) { items.add(UItem.asShadow(t("Кастомизация профилей отключена"))); return; }
         if (!DevGramBadges.hasDeveloperFeatures(getUserConfig().getClientUserId())) { items.add(UItem.asShadow(t("Нужен функционал разработчика в значке."))); return; }
         ArrayList<String> keys = features(); int[] counts = new int[4]; for (String key : keys) counts[DevGramProfilePolicy.tier(key)]++;
         LinearLayout hero = column(18); surface(hero, Theme.multAlpha(accent(), .10f), 0);
-        LinearLayout top = row(); TextView heading = text("Кому доступны функции", 22, true); top.addView(heading, new LinearLayout.LayoutParams(0, -2, 1)); top.addView(icon(R.drawable.msg_settings, accent()), new LinearLayout.LayoutParams(dp(30), dp(30))); hero.addView(top);
+        LinearLayout top = row(); TextView heading = text(designScope ? "Кому доступен стиль iOS" : "Кому доступны функции", 22, true); top.addView(heading, new LinearLayout.LayoutParams(0, -2, 1)); top.addView(icon(R.drawable.msg_settings, accent()), new LinearLayout.LayoutParams(dp(30), dp(30))); hero.addView(top);
         TextView summary = text("", 13, true); summary.setText(t("Всего функций") + ": " + keys.size() + "  ·  " + t("Включено") + ": " + (keys.size() - counts[3])); summary.setTextColor(accent()); hero.addView(summary, LayoutHelper.createLinear(-1, -2, 0, 10, 0, 6));
         hero.addView(muted("Обновляется в реальном времени", 12)); items.add(UItem.asCustom(wrap(hero), -2));
+        if (!designScope) {
         TextSettingsCell limit = new TextSettingsCell(getParentActivity());
         limit.setTextAndValue(t("Участников для создания тега"), String.valueOf(DevGramProfilePolicy.clanMinMembers()), false);
         limit.setOnClickListener(v -> editClanMinimum()); items.add(UItem.asCustom(wrap(limit), -2));
+        }
         LinearLayout audiences = column(0); audiences.setPadding(dp(12), 0, dp(12), 0);
         for (int start = 0; start < 4; start += 2) {
             LinearLayout line = row();
@@ -212,16 +253,16 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
         }
         items.add(UItem.asCustom(audiences, -2)); items.add(UItem.asCustom(searchBar, -2));
         LinearLayout tools = row(); tools.setPadding(dp(18), dp(8), dp(18), dp(4));
-        TextView category = text("", 14, true); category.setText(t(CATEGORIES[categoryFilter]) + "  ▾"); category.setPadding(dp(13), dp(12), dp(13), dp(12)); category.setTextColor(accent()); surface(category, Theme.multAlpha(accent(), .09f), 0); category.setOnClickListener(v -> chooseCategory()); tools.addView(category, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView category = text("", 14, true); category.setText(t(categories()[categoryFilter]) + "  ▾"); category.setPadding(dp(13), dp(12), dp(13), dp(12)); category.setTextColor(accent()); surface(category, Theme.multAlpha(accent(), .09f), 0); category.setOnClickListener(v -> chooseCategory()); tools.addView(category, new LinearLayout.LayoutParams(0, -2, 1));
         TextView reset = text("Сбросить", 13, true); reset.setTextColor(accent()); reset.setPadding(dp(14), dp(12), 0, dp(12)); reset.setEnabled(tierFilter != -1 || categoryFilter != 0 || !query.isEmpty()); reset.setAlpha(reset.isEnabled() ? 1 : .4f); reset.setOnClickListener(v -> { tierFilter = -1; categoryFilter = 0; search.setText(""); update(false); }); tools.addView(reset); items.add(UItem.asCustom(tools, -2));
         int found = 0; ArrayList<UItem> results = new ArrayList<>();
-        for (int group = 1; group < CATEGORIES.length; group++) {
+        for (int group = 1; group < categories().length; group++) {
             boolean header = false;
             for (String key : keys) {
                 if (category(key) != group || categoryFilter != 0 && categoryFilter != group || tierFilter >= 0 && DevGramProfilePolicy.tier(key) != tierFilter) continue;
                 String note = NOTES.get(key); String searchable = title(key) + " " + key + " " + (note == null ? "" : t(note));
                 if (!query.isEmpty() && !searchable.toLowerCase(Locale.ROOT).contains(query)) continue;
-                if (!header) { results.add(UItem.asHeader(t(CATEGORIES[group]))); header = true; }
+                if (!header) { results.add(UItem.asHeader(t(categories()[group]))); header = true; }
                 results.add(UItem.asCustom(wrap(card(key)), -2)); found++;
             }
         }
@@ -244,9 +285,9 @@ public class DevGramProfilePolicyActivity extends DevGramSettingsFragment {
     }
     private void chooseCategory() {
         if (!active()) return; AndroidUtilities.hideKeyboard(search); LinearLayout body = column(20); body.addView(text("Выберите раздел", 21, true));
-        for (int i = 0; i < CATEGORIES.length; i++) {
+        for (int i = 0; i < categories().length; i++) {
             final int chosen = i; int count = 0; for (String key : features()) if (i == 0 || category(key) == i) count++;
-            TextView option = text("", 16, i == categoryFilter); option.setText(t(CATEGORIES[i]) + "  ·  " + count + (i == categoryFilter ? "  ✓" : "")); option.setPadding(dp(12), dp(16), dp(12), dp(16)); option.setTextColor(i == categoryFilter ? accent() : color(Theme.key_windowBackgroundWhiteBlackText)); option.setOnClickListener(v -> { if (chooser != null) chooser.dismiss(); chooser = null; categoryFilter = chosen; update(false); }); body.addView(option, new LinearLayout.LayoutParams(-1, -2));
+            TextView option = text("", 16, i == categoryFilter); option.setText(t(categories()[i]) + "  ·  " + count + (i == categoryFilter ? "  ✓" : "")); option.setPadding(dp(12), dp(16), dp(12), dp(16)); option.setTextColor(i == categoryFilter ? accent() : color(Theme.key_windowBackgroundWhiteBlackText)); option.setOnClickListener(v -> { if (chooser != null) chooser.dismiss(); chooser = null; categoryFilter = chosen; update(false); }); body.addView(option, new LinearLayout.LayoutParams(-1, -2));
         }
         showSheet(body);
     }

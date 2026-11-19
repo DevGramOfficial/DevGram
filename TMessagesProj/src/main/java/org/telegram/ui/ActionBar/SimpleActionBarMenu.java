@@ -37,7 +37,7 @@ public class SimpleActionBarMenu extends LinearLayout {
     }
 
     public SimpleActionBarMenuItem addItem(int id, int icon) {
-        return addItemAt(-1, id, icon, null, null, dp(48), null);
+        return addItemAt(-1, id, icon, null, null, dp(SimpleActionBar.swiftgram() ? 44 : 48), null);
     }
 
     public SimpleActionBarMenuItem addItem(int id, int icon, Theme.ResourcesProvider resourcesProvider) {
@@ -45,7 +45,7 @@ public class SimpleActionBarMenu extends LinearLayout {
     }
 
     public SimpleActionBarMenuItem addItem(int id, Drawable drawable) {
-        return addItemAt(-1, id, 0, null, drawable, dp(48), null);
+        return addItemAt(-1, id, 0, null, drawable, dp(SimpleActionBar.swiftgram() ? 44 : 48), null);
     }
 
     public SimpleActionBarMenuItem addItem(int id, CharSequence text) {
@@ -72,7 +72,7 @@ public class SimpleActionBarMenu extends LinearLayout {
         if (text != null) {
             item.textView.setText(text);
             lp = new LinearLayout.LayoutParams(width != 0 ? width : ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
-            lp.leftMargin = lp.rightMargin = dp(6);
+            lp.leftMargin = lp.rightMargin = dp(SimpleActionBar.swiftgram() ? 12 : 6);
         } else {
             if (drawable instanceof RLottieDrawable) {
                 item.iconView.setAnimation((RLottieDrawable) drawable);
@@ -81,8 +81,8 @@ public class SimpleActionBarMenu extends LinearLayout {
             } else if (icon != 0) {
                 item.iconView.setImageResource(icon);
             }
-            lp = new LinearLayout.LayoutParams(width, ViewGroup.LayoutParams.MATCH_PARENT);
-            lp.leftMargin = lp.rightMargin = -dp(5);
+            lp = new LinearLayout.LayoutParams(SimpleActionBar.swiftgram() ? dp(44) : width, ViewGroup.LayoutParams.MATCH_PARENT);
+            lp.leftMargin = lp.rightMargin = SimpleActionBar.swiftgram() ? 0 : -dp(5);
         }
         addView(item, index, lp);
         item.setOnClickListener(v -> {
@@ -162,7 +162,7 @@ public class SimpleActionBarMenu extends LinearLayout {
 
     public float getPillWidth() {
         final ListAnimator.Metadata metadata = listAnimator.getMetadata();
-        return metadata.getTotalWidth() + dp(8) * metadata.getTotalVisibility();
+        return metadata.getTotalWidth() + dp(SimpleActionBar.swiftgram() ? 0 : 8) * metadata.getTotalVisibility();
     }
 
     /** Width of the pill after the running animation, known before the next layout. */
@@ -174,7 +174,7 @@ public class SimpleActionBarMenu extends LinearLayout {
                 width += getSlotWidth(view);
             }
         }
-        return width > 0 ? width + dp(8) : 0;
+        return width > 0 ? width + dp(SimpleActionBar.swiftgram() ? 0 : 8) : 0;
     }
 
     boolean canAnimateItems() {
@@ -255,7 +255,7 @@ public class SimpleActionBarMenu extends LinearLayout {
         final float right = getWidth() - getPaddingRight();
         final float totalWidth = listAnimator.getMetadata().getTotalWidth();
         // a pill narrower than a button shrinks as a circle (see SimpleActionBar#computeMenuPill), the buttons with it
-        final float pillScale = Math.min(1f, getPillWidth() / dp(46));
+        final float pillScale = Math.min(1f, getPillWidth() / dp(SimpleActionBar.swiftgram() ? 44 : 46));
         for (ListAnimator.Entry<Slot> entry : listAnimator) {
             final Slot slot = entry.item;
             final View view = slot.view;

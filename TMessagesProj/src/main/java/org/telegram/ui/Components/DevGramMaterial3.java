@@ -67,13 +67,11 @@ public class DevGramMaterial3 {
     // всю ширину, что и в MD3-режиме (сверено по реальным скриншотам Swiftgram: там именно
     // плавающая капсула с отступами от краёв, а не плоская стыкованная полоса).
     public static boolean iosNavigation() {
-        // The separate iOS design was removed. Keep this compatibility method false so
-        // stale preferences cannot re-enable any iOS-specific layout path.
-        return false;
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("navigation");
     }
 
     public static int mainTabsHeightDp() {
-        return iosNavigation() ? 64 : (navigationEnabled() ? 64 : 72);
+        return iosNavigation() ? DevGramSwiftgramTabBar.heightDp() : (navigationEnabled() ? 64 : 72);
     }
 
     // Материаловым виджетам нужна тема Material3 в контексте, иначе не заинфлейтятся/упадут.

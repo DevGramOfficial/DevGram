@@ -81,11 +81,13 @@ public class ProfileBalanceView extends ProfileMusicView {
         final int size = dp(13);
         icon.setBounds(0, (int) cy - size / 2, size, (int) cy - size / 2 + size);
         icon.setAlpha((int) (255 * alpha));
+        Integer customIcon=DevGramProfilePalette.rowColor(resourcesProvider,"icon");
+        if(customIcon!=null)icon.setTint(customIcon);else icon.setTintList(null);
         icon.draw(canvas);
         canvas.translate(size + dp(2), 0);
         amount.draw(canvas, 0, cy, textColor, alpha);
         canvas.translate(amount.getWidth() + dpf2(4.8f), cy);
-        chevronPaint.setColor(Theme.multAlpha(textColor, 0.85f * alpha));
+        chevronPaint.setColor(Theme.multAlpha(devgramContentIconColor(), 0.85f * alpha));
         canvas.drawPath(chevron, chevronPaint);
     }
 }

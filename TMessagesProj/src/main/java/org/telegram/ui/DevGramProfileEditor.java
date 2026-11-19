@@ -309,10 +309,21 @@ final class DevGramProfileEditor {
         JSONArray old=draft.document.optJSONArray("blocks"),next=new JSONArray();if(old!=null)for(int i=0;i<old.length();i++){JSONObject row=old.optJSONObject(i);if(row!=null&&!id.equals(row.optString("id","legacy"+i)))next.put(row);}
         for(String field:new String[]{"rows","hiddenRows"}){JSONArray source=draft.document.optJSONArray(field),kept=new JSONArray();if(source!=null)for(int i=0;i<source.length();i++)if(!source.optString(i).equals("block:"+id))kept.put(source.optString(i));put(field,kept);}put("blocks",next);
     }
+    void setRowColor(String key,String field,Integer rgb) {
+        if(!DevGramAppearanceAccess.check(host,"profile.palette"))return;
+        JSONObject colors=DevGramProfileDocument.copy(draft.document.optJSONObject("rowColors")==null?new JSONObject():draft.document.optJSONObject("rowColors"));
+        JSONObject style=colors.optJSONObject(key);if(style==null)style=new JSONObject();
+        try{
+            if(field==null)style=new JSONObject();else if(rgb==null)style.remove(field);else style.put(field,rgb&0xffffff);
+            if(style.length()==0)colors.remove(key);else colors.put(key,style);
+            if(colors.length()==0)remove("rowColors");else put("rowColors",colors);
+        }catch(Exception ignored){}
+    }
     void rowMenu(String key,View view){
         ItemOptions menu=options(view);boolean custom=key!=null&&key.startsWith("block:");String id=custom?key.substring(6):null;JSONObject row=custom?block(id):null;
         if(custom)menu.add(R.drawable.msg_edit,t("Изменить строку"),()->editBlock(id));
         else menu.add(R.drawable.msg_palette,t("Цвет текста профиля"),()->sheet("text"));
+        if(key!=null)menu.add(R.drawable.msg_colors,t("Цвета этого блока"),()->sheet("rowColors:"+key));
         menu.add(R.drawable.msg_customize,t("Видимость строк"),()->sheet("rows"));
         if(row!=null&&DevGramProfileRowSpec.type(row)==12)menu.add(R.drawable.msg_palette,t("Дизайн блока"),()->{if(DevGramAppearanceAccess.check(host,"profile.blocks.code"))host.presentFragment(new DevGramBlockDesignActivity(draft,row,host::devgramRefreshEditor));});
         menu.add(R.drawable.msg_add,t("Добавить строку"),()->addBlock(key));

@@ -77,6 +77,10 @@ public class HeaderCell extends FrameLayout {
     public HeaderCell(Context context, int textColorKey, int padding, int topMargin, int bottomMargin, boolean text2, boolean animated, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+            padding = 16;
+            if (textColorKey == Theme.key_windowBackgroundWhiteBlueHeader) textColorKey = Theme.key_windowBackgroundWhiteGrayText;
+        }
         this.padding = padding;
         this.bottomMargin = bottomMargin;
         this.animated = animated;
@@ -84,7 +88,7 @@ public class HeaderCell extends FrameLayout {
         if (animated) {
             animatedTextView = new AnimatedTextView(getContext());
             animatedTextView.setTextSize(AndroidUtilities.dp(14));
-            animatedTextView.setTypeface(AndroidUtilities.bold());
+            animatedTextView.setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? android.graphics.Typeface.DEFAULT : AndroidUtilities.bold());
             animatedTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL);
             ThemeBind.textColor(animatedTextView, textColorKey, resourcesProvider);
             animatedTextView.setTag(textColorKey);
@@ -93,7 +97,7 @@ public class HeaderCell extends FrameLayout {
         } else {
             textView = new TextView(getContext());
             textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-            textView.setTypeface(AndroidUtilities.bold());
+            textView.setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("settings") ? android.graphics.Typeface.DEFAULT : AndroidUtilities.bold());
             textView.setEllipsize(TextUtils.TruncateAt.END);
             textView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL);
             textView.setMinHeight(AndroidUtilities.dp(height - topMargin));

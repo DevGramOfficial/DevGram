@@ -120,6 +120,7 @@ public class ActionBarMenu extends LinearLayout {
     }
 
     public ActionBarMenuItem addItemAt(int index, int id, int icon, CharSequence text, int backgroundColor, Drawable drawable, int width, CharSequence title, Theme.ResourcesProvider resourcesProvider) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") && width == dp(48)) width = dp(44);
         ActionBarMenuItem menuItem = new ActionBarMenuItem(getContext(), this, backgroundColor, isActionMode ? parentActionBar.itemsActionModeColor : parentActionBar.itemsColor, text != null, resourcesProvider);
         menuItem.setTag(id);
         if (text != null) {
@@ -166,6 +167,7 @@ public class ActionBarMenu extends LinearLayout {
     }
 
     public LazyItem lazilyAddItem(int id, int icon, CharSequence text, int backgroundColor, Drawable drawable, int width, CharSequence title, Theme.ResourcesProvider resourcesProvider) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") && width == dp(48)) width = dp(44);
         if (ids == null) {
             ids = new ArrayList<>();
         }

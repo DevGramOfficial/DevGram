@@ -172,7 +172,11 @@ public class ActionBarPopupWindow extends PopupWindow {
 
             // DevGram (как exteraGram, GlassMessageMenu): стекло для ВСЕХ меню-попапов сразу —
             // снимок окна → размытие → фон попапа, выровненный по его позиции на экране.
-            if (!org.telegram.ui.Components.DevGramClassicDesign.enabled() && org.telegram.messenger.DevGramConfig.glassMenu && backgroundDrawable != null && context instanceof android.app.Activity) {
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("menus") && backgroundDrawable != null && AndroidUtilities.findActivity(context) != null) {
+                backgroundDrawable = new org.telegram.ui.Components.DevGramSwiftgramMenuBackground(this,
+                        AndroidUtilities.findActivity(context).findViewById(android.R.id.content));
+                backgroundDrawable.getPadding(bgPaddings);
+            } else if (!org.telegram.ui.Components.DevGramClassicDesign.enabled() && org.telegram.messenger.DevGramConfig.glassMenu && backgroundDrawable != null && context instanceof android.app.Activity) {
                 try {
                     android.view.View root = ((android.app.Activity) context).findViewById(android.R.id.content);
                     android.graphics.Bitmap bmp = org.telegram.ui.Components.DevGramGlassMenu.snapshot(root);

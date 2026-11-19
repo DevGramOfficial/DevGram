@@ -311,7 +311,7 @@ public abstract class BaseFragment {
             if (useFadeDrawableForActionBar() && header != null) {
                 header.setBackground(simpleGlass.createActionBarFadeDrawable(header));
             }
-            BaseFragmentSimpleGlass.setListViewParams(listViewForSimpleGlass, mSystemInsets.top, mSystemInsets.bottom, ActionBar.getCurrentActionBarHeight(), 0);
+            BaseFragmentSimpleGlass.setListViewParams(listViewForSimpleGlass, simpleGlassTopInset(), mSystemInsets.bottom, ActionBar.getCurrentActionBarHeight(), 0);
 
             if (drawEdgeNavigationBar()) {
                 navigationBarFadeView = new View(context);
@@ -1653,6 +1653,11 @@ public abstract class BaseFragment {
     }
 
     protected Insets mSystemInsets = Insets.NONE;
+    private int simpleGlassTopInset() {
+        boolean occupies = simpleActionBar != null ? simpleActionBar.getOccupyStatusBar() : actionBar != null && actionBar.getOccupyStatusBar();
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("navigation") && occupies
+                ? Math.max(mSystemInsets.top, AndroidUtilities.statusBarHeight) : mSystemInsets.top;
+    }
 
     public WindowInsetsCompat onInsetsInternal(@NonNull View view, @NonNull WindowInsetsCompat windowInsets) {
         // stable: bars hidden over the fragment (the photo viewer hiding its controls) do not move its content
@@ -1660,7 +1665,7 @@ public abstract class BaseFragment {
         final Insets insets = AndroidUtilities.getDefaultWindowInsets(windowInsets, false);
         mSystemInsets = insets;
         if (listViewForSimpleGlass != null) {
-            BaseFragmentSimpleGlass.setListViewParams(listViewForSimpleGlass, mSystemInsets.top, mSystemInsets.bottom, ActionBar.getCurrentActionBarHeight(), 0);
+            BaseFragmentSimpleGlass.setListViewParams(listViewForSimpleGlass, simpleGlassTopInset(), mSystemInsets.bottom, ActionBar.getCurrentActionBarHeight(), 0);
         }
         if (navigationBarFadeView != null) {
             final int visibility = mSystemInsets.bottom >= dp(40) ? View.VISIBLE : View.GONE;

@@ -56,6 +56,21 @@ public class BackDrawable extends Drawable {
     private ColorFilter externalColorFilter, packTint;
 
     private boolean drawPackIcons(Canvas canvas) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.enabled()) {
+            if (swiftgramBack == null) {
+                android.content.res.Resources res = org.telegram.messenger.ApplicationLoader.applicationContext.getResources();
+                swiftgramBack = res.getDrawable(R.drawable.swiftgram_ic_ab_back).mutate();
+                swiftgramClose = res.getDrawable(R.drawable.swiftgram_ic_ab_close).mutate();
+            }
+            if (packTint == null || packTintColor != paint.getColor()) {
+                packTintColor = paint.getColor();
+                packTint = new PorterDuffColorFilter(packTintColor, PorterDuff.Mode.SRC_IN);
+            }
+            if (arrowRotation != 0) canvas.rotate(arrowRotation, getIntrinsicWidth()/2f, getIntrinsicHeight()/2f);
+            float close = alwaysClose ? 1f : currentRotation;
+            drawPackIcon(canvas, swiftgramBack, 1f-close); drawPackIcon(canvas, swiftgramClose, close);
+            return true;
+        }
         IconObserver.INSTANCE.log(R.drawable.ic_ab_back);
         IconManager icons = IconManager.INSTANCE;
         if (iconPackRevision != icons.revision()) {
@@ -80,6 +95,8 @@ public class BackDrawable extends Drawable {
         drawPackIcon(canvas, packClose, close);
         return true;
     }
+
+    private Drawable swiftgramBack, swiftgramClose;
 
     private void drawPackIcon(Canvas canvas, Drawable icon, float opacity) {
         if (icon == null || opacity <= 0f) return;

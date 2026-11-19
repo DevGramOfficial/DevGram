@@ -82,7 +82,14 @@ public final class DevGramNativeBlockView extends View {
     private int color(int key){return Theme.getColor(key,resources);}
     private float dp(float value){return value*AndroidUtilities.density;}
     private float number(BlockScript.Node n,String field,float fallback){double value=BlockScript.number(n,field,fallback);return Double.isFinite(value)?Math.max(-10000,Math.min(10000,(float)value)):fallback;}
-    private int ink(BlockScript.Node n,String field,int fallback,BlockScript.Context context){return BlockScript.color(n,field,fallback,context);}
+    private int ink(BlockScript.Node n,String field,int fallback,BlockScript.Context context){
+        String slot=null;
+        if(field.equals("color")&&(n.kind.equals("text")||n.kind.equals("pill")))slot="text";
+        else if(field.equals("color")&&n.kind.equals("arrow"))slot="icon";
+        else if(field.equals("back")||field.equals("color")&&n.kind.equals("rect"))slot="background";
+        Integer selected=slot==null?null:org.telegram.ui.Components.DevGramProfilePalette.rowColor(resources,slot);
+        return selected==null?BlockScript.color(n,field,fallback,context):selected;
+    }
     private String value(BlockScript.Node n,String field,String fallback,BlockScript.Context context){return BlockScript.text(n,field,fallback,context);}
     private BlockScript.Context context(boolean motion){long now=SystemClock.elapsedRealtime();double position=mediaClock==null?0:mediaClock.positionAt(now)/1000.0,duration=media.optLong("duration")/1000.0;String state=media.optString("state",media.optBoolean("playing",false)?"playing":"stopped");return new BlockScript.Context()
         .number("time",motion?(mediaClock==null?SystemClock.uptimeMillis()-started:SystemClock.uptimeMillis())/1000.0:0).number("phase",motion?(SystemClock.uptimeMillis()-started)%10000/10000.0:0)

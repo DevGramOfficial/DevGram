@@ -25,7 +25,8 @@ public class DevGramProfileBlocksView extends LinearLayout {
     private String signature;
     private long uid;
     private boolean rebuild,editing;
-    private boolean imageCard;
+    private boolean imageCard,sectionManaged;
+    public void setSectionManaged(boolean value){if(sectionManaged!=value){sectionManaged=value;rebuild=true;}}
     private int imageRadius;
     private final android.view.ViewOutlineProvider imageOutline = new android.view.ViewOutlineProvider() {
         @Override public void getOutline(View view, android.graphics.Outline outline) {
@@ -71,10 +72,7 @@ public class DevGramProfileBlocksView extends LinearLayout {
         boolean nativeRows=false;JSONArray inspect=document.optJSONArray("blocks");if(inspect!=null)for(int i=0;i<inspect.length();i++)if(inspect.optJSONObject(i)!=null&&inspect.optJSONObject(i).has("rowType")){nativeRows=true;break;}
         layoutRows(nativeRows);
         JSONArray blocks = document.optJSONArray("blocks"), integrations = document.optJSONArray("integrations");
-        int color = document.optInt("cardColor");
-        if(transparentRows())setBackgroundColor(Color.TRANSPARENT);
-        else if (document.has("cardColor")) setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), (document.optInt("cardAlpha", 100) * 255 / 100 << 24) | color));
-        else setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resources));
+        updateSurfaceBackground();
         if(document.optBoolean("_commentsOnly")){addView(new DevGramProfileCommentsView(getContext(),account,uid,document.optInt("commentsCount",3),resources,editing),new LinearLayout.LayoutParams(-1,-2));return;}
         if (!document.optString("clan").isEmpty()) addText("[" + document.optString("clan") + "]", true);
         if (!document.optString("badge").isEmpty()) addText(document.optString("badge"), true);
@@ -88,6 +86,7 @@ public class DevGramProfileBlocksView extends LinearLayout {
         }
         if (blocks != null && !hidden("blocks")) for (int i = 0; i < Math.min(64, blocks.length()); i++) {
             JSONObject block = blocks.optJSONObject(i); if (block == null) continue;
+            DevGramProfilePalette.RowProvider resources=new DevGramProfilePalette.RowProvider(this.resources,()->this.document);resources.bind("block:"+block.optString("id","legacy"+i));
             String type = block.optString("type"), title = block.optString("title"), text = block.optString("text"), url = block.optString("url");
             if(block.has("rowType")&&block.optString("css").isEmpty()&&block.optString("script").isEmpty()&&block.optString("components").isEmpty()){
                 if((editing||org.telegram.messenger.DevGramProfileRowSpec.complete(block))&&(!block.optBoolean("ownOnly")||org.telegram.messenger.UserConfig.getInstance(account).getClientUserId()==org.telegram.messenger.DevGramCommunityProfiles.owner(uid))){
@@ -100,25 +99,26 @@ public class DevGramProfileBlocksView extends LinearLayout {
             String blockId=block.optString("id","legacy"+i);boolean event=false;JSONObject graph=document.optJSONObject("frameGraph");JSONArray nodes=graph==null?null:graph.optJSONArray("nodes");
             if(nodes!=null)for(int n=0;n<nodes.length();n++){JSONObject node=nodes.optJSONObject(n);JSONArray strings=node==null?null:node.optJSONArray("s"),values=node==null?null:node.optJSONArray("v");if(node!=null&&node.optInt("t")==55&&(values==null||values.optInt(1)==0)&&strings!=null&&blockId.equals(strings.optString(0))){event=true;break;}}
             if(event){org.telegram.ui.Cells.TextCheckCell toggle=new org.telegram.ui.Cells.TextCheckCell(getContext(),resources);toggle.setTextAndCheck(title.isEmpty()?DevGramLocale.text("Переключатель рамки"):title,org.telegram.messenger.DevGramFrameEvents.checked(account,uid,blockId),false);toggle.setOnClickListener(v->{if(!editing)org.telegram.messenger.DevGramFrameEvents.set(account,uid,blockId,!org.telegram.messenger.DevGramFrameEvents.checked(account,uid,blockId));});addView(toggle,new LinearLayout.LayoutParams(-1,-2));title="";}
-            if (type.equals("code") || !block.optString("css").isEmpty() || !block.optString("script").isEmpty()||!block.optString("components").isEmpty()) { addCode(block); continue; }
-            if (!title.isEmpty()) addText(title, true);
+            if (type.equals("code") || !block.optString("css").isEmpty() || !block.optString("script").isEmpty()||!block.optString("components").isEmpty()) { addCode(block,resources); continue; }
+            if (!title.isEmpty()) addText(title, true,resources);
             if (type.equals("image") && !url.isEmpty()) {
                 DevGramProfileImageView image = new DevGramProfileImageView(getContext()); image.setCrop(block); image.setRoundRadius(imageCard?0:AndroidUtilities.dp(12));image.setAspectFit(false);
                 image.getImageReceiver().setAllowStartAnimation(block.optInt("mediaType")==1&&new DevGramProfilePainter().motion());image.getImageReceiver().setAutoRepeat(1);image.setImage(org.telegram.messenger.DevGramProfileTextures.imageUrl(url), block.optInt("mediaType")==1?"1200_800_g":"1200_800", null); addView(image, LayoutHelper.createLinear(-1, Math.max(80, Math.min(480, block.optInt("height", 180))), 0, imageCard?0:6, 0, imageCard?0:10));
                 image.setOnClickListener(v -> open(url));
             }
-            if (!text.isEmpty()) addText(text, false);
+            if (!text.isEmpty()) addText(text, false,resources);
             if (!url.isEmpty() && (type.equals("link") || type.equals("music"))) {
-                TextView link = addText(type.equals("music") ? DevGramLocale.text("Слушать") : url, false);
+                TextView link = addText(type.equals("music") ? DevGramLocale.text("Слушать") : url, false,resources);
                 link.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resources)); link.setOnClickListener(v -> open(url));
             }
         }
         if (integrations != null && !hidden("integrations")) for (int i = 0; i < Math.min(7, integrations.length()); i++) {
             JSONObject integration = integrations.optJSONObject(i); if (integration == null) continue;
-            TextView link = addText(integration.optString("provider") + "  ·  " + integration.optString("handle"), true);
+            DevGramProfilePalette.RowProvider resources=new DevGramProfilePalette.RowProvider(this.resources,()->this.document);resources.bind("integration:"+integration.optString("provider"));
+            TextView link = addText(integration.optString("provider") + "  ·  " + integration.optString("handle"), true,resources);
             link.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resources));
             link.setOnClickListener(v -> open(integrationUrl(integration)));
-            TextView details = addText("", false); details.setVisibility(GONE);
+            TextView details = addText("", false,resources); details.setVisibility(GONE);
             removeView(link); removeView(details);
             LinearLayout row = new LinearLayout(getContext()); row.setOrientation(HORIZONTAL); row.setGravity(android.view.Gravity.CENTER_VERTICAL);
             BackupImageView avatar = new BackupImageView(getContext()); avatar.setRoundRadius(AndroidUtilities.dp(22)); avatar.setVisibility(GONE);
@@ -141,6 +141,12 @@ public class DevGramProfileBlocksView extends LinearLayout {
                 }
             });
         }
+    }
+    private void updateSurfaceBackground() {
+        int color = document.optInt("cardColor");
+        if(sectionManaged||transparentRows())setBackgroundColor(Color.TRANSPARENT);
+        else if (DevGramProfileSurfaces.painted(document)) setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(18), (document.optInt("cardAlpha", 100) * 255 / 100 << 24) | color));
+        else setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite, resources));
     }
     private boolean imageOnly() {
         JSONArray rows=document.optJSONArray("blocks");
@@ -171,9 +177,14 @@ public class DevGramProfileBlocksView extends LinearLayout {
         if (hidden != null) for (int i = 0; i < hidden.length(); i++) if (key.equals(hidden.optString(i))) return true;
         return false;
     }
-    private TextView addText(String text, boolean title) {
+    private TextView addText(String text, boolean title) {return addText(text,title,resources);}
+    private TextView addText(String text, boolean title,Theme.ResourcesProvider resources) {
         TextView view = new TextView(getContext()); view.setText(text); view.setTextSize(title ? 16 : 14);
-        if (document != null && document.has("cardColor")) {
+        Integer blockTextColor=DevGramProfilePalette.Provider.blockTextColor(document);
+        Integer rowTextColor=DevGramProfilePalette.rowColor(resources,"text");
+        if(rowTextColor!=null)view.setTextColor(rowTextColor);
+        else if(blockTextColor!=null)view.setTextColor(blockTextColor);
+        else if (document != null && document.has("cardColor")) {
             int background = 0xff000000 | document.optInt("cardColor");
             view.setTextColor(androidx.core.graphics.ColorUtils.calculateLuminance(background) < .4 ? Color.WHITE : 0xff181818);
         } else view.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText, resources));
@@ -198,7 +209,7 @@ public class DevGramProfileBlocksView extends LinearLayout {
     }
     private static String html(String value) { return TextUtils.htmlEncode(value).replace("\n", "<br>"); }
     private final ArrayList<org.telegram.ui.Components.devgram.blocks.DevGramNativeBlockView> codeViews=new ArrayList<>();
-    private void addCode(JSONObject block){
+    private void addCode(JSONObject block,Theme.ResourcesProvider resources){
         org.telegram.ui.Components.devgram.blocks.DevGramNativeBlockView view=new org.telegram.ui.Components.devgram.blocks.DevGramNativeBlockView(getContext(),uid,resources);
         view.set(block);codeViews.add(view);addView(view,new LinearLayout.LayoutParams(-1,-2));
     }

@@ -541,6 +541,16 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
                 return b;
             }
         }
+        if (actionBar != null && org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")
+                && (child == titleTextView || child == getSubtitleTextView())
+                && actionBar.getSwiftgramChatClipRight() > actionBar.getSwiftgramChatClipLeft()) {
+            int save = canvas.save();
+            canvas.clipRect(actionBar.getSwiftgramChatClipLeft() - getX(), 0,
+                    actionBar.getSwiftgramChatClipRight() - getX(), getHeight());
+            boolean drawn = super.drawChild(canvas, child, drawingTime);
+            canvas.restoreToCount(save);
+            return drawn;
+        }
         return super.drawChild(canvas, child, drawingTime);
     }
 
@@ -775,6 +785,9 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         int avatarInset = centered || !md3Header ? 2 : 0;
         avatarImageView.measure(MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - avatarInset, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(dp(avatarSizeInDp) - avatarInset, MeasureSpec.EXACTLY));
         titleTextView.setGravity(centered ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
+        if (actionBar != null && org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")) {
+            textMaxWidth = Math.max(0, Math.min(textMaxWidth, actionBar.getSwiftgramChatContentLimit()));
+        }
         titleTextView.measure(MeasureSpec.makeMeasureSpec(textMaxWidth, MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(dp(24 + 8), MeasureSpec.AT_MOST));
         if (subtitleTextView != null) {
             subtitleTextView.setGravity(centered ? Gravity.CENTER_HORIZONTAL : Gravity.LEFT);
@@ -868,10 +881,10 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     public void setGlassMode() {
         if (DevGramClassicDesign.enabled()) return;
         if (titleTextView != null) {
-            titleTextView.setTextSizePx(dp(17.5f));
+            titleTextView.setTextSizePx(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 17 : 17.5f));
         }
         if (subtitleTextView != null) {
-            subtitleTextView.setTextSizePx(dp(13.5f));
+            subtitleTextView.setTextSizePx(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chat") ? 13 : 13.5f));
         }
         glassMode = true;
     }
@@ -1152,7 +1165,9 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         }
         titleTextView.setText(value);
         Object clanPeer=parentFragment==null?null:parentFragment.getCurrentUser()!=null?parentFragment.getCurrentUser():parentFragment.getCurrentChat();
-        titleTextView.bindDevGramClanPeer(currentAccount,org.telegram.messenger.DevGramClanDirectory.peer(clanPeer),false);
+        long clanPeerId = org.telegram.messenger.DevGramClanDirectory.peer(clanPeer);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chat") && clanPeerId == UserConfig.getInstance(currentAccount).getClientUserId()) clanPeerId = 0;
+        titleTextView.bindDevGramClanPeer(currentAccount,clanPeerId,false);
         rightDrawableIsScam = false;
         if (scam || fake) {
             rightDrawableIsScam = true;
@@ -1717,7 +1732,12 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
         int visibility = org.telegram.messenger.SharedConfig.hideTitleDialog
             ? android.view.View.GONE
             : android.view.View.VISIBLE;
-        avatarImageView.setVisibility(visibility);
+        // Swiftgram's avatar is also the native options-menu anchor. Keep that
+        // control reachable when the user hides the title.
+        boolean swiftgram = org.telegram.messenger.DevGramSwiftgramDesign.section("chat");
+        boolean savedHeader = swiftgram && parentFragment != null && parentFragment.getChatMode() == 0
+                && UserObject.isUserSelf(parentFragment.getCurrentUser());
+        avatarImageView.setVisibility(savedHeader ? GONE : visibility == GONE && swiftgram ? VISIBLE : visibility);
         titleTextView.setVisibility(visibility);
     }
 

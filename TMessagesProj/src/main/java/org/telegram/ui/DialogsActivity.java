@@ -514,6 +514,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private DownloadProgressIcon downloadProgressIcon;
     private boolean downloadsItemVisible;
     public ActionBarMenuItem searchItem;
+    private TextView swiftgramEditButton;
+    private ActionBarMenuItem swiftgramComposeItem;
     private ActionBarMenuItem optionsItem;
     private ActionBarMenuItem speedItem;
     public static boolean switchingTheme;
@@ -3376,12 +3378,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             public void showActionMode(boolean animated, View extraView, View showingView, View[] hidingViews, boolean[] hideView, View translationView, int translation) {
                 super.showActionMode(animated, extraView, showingView, hidingViews, hideView, translationView, translation);
                 animatorActionModeVisible.setValue(true, animated);
+                updateSwiftgramEditButton(true);
             }
 
             @Override
             public void hideActionMode() {
                 super.hideActionMode();
                 animatorActionModeVisible.setValue(false, true);
+                updateSwiftgramEditButton(false);
             }
         };
         actionBar.setAllowOverlayTitle(true);
@@ -3419,6 +3423,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             additionNavigationBarHeight = hasMainTabs ? dp(MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
             additionFloatingButtonOffset = hasMainTabs ? dp(MAIN_TABS_HEIGHT + MAIN_TABS_MARGIN) : 0;
         }
+        swiftgramEditButton = null;
+        swiftgramComposeItem = null;
         searching = false;
         searchWas = false;
         wasDrawn = false;
@@ -4999,8 +5005,33 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
         });
 
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") && !onlySelect
+                && initialDialogsType == DIALOGS_TYPE_DEFAULT && folderId == 0 && communityId == 0) {
+            swiftgramEditButton = new TextView(context);
+            swiftgramEditButton.setText(org.telegram.messenger.DevGramLocale.text("Изм."));
+            swiftgramEditButton.setContentDescription(getString(R.string.Edit));
+            swiftgramEditButton.setTextSize(17);
+            swiftgramEditButton.setTextColor(getThemedColor(Theme.key_actionBarDefaultIcon));
+            swiftgramEditButton.setGravity(Gravity.CENTER);
+            swiftgramEditButton.setPadding(dp(16), 0, dp(16), 0);
+            swiftgramEditButton.setMinWidth(dp(44));
+            swiftgramEditButton.setBackground(iBlur3FactoryLiquidGlass.create(swiftgramEditButton,
+                    BlurredBackgroundProviderImpl.topPanel(resourceProvider)).setRadius(dp(22)));
+            swiftgramEditButton.setOnClickListener(v -> {
+                if (actionBar.isActionModeShowed()) hideActionMode(true);
+                else { showOrUpdateActionMode(0, null); updateVisibleRows(MessagesController.UPDATE_MASK_SELECT_DIALOG); }
+            });
+            actionBar.addView(swiftgramEditButton, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 44,
+                    Gravity.TOP | Gravity.LEFT, 16, (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight / AndroidUtilities.density : 0) + 8, 0, 0));
+            actionBar.setSwiftgramLeadingControl(swiftgramEditButton);
+            swiftgramComposeItem = menu.addItemWithWidth(1599, R.drawable.swiftgram_chrome_compose, dp(44), getString(R.string.NewMessageTitle));
+            swiftgramComposeItem.setOnClickListener(v -> floatingButton3.performClick());
+            contentView.removeView(floatingButton3);
+            contentView.removeView(floatingButtonStories);
+        }
+
         if (!isArchive() && initialDialogsType == DIALOGS_TYPE_DEFAULT) {
-            if (MessagesController.getInstance(currentAccount).getMainSettings().getBoolean("storyhint", true)) {
+            if (swiftgramEditButton == null && MessagesController.getInstance(currentAccount).getMainSettings().getBoolean("storyhint", true)) {
                 storyHint = new HintView2(context, HintView2.DIRECTION_RIGHT)
                         .setRounding(8)
                         .setDuration(8_000)
@@ -5405,11 +5436,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         if (filterTabsView != null) {
             BlurredBackgroundDrawable filterTabsViewBackground = iBlur3FactoryLiquidGlass.create(filterTabsView, BlurredBackgroundProviderImpl.topPanel(resourceProvider));
-            filterTabsViewBackground.setRadius(dp(18));
-            filterTabsViewBackground.setPadding(dp(6.666f));
+            final boolean swiftgramFolders = org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist");
+            filterTabsViewBackground.setRadius(dp(swiftgramFolders ? 22 : 18));
+            filterTabsViewBackground.setPadding(dp(swiftgramFolders ? 3 : 6.666f));
             filterTabsView.setPadding(0, dp(7), 0, dp(7));
             filterTabsView.setBlurredBackground(filterTabsViewBackground);
-            contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, 4, 0, 4, 0));
+            contentView.addView(filterTabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 36 + 7 + 7, Gravity.TOP, swiftgramFolders ? 16 : 4, 0, swiftgramFolders ? 16 : 4, 0));
             if (org.telegram.ui.Components.DevGramClassicDesign.enabled()) {
                 filterTabsView.setPadding(0, 0, 0, 0);
                 filterTabsView.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
@@ -6016,6 +6048,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     // DevGram: «Текст в заголовке» — 0 название приложения, 1 @юзернейм, 2 имя аккаунта, 3 «Чаты»
     private CharSequence devgramActionBarTitle() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist")) return getString(R.string.MainTabsChats);
         int mode = MessagesController.getGlobalMainSettings().getInt("dg_actionBarTitle", 0);
         TLRPC.User self = UserConfig.getInstance(currentAccount).getCurrentUser();
         switch (mode) {
@@ -9620,7 +9653,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             viewPages[0].setTranslationY(finalTranslateListHeight * (1f - progressToActionMode));
             progressToActionMode = (float) valueAnimator.getAnimatedValue();
             for (int i = 0; i < actionBar.getChildCount(); i++) {
-                if (actionBar.getChildAt(i).getVisibility() == View.VISIBLE && actionBar.getChildAt(i) != actionBar.getActionMode() && actionBar.getChildAt(i) != actionBar.getBackButton()) {
+                if (actionBar.getChildAt(i).getVisibility() == View.VISIBLE && actionBar.getChildAt(i) != actionBar.getActionMode() && actionBar.getChildAt(i) != actionBar.getBackButton() && actionBar.getChildAt(i) != swiftgramEditButton) {
                     actionBar.getChildAt(i).setAlpha(1f - progressToActionMode);
                 }
             }
@@ -10705,7 +10738,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void showOrUpdateActionMode(long dialogId, View cell) {
-        addOrRemoveSelectedDialog(dialogId, cell);
+        if (dialogId != 0) addOrRemoveSelectedDialog(dialogId, cell);
         boolean updateAnimated = false;
         if (actionBar.isActionModeShowed()) {
             if (selectedDialogs.isEmpty()) {
@@ -10768,7 +10801,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 progressToActionMode = (float) valueAnimator.getAnimatedValue();
                 viewPages[0].setTranslationY(-finalTranslateListHeight * progressToActionMode);
                 for (int i = 0; i < actionBar.getChildCount(); i++) {
-                    if (actionBar.getChildAt(i).getVisibility() == View.VISIBLE && actionBar.getChildAt(i) != actionBar.getActionMode() && actionBar.getChildAt(i) != actionBar.getBackButton()) {
+                    if (actionBar.getChildAt(i).getVisibility() == View.VISIBLE && actionBar.getChildAt(i) != actionBar.getActionMode() && actionBar.getChildAt(i) != actionBar.getBackButton() && actionBar.getChildAt(i) != swiftgramEditButton) {
                         actionBar.getChildAt(i).setAlpha(1f - progressToActionMode);
                     }
                 }
@@ -10809,6 +10842,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
         updateCounters(false);
         selectedDialogsCountTextView.setNumber(selectedDialogs.size(), updateAnimated);
+        if (swiftgramEditButton != null) selectedDialogsCountTextView.setVisibility(View.INVISIBLE);
     }
 
     private void closeSearch() {
@@ -14885,6 +14919,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         checkUi_itemSearchVisibility();
     }
 
+    private void updateSwiftgramEditButton(boolean editing) {
+        if (swiftgramEditButton == null) return;
+        swiftgramEditButton.setText(editing ? getString(R.string.Done) : org.telegram.messenger.DevGramLocale.text("Изм."));
+        swiftgramEditButton.setContentDescription(getString(editing ? R.string.Done : R.string.Edit));
+        swiftgramEditButton.setTypeface(android.graphics.Typeface.create(editing ? "sans-serif-semibold" : "sans-serif-medium", 0));
+        swiftgramEditButton.bringToFront();
+        if (swiftgramComposeItem != null) swiftgramComposeItem.setVisibility(editing ? View.GONE : View.VISIBLE);
+    }
+
     private void checkUi_itemBackButtonVisibility() {
         if (actionBar == null) {
             return;
@@ -14894,7 +14937,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();
         final float factor = Math.max(progressToActionMode, factor1 * factor2 * factor3);
-        FragmentFloatingButton.setAnimatedVisibility(actionBar.getBackButton(), factor);
+        if (swiftgramEditButton != null) {
+            FragmentFloatingButton.setAnimatedVisibility(swiftgramEditButton, factor);
+            FragmentFloatingButton.setAnimatedVisibility(actionBar.getBackButton(), 0);
+        } else FragmentFloatingButton.setAnimatedVisibility(actionBar.getBackButton(), factor);
     }
 
     private void checkUi_itemOptionsVisibility() {

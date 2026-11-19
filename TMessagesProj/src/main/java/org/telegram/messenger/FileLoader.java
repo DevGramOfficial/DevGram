@@ -982,6 +982,16 @@ public class FileLoader extends BaseController {
         } else if (cacheType == ImageLoader.CACHE_TYPE_ENCRYPTED) {
             operation.setEncryptFile(true);
         }
+        // Downloads/streams also resolve their own path. Reuse the retained file
+        // instead of contacting Telegram for an already deleted attachment.
+        if (DevGramConfig.saveMedia && cacheType != ImageLoader.CACHE_TYPE_ENCRYPTED) {
+            File saved = DevGramMediaSaver.getSaved(fileName);
+            if (saved != null && (operation.totalBytesCount == 0 || saved.length() == operation.totalBytesCount)) {
+                storeDir = saved.getParentFile();
+                storeFileName = saved.getName();
+                operation.pathSaveData = null;
+            }
+        }
         operation.setPaths(currentAccount, fileName, loaderQueue, storeDir, tempDir, storeFileName);
         if (cacheType == 10) {
             operation.setIsPreloadVideoOperation(true);
@@ -1005,6 +1015,9 @@ public class FileLoader extends BaseController {
                 if (!operation.isPreloadVideoOperation() && operation.isPreloadFinished()) {
                     checkDownloadQueue(operation, operation.getQueue(), 0);
                     return;
+                }
+                if (DevGramConfig.saveMedia) {
+                    DevGramMediaSaver.onFileLoaded(currentAccount, fileName, finalFile);
                 }
                 FilePathDatabase.FileMeta fileMeta = getFileMetadataFromParent(currentAccount, parentObject);
                 if (fileMeta != null) {
@@ -1432,7 +1445,7 @@ public class FileLoader extends BaseController {
         }
         File result = null;
         if (documentId != 0) {
-            String path = getInstance(UserConfig.selectedAccount).getFileDatabase().getPath(documentId, dcId, type, useFileDatabaseQueue);
+            String path = getFileDatabase().getPath(documentId, dcId, type, useFileDatabaseQueue);
             if (path != null) {
                 result = new File(path);
             }

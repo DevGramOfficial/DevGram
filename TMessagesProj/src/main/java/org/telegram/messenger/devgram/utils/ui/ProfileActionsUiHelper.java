@@ -26,6 +26,7 @@ public final class ProfileActionsUiHelper {
 
     /** Высота полосы кнопок под шапкой профиля. */
     public static int getBandHeight() {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) return AndroidUtilities.dp(78);
         return AndroidUtilities.dp(isMaterial3Style() ? 102 : 74);
     }
 

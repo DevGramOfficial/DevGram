@@ -16,8 +16,8 @@ public final class DevGramProfilePolicy {
     public static final String BASE = "https://api.devgram.space/badges/";
     public static final LinkedHashMap<String, Integer> DEFAULTS = new LinkedHashMap<>();
     static {
-        String free = "profile.notices profile.comments profile.communities profile.palette profile.gradient profile.opacity profile.cards profile.layout profile.rows avatar.frame avatar.projects profile.pattern.dots profile.blocks music.player music.lyrics music.activity music.listening profile.assistant profile.integrations workshop.publish workshop.install workshop.social workshop.clans profile.import profile.export profile.media chat.badge profile.blocks.media avatar.frame.gradient avatar.shape profile.nick profile.font chat.font";
-        String paid = "profile.aurora profile.mesh profile.blur profile.cards.glass profile.cards.volume profile.buttons profile.layout.advanced avatar.frame.orbit avatar.frame.stars avatar.layers avatar.nodes profile.pattern.stars profile.pattern.waves profile.pattern.grid profile.name.effects profile.thought badge.choice chat.bubble profile.blocks.code profile.blocks.counter profile.blocks.pixels music.lyrics.animated profile.export.layers profile.media.animated chat.badge.animated profile.blocks.media.animated";
+        String free = "profile.notices profile.comments profile.communities profile.palette profile.gradient profile.opacity profile.cards profile.layout profile.rows avatar.frame avatar.projects profile.pattern.dots profile.blocks music.player music.lyrics music.activity music.listening profile.assistant profile.integrations workshop.publish workshop.install workshop.social workshop.clans profile.import profile.export profile.media chat.badge profile.blocks.media avatar.frame.gradient avatar.shape profile.nick profile.font chat.font design.ios.navigation design.ios.chatlist design.ios.chat design.ios.profiles design.ios.settings design.ios.menus design.ios.media design.ios.contacts design.ios.calls design.ios.stories design.ios.animations";
+        String paid = "profile.aurora profile.mesh profile.blur profile.cards.glass profile.cards.volume profile.buttons profile.layout.advanced avatar.frame.orbit avatar.frame.stars avatar.layers avatar.nodes profile.pattern.stars profile.pattern.waves profile.pattern.grid profile.name.effects profile.thought badge.choice chat.bubble profile.blocks.code profile.blocks.counter profile.blocks.pixels music.lyrics.animated profile.export.layers profile.media.animated chat.badge.animated profile.blocks.media.animated design.ios";
         for (String key : free.split(" ")) DEFAULTS.put(key, 0);
         for (String key : paid.split(" ")) DEFAULTS.put(key, 1);
     }
@@ -41,8 +41,10 @@ public final class DevGramProfilePolicy {
     }
 
     public static boolean allowed(long uid, String feature) {
-        if (!DevGramProfileCustomization.enabled()) return false;
+        boolean design = feature != null && feature.startsWith("design.");
+        if (!design && !DevGramProfileCustomization.enabled()) return false;
         if (uid < 0) { long owner=DevGramCommunityProfiles.owner(uid); return owner>0 && allowed(owner,"profile.communities") && allowed(owner,feature); }
+        if (design && feature.startsWith("design.ios.") && !allowed(uid, "design.ios")) return false;
         int tier = tier(feature);
         return tier == 0 || tier == 1 && DevGramBadges.hasSupporterFeatures(uid)
                 || tier == 2 && DevGramBadges.hasDeveloperFeatures(uid);
@@ -55,6 +57,7 @@ public final class DevGramProfilePolicy {
         AndroidUtilities.runOnUIThread(DevGramBadges::appearanceChanged);
     }
     public static void dispatchListeners() {
+        DevGramConfig.updateDesignAccess();
         for (Runnable listener : listeners) {
             try { listener.run(); } catch (Exception e) { FileLog.e(e); }
         }
@@ -62,7 +65,7 @@ public final class DevGramProfilePolicy {
     }
 
     public static synchronized void start() {
-        if (started || ApplicationLoader.applicationContext == null || !DevGramProfileCustomization.enabled()) return;
+        if (started || ApplicationLoader.applicationContext == null || !needed()) return;
         started = true;
         final int generation = ++streamGeneration;
         try {
@@ -71,13 +74,13 @@ public final class DevGramProfilePolicy {
         } catch (Exception e) { FileLog.e(e); }
         Thread thread = new Thread(() -> {
             long delay = 1000;
-            while (generation == streamGeneration && DevGramProfileCustomization.enabled()) {
+            while (generation == streamGeneration && needed()) {
                 HttpURLConnection connection = null;
                 long opened = SystemClock.elapsedRealtime();
                 try {
                     connection = (HttpURLConnection) new URL(BASE + "profile-policy.json").openConnection();
                     synchronized (DevGramProfilePolicy.class) {
-                        if (generation != streamGeneration || !started || !DevGramProfileCustomization.enabled()) return;
+                        if (generation != streamGeneration || !started || !needed()) return;
                         streamConnection = connection;
                     }
                     connection.setConnectTimeout(12000);
@@ -113,6 +116,10 @@ public final class DevGramProfilePolicy {
         if (streamThread != null) streamThread.interrupt();
         HttpURLConnection connection = streamConnection; streamConnection = null;
         if (connection != null) DevGramNetworkQueue.postRunnable(connection::disconnect);
+    }
+
+    private static boolean needed() {
+        return DevGramProfileCustomization.enabled() || DevGramSwiftgramDesign.selected() || !listeners.isEmpty();
     }
 
     private static synchronized void accept(JSONObject response) throws Exception {

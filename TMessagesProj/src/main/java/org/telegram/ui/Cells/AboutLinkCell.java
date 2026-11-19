@@ -267,6 +267,17 @@ public class AboutLinkCell extends FrameLayout implements Theme.Colorable {
     }
 
     private Paint backgroundPaint = new Paint();
+    private Integer devgramFadeColor;
+    private void updateDevgramFadeColor(){
+        Integer color=resourcesProvider instanceof org.telegram.ui.Components.DevGramProfilePalette.Provider
+                ?((org.telegram.ui.Components.DevGramProfilePalette.Provider)resourcesProvider).customCardColor():null;
+        if(java.util.Objects.equals(color,devgramFadeColor))return;
+        devgramFadeColor=color;
+        int fill=color==null?Theme.getColor(Theme.key_windowBackgroundWhite,resourcesProvider):color;
+        bottomShadow.getBackground().setColorFilter(new PorterDuffColorFilter(fill,color==null?PorterDuff.Mode.SRC_ATOP:PorterDuff.Mode.SRC_IN));
+        showMoreBackgroundDrawable.setColorFilter(new PorterDuffColorFilter(fill,color==null?PorterDuff.Mode.MULTIPLY:PorterDuff.Mode.SRC_IN));
+    }
+
     @Override
     public void draw(Canvas canvas) {
         super.draw(canvas);
@@ -275,23 +286,22 @@ public class AboutLinkCell extends FrameLayout implements Theme.Colorable {
         float alpha = parent == null ? 1f : (float) Math.pow(parent.getAlpha(), 2f);
 
         drawText(canvas);
+        updateDevgramFadeColor();
 
         float viewAlpha = showMoreTextBackgroundView.getAlpha();
         if (viewAlpha > 0) {
-            canvas.save();
-            canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (viewAlpha * 255), Canvas.ALL_SAVE_FLAG);
+            int save = canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (viewAlpha * 255), Canvas.ALL_SAVE_FLAG);
             showMoreBackgroundDrawable.setAlpha((int) (alpha * 255));
             canvas.translate(showMoreTextBackgroundView.getLeft(), showMoreTextBackgroundView.getTop());
             showMoreTextBackgroundView.draw(canvas);
-            canvas.restore();
+            canvas.restoreToCount(save);
         }
         viewAlpha = bottomShadow.getAlpha();
         if (viewAlpha > 0) {
-            canvas.save();
-            canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (viewAlpha * 255), Canvas.ALL_SAVE_FLAG);
+            int save = canvas.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (viewAlpha * 255), Canvas.ALL_SAVE_FLAG);
             canvas.translate(bottomShadow.getLeft(), bottomShadow.getTop());
             bottomShadow.draw(canvas);
-            canvas.restore();
+            canvas.restoreToCount(save);
         }
 
         container.draw(canvas);

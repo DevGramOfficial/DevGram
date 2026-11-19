@@ -47,6 +47,7 @@ public class MessageDrawable extends Drawable {
     public boolean isSelected;
     private boolean lastRemoveTailBg; // DevGram: последнее значение removeMessageTail для кэша фонового пузыря
     private Path path;
+    private org.telegram.ui.Components.DevGramSwiftgramBubblePath swiftgramBubblePath;
 
     public Path getPath() {
         return path;
@@ -712,6 +713,15 @@ public class MessageDrawable extends Drawable {
 
     private void generatePath(Path path, Rect bounds, int padding, int rad, int smallRad, int nearRad, int top, boolean drawFullBottom, boolean drawFullTop, boolean customPaint) {
         path.rewind();
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("chat")) {
+            if (swiftgramBubblePath == null) swiftgramBubblePath = new org.telegram.ui.Components.DevGramSwiftgramBubblePath();
+            swiftgramBubblePath.build(path, bounds, AndroidUtilities.density,
+                    overrideRoundRadius != 0 || overrideRounding > 0 ? rad : dp(SharedConfig.bubbleRadius),
+                    overrideRoundRadius != 0 || overrideRounding > 0 ? nearRad : dp(8),
+                    isOut, isTopNear, isBottomNear, botButtonsBottom,
+                    org.telegram.messenger.DevGramConfig.removeMessageTail, currentType == TYPE_MEDIA);
+            return;
+        }
         // DevGram: «Убрать хвост» — рисуем пузырь как медиа (без хвоста-уголка)
         final boolean removeTail = org.telegram.messenger.DevGramConfig.removeMessageTail;
         int heightHalf = (bounds.height() - padding) >> 1;

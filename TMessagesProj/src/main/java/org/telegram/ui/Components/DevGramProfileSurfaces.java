@@ -39,6 +39,15 @@ public final class DevGramProfileSurfaces {
     private final long uid;
     private final int[] origin=new int[2],cellOrigin=new int[2];
     private JSONObject document=new JSONObject();
+    private java.util.function.Function<View,JSONObject> rowColors;
+    public void setRowColorResolver(java.util.function.Function<View,JSONObject> resolver){rowColors=resolver;}
+    private JSONObject rowStyle(View view){return view==null||rowColors==null?null:rowColors.apply(view);}
+    private boolean hasRowBackground(View view){JSONObject style=rowStyle(view);return style!=null&&style.has("background");}
+    private boolean sameBackground(View a,View b){
+        JSONObject first=rowStyle(a),second=rowStyle(b);
+        boolean x=first!=null&&first.has("background"),y=second!=null&&second.has("background");
+        return x==y&&(!x||first.optInt("background")==second.optInt("background"));
+    }
     private NativeSources sources;
     public DevGramProfileSurfaces(View root,long uid){this.root=root;this.uid=uid;}
     private float dp(float n){return n*AndroidUtilities.density;}
@@ -51,6 +60,17 @@ public final class DevGramProfileSurfaces {
         return card||buttons;
     }
     private boolean supported(View view){return view instanceof TextDetailCell||view instanceof AboutLinkCell||view instanceof HeaderCell||view instanceof TextCell||view instanceof ProfileHoursCell||view instanceof DevGramProfileBlocksView&&!((DevGramProfileBlocksView)view).transparentRows();}
+    /** Native section fills must not sit beneath custom translucent row surfaces. */
+    public boolean coversSection(ViewGroup list,RectF bounds){
+        boolean found=false;
+        for(int i=0;i<list.getChildCount();i++){
+            View child=list.getChildAt(i);
+            if(child.getVisibility()!=View.VISIBLE||child.getHeight()==0||child.getY()>=bounds.bottom||child.getY()+child.getHeight()<=bounds.top)continue;
+            if(!supported(child))return false;
+            found=true;
+        }
+        return found;
+    }
     public void update(Canvas canvas,ViewGroup list,JSONObject doc,int width,int height,Consumer<Canvas> background){
         document=doc;
         if(needsBackground(doc,uid)&&Build.VERSION.SDK_INT>=29&&canvas.isHardwareAccelerated()){
@@ -59,13 +79,15 @@ public final class DevGramProfileSurfaces {
         if(list==null)return;root.getLocationOnScreen(origin);
         for(int i=0;i<list.getChildCount();i++){
             View view=list.getChildAt(i);Card card=cards.get(view);
-            if(!painted(doc)||!supported(view)){if(card!=null&&view.getBackground()==card)view.setBackground(card.original);continue;}
+            boolean ownBackground=hasRowBackground(view);
+            if(!(painted(doc)&&supported(view)||ownBackground)){if(card!=null&&view.getBackground()==card)view.setBackground(card.original);continue;}
             if(card==null){card=new Card(view,view.getBackground());cards.put(view,card);}else if(view.getBackground()!=card)card.original=view.getBackground();
             if(view.getBackground()!=card)view.setBackground(card);
+            card.bind(doc,rowStyle(view));
             float gap=dp(doc.optInt("cardJoin")==1?12:.5f);
             View previous=i>0?list.getChildAt(i-1):null,next=i+1<list.getChildCount()?list.getChildAt(i+1):null;
-            card.joinTop=previous!=null&&supported(previous)&&Math.abs(view.getY()-previous.getY()-previous.getHeight())<=gap;
-            card.joinBottom=next!=null&&supported(next)&&Math.abs(next.getY()-view.getY()-view.getHeight())<=gap;
+            card.joinTop=previous!=null&&(supported(previous)||hasRowBackground(previous))&&sameBackground(view,previous)&&Math.abs(view.getY()-previous.getY()-previous.getHeight())<=gap;
+            card.joinBottom=next!=null&&(supported(next)||hasRowBackground(next))&&sameBackground(view,next)&&Math.abs(next.getY()-view.getY()-view.getHeight())<=gap;
         }
     }
     private final class Card extends Drawable {
@@ -74,11 +96,22 @@ public final class DevGramProfileSurfaces {
         boolean joinTop,joinBottom;
         BlurredBackgroundDrawable glass;
         long glassKey=Long.MIN_VALUE;
+        JSONObject sourceDocument,sourceStyle,surfaceDocument;
+        void bind(JSONObject doc,JSONObject style){
+            if(doc==sourceDocument&&style==sourceStyle)return;
+            sourceDocument=doc;sourceStyle=style;surfaceDocument=doc;
+            if(style==null||!style.has("background"))return;
+            surfaceDocument=new JSONObject();
+            try{
+                java.util.Iterator<String> keys=doc.keys();while(keys.hasNext()){String key=keys.next();if(key.startsWith("card"))surfaceDocument.put(key,doc.opt(key));}
+                surfaceDocument.put("cardEnabled",1).put("cardColor",style.optInt("background")&0xffffff).put("cardAlpha",100);
+            }catch(Exception ignored){}
+        }
         Card(View view,Drawable original){owner=new java.lang.ref.WeakReference<>(view);this.original=original;}
-        @Override public void draw(Canvas canvas){View view=owner.get();if(view==null)return;if(!painted(document)){if(original!=null){original.setBounds(getBounds());original.draw(canvas);}return;}
-            view.getLocationOnScreen(cellOrigin);rect.set(getBounds());rect.inset(dp(16),0);
-            float radius=dp(document.optInt("cardRadiusEnabled")==1?document.optInt("cardRadius",12):12);
-            drawSurface(canvas,rect,document,false,radius,joinTop,joinBottom,1,cellOrigin[0]-origin[0],cellOrigin[1]-origin[1],this);
+        @Override public void draw(Canvas canvas){View view=owner.get();if(view==null)return;JSONObject d=surfaceDocument==null?document:surfaceDocument;if(!painted(d)){if(original!=null){original.setBounds(getBounds());original.draw(canvas);}return;}
+            view.getLocationOnScreen(cellOrigin);rect.set(getBounds()); // Section decoration already inset the cell.
+            float radius=dp(d.optInt("cardRadiusEnabled")==1?d.optInt("cardRadius",12):12);
+            drawSurface(canvas,rect,d,false,radius,joinTop,joinBottom,1,cellOrigin[0]-origin[0],cellOrigin[1]-origin[1],this);
         }
         @Override public void setAlpha(int alpha){}@Override public void setColorFilter(ColorFilter filter){}@Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
     }

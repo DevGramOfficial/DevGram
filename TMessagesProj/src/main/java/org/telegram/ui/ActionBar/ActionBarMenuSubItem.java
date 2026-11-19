@@ -112,6 +112,12 @@ public class ActionBarMenuSubItem extends FrameLayout implements Theme.Colorable
 
         checkViewLeft = LocaleController.isRTL;
         makeCheckView(needCheck);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("menus")) {
+            itemHeight = 44;
+            selectorRad = 30;
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+            updateBackground();
+        }
     }
 
     public void makeCheckView(int needCheck) {
@@ -137,10 +143,48 @@ public class ActionBarMenuSubItem extends FrameLayout implements Theme.Colorable
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("menus")) {
+            measureSwiftgramItem(widthMeasureSpec);
+            return;
+        }
         super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(dp(itemHeight), View.MeasureSpec.EXACTLY));
         if (expandIfMultiline && textView.getLayout().getLineCount() > 1) {
             super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(dp(itemHeight + 8), View.MeasureSpec.EXACTLY));
         }
+    }
+
+    private void measureSwiftgramItem(int widthSpec) {
+        final boolean rtl = LocaleController.isRTL;
+        setPadding(dp(16), 0, dp(16), 0);
+        boolean disclosure = rightIcon != null && rightIcon.getVisibility() == VISIBLE;
+        boolean icon = imageView.getVisibility() == VISIBLE || backupImageView != null && backupImageView.getVisibility() == VISIBLE;
+        int leading = checkView != null ? dp(34) : 0;
+        int trailing = (icon ? dp(44) : 0) + (disclosure ? dp(24) : 0);
+        textView.setPadding(rtl ? trailing : leading, 0, rtl ? leading : trailing, 0);
+        FrameLayout.LayoutParams text = (FrameLayout.LayoutParams) textView.getLayoutParams();
+        text.gravity = Gravity.CENTER_VERTICAL | (rtl ? Gravity.RIGHT : Gravity.LEFT);
+        text.leftMargin = text.rightMargin = 0;
+        FrameLayout.LayoutParams image = (FrameLayout.LayoutParams) imageView.getLayoutParams();
+        image.width = image.height = dp(32);
+        image.gravity = Gravity.CENTER_VERTICAL | (rtl ? Gravity.LEFT : Gravity.RIGHT);
+        image.leftMargin = rtl && disclosure ? dp(24) : 0;
+        image.rightMargin = !rtl && disclosure ? dp(24) : 0;
+        if (backupImageView != null) {
+            FrameLayout.LayoutParams backup = (FrameLayout.LayoutParams) backupImageView.getLayoutParams();
+            backup.gravity = image.gravity; backup.leftMargin = image.leftMargin; backup.rightMargin = image.rightMargin;
+        }
+        if (checkView != null) {
+            FrameLayout.LayoutParams check = (FrameLayout.LayoutParams) checkView.getLayoutParams();
+            check.gravity = Gravity.CENTER_VERTICAL | (rtl ? Gravity.RIGHT : Gravity.LEFT);
+        }
+        if (subtextView != null) {
+            subtextView.setPadding(rtl ? trailing : leading, 0, rtl ? leading : trailing, 0);
+            subtextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        }
+        int contentHeight = (int) Math.ceil(textView.getTextSize() * 1.18f);
+        if (subtextView != null && subtextView.getVisibility() == VISIBLE) contentHeight += dp(2) + Math.ceil(subtextView.getTextSize() * 1.18f);
+        else if (textView.getMaxLines() > 1) contentHeight *= 2;
+        super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(Math.max(dp(itemHeight), contentHeight + dp(24)), MeasureSpec.EXACTLY));
     }
 
     public void setItemHeight(int itemHeight) {

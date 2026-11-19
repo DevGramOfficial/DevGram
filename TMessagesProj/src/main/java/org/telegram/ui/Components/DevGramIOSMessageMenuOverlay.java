@@ -29,7 +29,7 @@ import org.telegram.ui.ActionBar.Theme;
  * Telegram's production ActionBarPopupWindowLayout, so every action and swipe-back
  * submenu keeps its original handler; this class owns only the presentation layer.
  */
-public class DevGramIOSMessageMenuOverlay extends FrameLayout {
+public class DevGramIOSMessageMenuOverlay extends FrameLayout implements DevGramMessageMenuSurface {
     private final ArrayList<ImageView> messageCopies = new ArrayList<>();
     private final View menu;
     private final Runnable closeAction;

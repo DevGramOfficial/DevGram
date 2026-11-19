@@ -1557,6 +1557,14 @@ public class BottomSheet extends Dialog implements BaseFragment.AttachedSheet {
         shadowDrawable.getPadding(padding);
         backgroundPaddingLeft = padding.left;
         backgroundPaddingTop = padding.top;
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("menus")) {
+            android.graphics.drawable.GradientDrawable panel = new android.graphics.drawable.GradientDrawable();
+            panel.setColor(android.graphics.Color.WHITE);
+            float radius = dp(38);
+            panel.setCornerRadii(new float[]{radius, radius, radius, radius, 0, 0, 0, 0});
+            shadowDrawable = new FilterTrackingDrawable(panel);
+            shadowDrawable.setColorFilter(themedBackgroundFilter = new PorterDuffColorFilter(internalBackgroundColor, PorterDuff.Mode.MULTIPLY));
+        }
 
         container = new ContainerView(getContext()) {
             @Override

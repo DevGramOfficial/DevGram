@@ -279,6 +279,7 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
 
     private final AvatarDrawable avatarDrawable;
     PeerHeaderView headerView;
+    private ImageView swiftgramCloseButton;
     private final StoryLinesDrawable storyLines;
     private StoryPositionView storyPositionView;
 
@@ -1307,6 +1308,17 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
         });
         storyContainer.addView(headerView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 17, 0, 0));
 
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("stories")) {
+            swiftgramCloseButton = new ImageView(context);
+            swiftgramCloseButton.setScaleType(ImageView.ScaleType.CENTER);
+            swiftgramCloseButton.setImageResource(R.drawable.swiftgram_chrome_story_close);
+            swiftgramCloseButton.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+            swiftgramCloseButton.setBackground(Theme.createSelectorDrawable(0x30ffffff));
+            swiftgramCloseButton.setContentDescription(getString(R.string.Close));
+            swiftgramCloseButton.setOnClickListener(v -> storyViewer.close(true));
+            storyContainer.addView(swiftgramCloseButton, LayoutHelper.createFrame(50, 64, Gravity.RIGHT | Gravity.TOP, 0, 2, 0, 0));
+        }
+
         topBulletinContainer = new FrameLayout(context);
 
         LayoutTransition layoutTransition = new LayoutTransition();
@@ -1329,14 +1341,26 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
         optionsIconView.setPadding(dp(8), dp(8), dp(8), dp(8));
         optionsIconView.setBackground(Theme.createSelectorDrawable(Color.WHITE));
         optionsIconView.setContentDescription(getString(R.string.AccDescrMoreOptions));
-        storyContainer.addView(optionsIconView, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2, 0));
+        storyContainer.addView(optionsIconView, swiftgramCloseButton != null ? LayoutHelper.createFrame(33, 64, Gravity.RIGHT | Gravity.TOP, 0, 2, 51, 0) : LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2, 0));
+        if (swiftgramCloseButton != null) {
+            optionsIconView.setPadding(0, 0, 0, 0);
+            optionsIconView.setScaleType(ImageView.ScaleType.CENTER);
+            optionsIconView.setOnTouchListener((v, event) -> {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN && sharedResources.optionsDrawable instanceof RLottieDrawable && org.telegram.messenger.DevGramSwiftgramDesign.section("animations")) {
+                    RLottieDrawable animation = (RLottieDrawable) sharedResources.optionsDrawable;
+                    animation.setCurrentFrame(0, false);
+                    animation.start();
+                }
+                return false;
+            });
+        }
 
         pipIconView = new ImageView(context);
         pipIconView.setImageDrawable(sharedResources.pipDrawable);
         pipIconView.setPadding(dp(8), dp(8), dp(8), dp(8));
         pipIconView.setBackground(Theme.createSelectorDrawable(Color.WHITE));
         pipIconView.setContentDescription(getString(R.string.AccDescrPipMode));
-        storyContainer.addView(pipIconView, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2 + 40, 0));
+        storyContainer.addView(pipIconView, swiftgramCloseButton != null ? LayoutHelper.createFrame(44, 44, Gravity.RIGHT | Gravity.TOP, 0, 12, 96, 0) : LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2 + 40, 0));
         pipIconView.setOnClickListener(v -> {
             if (storyViewer != null) {
                 storyViewer.switchToPip();
@@ -2236,10 +2260,14 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
                 return super.dispatchTouchEvent(ev);
             }
         };
-        storyContainer.addView(muteIconContainer, LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2 + 40, 0));
+        storyContainer.addView(muteIconContainer, swiftgramCloseButton != null ? LayoutHelper.createFrame(33, 64, Gravity.RIGHT | Gravity.TOP, 0, 2, 96, 0) : LayoutHelper.createFrame(40, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2 + 40, 0));
 
         muteIconView = new RLottieImageView(context);
         muteIconView.setPadding(dp(6), dp(6), dp(6), dp(6));
+        if (swiftgramCloseButton != null) {
+            muteIconView.setPadding(0, 0, 0, 0);
+            muteIconView.setScaleType(ImageView.ScaleType.CENTER);
+        }
         muteIconContainer.addView(muteIconView);
 
         noSoundIconView = new ImageView(context);
@@ -2303,7 +2331,7 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
                 privacyHint.show();
             }
         });
-        storyContainer.addView(privacyButton, LayoutHelper.createFrame(60, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2 + 40, 0));
+        storyContainer.addView(privacyButton, swiftgramCloseButton != null ? LayoutHelper.createFrame(60, 40, Gravity.RIGHT | Gravity.TOP, 0, 15, 96, 0) : LayoutHelper.createFrame(60, 40, Gravity.RIGHT | Gravity.TOP, 2, 15, 2 + 40, 0));
 
         muteIconContainer.setOnClickListener(v -> {
             if (currentStory.hasSound()) {
@@ -6682,7 +6710,7 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
 
             for (int a = 0; a < 2; ++a) {
                 subtitleView[a] = new TextView(context);
-                subtitleView[a].setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+                subtitleView[a].setTextSize(TypedValue.COMPLEX_UNIT_DIP, org.telegram.messenger.DevGramSwiftgramDesign.section("stories") ? 11 : 12);
                 subtitleView[a].setMaxLines(1);
                 subtitleView[a].setSingleLine(true);
                 subtitleView[a].setEllipsize(TextUtils.TruncateAt.MIDDLE);
@@ -7405,7 +7433,7 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
 
         forceUpdateOffsets = true;
 
-        float headerRightMargin = dp(48);
+        float headerRightMargin = dp(swiftgramCloseButton != null ? 101 : 48);
 //        if (closeFriendsBadge.getVisibility() == View.VISIBLE) {
 //            headerRightMargin += dp(40);
 //        }
@@ -7617,7 +7645,7 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
             if (child == null || child == liveCommentsShadowView) {
                 continue;
             }
-            if (child == headerView || child == optionsIconView || child == pipIconView || child == muteIconContainer || child == selfView || child == storyCaptionView || child == privacyButton) {
+            if (child == swiftgramCloseButton || child == headerView || child == optionsIconView || child == pipIconView || child == muteIconContainer || child == selfView || child == storyCaptionView || child == privacyButton) {
                 float alpha = 1f;
                 if (child == muteIconContainer) {
                     alpha = muteIconViewAlpha;
@@ -8234,10 +8262,11 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
             repostDrawable = ContextCompat.getDrawable(context, R.drawable.media_repost);
             likeDrawableFilled = ContextCompat.getDrawable(context, R.drawable.media_like_active);
             likeDrawableFilled.setColorFilter(new PorterDuffColorFilter(0xFFFF2E38, PorterDuff.Mode.MULTIPLY));
-            optionsDrawable = ContextCompat.getDrawable(context, R.drawable.media_more);
+            optionsDrawable = org.telegram.messenger.DevGramSwiftgramDesign.section("stories") ? new RLottieDrawable(R.raw.swiftgram_anim_story_more, dp(30), dp(30), false, null) : ContextCompat.getDrawable(context, R.drawable.media_more);
+            if (optionsDrawable instanceof RLottieDrawable) ((RLottieDrawable) optionsDrawable).setCurrentFrame(((RLottieDrawable) optionsDrawable).getFramesCount() - 1, false);
             pipDrawable = ContextCompat.getDrawable(context, R.drawable.menu_stream_pip);
             deleteDrawable = ContextCompat.getDrawable(context, R.drawable.msg_delete);
-            muteDrawable = new RLottieDrawable(R.raw.media_mute_unmute, AndroidUtilities.dp(28), AndroidUtilities.dp(28), true, null);
+            muteDrawable = org.telegram.messenger.DevGramSwiftgramDesign.section("stories") ? new RLottieDrawable(R.raw.swiftgram_anim_storymute, dp(30), dp(30), true, null) : new RLottieDrawable(R.raw.media_mute_unmute, AndroidUtilities.dp(28), AndroidUtilities.dp(28), true, null);
            // muteDrawable = new ReplaceableIconDrawable(context);
             noSoundDrawable = new RLottieDrawable(R.raw.media_mute_unmute, AndroidUtilities.dp(28), AndroidUtilities.dp(28), true, null);
             noSoundDrawable.setCurrentFrame(20, false, true);
@@ -8261,22 +8290,24 @@ public class PeerStoriesView extends SizeNotifierFrameLayout implements Notifica
         }
 
         public void setIconMuted(boolean muted, boolean animated) {
-            if (!animated) {
-                muteDrawable.setCurrentFrame(muted ? 20 : 0, false);
-                muteDrawable.setCustomEndFrame(muted ? 20 : 0);
+            final boolean swiftgram = org.telegram.messenger.DevGramSwiftgramDesign.section("stories");
+            final int middle = swiftgram ? 30 : 20, end = swiftgram ? 59 : 43;
+            if (!animated || swiftgram && !org.telegram.messenger.DevGramSwiftgramDesign.section("animations")) {
+                muteDrawable.setCurrentFrame(muted ? middle : 0, false);
+                muteDrawable.setCustomEndFrame(muted ? middle : 0);
                 return;
             }
             if (muted) {
-                if (muteDrawable.getCurrentFrame() > 20) {
+                if (muteDrawable.getCurrentFrame() > middle) {
                     muteDrawable.setCurrentFrame(0, false);
                 }
-                muteDrawable.setCustomEndFrame(20);
+                muteDrawable.setCustomEndFrame(middle);
                 muteDrawable.start();
             } else {
-                if (muteDrawable.getCurrentFrame() == 0 || muteDrawable.getCurrentFrame() >= 43) {
+                if (muteDrawable.getCurrentFrame() == 0 || muteDrawable.getCurrentFrame() >= end) {
                     return;
                 }
-                muteDrawable.setCustomEndFrame(43);
+                muteDrawable.setCustomEndFrame(end);
                 muteDrawable.start();
             }
         }

@@ -36,12 +36,12 @@ public final class DevGramProfileDocument {
         FEATURES.put("cardBlur","profile.blur");
         for(String suffix:new String[]{"Glass","GlassBlur","GlassBend","GlassThick","GlassLight"})FEATURES.put("card"+suffix,"profile.cards.glass");
         for(String suffix:new String[]{"Volume","LightAngle","LightColor","SideLight","CenterBrightness","LightRadius","LightDistance","LightStrength"})FEATURES.put("card"+suffix,"profile.cards.volume");
-        for(String suffix:new String[]{"CopyCards","Color","Alpha","Blur"})FEATURES.put("button"+suffix,"profile.buttons");
+        for(String suffix:new String[]{"CopyCards","Color","Alpha","Blur","TextEnabled","TextColor"})FEATURES.put("button"+suffix,"profile.buttons");
         FEATURES.put("titleText", "profile.font");
         FEATURES.put("nameFontFile", "profile.font"); FEATURES.put("chatFontFile", "chat.font");
         FEATURES.put("frameGraph", "avatar.nodes");
         for(String field:new String[]{"bubbleEnabled","bubbleGradient","bubbleColor2","bubbleAngle","bubbleAlpha","bubbleColor2Alpha","bubbleTextAlpha"})FEATURES.put(field,"chat.bubble");FEATURES.put("bubbleFont","chat.font");
-        FEATURES.put("profileTextEnabled", "profile.palette");FEATURES.put("profileTextColor", "profile.palette");FEATURES.put("profilePalette", "profile.palette");
+        FEATURES.put("cardTextEnabled", "profile.palette");FEATURES.put("cardTextColor", "profile.palette");FEATURES.put("profileTextEnabled", "profile.palette");FEATURES.put("profileTextColor", "profile.palette");FEATURES.put("profilePalette", "profile.palette");FEATURES.put("rowColors", "profile.palette");
         for(String suffix:new String[]{"MediaType","Enabled","Source","Width","Alpha","Fade","X","Y"})FEATURES.put("chatBadge"+suffix,"chat.badge");
         FEATURES.put("nameSize", "profile.font");FEATURES.put("nameFont", "profile.font");FEATURES.put("nameColorEnabled", "profile.nick");
         FEATURES.put("nickAlpha", "profile.nick");FEATURES.put("nickAlpha2", "profile.nick");

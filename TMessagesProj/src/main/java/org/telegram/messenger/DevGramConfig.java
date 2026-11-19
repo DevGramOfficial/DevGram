@@ -41,7 +41,7 @@ public class DevGramConfig {
     // Встроенный WireGuard-VPN. По умолчанию выключен.
     public static boolean vpnEnabled = false;
 
-    // The separate iOS profile was removed; keep this disabled for migrated users.
+    // Effective Swiftgram profile appearance; recomputed after account/policy changes.
     public static boolean iosProfile = false;
 
     // --- сохранение истории ---
@@ -128,8 +128,7 @@ public class DevGramConfig {
             localPremium = preferences.getBoolean("localPremium", false);
             streaksEnabled = preferences.getBoolean("streaksEnabled", true);
             vpnEnabled = preferences.getBoolean("vpnEnabled", false);
-            iosProfile = false;
-            preferences.edit().putBoolean("iosProfile", false).apply();
+            // Live appearance access is resolved after native libraries and account configs.
             saveDeletedMessages = preferences.getBoolean("saveDeletedMessages", false);
             saveMessagesHistory = preferences.getBoolean("saveMessagesHistory", false);
             saveMedia = preferences.getBoolean("saveMedia", false);
@@ -175,9 +174,9 @@ public class DevGramConfig {
     private static void resetRemovedIosSettings() {
         SharedPreferences appearance = ApplicationLoader.applicationContext
                 .getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
+        if (appearance.getInt("dg_swiftgram_schema", 0) >= 1) return;
         appearance.edit()
-                .putInt("dg_designMode", appearance.getInt("dg_designMode", DESIGN_MODE_DEVGRAM) == DESIGN_MODE_IOS
-                        ? DESIGN_MODE_DEVGRAM : appearance.getInt("dg_designMode", DESIGN_MODE_DEVGRAM))
+                .putInt("dg_swiftgram_schema", 1)
                 .remove("dg_ios_center_chat_title")
                 .remove("dg_ios_adaptive_title_width")
                 .remove("dg_ios_show_unread_counter")
@@ -308,68 +307,68 @@ public class DevGramConfig {
         MessagesController.getGlobalMainSettings().edit().putInt("folderTabsStyle", v).apply();
     }
 
-    // App-wide design: current DevGram or the classic AyuGram 12.2.10 chrome.
-    // Value 1 is reserved for the removed iOS mode and migrated to DevGram.
+    // Stable stored values: DevGram, Swiftgram iOS, classic AyuGram.
     public static final int DESIGN_MODE_DEVGRAM = 0;
     public static final int DESIGN_MODE_IOS = 1;
     public static final int DESIGN_MODE_OLD = 2;
+    private static int lastDesignAccessSignature = -1;
 
     public static int getDesignMode() {
-        int mode = MessagesController.getGlobalMainSettings().getInt("dg_designMode", DESIGN_MODE_DEVGRAM);
-        if (mode == DESIGN_MODE_IOS) {
-            MessagesController.getGlobalMainSettings().edit().putInt("dg_designMode", DESIGN_MODE_DEVGRAM).apply();
-            return DESIGN_MODE_DEVGRAM;
-        }
-        return mode;
+        int mode = ApplicationLoader.applicationContext == null ? DESIGN_MODE_DEVGRAM
+                : ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", 0).getInt("dg_designMode", DESIGN_MODE_DEVGRAM);
+        if (mode == DESIGN_MODE_IOS && !DevGramSwiftgramDesign.allowed()) return DESIGN_MODE_DEVGRAM;
+        return mode >= DESIGN_MODE_DEVGRAM && mode <= DESIGN_MODE_OLD ? mode : DESIGN_MODE_DEVGRAM;
     }
 
-    public static void setDesignMode(int v) {
-        if (v == DESIGN_MODE_IOS) {
-            v = DESIGN_MODE_DEVGRAM;
+    public static void setDesignMode(int mode) {
+        if (mode < DESIGN_MODE_DEVGRAM || mode > DESIGN_MODE_OLD) return;
+        if (mode == DESIGN_MODE_IOS && !DevGramSwiftgramDesign.allowed()) return;
+        MessagesController.getGlobalMainSettings().edit().putInt("dg_designMode", mode).apply();
+        DevGramProfilePolicy.start();
+    }
+
+    public static void updateDesignAccess() {
+        boolean ios = DevGramSwiftgramDesign.enabled();
+        iosProfile = ios && DevGramSwiftgramDesign.section("profiles");
+        int signature = ios ? 1 : 0;
+        int bit = 2;
+        if (ios) for (String section : "navigation chatlist chat profiles settings menus media contacts calls stories animations".split(" ")) {
+            if (DevGramSwiftgramDesign.section(section)) signature |= bit;
+            bit <<= 1;
         }
-        MessagesController.getGlobalMainSettings().edit().putInt("dg_designMode", v).apply();
+        int previous = lastDesignAccessSignature;
+        lastDesignAccessSignature = signature;
+        if (previous != -1 && previous != signature) {
+            DevGramSwiftgramDesign.refreshResources();
+            for (int account = 0; account < UserConfig.MAX_ACCOUNT_COUNT; account++) {
+                if (UserConfig.getInstance(account).isClientActivated()) {
+                    NotificationCenter.getInstance(account).postNotificationName(NotificationCenter.mainTabsSchemeChanged);
+                }
+            }
+        }
     }
 
     // Set the starting preferences, then rebuild screens. Classic layout branches in
     // shared chrome keep the drawer, flat headers, full-width sections and compose bar.
     public static void applyDesignPreset(int mode) {
-        if (mode == DESIGN_MODE_IOS) {
-            mode = DESIGN_MODE_DEVGRAM;
-        }
+        if (mode == DESIGN_MODE_IOS && !DevGramSwiftgramDesign.allowed()) return;
         final boolean wasIos = org.telegram.ui.Components.DevGramMaterial3.iosNavigation();
         setDesignMode(mode);
         SharedPreferences.Editor editor = MessagesController.getGlobalMainSettings().edit();
         switch (mode) {
             case DESIGN_MODE_IOS:
-                // Круглые аватарки, без Material-эффектов (MD3/«липкая» анимация — андроидные),
-                // заголовок по центру — как в iOS. Профиль в стиле iOS уже был отдельным
-                // тумблером (iosProfile) — включаем его тоже.
+                // New Swiftgram renderer uses source-derived metrics and palette.
+                // Legacy Cherrygram preferences are not used to select its surfaces.
+                SharedConfig.bubbleRadius = 16;
+                editor.putInt("bubbleRadius", 16);
                 editor.putFloat("avatarCornersF", 30f);
                 editor.putBoolean("dg_singleCorner", true);
                 editor.putBoolean("dg_md3", false);
                 editor.putBoolean("dg_gooey", false);
-                editor.putBoolean("dg_centerTitle", true);
+                editor.putInt("dg_swiftgram_schema", 1);
                 editor.apply();
-                DevGramIOSConfig.setCenterChatTitle(true);
-                DevGramIOSConfig.setAdaptiveTitleWidth(true);
-                DevGramIOSConfig.setShowUnreadCounter(true);
-                DevGramIOSConfig.setIosUnreadCounter(true);
-                DevGramIOSConfig.setIosInputPanel(true);
-                DevGramIOSConfig.setNotificationSound(DevGramIOSConfig.NOTIFICATION_SOUND_IOS);
-                DevGramIOSConfig.setIosMessageMenu(true);
-                DevGramIOSConfig.setNativeMenuBlur(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S);
-                DevGramIOSConfig.setShowWholeAlbumInMenu(true);
-                DevGramIOSConfig.setRememberKeyboardForMenu(true);
-                DevGramIOSConfig.setCompactMenuActions(true);
-                setIosProfile(true);
                 LiteMode.toggleFlag(LiteMode.FLAG_CHAT_BLUR, true);
                 LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS, true);
-                // В iOS-режиме вкладки «Контакты» и «Звонки» всегда видны в нижнем меню
-                // (как в Settings.app/Telegram-iOS) — включаем сразу. Важно: после прямого
-                // изменения UserConfig обязательно шлём те же уведомления, что и родные
-                // тумблеры показа/скрытия — иначе у уже открытого MainTabsActivity не
-                // пересобираются позиции вкладок в ViewPager, и клик по табу попадает на
-                // фрагмент, оставшийся от старой раскладки (баг: «Контакты» открывали «Настройки»).
                 for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
                     if (UserConfig.getInstance(a).isClientActivated()) {
                         UserConfig userConfig = UserConfig.getInstance(a);
@@ -428,6 +427,7 @@ public class DevGramConfig {
         // вкладок (не точечный сдвиг, как при обычном скрытии/показе Контактов/Звонков) —
         // шлём отдельное уведомление, чтобы MainTabsActivity сделал чистый пересбор кэша
         // фрагментов (см. mainTabsSchemeChanged в NotificationCenter/MainTabsActivity).
+        updateDesignAccess();
         final boolean isIos = org.telegram.ui.Components.DevGramMaterial3.iosNavigation();
         if (wasIos != isIos) {
             for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
@@ -1072,7 +1072,7 @@ public class DevGramConfig {
     }
 
     public static void setIosProfile(boolean v) {
-        iosProfile = false;
+        iosProfile = v && DevGramSwiftgramDesign.section("profiles");
         if (preferences != null) {
             preferences.edit().putBoolean("iosProfile", false).apply();
         }

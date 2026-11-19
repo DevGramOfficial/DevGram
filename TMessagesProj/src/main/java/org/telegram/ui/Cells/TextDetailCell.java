@@ -217,6 +217,7 @@ public class TextDetailCell extends FrameLayout implements Theme.Colorable {
     public void setImage(Drawable drawable, CharSequence imageContentDescription) {
         ((MarginLayoutParams) valueTextView.getLayoutParams()).rightMargin = !LocaleController.isRTL && drawable != null ? dp(28 + 12 + 12 + 6) : dp(23);
         imageView.setImageDrawable(drawable);
+        if(resourcesProvider instanceof org.telegram.ui.Components.DevGramProfilePalette.RowProvider){Integer icon=org.telegram.ui.Components.DevGramProfilePalette.rowColor(resourcesProvider,"icon");if(icon==null)imageView.clearColorFilter();else imageView.setColorFilter(icon);}
         imageView.setFocusable(drawable != null);
         imageView.setContentDescription(imageContentDescription);
         if (drawable == null) {

@@ -85,6 +85,7 @@ public class DevGramSettingsLayout extends FrameLayout implements Theme.Colorabl
         actionBar.setItemsBackgroundColor(Theme.getColor(Theme.key_listSelector, resourcesProvider), false);
 
         listView.adapter.setApplyBackground(false);
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) listView.setSwiftgramSettingsSections();
         listView.setClipToPadding(true);
         listView.setPadding(0, AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight(), 0, 0);
         addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));

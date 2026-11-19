@@ -646,6 +646,11 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     private View layoutToIgnore;
     private boolean beginTrackingSent;
     private boolean transitionAnimationInProgress;
+    private boolean swiftgramScreenTransition, swiftgramScreenClosing;
+    private boolean swiftgramNavigationAnimation() {
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("navigation")
+                && org.telegram.messenger.DevGramSwiftgramDesign.section("animations");
+    }
     private boolean transitionAnimationPreviewMode;
     private ArrayList<int[]> animateStartColors = new ArrayList<>();
     private ArrayList<int[]> animateEndColors = new ArrayList<>();
@@ -1067,6 +1072,9 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     @Keep
     public void setInnerTranslationX(float value) {
         innerTranslationX = value;
+        if (!swiftgramScreenTransition && swiftgramNavigationAnimation() && (startedTracking || animationInProgress || predictiveBackInProgress)) {
+            containerViewBack.setTranslationX((value - getWidth()) * .3f);
+        }
         invalidate();
 
         if (fragmentsStack.size() >= 2 && containerView.getMeasuredWidth() > 0) {
@@ -1202,6 +1210,17 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             }
         }
 
+        if (!inPreviewMode && !transitionAnimationPreviewMode && (swiftgramScreenTransition || swiftgramNavigationAnimation() && (startedTracking || animationInProgress || predictiveBackInProgress)) && (child == containerView || child == containerViewBack)) {
+            final boolean result = super.drawChild(canvas, child, drawingTime);
+            final View top = swiftgramScreenTransition && swiftgramScreenClosing ? containerViewBack : containerView;
+            final View lower = top == containerView ? containerViewBack : containerView;
+            if (child == lower) {
+                float position = top.getTranslationX() / Math.max(1, getWidth());
+                scrimPaint.setColor(Color.argb(Math.round(25.5f * MathUtils.clamp(1 - position, 0, 1)), 0, 0, 0));
+                canvas.drawRect(0, 0, getWidth(), getHeight(), scrimPaint);
+            }
+            return result;
+        }
         int width = getWidth() - getPaddingLeft() - getPaddingRight();
         int translationX = (int) innerTranslationX + getPaddingRight();
         int clipLeft = getPaddingLeft();
@@ -1682,7 +1701,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     public void onBackProgress(float t) {
         if (!predictiveInput) return;
         t = org.telegram.ui.Components.devgram.PredictiveBackAnimationHelper.applyIntensity(t);
-        final float dx = dp(56) * CubicBezierInterpolator.StandardDecelerate.getInterpolation(t);
+        final float dx = swiftgramNavigationAnimation() ? getWidth() * MathUtils.clamp(t, 0, 1) : dp(56) * CubicBezierInterpolator.StandardDecelerate.getInterpolation(t);
         predictiveBackHasProgress = t > 0;
         containerView.setTranslationX(dx);
         setInnerTranslationX(dx);
@@ -1716,7 +1735,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     private boolean newBackTransitions() {
-        return predictiveBackInProgress && predictiveBackHasProgress;
+        return !swiftgramNavigationAnimation() && predictiveBackInProgress && predictiveBackHasProgress;
     }
 
     private boolean backAnimatorIsBack;
@@ -1735,7 +1754,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             int duration = Math.max((int) (200.0f / containerView.getMeasuredWidth() * distToMove), newBackTransitions() ? 380 : 50);
             if (!overrideTransition) {
                 animatorSet.playTogether(
-                    ObjectAnimator.ofFloat(containerView, View.TRANSLATION_X, (containerView.getMeasuredWidth() + (predictiveBackInProgress ? dp(56) : 0))).setDuration(duration),
+                    ObjectAnimator.ofFloat(containerView, View.TRANSLATION_X, (containerView.getMeasuredWidth() + (predictiveBackInProgress && !swiftgramNavigationAnimation() ? dp(56) : 0))).setDuration(duration),
                     ObjectAnimator.ofFloat(this, "innerTranslationX", (float) containerView.getMeasuredWidth()).setDuration(duration)
                 );
                 if (newBackTransitions()) {
@@ -1756,6 +1775,10 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             }
         }
 
+        if (swiftgramNavigationAnimation() && !overrideTransition) {
+            animatorSet.setDuration(400);
+            animatorSet.setInterpolator(org.telegram.ui.Components.DevGramSwiftgramSpring::releasedScreen);
+        }
         Animator customTransition = currentFragment.getCustomSlideTransition(false, backAnimation, distToMove);
         if (customTransition != null) {
             animatorSet.playTogether(customTransition);
@@ -1830,6 +1853,11 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     private void onAnimationEndCheck(boolean byCheck) {
+        if (swiftgramScreenTransition) {
+            swiftgramScreenTransition = false;
+            containerView.setTranslationX(0);
+            containerViewBack.setTranslationX(0);
+        }
         onCloseAnimationEnd();
         onOpenAnimationEnd();
         if (waitingForKeyboardCloseRunnable != null) {
@@ -1936,6 +1964,18 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     private void startLayoutAnimation(final boolean open, final boolean first, final boolean preview) {
+        if (first && !preview && swiftgramNavigationAnimation()) {
+            swiftgramScreenTransition = true;
+            swiftgramScreenClosing = !open;
+            if (open) {
+                containerView.setTranslationX(getWidth());
+                containerViewBack.setTranslationX(0);
+            } else {
+                containerView.setTranslationX(-getWidth() * .3f);
+                containerViewBack.setTranslationX(0);
+            }
+            containerView.setAlpha(1); containerViewBack.setAlpha(1);
+        }
         if (first) {
             animationProgress = 0.0f;
             lastFrameTime = System.nanoTime() / 1000000;
@@ -1960,7 +2000,9 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 lastFrameTime = newTime;
                 int transitionMode = preview ? DevGramMaterial3.TRANSITION_DEFAULT : DevGramMaterial3.transitionAnimation();
                 float duration;
-                if (preview && open) {
+                if (swiftgramScreenTransition) {
+                    duration = 400f;
+                } else if (preview && open) {
                     duration = 190.0f;
                 } else if (transitionMode == DevGramMaterial3.TRANSITION_AOSP) {
                     duration = 280.0f;
@@ -2004,7 +2046,9 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     newFragment.setNavigationBarColor(color);
                 }
                 float interpolated;
-                if (preview) {
+                if (swiftgramScreenTransition) {
+                    interpolated = org.telegram.ui.Components.DevGramSwiftgramSpring.screen(animationProgress);
+                } else if (preview) {
                     if (open) {
                         interpolated = overshootInterpolator.getInterpolation(animationProgress);
                     } else {
@@ -2019,7 +2063,15 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 }
                 float transitionDistance = transitionMode == DevGramMaterial3.TRANSITION_AOSP
                         ? Math.max(dp(48), getMeasuredWidth() * .18f) : dp(48);
-                if (open) {
+                if (swiftgramScreenTransition) {
+                    final float position = open ? 1 - interpolated : interpolated;
+                    final View top = open ? containerView : containerViewBack;
+                    final View lower = open ? containerViewBack : containerView;
+                    top.setTranslationX(position * getWidth());
+                    lower.setTranslationX((position - 1) * getWidth() * .3f);
+                    top.setAlpha(1); lower.setAlpha(1);
+                    invalidate();
+                } else if (open) {
                     float clampedInterpolated = MathUtils.clamp(interpolated, 0, 1);
                     containerView.setAlpha(clampedInterpolated);
                     if (preview) {

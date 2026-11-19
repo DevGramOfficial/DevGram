@@ -472,7 +472,18 @@ public class SimpleActionBarMenuOverlay extends FrameLayout {
         }
         final float t = animationTime();
         final float f = animFrom;
-        if (opened) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("menus")) {
+            wobble = 0;
+            if (opened) {
+                final float fraction = Utilities.clamp01(t / .42f);
+                menuW = menuH = f + (1f - f) * org.telegram.ui.Components.DevGramSwiftgramSpring.context(fraction);
+                if (fraction >= 1f) setAnimating(false);
+            } else {
+                final float fraction = Utilities.clamp01(t / .2f);
+                menuW = menuH = f * (1f - fraction * fraction * (3f - 2f * fraction));
+                if (fraction >= 1f) post(() -> { if (!opened && animating) finish(); });
+            }
+        } else if (opened) {
             wobble = 0;
             menuW = t > 0.7f ? 1f : f + (1f - f) * (float) springStep(t, 0.78, 0.30);        // ≈2% overshoot
             menuH = t > 0.7f ? 1f : f + (1f - f) * (float) springStep(t - 0.02, 0.80, 0.34); // ≈1.5%
@@ -604,7 +615,7 @@ public class SimpleActionBarMenuOverlay extends FrameLayout {
             final float hw = shapeRect.width() / 2f * (1f + wobble * 0.5f), hh = shapeRect.height() / 2f * (1f - wobble);
             shapeRect.set(cx - hw, cy - hh, cx + hw, cy + hh);
         }
-        final float radius = Math.min(Math.min(shapeRect.height(), shapeRect.width()) / 2f, lerp(startRect.height() / 2f, dp(MENU_RADIUS), Utilities.clamp01(ph)));
+        final float radius = Math.min(Math.min(shapeRect.height(), shapeRect.width()) / 2f, lerp(startRect.height() / 2f, dp(org.telegram.messenger.DevGramSwiftgramDesign.section("menus") ? 30 : MENU_RADIUS), Utilities.clamp01(ph)));
         // out of a pill below (the QR screen's chip menu): the moving top edge bulges forward with its speed, as liquid;
         // a dome of the glass's own shape, the top raised and its corners rounder, so the rim follows it
         final float bulge = pillBelow ? 0.75f * dp(5) * Utilities.clamp01(menuHVel / 9f) : 0f;
@@ -618,7 +629,7 @@ public class SimpleActionBarMenuOverlay extends FrameLayout {
         canvas.drawRect(0, 0, getWidth(), getHeight(), dimPaint);
 
         // the one glass shape: the button's pill stretched into the menu
-        final int p = dp(6);
+        final int p = dp(org.telegram.messenger.DevGramSwiftgramDesign.section("menus") ? 0 : 6);
         // an action mode button (or a bare icon) has no glass of its own: the menu's glass appears over its pill
         final float glassAlpha = startFromPill && bar.hasButtonGlass() ? 1f : Utilities.clamp01(m / 0.25f);
         if (glass != null) {

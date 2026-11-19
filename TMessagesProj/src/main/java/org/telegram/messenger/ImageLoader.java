@@ -3252,6 +3252,18 @@ public class ImageLoader {
                         }
                     }
 
+                    // ImageLoader resolves these paths itself, bypassing getPathToAttach().
+                    // A deleted photo/thumbnail may only exist in DevGram's retained folder.
+                    // Encrypted cache entries must keep their original key/decryption path.
+                    if (DevGramConfig.saveMedia && cacheType != CACHE_TYPE_ENCRYPTED
+                            && cacheFile != null && !cacheFile.exists()) {
+                        File saved = DevGramMediaSaver.getSaved(url);
+                        if (saved != null) {
+                            cacheFile = saved;
+                            cacheFileExists = true;
+                        }
+                    }
+
                     img.type = type;
                     img.key = key;
                     img.cacheType = cacheType;

@@ -129,6 +129,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
     
     private static final int SEEK_REPEAT_DELAY_MS = 300;
 
+    private static boolean swiftgramPlayer() {
+        return org.telegram.messenger.DevGramSwiftgramDesign.section("media");
+    }
+    private static int playerBaseHeight() { return swiftgramPlayer() ? 198 : 179; }
+    private ImageView swiftgramLoopButton;
+
     private TextView forwardButton;
     private TextView backwardButton;
     private Runnable seekRepeatRunnable;
@@ -347,7 +353,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 layoutParams = (LayoutParams) blurredView.getLayoutParams();
                 layoutParams.topMargin = -getPaddingTop();
 
-                int contentSize = dp(179 + (!isMyList() && !noforwards ? 52 : 0));
+                int contentSize = dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0));
                 if (playlist.size() > 1) {
                     contentSize += backgroundPaddingTop + playlist.size() * dp(56);
                 }
@@ -356,8 +362,8 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                     padding = dp(8);
                 } else {
                     padding = (contentSize < availableHeight ? availableHeight - contentSize : availableHeight - (int) (availableHeight / 5 * 3.5f)) + dp(8);
-                    if (padding > availableHeight - dp(179 + (!isMyList() && !noforwards ? 52 : 0) + 150)) {
-                        padding = availableHeight - dp(179 + (!isMyList() && !noforwards ? 52 : 0) + 150);
+                    if (padding > availableHeight - dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0) + 150)) {
+                        padding = availableHeight - dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0) + 150);
                     }
                     if (padding < 0) {
                         padding = 0;
@@ -391,7 +397,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                     if (listAdapter.getItemCount() > 0) {
                         dismiss = ev.getY() < scrollOffsetY + dp(12);
                     } else {
-                        dismiss = ev.getY() < getMeasuredHeight() - dp(179 + (!isMyList() && !noforwards ? 52 : 0) + 12);
+                        dismiss = ev.getY() < getMeasuredHeight() - dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0) + 12);
                     }
                     if (dismiss) {
                         dismiss();
@@ -579,13 +585,13 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             protected void onImageUpdated(ImageReceiver imageReceiver) {
                 final Bitmap b = imageReceiver.getBitmap();
                 final int padding = (b != null && imageReceiver.hasImageLoaded() || imageReceiver.hasBitmapImage()) ? AndroidUtilities.dp(64) : 0;
-                setCustomPaddingRight(padding, true);
+                setCustomPaddingRight(swiftgramPlayer() ? 0 : padding, true);
                 if (blurredView.getTag() != null) {
                     bigAlbumConver.setImageBitmap(b);
                 }
             }
         };
-        playerLayout.addView(coverContainer, LayoutHelper.createFrame(44, 44, Gravity.TOP | Gravity.RIGHT, 0, 20, 20, 0));
+        playerLayout.addView(coverContainer, swiftgramPlayer() ? LayoutHelper.createFrame(46, 46, Gravity.TOP | Gravity.LEFT, 16, 18, 0, 0) : LayoutHelper.createFrame(44, 44, Gravity.TOP | Gravity.RIGHT, 0, 20, 20, 0));
 
         titleTextView = new ClippingTextViewSwitcher(context) {
             @Override
@@ -599,14 +605,14 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 return textView;
             }
         };
-        playerLayout.addView(titleTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, 20, 20, 20, 0));
+        playerLayout.addView(titleTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, swiftgramPlayer() ? 73 : 20, swiftgramPlayer() ? 21 : 20, swiftgramPlayer() ? 58 : 20, 0));
 
         authorTextView = new ClippingTextViewSwitcher(context) {
             @Override
             protected TextView createTextView() {
                 final TextView textView = new MarqueeTextView(context);
                 textView.setTextColor(getThemedColor(Theme.key_player_time));
-                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+                textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramPlayer() ? 15 : 13);
                 textView.setEllipsize(TextUtils.TruncateAt.END);
                 textView.setSingleLine(true);
                 textView.setPadding(dp(6), 0, dp(6), dp(1));
@@ -635,7 +641,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 return textView;
             }
         };
-        playerLayout.addView(authorTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, 14, 47, 20, 0));
+        playerLayout.addView(authorTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, swiftgramPlayer() ? 67 : 14, swiftgramPlayer() ? 45 : 47, swiftgramPlayer() ? 58 : 20, 0));
 
         seekBarView = new SeekBarView(context, resourcesProvider) {
             @Override
@@ -646,7 +652,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 return super.onTouch(ev);
             }
         };
-        seekBarView.setLineWidth(4);
+        seekBarView.setLineWidth(swiftgramPlayer() ? 3 : 4);
         seekBarView.setDelegate(new SeekBarView.SeekBarViewDelegate() {
             @Override
             public void onSeekBarDrag(boolean stop, float progress) {
@@ -672,7 +678,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             }
         });
         seekBarView.setReportChanges(true);
-        playerLayout.addView(seekBarView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 38 + 6, Gravity.TOP | Gravity.LEFT, 5, 67, 5, 0));
+        playerLayout.addView(seekBarView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 38 + 6, Gravity.TOP | Gravity.LEFT, swiftgramPlayer() ? 9 : 5, swiftgramPlayer() ? 57 : 67, swiftgramPlayer() ? 9 : 5, 0));
 
         seekBarBufferSpring = new SpringAnimation(new FloatValueHolder(0))
                 .setSpring(new SpringForce()
@@ -687,18 +693,18 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         playerLayout.addView(progressView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 2, Gravity.TOP | Gravity.LEFT, 21, 90, 21, 0));
 
         timeTextView = new SimpleTextView(context);
-        timeTextView.setTextSize(12);
+        timeTextView.setTextSize(swiftgramPlayer() ? 13 : 12);
         timeTextView.setText("0:00");
         timeTextView.setTextColor(getThemedColor(Theme.key_player_time));
         timeTextView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        playerLayout.addView(timeTextView, LayoutHelper.createFrame(100, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, 20, 98, 0, 0));
+        playerLayout.addView(timeTextView, LayoutHelper.createFrame(100, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT, swiftgramPlayer() ? 25 : 20, 98, 0, 0));
 
         durationTextView = new TextView(context);
-        durationTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+        durationTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, swiftgramPlayer() ? 13 : 12);
         durationTextView.setTextColor(getThemedColor(Theme.key_player_time));
         durationTextView.setGravity(Gravity.CENTER);
         durationTextView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        playerLayout.addView(durationTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.RIGHT, 0, 96, 20, 0));
+        playerLayout.addView(durationTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.RIGHT, 0, 96, swiftgramPlayer() ? 25 : 20, 0));
 
         playbackSpeedButton = new ActionBarMenuItem(context, null, 0, getThemedColor(Theme.key_player_time), false, resourcesProvider);
         playbackSpeedButton.setLongClickEnabled(false);
@@ -766,6 +772,21 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
         FrameLayout bottomView = new FrameLayout(context) {
             @Override
             protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+                if (swiftgramPlayer()) {
+                    final float width = right - left;
+                    final float band = Math.min(width - dp(152), dp(320));
+                    final float start = (width - band) / 2f;
+                    final int size = dp(64);
+                    final View[] controls = {repeatButton, prevButton, playButton, nextButton, swiftgramLoopButton};
+                    final float[] x = {dp(4), start, (width - size) / 2f, start + band - size, width - dp(68)};
+                    for (int i = 0; i < controls.length; i++) {
+                        if (controls[i] != null && controls[i].getParent() == this) {
+                            final int l = Math.round(x[i]);
+                            controls[i].layout(l, 0, l + size, size);
+                        }
+                    }
+                    return;
+                }
                 int dist = ((right - left) - dp(8 + 48 * 7)) / 4;
                 int forkButtonsLayouted = 0;
                 for (int a = 0; a < 7; a++) {
@@ -818,7 +839,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             setupSeekRepeatOnHold(backwardButton, -s * 1000);
         }
 
-        playerLayout.addView(bottomView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 66, Gravity.TOP | Gravity.LEFT, 0, 111, 0, 0));
+        playerLayout.addView(bottomView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 66, Gravity.TOP | Gravity.LEFT, 0, swiftgramPlayer() ? 113 : 111, 0, 0));
 
         buttons[0] = repeatButton = new ActionBarMenuItem(context, null, 0, 0, false, resourcesProvider);
         repeatButton.setLongClickEnabled(false);
@@ -985,7 +1006,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         if (rewindingState == 0 && event.getAction() == MotionEvent.ACTION_UP && (System.currentTimeMillis() - startTime < 300)) {
                             MediaController.getInstance().playPreviousMessage();
                             prevButton.setProgress(0f);
-                            prevButton.playAnimation();
+                            if (!swiftgramPlayer()) prevButton.playAnimation();
                         }
                         if (pressedCount > 0) {
                             lastUpdateTime = 0;
@@ -1102,7 +1123,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         if (!pressed && event.getAction() == MotionEvent.ACTION_UP && isPressed()) {
                             MediaController.getInstance().playNextMessage();
                             nextButton.setProgress(0f);
-                            nextButton.playAnimation();
+                            if (!swiftgramPlayer()) nextButton.playAnimation();
                         }
                         AndroidUtilities.cancelRunOnUIThread(pressedRunnable);
                         if (rewindingForwardPressedCount > 0) {
@@ -1149,6 +1170,32 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
 
         bottomView.addView(optionsButton, LayoutHelper.createFrame(48, 48, Gravity.LEFT | Gravity.TOP));
 
+
+        if (swiftgramPlayer()) {
+            prevButton.setImageResource(R.drawable.swiftgram_chrome_player_previous);
+            nextButton.setImageResource(R.drawable.swiftgram_chrome_player_next);
+            nextButton.setRotation(0);
+            prevButton.setColorFilter(new PorterDuffColorFilter(iconColor, PorterDuff.Mode.SRC_IN));
+            nextButton.setColorFilter(new PorterDuffColorFilter(iconColor, PorterDuff.Mode.SRC_IN));
+            playButton.setImageDrawable(playPauseDrawable = new DevGramSwiftgramPlayPauseDrawable(context));
+            playPauseDrawable.setPause(!MediaController.getInstance().isMessagePaused(), false);
+            for (View control : new View[] {repeatButton, prevButton, playButton, nextButton}) {
+                if (control.getLayoutParams() != null) control.getLayoutParams().width = control.getLayoutParams().height = dp(64);
+            }
+            bottomView.removeView(forwardButton);
+            bottomView.removeView(backwardButton);
+            bottomView.removeView(optionsButton);
+            playerLayout.addView(optionsButton, LayoutHelper.createFrame(42, 42, Gravity.RIGHT | Gravity.TOP, 0, 21, 8, 0));
+            swiftgramLoopButton = new ImageView(context);
+            swiftgramLoopButton.setScaleType(ImageView.ScaleType.CENTER);
+            swiftgramLoopButton.setBackground(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), 1, dp(32)));
+            swiftgramLoopButton.setOnClickListener(v -> {
+                SharedConfig.setRepeatMode((SharedConfig.repeatMode + 1) % 3);
+                updateRepeatButton();
+            });
+            bottomView.addView(swiftgramLoopButton, LayoutHelper.createFrame(64, 64, Gravity.LEFT | Gravity.TOP));
+            updateRepeatButton();
+        }
 
         castItemButton = new CastMediaRouteButton(context) {
             @Override
@@ -1503,12 +1550,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             itemTouchHelper.attachToRecyclerView(listView);
         }
 
-        containerView.addView(playerLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 179 + (!isMyList() && !noforwards ? 52 : 0), Gravity.LEFT | Gravity.BOTTOM));
+        containerView.addView(playerLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0), Gravity.LEFT | Gravity.BOTTOM));
         containerView.addView(playerShadow, new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, AndroidUtilities.getShadowHeight(), Gravity.LEFT | Gravity.BOTTOM));
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) playerLayout.getLayoutParams();
-        layoutParams.height = dp(179 + (!isMyList() && !noforwards ? 52 : 0));
+        layoutParams.height = dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0));
         layoutParams = (FrameLayout.LayoutParams) playerShadow.getLayoutParams();
-        layoutParams.bottomMargin = dp(179 + (!isMyList() && !noforwards ? 52 : 0));
+        layoutParams.bottomMargin = dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0));
         containerView.addView(actionBarShadow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 3));
         containerView.addView(actionBar);
 
@@ -2259,6 +2306,16 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
             Theme.setSelectorDrawableColor(repeatButton.getBackground(), getThemedColor(Theme.key_player_buttonActive) & 0x19ffffff, true);
             repeatButton.setContentDescription(LocaleController.getString(R.string.AccDescrRepeatOne));
         }
+        if (swiftgramPlayer()) {
+            repeatButton.setIcon(SharedConfig.shuffleMusic ? R.drawable.swiftgram_chrome_player_shuffle : R.drawable.swiftgram_chrome_player_order);
+            repeatButton.setIconColor(getThemedColor(SharedConfig.shuffleMusic || SharedConfig.playOrderReversed ? Theme.key_player_buttonActive : Theme.key_player_time));
+            repeatButton.setContentDescription(LocaleController.getString(R.string.ShuffleList));
+            if (swiftgramLoopButton != null) {
+                swiftgramLoopButton.setImageResource(mode == 2 ? R.drawable.swiftgram_chrome_player_repeatone : R.drawable.swiftgram_chrome_player_repeat);
+                swiftgramLoopButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(mode == 0 ? Theme.key_player_time : Theme.key_player_buttonActive), PorterDuff.Mode.SRC_IN));
+                swiftgramLoopButton.setContentDescription(LocaleController.getString(mode == 0 ? R.string.AccDescrRepeatOff : mode == 1 ? R.string.AccDescrRepeatList : R.string.AccDescrRepeatOne));
+            }
+        }
     }
 
     private void updateProgress(MessageObject messageObject) {
@@ -2364,11 +2421,11 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 this.noforwards = noforwards;
 
                 FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) playerLayout.getLayoutParams();
-                layoutParams.height = dp(179 + (!noforwards && !isMyList() ? 52 : 0));
+                layoutParams.height = dp(playerBaseHeight() + (!noforwards && !isMyList() ? 52 : 0));
                 playerLayout.setLayoutParams(layoutParams);
 
                 layoutParams = (FrameLayout.LayoutParams) playerShadow.getLayoutParams();
-                layoutParams.bottomMargin = dp(179 + (!isMyList() && !noforwards ? 52 : 0));
+                layoutParams.bottomMargin = dp(playerBaseHeight() + (!isMyList() && !noforwards ? 52 : 0));
                 playerShadow.setLayoutParams(layoutParams);
             }
             if (noforwards) {
@@ -3017,7 +3074,12 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                 onSubItemClick(9);
             });
         }
-        o.setTranslationY(dp(64));
+        if (swiftgramPlayer()) {
+            o.addGap();
+            o.add(R.drawable.msg_retry, "−5 s", () -> MediaController.getInstance().seekShift(-5000));
+            o.add(R.drawable.msg_retry, "+5 s", () -> MediaController.getInstance().seekShift(5000));
+        }
+        o.setTranslationY(dp(swiftgramPlayer() ? 8 : 64));
         o.show();
     }
 
@@ -3362,7 +3424,7 @@ public class AudioPlayerAlert extends BottomSheet implements NotificationCenter.
                         onImageUpdated(imageReceiver);
                     }
                 });
-                imageViews[i].setRoundRadius(dp(4));
+                imageViews[i].setRoundRadius(dp(swiftgramPlayer() ? 10 : 4));
                 if (i == 1) {
                     imageViews[i].setVisibility(GONE);
                 }

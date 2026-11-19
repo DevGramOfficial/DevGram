@@ -605,49 +605,12 @@ object AppUpdater {
         }
     }
 
-    /**
-     * Превращает markdown-текст релиза GitHub в опрятный текст для диалога:
-     *  - заголовки "## ..."/"# ..." убираются (или становятся жирными строками),
-     *    строку-дубликат версии не показываем;
-     *  - маркеры списков "- "/"* " → "•  ";
-     *  - "**жирный**" оставляем — их превратит в bold AndroidUtilities.replaceTags.
-     */
+    /** Render only the selected language's changes; GitHub navigation stays on GitHub. */
     private fun formatChangelog(raw: String?, version: String): CharSequence {
-        val src = (raw ?: "").replace("\r\n", "\n").replace("\r", "\n")
-        if (src.isBlank()) {
-            return DevGramLocale.text("Доступна новая версия DevGram.")
-        }
-        val out = StringBuilder()
-        for (lineRaw in src.split("\n")) {
-            val trimmed = lineRaw.trim()
-            if (trimmed.isEmpty()) {
-                out.append("\n")
-                continue
-            }
-            if (trimmed.startsWith("#")) {
-                val header = trimmed.trimStart('#', ' ').trim()
-                // не дублируем «DevGram X.Y.Z» — это уже в заголовке диалога
-                if (header.isEmpty() ||
-                    header.contains("DevGram", ignoreCase = true) ||
-                    header.contains(version)
-                ) {
-                    continue
-                }
-                out.append("**").append(header).append("**").append("\n")
-                continue
-            }
-            val bullet = Regex("^[-*+]\\s+").find(trimmed)
-            if (bullet != null) {
-                out.append("•  ").append(trimmed.substring(bullet.value.length).trim()).append("\n")
-            } else {
-                out.append(trimmed).append("\n")
-            }
-        }
-        var result = out.toString().trim().replace(Regex("\n{3,}"), "\n\n")
-        if (result.isBlank()) {
-            result = DevGramLocale.text("Доступна новая версия DevGram.")
-        }
-        return AndroidUtilities.replaceTags(result)
+        val result = ReleaseChangelog.clean(raw, version, DevGramLocale.isRussian())
+        return AndroidUtilities.replaceTags(result.ifBlank {
+            DevGramLocale.text("Доступна новая версия DevGram.")
+        })
     }
 
     // Accessed on the UI thread. GitHub asset IDs/size/update time change when an APK is replaced.

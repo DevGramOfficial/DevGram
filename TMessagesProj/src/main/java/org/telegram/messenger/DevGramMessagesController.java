@@ -64,11 +64,14 @@ public class DevGramMessagesController {
         }
     }
 
-    private static TLRPC.Message deserialize(byte[] bytes) {
+    private static TLRPC.Message deserialize(byte[] bytes, long userId) {
         try {
             SerializedData data = new SerializedData(bytes);
             int constructor = data.readInt32(false);
             TLRPC.Message m = TLRPC.Message.TLdeserialize(data, constructor, false);
+            if (m != null) {
+                m.readAttachPath(data, userId);
+            }
             data.cleanup();
             return m;
         } catch (Throwable e) {
@@ -124,6 +127,46 @@ public class DevGramMessagesController {
         }
     }
 
+    // Upgrade an already archived once-only message to its durable, replayable copy.
+    public boolean onSelfDestructingMediaSaved(int account, TLRPC.Message message, long dialogId) {
+        long userId = UserConfig.getInstance(account).getClientUserId();
+        byte[] data = serialize(message);
+        if (data == null) return false;
+        try {
+            SQLiteDatabase db = helper.getWritableDatabase();
+            ContentValues values = new ContentValues();
+            values.put("data", data);
+            String[] args = {Long.toString(userId), Long.toString(dialogId), Integer.toString(message.id)};
+            if (db.update("deleted_messages", values, "userId=? AND dialogId=? AND messageId=?", args) > 0) return true;
+            values.put("userId", userId);
+            values.put("dialogId", dialogId);
+            values.put("topicId", 0);
+            values.put("messageId", message.id);
+            values.put("groupedId", message.grouped_id);
+            values.put("date", message.date);
+            values.put("catchTime", (int) (System.currentTimeMillis() / 1000));
+            return db.insert("deleted_messages", null, values) != -1;
+        } catch (Exception e) {
+            FileLog.e(e);
+            return false;
+        }
+    }
+
+    public TLRPC.Message getDeletedMessage(long userId, long dialogId, int messageId) {
+        try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                "SELECT data FROM deleted_messages WHERE userId=? AND dialogId=? AND messageId=? LIMIT 1",
+                new String[]{Long.toString(userId), Long.toString(dialogId), Integer.toString(messageId)})) {
+            if (cursor.moveToFirst()) {
+                TLRPC.Message message = deserialize(cursor.getBlob(0), userId);
+                if (message != null) message.dialog_id = dialogId;
+                return message;
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return null;
+    }
+
     // Запись удалёнки вместе с датой удаления (catchTime) — для экрана удалёнок и «Деталей».
     public static class DeletedEntry {
         public TLRPC.Message message;
@@ -138,7 +181,7 @@ public class DevGramMessagesController {
                     "SELECT data, catchTime FROM deleted_messages WHERE userId=? AND dialogId=? AND topicId=? ORDER BY messageId ASC",
                     new String[]{Long.toString(userId), Long.toString(dialogId), Long.toString(topicId)})) {
                 while (c.moveToNext()) {
-                    TLRPC.Message m = deserialize(c.getBlob(0));
+                    TLRPC.Message m = deserialize(c.getBlob(0), userId);
                     if (m != null) {
                         DeletedEntry e = new DeletedEntry();
                         e.message = m;
@@ -172,7 +215,7 @@ public class DevGramMessagesController {
                     "SELECT data FROM deleted_messages WHERE userId=? AND dialogId=? AND topicId=? ORDER BY messageId ASC",
                     new String[]{Long.toString(userId), Long.toString(dialogId), Long.toString(topicId)})) {
                 while (c.moveToNext()) {
-                    TLRPC.Message m = deserialize(c.getBlob(0));
+                    TLRPC.Message m = deserialize(c.getBlob(0), userId);
                     if (m != null) {
                         res.add(m);
                     }
@@ -243,7 +286,7 @@ public class DevGramMessagesController {
                     "SELECT data FROM edited_messages WHERE userId=? AND dialogId=? AND messageId=? ORDER BY fakeId ASC",
                     new String[]{Long.toString(userId), Long.toString(dialogId), Integer.toString(messageId)})) {
                 while (c.moveToNext()) {
-                    TLRPC.Message m = deserialize(c.getBlob(0));
+                    TLRPC.Message m = deserialize(c.getBlob(0), userId);
                     if (m != null) {
                         res.add(m);
                     }

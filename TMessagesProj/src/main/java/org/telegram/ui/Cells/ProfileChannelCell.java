@@ -53,10 +53,12 @@ public class ProfileChannelCell extends FrameLayout implements Theme.Colorable {
 
     public final DialogCell dialogCell;
 
-    public ProfileChannelCell(BaseFragment fragment) {
+    public ProfileChannelCell(BaseFragment fragment) { this(fragment, fragment.getResourceProvider()); }
+
+    public ProfileChannelCell(BaseFragment fragment, Theme.ResourcesProvider resourcesProvider) {
         super(fragment.getContext());
         final Context context = fragment.getContext();
-        this.resourcesProvider = fragment.getResourceProvider();
+        this.resourcesProvider = resourcesProvider;
 
         LinearLayout headerLayout = new LinearLayout(context);
         headerLayout.setOrientation(LinearLayout.HORIZONTAL);

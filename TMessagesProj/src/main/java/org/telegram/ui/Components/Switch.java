@@ -247,6 +247,13 @@ public class Switch extends View {
 
     private void animateToCheckedState(boolean newCheckedState) {
         cancelCheckAnimator();
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+            checkAnimator = ObjectAnimator.ofFloat(this, "progress", newCheckedState ? 1 : 0);
+            checkAnimator.setDuration(org.telegram.messenger.DevGramSwiftgramDesign.section("animations") ? 300 : 0);
+            checkAnimator.setInterpolator(DevGramSwiftgramSpring::navigation);
+            checkAnimator.start();
+            return;
+        }
         if (DevGramMaterial3.enabled()
                 && org.telegram.messenger.MessagesController.getGlobalMainSettings().getBoolean("dg_md3_switch", true)) {
             checkSpringAnimator = new SpringAnimation(this, PROGRESS_PROPERTY)
@@ -394,9 +401,43 @@ public class Switch extends View {
         invalidate();
     }
 
+    /** UISwitch proportions used by Swiftgram's SwitchNode; separate from the Android/MD3 painter. */
+    private void drawSwiftgramSwitch(Canvas canvas) {
+        float scale = Math.min(getWidth() / 51f, getHeight() / 31f);
+        if (scale <= 0) return;
+        float p = Math.max(0, Math.min(1, progress));
+        canvas.save();
+        canvas.translate((getWidth() - scale * 51) / 2, (getHeight() - scale * 31) / 2);
+        canvas.scale(scale, scale);
+        int off = Theme.isCurrentThemeDark() ? 0xff39393d : 0xffe9e9ea;
+        int on = Theme.isCurrentThemeDark() ? 0xff67ce67 : 0xff35c759;
+        if (trackCheckedColorKey != Theme.key_switchTrackChecked && trackCheckedColorKey != Theme.key_switch2TrackChecked && trackCheckedColorKey != Theme.key_switchTrackBlueChecked)
+            on = processColor(Theme.getColor(trackCheckedColorKey, resourcesProvider));
+        paint.setColor(androidx.core.graphics.ColorUtils.blendARGB(off, on, p));
+        rectF.set(0, 0, 51, 31); canvas.drawRoundRect(rectF, 15.5f, 15.5f, paint);
+        float cx = 15.5f + 20 * (org.telegram.messenger.LocaleController.isRTL ? 1 - p : p);
+        float stretch = 1.8f * (float) Math.sin(Math.PI * p);
+        paint.setColor(0x28000000); rectF.set(cx - 14 - stretch, 2.2f, cx + 14 + stretch, 30.2f);
+        canvas.drawRoundRect(rectF, 14, 14, paint);
+        paint.setColor(0xffffffff); rectF.set(cx - 13.5f - stretch, 2, cx + 13.5f + stretch, 29);
+        canvas.drawRoundRect(rectF, 13.5f, 13.5f, paint);
+        if (iconDrawable != null) {
+            iconDrawable.setBounds(Math.round(cx - 8), 7, Math.round(cx + 8), 23);
+            iconDrawable.setColorFilter(new PorterDuffColorFilter(isChecked ? on : 0xff8e8e93, PorterDuff.Mode.SRC_IN));
+            iconDrawable.draw(canvas);
+        }
+        canvas.restore();
+    }
+
+
     @Override
     protected void onDraw(Canvas canvas) {
         if (getVisibility() != VISIBLE) {
+            return;
+        }
+
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("settings")) {
+            drawSwiftgramSwitch(canvas);
             return;
         }
 

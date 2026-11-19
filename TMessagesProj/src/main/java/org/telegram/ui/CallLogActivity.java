@@ -130,6 +130,25 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 
 
 	private ActionBarMenuItem otherItem;
+    private TextView swiftgramEditButton;
+    private org.telegram.ui.Components.DevGramSwiftgramSegmentedControl swiftgramSegments;
+    private boolean swiftgramEditing, swiftgramMissed;
+    private int swiftgramCallGeneration;
+    private static boolean swiftgramCalls() { return org.telegram.messenger.DevGramSwiftgramDesign.section("calls"); }
+
+    private void swiftgramEditState(boolean editing) {
+        final boolean changed = swiftgramEditing != editing;
+        swiftgramEditing = editing;
+        if (swiftgramEditButton != null) {
+            swiftgramEditButton.setText(editing ? getString(R.string.Done) : org.telegram.messenger.DevGramLocale.text("Изм."));
+            swiftgramEditButton.setContentDescription(getString(editing ? R.string.Done : R.string.Edit));
+        }
+        if (swiftgramSegments != null) swiftgramSegments.setVisibility(editing ? View.INVISIBLE : View.VISIBLE);
+        if (swiftgramCalls() && simpleActionBar != null && simpleActionBar.getActionMode() != null) {
+            simpleActionBar.getActionMode().getItem(delete).setVisibility(View.GONE);
+        }
+        if (changed && listView != null) listView.adapter.update(true);
+    }
 
 	private final ArrayList<CallLogRow> calls = new ArrayList<>();
 	private boolean loading;
@@ -350,7 +369,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 				}
 			}
 			if (otherItem != null) {
-				otherItem.setVisibility(calls.isEmpty() ? View.GONE : View.VISIBLE);
+            otherItem.setVisibility(swiftgramCalls() || calls.isEmpty() ? View.GONE : View.VISIBLE);
 			}
 		} else if (id == NotificationCenter.messagesDeleted) {
 			if (!firstLoaded) {
@@ -430,6 +449,53 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		private final ImageView imageView;
 		private final ProfileSearchCell profileSearchCell;
 		private final CheckBox2 checkBox;
+        private final ImageView editControl;
+        private final TextView revealDelete;
+        private boolean editing, revealed;
+
+        private void setReveal(boolean value, boolean animated) {
+            revealed = editing && value;
+            if (revealed && getParent() instanceof ViewGroup) {
+                ViewGroup rows = (ViewGroup) getParent();
+                for (int i = 0; i < rows.getChildCount(); i++) {
+                    View row = rows.getChildAt(i);
+                    if (row instanceof CallCell && row != this) ((CallCell) row).setReveal(false, animated);
+                }
+            }
+            final float direction = LocaleController.isRTL ? -1 : 1;
+            final float shift = direction * dp(editing ? (revealed ? 38 - 84 : 38) : 0);
+            profileSearchCell.animate().cancel();
+            avatarsImageView.animate().cancel();
+            revealDelete.animate().cancel();
+            editControl.animate().cancel();
+            final float indicatorX = direction * dp(revealed ? -84 : 0);
+            final float revealX = direction * dp(revealed ? 0 : 84);
+            if (animated) {
+                editControl.animate().translationX(indicatorX).setDuration(200).start();
+                profileSearchCell.animate().translationX(shift).setDuration(200).start();
+                avatarsImageView.animate().translationX(shift).setDuration(200).start();
+                revealDelete.animate().translationX(revealX).alpha(revealed ? 1 : 0).setDuration(200).start();
+            } else {
+                editControl.setTranslationX(indicatorX);
+                profileSearchCell.setTranslationX(shift);
+                avatarsImageView.setTranslationX(shift);
+                revealDelete.setTranslationX(revealX);
+                revealDelete.setAlpha(revealed ? 1 : 0);
+            }
+            revealDelete.setEnabled(revealed);
+        }
+
+        private void setEditing(boolean value, View.OnClickListener deleteClick) {
+            editing = swiftgramCalls() && value;
+            imageView.setVisibility(editing ? View.INVISIBLE : View.VISIBLE);
+            imageView.setEnabled(!editing);
+            checkBox.setVisibility(swiftgramCalls() ? View.GONE : View.VISIBLE);
+            editControl.setVisibility(editing ? View.VISIBLE : View.GONE);
+            revealDelete.setVisibility(editing ? View.VISIBLE : View.GONE);
+            revealDelete.setOnClickListener(deleteClick);
+            setReveal(false, false);
+        }
+
 
 		public CallCell(Context context, int currentAccount) {
 			super(context);
@@ -462,6 +528,32 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			checkBox.setDrawUnchecked(false);
 			checkBox.setDrawBackgroundAsArc(3);
 			addView(checkBox, LayoutHelper.createFrame(24, 24, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, 42, 32, 42, 0));
+            editControl = new ImageView(context) {
+                private final Paint indicatorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                @Override protected void onDraw(Canvas canvas) {
+                    indicatorPaint.setColor(0xffffffff);
+                    canvas.drawCircle(getWidth() / 2f, getHeight() / 2f, dp(9), indicatorPaint);
+                    super.onDraw(canvas);
+                }
+            };
+            editControl.setScaleType(ImageView.ScaleType.CENTER);
+            editControl.setImageResource(R.drawable.swiftgram_chrome_call_remove);
+            editControl.setColorFilter(Theme.getColor(Theme.key_text_RedBold));
+            editControl.setContentDescription(getString(R.string.Delete));
+            editControl.setVisibility(View.GONE);
+            editControl.setOnClickListener(v -> setReveal(!revealed, true));
+            addView(editControl, LayoutHelper.createFrame(38, LayoutHelper.MATCH_PARENT,
+                    (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT)));
+            revealDelete = new TextView(context);
+            revealDelete.setText(getString(R.string.Delete));
+            revealDelete.setTextSize(17);
+            revealDelete.setGravity(Gravity.CENTER);
+            revealDelete.setTextColor(0xffffffff);
+            revealDelete.setBackgroundColor(Theme.getColor(Theme.key_text_RedBold));
+            revealDelete.setVisibility(View.GONE);
+            addView(revealDelete, LayoutHelper.createFrame(84, LayoutHelper.MATCH_PARENT,
+                    (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT)));
+
 		}
 
 		public void setChecked(boolean checked, boolean animated) {
@@ -581,11 +673,18 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 				final CallCell cell = (CallCell) view;
 				cell.set(row, item.clickCallback);
 				cell.setChecked(item.checked, false);
+                cell.setEditing(item.intValue == 1, item.clickCallback2);
 			}
+
+            @Override public boolean equals(UItem a, UItem b) { return a.object == b.object; }
+            @Override public boolean contentsEquals(UItem a, UItem b) {
+                return a.intValue == b.intValue && a.checked == b.checked && a.longValue == b.longValue;
+            }
 
 			public static UItem of(CallLogRow row, View.OnClickListener onImageClick) {
 				final UItem item = UItem.ofFactory(Factory.class);
 				item.object = row;
+                item.longValue = row.calls.size();
 				item.clickCallback = onImageClick;
 				return item;
 			}
@@ -826,6 +925,43 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		floatingButton.setContentDescription(getString(R.string.Call));
 		floatingButton.setOnClickListener(v -> openCreateCall());
 		contentView.addView(floatingButton, FragmentFloatingButton.createDefaultLayoutParams());
+        if (swiftgramCalls()) {
+            contentView.removeView(floatingButton);
+            otherItem.setVisibility(View.GONE);
+            final ActionBarMenuItem newCall = menu.addItem(1597, R.drawable.filled_calls_plus);
+            newCall.setContentDescription(getString(R.string.Call));
+            newCall.setOnClickListener(v -> openCreateCall());
+            swiftgramEditButton = new TextView(context);
+            swiftgramEditButton.setTextSize(17);
+            swiftgramEditButton.setGravity(Gravity.CENTER);
+            swiftgramEditButton.setPadding(dp(16), 0, dp(16), 0);
+            swiftgramEditButton.setTextColor(getThemedColor(Theme.key_actionBarDefaultIcon));
+            swiftgramEditButton.setBackground(getBaseSimpleGlass().factory.create(swiftgramEditButton).setColorProvider(BlurredBackgroundProviderImpl.topPanel(resourceProvider)).setRadius(dp(22)).setPadding(0));
+            swiftgramEditButton.setOnClickListener(v -> {
+                if (swiftgramEditing) hideActionMode(true);
+                else {
+                    createActionMode();
+                    simpleActionBar.showActionMode();
+                    simpleActionBar.setActionModeTitle(null, false);
+                    swiftgramEditState(true);
+                    simpleActionBar.getActionMode().getItem(delete).setEnabled(false);
+                }
+            });
+            simpleActionBar.setSwiftgramLeadingControl(swiftgramEditButton);
+            swiftgramSegments = new org.telegram.ui.Components.DevGramSwiftgramSegmentedControl(context,
+                new String[] {org.telegram.messenger.DevGramLocale.text("Все"), org.telegram.messenger.DevGramLocale.text("Пропущенные")}, swiftgramMissed ? 1 : 0, index -> {
+                    boolean missed = index == 1;
+                    if (swiftgramMissed == missed) return;
+                    swiftgramMissed = missed; swiftgramCallGeneration++;
+                    loading = false; firstLoaded = false; endReached = false;
+                    selectedIds.clear(); calls.clear();
+                    listView.adapter.update(false);
+                    getCalls(0, 50);
+                });
+            swiftgramSegments.setBackground(getBaseSimpleGlass().factory.create(swiftgramSegments).setColorProvider(BlurredBackgroundProviderImpl.topPanel(resourceProvider)).setRadius(dp(22)).setPadding(0));
+            simpleActionBar.setSwiftgramTitleControl(swiftgramSegments);
+            swiftgramEditState(false);
+        }
 
 		topPanelLayout = new DialogsActivityTopPanelLayout(context);
 		// the content exactly in the glass: the layout's background starts 14dp in and is inset by 7dp
@@ -877,7 +1013,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		final boolean hasActiveCalls = !activeGroupCalls.isEmpty();
 		final boolean hasCalls = !calls.isEmpty();
 
-		if (hasActiveCalls || hasCalls) {
+		if ((hasActiveCalls || hasCalls) && !swiftgramCalls()) {
 			items.add(UItem.asButton(ID_CREATE_CALL, R.drawable.menu_call_create, getString(R.string.GroupCallCreate2)).accent());
 			if (!getUserConfig().showCallsTab) {
 				items.add(UItem.asButton(ID_SHOW_IN_MAIN_TABS, R.drawable.menu_add_tab_24, getString(R.string.GroupCallShowInMainTabs)).accent());
@@ -885,7 +1021,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			items.add(UItem.asShadow(null));
 		}
 
-		if (hasActiveCalls) {
+		if (hasActiveCalls && !swiftgramMissed) {
 			for (Long chatId : activeGroupCalls) {
 				if (chatId == null) continue;
 				final TLRPC.Chat chat = getMessagesController().getChat(chatId);
@@ -896,7 +1032,15 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		}
 		if (hasCalls) {
 			for (CallLogRow row : calls) {
-				items.add(CallCell.Factory.of(row, onCallClick(row)).setChecked(isSelected(row.calls)));
+                if (swiftgramMissed && row.type != TYPE_MISSED_IN) continue;
+				final UItem callItem = CallCell.Factory.of(row, onCallClick(row)).setChecked(isSelected(row.calls));
+                callItem.intValue = swiftgramEditing ? 1 : 0;
+                callItem.clickCallback2 = v -> {
+                    selectedIds.clear();
+                    for (TLRPC.Message message : row.calls) selectedIds.add(message.id);
+                    showDeleteAlert(false);
+                };
+                items.add(callItem);
 			}
 			if (!endReached) {
 				items.add(UItem.asFlicker(-1, FlickerLoadingView.CALL_LOG_TYPE));
@@ -973,7 +1117,10 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			openCreateCall();
 		} else if (item.object instanceof CallLogRow) {
 			CallLogRow row = (CallLogRow) item.object;
-			if (simpleActionBar.isActionModeShowed()) {
+			if (swiftgramCalls() && swiftgramEditing) {
+                final CallCell cell = (CallCell) view;
+                cell.setReveal(!cell.revealed, true);
+            } else if (simpleActionBar.isActionModeShowed()) {
 				addOrRemoveSelectedDialog(row.calls, (CallCell) view);
 			} else if (row.call_id != 0 && !row.calls.isEmpty()) {
 				final boolean video = row.video;
@@ -1027,6 +1174,11 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 
 	private boolean onLongClick(UItem item, View view, int position, float x, float y) {
 		if (item.object instanceof CallLogRow) {
+            if (swiftgramCalls()) {
+                if (!swiftgramEditing) swiftgramEditButton.performClick();
+                ((CallCell) view).setReveal(true, true);
+                return true;
+            }
 			addOrRemoveSelectedDialog(((CallLogRow) item.object).calls, (CallCell) view);
 			return true;
 		}
@@ -1039,7 +1191,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 	public void onBecomeFullyVisible() {
 		super.onBecomeFullyVisible();
 
-		if (!hideCallTabsHintWasShown && getUserConfig().showCallsTab && MessagesController.getGlobalMainSettings().getInt("hidecallshint", 0) < 2) {
+		if (!swiftgramCalls() && !hideCallTabsHintWasShown && getUserConfig().showCallsTab && MessagesController.getGlobalMainSettings().getInt("hidecallshint", 0) < 2) {
 			hideCallTabsHintView = new HintView2(getContext(), HintView2.DIRECTION_TOP);
 			hideCallTabsHintView.setDuration(3000);
 			hideCallTabsHintView.setJoint(1, -(12 + 13));
@@ -1096,7 +1248,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		});
 		builder.setNegativeButton(getString(R.string.Cancel), null);
 		AlertDialog alertDialog = builder.create();
-		showDialog(alertDialog);
+        showDialog(alertDialog, swiftgramCalls() ? dialog -> selectedIds.clear() : null);
 		TextView button = (TextView) alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
 		if (button != null) {
 			ThemeBind.textColor(button, Theme.key_text_RedBold);
@@ -1126,6 +1278,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 	private void hideActionMode(boolean animated) {
 		simpleActionBar.hideActionMode();
 		selectedIds.clear();
+        swiftgramEditState(false);
 		for (int a = 0, N = listView.getChildCount(); a < N; a++) {
 			View child = listView.getChildAt(a);
 			if (child instanceof CallCell) {
@@ -1152,6 +1305,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 
 
 		actionMode.addItemWithWidth(delete, R.drawable.msg_delete, AndroidUtilities.dp(54), getString(R.string.Delete));
+        if (swiftgramCalls()) actionMode.addItem(delete_all, getString(R.string.Clear));
 	}
 
 	private boolean addOrRemoveSelectedDialog(ArrayList<TLRPC.Message> messages, CallCell cell) {
@@ -1181,7 +1335,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 	private void showOrUpdateActionMode() {
 		boolean updateAnimated = false;
 		if (simpleActionBar.isActionModeShowed()) {
-			if (selectedIds.isEmpty()) {
+			if (selectedIds.isEmpty() && !swiftgramEditing) {
 				hideActionMode(true);
 				return;
 			}
@@ -1190,7 +1344,10 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			createActionMode();
 			simpleActionBar.showActionMode();
 		}
-		simpleActionBar.setActionModeCount(selectedIds.size(), updateAnimated);
+        if (swiftgramCalls()) swiftgramEditState(true);
+        if (swiftgramCalls()) simpleActionBar.getActionMode().getItem(delete).setEnabled(!selectedIds.isEmpty());
+        if (selectedIds.isEmpty() && swiftgramEditing) simpleActionBar.setActionModeTitle(null, updateAnimated);
+        else simpleActionBar.setActionModeCount(selectedIds.size(), updateAnimated);
 	}
 
 	private void getCalls(int max_id, final int count) {
@@ -1208,9 +1365,12 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		req.limit = count;
 		req.peer = new TLRPC.TL_inputPeerEmpty();
 		req.filter = new TLRPC.TL_inputMessagesFilterPhoneCalls();
+        req.filter.missed = swiftgramMissed;
+        final int filterGeneration = swiftgramCallGeneration;
 		req.q = "";
 		req.offset_id = max_id;
 		int reqId = getConnectionsManager().sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
+            if (filterGeneration != swiftgramCallGeneration) return;
 			if (error == null) {
 				final TLRPC.messages_Messages msgs = (TLRPC.messages_Messages) response;
 				MessagesController.getInstance(currentAccount).putUsers(msgs.users, false);
@@ -1327,7 +1487,7 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 				resumeDelayedFragmentAnimation();
 			}
 			firstLoaded = true;
-			otherItem.setVisibility(calls.isEmpty() ? View.GONE : View.VISIBLE);
+            otherItem.setVisibility(swiftgramCalls() || calls.isEmpty() ? View.GONE : View.VISIBLE);
 			if (emptyView != null) {
 				emptyView.showTextView();
 			}

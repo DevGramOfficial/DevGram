@@ -7939,9 +7939,9 @@ public class Theme {
             dialogs_messagePrintingPaint = new TextPaint[2];
             for (int a = 0; a < 2; a++) {
                 dialogs_namePaint[a] = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
-                dialogs_namePaint[a].setTypeface(AndroidUtilities.bold());
+                dialogs_namePaint[a].setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? android.graphics.Typeface.create("sans-serif-medium", 0) : AndroidUtilities.bold());
                 dialogs_nameEncryptedPaint[a] = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
-                dialogs_nameEncryptedPaint[a].setTypeface(AndroidUtilities.bold());
+                dialogs_nameEncryptedPaint[a].setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? android.graphics.Typeface.create("sans-serif-medium", 0) : AndroidUtilities.bold());
                 dialogs_messagePaint[a] = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
                 dialogs_messagePrintingPaint[a] = new TextPaint(TextPaint.ANTI_ALIAS_FLAG);
             }
@@ -8024,7 +8024,7 @@ public class Theme {
         }
 
         dialogs_messageNamePaint.setTextSize(dp(14));
-        dialogs_timePaint.setTextSize(dp(12));
+        dialogs_timePaint.setTextSize(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("chatlist") ? 14 : 12));
         dialogs_timePaintBold.setTextSize(dp(12));
         dialogs_timePaintBold.setTypeface(AndroidUtilities.bold());
         dialogs_timePaintBoldAccent.setTextSize(dp(12));
@@ -9168,7 +9168,7 @@ public class Theme {
                 return animatingColors.valueAt(index);
             }
         }
-        return getColorFromTable(currentColors, key, isDefault);
+        return org.telegram.ui.Components.DevGramSwiftgramColors.resolve(key, getColorFromTable(currentColors, key, isDefault));
     }
 
     /**

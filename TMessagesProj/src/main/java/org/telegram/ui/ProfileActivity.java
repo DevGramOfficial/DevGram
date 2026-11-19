@@ -751,7 +751,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         org.json.JSONArray blocks=document.optJSONArray("blocks"),integrations=document.optJSONArray("integrations");
         if(blocks!=null)for(int i=0;i<blocks.length();i++)structure.append("|b:").append(blocks.optJSONObject(i).optString("id","legacy"+i));
         if(integrations!=null)for(int i=0;i<integrations.length();i++)structure.append("|i:").append(integrations.optJSONObject(i).optString("provider"));
-        structure.append('|').append(document.optJSONObject("profilePalette")).append('|').append(document.optInt("profileTextEnabled")).append('|').append(document.optInt("profileTextColor"));
+        structure.append('|').append(document.optJSONObject("profilePalette")).append(document.optJSONObject("rowColors")).append('|').append(document.optInt("profileTextEnabled")).append('|').append(document.optInt("profileTextColor")).append('|').append(document.optInt("cardTextEnabled")).append('|').append(document.optInt("cardTextColor")).append('|').append(document.optInt("buttonTextEnabled")).append('|').append(document.optInt("buttonTextColor"));
         structure.append('|').append(document.optJSONObject("nowPlaying")!=null||!document.optString("badge").isEmpty()||!document.optString("clan").isEmpty());
         String signature=structure.toString();
         if (!signature.equals(devgramEditorRowSignature)) {
@@ -759,6 +759,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (listAdapter != null) listAdapter.notifyDataSetChanged();
         }
         applyDevgramStudioLayout();updateDevgramAudio();
+        if(balanceView!=null)balanceView.updateDevGramColors();
         if (topView != null) {topView.setDevGramBackground(devgramBannerMessage());topView.invalidate();}
         if (avatarImage != null) avatarImage.invalidate();
         if(listView!=null){listView.invalidate();for(int i=0;i<listView.getChildCount();i++){View row=listView.getChildAt(i);if(row instanceof org.telegram.ui.Components.DevGramProfileBlocksView){org.telegram.ui.Components.DevGramProfileBlocksView block=(org.telegram.ui.Components.DevGramProfileBlocksView)row;block.setEditing(devgramEditor!=null);block.set(devgramSubject(),devgramDocumentForRow(listView.getChildAdapterPosition(row)));}}}
@@ -862,6 +863,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         for(int i=0;i<names.length;i++)if(key.equals(names[i]))return org.telegram.messenger.DevGramLocale.text(labels[i]);
         if(key.startsWith("block:")){org.json.JSONArray blocks=(devgramEditor!=null?devgramEditor.draft.document:devgramDocument()).optJSONArray("blocks");if(blocks!=null)for(int i=0;i<blocks.length();i++){org.json.JSONObject block=blocks.optJSONObject(i);if(key.equals("block:"+block.optString("id","legacy"+i)))return block.optString("title").isEmpty()?org.telegram.messenger.DevGramLocale.text("Блок профиля")+" "+(i+1):block.optString("title");}}
         return key.startsWith("integration:")?key.substring(12):key;
+    }
+    private final java.util.WeakHashMap<View, org.telegram.ui.Components.DevGramProfilePalette.RowProvider> devgramRowPalettes = new java.util.WeakHashMap<>();
+    private String devgramColorRowKey(int position) {
+        if (position < 0 || isSettings() || devgramSubject() == 0) return null;
+        for (String key : devgramAllRowKeys()) if (devgramRowForKey(key) == position) return key;
+        return null;
     }
     private org.json.JSONObject devgramDocumentForRow(int position){
         org.json.JSONObject value=org.telegram.messenger.DevGramProfileDocument.copy(devgramDocument());
@@ -3099,6 +3106,22 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         Bulletin.removeDelegate(this);
     }
 
+    private boolean devgramProfileSearchExpanded;
+
+    /** The own-profile QR shortcut must become an actual back control during search. */
+    private void updateProfileSearchBack(boolean searching) {
+        devgramProfileSearchExpanded = searching;
+        if (!hasMainTabs || actionBar == null) return;
+        if (searching) {
+            actionBar.setBackButtonDrawable(new BackDrawable(false));
+            actionBar.getBackButton().setContentDescription(getString(R.string.AccDescrGoBack));
+        } else {
+            actionBar.backButtonImageView.setImageResource(R.drawable.outline_header_qr_24);
+            actionBar.backButtonImageView.setContentDescription(getString(R.string.QrCode));
+        }
+        actionBar.backButtonImageView.setColorFilter(getThemedColor(Theme.key_actionBarDefaultIcon), PorterDuff.Mode.SRC_IN);
+    }
+
     @Override
     public ActionBar createActionBar(Context context) {
         BaseFragment lastFragment = parentLayout.getLastFragment();
@@ -3152,6 +3175,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             actionBar.backButtonImageView.setImageResource(R.drawable.outline_header_qr_24);
             actionBar.backButtonImageView.setColorFilter(getThemedColor(Theme.key_actionBarDefaultIcon), PorterDuff.Mode.SRC_IN);
             actionBar.backButtonImageView.setOnClickListener(v -> {
+                if (devgramProfileSearchExpanded || actionBar.isSearchFieldVisible()) {
+                    actionBar.closeSearchField();
+                    return;
+                }
                 Bundle args = new Bundle();
                 args.putLong("chat_id", chatId);
                 args.putLong("user_id", userId);
@@ -3215,6 +3242,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 if (id == -1) {
                     if (devgramEditor != null) { devgramEditor.requestExit(() -> finishFragment()); return; }
+                    if (actionBar != null && actionBar.isSearchFieldVisible()) {
+                        actionBar.closeSearchField();
+                        return;
+                    }
                     if (sharedMediaLayout != null && sharedMediaLayout.scrollSlidingTextTabStrip != null && sharedMediaLayout.scrollSlidingTextTabStrip.isReordering()) {
                         stopTabsReorder();
                         return;
@@ -4077,7 +4108,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if(devgramSubject()!=0&&!isSettings()){
                     if(devgramPageRenderer==null){devgramPageRenderer=new org.telegram.ui.Components.DevGramProfilePageRenderer(this,currentAccount,devgramSubject());devgramPageRenderer.attach();}
                     devgramPageRenderer.draw(canvas,getWidth(),getHeight(),pageDocument);
-                    if(devgramSurfaces==null)devgramSurfaces=new org.telegram.ui.Components.DevGramProfileSurfaces(this,devgramSubject());
+                    if(devgramSurfaces==null){devgramSurfaces=new org.telegram.ui.Components.DevGramProfileSurfaces(this,devgramSubject());devgramSurfaces.setRowColorResolver(view->{org.telegram.ui.Components.DevGramProfilePalette.RowProvider provider=devgramRowPalettes.get(view);return provider==null?null:provider.style();});}
                     devgramSurfaces.update(canvas,listView,pageDocument,getWidth(),getHeight(),scene->{scene.drawColor(devgramBackgroundColor());devgramPageRenderer.draw(scene,getWidth(),getHeight(),pageDocument);if(topView!=null){int save=scene.save();scene.translate(topView.getX(),topView.getY());topView.drawDevgramSurfaceBackground(scene,pageDocument);scene.restoreToCount(save);}});
                     if(actionsView!=null){actionsView.devgramSurfaces=devgramSurfaces;actionsView.devgramCustomSurface=org.telegram.ui.Components.DevGramProfileSurfaces.buttonsPainted(pageDocument,devgramSubject());}
                 }
@@ -4431,6 +4462,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             @Override
             protected void onSearchStateChanged(boolean expanded) {
+                updateProfileSearchBack(expanded);
                 AndroidUtilities.removeAdjustResize(getParentActivity(), classGuid);
 
                 listView.stopScroll();
@@ -4558,8 +4590,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         sharedMediaLayout.initBlurCapture((ViewGroup) fragmentView);
 //        sharedMediaLayout.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
         if (userId == 0 || imageUpdater == null || myProfile) {
-            actionsView = new ProfileActionsView(context, org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight());
-            balanceView = userId != 0 ? new ProfileBalanceView(context, resourcesProvider) : null;
+            actionsView = new ProfileActionsView(context, org.telegram.messenger.devgram.utils.ui.ProfileActionsUiHelper.getBandHeight(), resourcesProvider);
+            org.telegram.ui.Components.DevGramProfilePalette.RowProvider balancePalette=new org.telegram.ui.Components.DevGramProfilePalette.RowProvider(resourcesProvider,()->devgramPaletteDocument);balancePalette.bind("balance");
+            balanceView = userId != 0 ? new ProfileBalanceView(context, balancePalette) : null;
             if (balanceView != null) {
                 balanceView.setVisibility(View.GONE);
                 balanceView.setColor(peerColor);
@@ -4772,8 +4805,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         if (DevGramConfig.iosProfile) {
             otherItem.setVisibility(View.GONE); // убираем верхние 3 точки — их роль у «...» в ряду
-            dgGlassPill(editItem);
-            dgGlassPill(actionBar.getBackButton());
+            if (!org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) {
+                dgGlassPill(editItem);
+                dgGlassPill(actionBar.getBackButton());
+            }
         }
 
         int scrollTo;
@@ -4805,6 +4840,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         contentView.needBlur = true;
 
         listView = new ClippedListView(context, resourcesProvider) {
+
+            @Override
+            public void drawBackgroundRect(Canvas canvas, RectF bounds, float topRadius, float bottomRadius, float alpha) {
+                if (devgramSurfaces != null && org.telegram.ui.Components.DevGramProfileSurfaces.painted(devgramDocument())
+                        && devgramSurfaces.coversSection(this, bounds)) return;
+                super.drawBackgroundRect(canvas, bounds, topRadius, bottomRadius, alpha);
+            }
 
             private VelocityTracker velocityTracker;
 
@@ -4854,7 +4896,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             @Override
             protected void dispatchDraw(Canvas canvas) {
-                if (DevGramConfig.iosProfile) {
+                if (DevGramConfig.iosProfile && !org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) {
                     drawDgInfoCards(canvas);
                 }
                 super.dispatchDraw(canvas);
@@ -6374,9 +6416,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 nameTextView[a].setTextColor(getThemedColor(Theme.key_actionBarDefaultTitle));
             }
             nameTextView[a].setPadding(0, AndroidUtilities.dp(6), 0, AndroidUtilities.dp(a == 0 ? 12 : 4));
-            nameTextView[a].setTextSizePx(dp(17.5f));
+            nameTextView[a].setTextSizePx(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? a == 1 ? 25 : 17 : 17.5f));
             nameTextView[a].setGravity(Gravity.LEFT);
-            nameTextView[a].setTypeface(AndroidUtilities.bold());
+            nameTextView[a].setTypeface(org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")
+                    ? android.graphics.Typeface.create("sans-serif-medium", 0) : AndroidUtilities.bold());
             nameTextView[a].setLeftDrawableTopPadding(-AndroidUtilities.dp(1.3f));
             nameTextView[a].setPivotX(0);
             nameTextView[a].setPivotY(0);
@@ -6448,7 +6491,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
             onlineTextView[a].setEllipsizeByGradient(true);
             onlineTextView[a].setTextColor(applyPeerColor(getThemedColor(Theme.key_actionBarDefaultSubtitle), true, null));
-            onlineTextView[a].setTextSizePx(dp(13.5f));
+            onlineTextView[a].setTextSizePx(dp(org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? a == 0 ? 13 : 17 : 13.5f));
             onlineTextView[a].setGravity(Gravity.LEFT);
             onlineTextView[a].setAlpha(a == 0 ? 0.0f : 1.0f);
             onlineTextView[a].setPivotX(dp(8));
@@ -6853,9 +6896,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     private int getHeaderOnlyExtraHeight() {
         if (getActionsExtraHeight() == 0) {
-            return dp(168f);
+            return dp(org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? 155 : 168f);
         }
-        return dp(152f);
+        return dp(org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? 156 : 152f);
     }
 
     private ProfileMusicView profilePillsView() {
@@ -9369,6 +9412,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
     // DevGram: обернуть иконку (напр. QR) в круглый фон
     private Drawable dgRoundIcon(Drawable icon) {
+        if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) return icon;
         if (icon == null) {
             return null;
         }
@@ -9429,6 +9473,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 + ActionBar.getCurrentActionBarHeight() / 2f * (1f + diff)
                 - dp(21)
                 + actionBar.getTranslationY();
+            if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) endNameY -= dp(17) * diff;
 
             if (!openAnimationInProgress) {
                 float endY = -dp(29);
@@ -9440,6 +9485,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         + ActionBar.getCurrentActionBarHeight()
                         - dp(21)
                         + actionBar.getTranslationY();
+                if (org.telegram.messenger.DevGramSwiftgramDesign.section("profiles")) startY -= dp(17);
                 avatarY = lerp(endY, startY, diff);
             } else {
                 avatarY = endNameY;
@@ -9448,7 +9494,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             float h = openAnimationInProgress ? initialAnimationExtraHeight : extraHeight;
             if (h > headerExtraHeight || isPulledDown) {
                 expandProgress = Math.max(0f, Math.min(1f, (h - headerExtraHeight) / (listView.getMeasuredWidth() - newTop - getHeaderOnlyExtraHeight())));
-                avatarScale = lerp(96 / 42f, 138 / 42f, Math.min(1f, expandProgress * 3f)) / 100f * 42f;
+                avatarScale = lerp((org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? 100 : 96) / 42f, 138 / 42f, Math.min(1f, expandProgress * 3f)) / 100f * 42f;
                 pullUpProgress = 0.0f;
 
                 if (storyView != null) {
@@ -9719,7 +9765,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (avatarGooey != null && avatarGooey.notchInfo != null && avatarGooey.notchInfo.isLikelyCircle) {
                         intoSize = 0.5f * avatarGooey.notchInfo.bounds.width() / AndroidUtilities.density;
                     }
-                    avatarScale = lerp(intoSize, 96, diff) / 100f;
+                    avatarScale = lerp(intoSize, org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? 100 : 96, diff) / 100f;
                     pullUpProgress = 1.0f - diff;
                 }
 
@@ -9762,7 +9808,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 final float avatarBottom = (float) Math.floor(endNameY) + (avatarContainer.getHeight() * avatarContainer.getScaleY() + dpf2(8)) * (openAnimationInProgress ? avatarAnimationProgress : diff);
                 nameY = avatarBottom + dp(1.3f) + dp(7) * diff + titleAnimationsYDiff * (1f - avatarAnimationProgress);
-                onlineY = avatarBottom + dp(24) + (float) Math.floor(11 * AndroidUtilities.density) * diff;
+                onlineY = avatarBottom + dp(24) + (float) Math.floor((org.telegram.messenger.DevGramSwiftgramDesign.section("profiles") ? 18 : 11) * AndroidUtilities.density) * diff;
                 final float minimizedX = openAnimationInProgress ? (prevAvatarTranslation - dp(109) + dp(48)) : -dpf2(42 + 4);
 
                 if (showStatusButton != null) {
@@ -10726,6 +10772,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         }
         if (!invoked) return super.onBackPressed(false);
         if (closeSheet()) {
+            return false;
+        }
+        if (actionBar != null && actionBar.isSearchFieldVisible()) {
+            actionBar.closeSearchField();
             return false;
         }
         if (sharedMediaLayout != null && sharedMediaLayout.scrollSlidingTextTabStrip != null && sharedMediaLayout.scrollSlidingTextTabStrip.isReordering()) {
@@ -14282,6 +14332,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     }
 
     private Animator searchExpandTransition(boolean enter) {
+        updateProfileSearchBack(enter);
         if (enter) {
             AndroidUtilities.requestAdjustResize(getParentActivity(), classGuid);
             AndroidUtilities.setAdjustResizeToNothing(getParentActivity(), classGuid);
@@ -14815,10 +14866,12 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            final org.telegram.ui.Components.DevGramProfilePalette.RowProvider resourcesProvider = new org.telegram.ui.Components.DevGramProfilePalette.RowProvider(ProfileActivity.this.resourcesProvider, () -> devgramPaletteDocument);
             View view;
             switch (viewType) {
                 case VIEW_TYPE_DEVGRAM_STUDIO:
                     view = new org.telegram.ui.Components.DevGramProfileBlocksView(mContext,currentAccount,resourcesProvider);
+                    ((org.telegram.ui.Components.DevGramProfileBlocksView) view).setSectionManaged(true);
                     break;
                 case VIEW_TYPE_HEADER: {
                     view = new HeaderCell(mContext, 18, resourcesProvider);
@@ -15049,7 +15102,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     view.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                     break;
                 case VIEW_TYPE_CHANNEL:
-                    view = new ProfileChannelCell(ProfileActivity.this) {
+                    view = new ProfileChannelCell(ProfileActivity.this, resourcesProvider) {
                         @Override
                         public int processColor(int color) {
                             return dontApplyPeerColor(color, false);
@@ -15078,6 +15131,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (viewType != VIEW_TYPE_SHARED_MEDIA) {
                 view.setLayoutParams(new RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.WRAP_CONTENT));
             }
+            devgramRowPalettes.put(view, resourcesProvider);
             return new RecyclerListView.Holder(view);
         }
 
@@ -15130,6 +15184,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
+            org.telegram.ui.Components.DevGramProfilePalette.RowProvider rowPalette = devgramRowPalettes.get(holder.itemView);
+            if (rowPalette != null) rowPalette.bind(devgramColorRowKey(position));
+            final Theme.ResourcesProvider resourcesProvider = rowPalette == null ? ProfileActivity.this.resourcesProvider : rowPalette;
             if(devgramSubject()!=0&&!isSettings())org.telegram.ui.ActionBar.ThemeBind.updateTree(holder.itemView,false);
             // DevGram: iOS-профиль — прозрачный фон инфо-ячеек, чтобы под ними была видна карточка
             if (DevGramConfig.iosProfile) {
@@ -15167,7 +15224,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     } else if (position == botPermissionsHeader) {
                         headerCell.setText(LocaleController.getString(R.string.BotProfilePermissions));
                     }
-                    headerCell.setTextColor(dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteBlueHeader), false));
+                    headerCell.setTextColor(dontApplyPeerColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueHeader, resourcesProvider), false));
                     break;
                 case VIEW_TYPE_TEXT_DETAIL_MULTILINE:
                 case VIEW_TYPE_TEXT_DETAIL_MULTILINE_2:
@@ -15356,7 +15413,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     }
                     if (containsGift) {
                         Drawable drawable = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_input_gift);
-                        drawable.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(getThemedColor(Theme.key_switch2TrackChecked), false), PorterDuff.Mode.MULTIPLY));
+                        drawable.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(Theme.getColor(Theme.key_switch2TrackChecked, resourcesProvider), false), PorterDuff.Mode.MULTIPLY));
                         if (UserObject.areGiftsDisabled(userInfo)) {
                             detailCell.setImage(null);
                             detailCell.setImageClickListener(null);
@@ -15366,20 +15423,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         }
                     } else if (containsQr) {
                         Drawable drawable = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.header_qr_24);
-                        drawable.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(getThemedColor(Theme.key_actionBarDefaultIcon), false), PorterDuff.Mode.MULTIPLY));
+                        drawable.setColorFilter(new PorterDuffColorFilter(dontApplyPeerColor(Theme.getColor(Theme.key_actionBarDefaultIcon, resourcesProvider), false), PorterDuff.Mode.MULTIPLY));
                         detailCell.setImage(DevGramConfig.iosProfile ? dgRoundIcon(drawable) : drawable, LocaleController.getString(R.string.GetQRCode));
                         detailCell.setImageClickListener(ProfileActivity.this::onTextDetailCellImageClicked);
                     } else if (position == idRow && userId != 0) {
                         // DevGram: календарик справа от ID — примерная дата регистрации
                         Drawable drawable = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_calendar2);
-                        drawable.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_switch2TrackChecked), PorterDuff.Mode.MULTIPLY));
+                        drawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_switch2TrackChecked, resourcesProvider), PorterDuff.Mode.MULTIPLY));
                         detailCell.setImage(drawable, "Дата регистрации");
                         final long uid = userId;
                         detailCell.setImageClickListener(v -> showDevGramRegDate(uid));
                     } else if (position == idRow && chatId != 0 && currentChat != null && currentChat.date != 0) {
                         // DevGram: календарик справа от ID канала/группы — дата создания или вступления
                         Drawable drawable = ContextCompat.getDrawable(detailCell.getContext(), R.drawable.msg_calendar2);
-                        drawable.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_switch2TrackChecked), PorterDuff.Mode.MULTIPLY));
+                        drawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_switch2TrackChecked, resourcesProvider), PorterDuff.Mode.MULTIPLY));
                         detailCell.setImage(drawable, "Дата создания");
                         detailCell.setImageClickListener(v -> showDevGramChatDate());
                     } else {
@@ -15640,13 +15697,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                         textCell.setTextAndIcon(LocaleController.getString(R.string.SendAGift), R.drawable.menu_gift, false);
                         textCell.setImageLeft(23);
                     } else if (position == botPermissionLocation) {
-                        textCell.setTextAndCheckAndColorfulIcon(LocaleController.getString(R.string.BotProfilePermissionLocation), botLocation != null && botLocation.granted(), R.drawable.filled_access_location, getThemedColor(Theme.key_color_green), botPermissionBiometry != -1);
+                        textCell.setTextAndCheckAndColorfulIcon(LocaleController.getString(R.string.BotProfilePermissionLocation), botLocation != null && botLocation.granted(), R.drawable.filled_access_location, Theme.getColor(Theme.key_color_green, resourcesProvider), botPermissionBiometry != -1);
                     } else if (position == botPermissionBiometry) {
-                        textCell.setTextAndCheckAndColorfulIcon(LocaleController.getString(R.string.BotProfilePermissionBiometry), botBiometry != null && botBiometry.granted(), R.drawable.filled_access_fingerprint, getThemedColor(Theme.key_color_orange), false);
+                        textCell.setTextAndCheckAndColorfulIcon(LocaleController.getString(R.string.BotProfilePermissionBiometry), botBiometry != null && botBiometry.granted(), R.drawable.filled_access_fingerprint, Theme.getColor(Theme.key_color_orange, resourcesProvider), false);
                     } else if (position == botPermissionEmojiStatus) {
-                        textCell.setTextAndCheckAndColorfulIcon(LocaleController.getString(R.string.BotProfilePermissionEmojiStatus), userInfo != null && userInfo.bot_can_manage_emoji_status, R.drawable.filled_access_sleeping, getThemedColor(Theme.key_color_lightblue), botPermissionLocation != -1 || botPermissionBiometry != -1);
+                        textCell.setTextAndCheckAndColorfulIcon(LocaleController.getString(R.string.BotProfilePermissionEmojiStatus), userInfo != null && userInfo.bot_can_manage_emoji_status, R.drawable.filled_access_sleeping, Theme.getColor(Theme.key_color_lightblue, resourcesProvider), botPermissionLocation != -1 || botPermissionBiometry != -1);
                     }
-                    textCell.valueTextView.setTextColor(dontApplyPeerColor(getThemedColor(Theme.key_windowBackgroundWhiteValueText), false));
+                    textCell.valueTextView.setTextColor(dontApplyPeerColor(Theme.getColor(Theme.key_windowBackgroundWhiteValueText, resourcesProvider), false));
                     break;
                 case VIEW_TYPE_NOTIFICATIONS_CHECK:
                     NotificationsCheckCell checkCell = (NotificationsCheckCell) holder.itemView;
@@ -15777,13 +15834,13 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                                     sb.append(" ");
                                     sb.append(AndroidUtilities.replaceSingleLink(
                                         formatString(R.string.ProfileBotManagedBy, UserObject.getPublicUsername(manager)),
-                                        getThemedColor(Theme.key_chat_messageLinkIn),
+                                        Theme.getColor(Theme.key_chat_messageLinkIn, resourcesProvider),
                                         () -> presentFragment(ProfileActivity.of(bot_manager_id))
                                     ));
                                 }
                             }
 
-                            cell.setLinkTextRippleColor(Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhiteGrayText4), 0.2f));
+                            cell.setLinkTextRippleColor(Theme.multAlpha(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText4, resourcesProvider), 0.2f));
                             cell.setText(sb);
                         } else {
                             cell.setFixedSize(14);
@@ -15803,7 +15860,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 case VIEW_TYPE_COLORFUL_TEXT: {
                     AffiliateProgramFragment.ColorfulTextCell cell = (AffiliateProgramFragment.ColorfulTextCell) holder.itemView;
-                    cell.set(getThemedColor(Theme.key_color_green), R.drawable.filled_affiliate, getString(R.string.ProfileBotAffiliateProgram), null);
+                    cell.set(Theme.getColor(Theme.key_color_green, resourcesProvider), R.drawable.filled_affiliate, getString(R.string.ProfileBotAffiliateProgram), null);
                     cell.setPercent(userInfo != null && userInfo.starref_program != null ? percents(userInfo.starref_program.commission_permille) : null);
                     break;
                 }
@@ -15894,6 +15951,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     break;
                 case VIEW_TYPE_HOURS:
                     ProfileHoursCell hoursCell = (ProfileHoursCell) holder.itemView;
+                    hoursCell.updateColors();
                     hoursCell.setOnTimezoneSwitchClick(view -> {
                         hoursShownMine = !hoursShownMine;
                         if (!hoursExpanded) {
@@ -15948,7 +16006,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     final String usernameRaw = usernameObj.username;
                     SpannableString username = new SpannableString("@" + usernameRaw);
                     username.setSpan(makeUsernameLinkSpan(usernameObj), 0, username.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    username.setSpan(new ForegroundColorSpan(dontApplyPeerColor(getThemedColor(Theme.key_chat_messageLinkIn), false)), 0, username.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    username.setSpan(new ForegroundColorSpan(dontApplyPeerColor(Theme.getColor(Theme.key_chat_messageLinkIn, resourcesProvider), false)), 0, username.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                     usernames.append(username);
                     if (i < alsoUsernames.size() - 1) {
                         usernames.append(", ");
